@@ -1,0 +1,14 @@
+{
+  "name": "mangal-gruh-mandir",
+  "version": "1.0.0",
+  "description": "Stock Management Application - MERN Stack",
+  "scripts": {
+    "dev": "concurrently \"npm run dev --prefix server\" \"npm run dev --prefix client\"",
+    "dev:server": "npm run dev --prefix server",
+    "dev:client": "npm run dev --prefix client",
+    "install:all": "npm install && npm install --prefix server && npm install --prefix client"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}

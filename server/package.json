@@ -1,0 +1,29 @@
+{
+  "name": "mgm-server",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Mangal Grah Mandir - Stock Management API",
+  "main": "src/index.js",
+  "scripts": {
+    "dev": "nodemon src/index.js",
+    "start": "node src/index.js",
+    "seed": "node src/seeds/index.js"
+  },
+  "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "cors": "^2.8.6",
+    "dotenv": "^17.4.2",
+    "exceljs": "^4.4.0",
+    "express": "^5.2.1",
+    "express-rate-limit": "^8.5.1",
+    "express-validator": "^7.3.2",
+    "helmet": "^8.1.0",
+    "jsonwebtoken": "^9.0.3",
+    "mongoose": "^9.6.2",
+    "morgan": "^1.10.1",
+    "pdfkit": "^0.18.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.14"
+  }
+}

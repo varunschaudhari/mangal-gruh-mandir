@@ -1,0 +1,51 @@
+export const rolesSeed = [
+  {
+    slug: 'super_admin',
+    name: 'Super Admin',
+    description: 'Full access to everything',
+    permissions: ['*'],
+    isSystem: true,
+  },
+  {
+    slug: 'admin',
+    name: 'Admin',
+    description: 'Manage users, masters, transactions and reports',
+    permissions: [
+      'users:read', 'users:write', 'users:delete',
+      'masters:read', 'masters:write', 'masters:delete',
+      'transactions:read', 'transactions:create', 'transactions:delete',
+      'reports:read',
+    ],
+    isSystem: true,
+  },
+  {
+    slug: 'store_manager',
+    name: 'Store Manager',
+    description: 'Manage stock and view reports',
+    permissions: [
+      'users:read',
+      'masters:read', 'masters:write',
+      'transactions:read', 'transactions:create', 'transactions:delete',
+      'reports:read',
+    ],
+    isSystem: true,
+  },
+  {
+    slug: 'staff',
+    name: 'Staff',
+    description: 'Create transactions within assigned departments',
+    permissions: [
+      'masters:read',
+      'transactions:read', 'transactions:create',
+      'reports:read',
+    ],
+    isSystem: true,
+  },
+  {
+    slug: 'viewer',
+    name: 'Viewer',
+    description: 'Read-only access to masters and reports',
+    permissions: ['masters:read', 'reports:read'],
+    isSystem: true,
+  },
+];
