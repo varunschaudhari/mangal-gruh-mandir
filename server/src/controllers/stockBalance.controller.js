@@ -32,13 +32,20 @@ export const getBalances = asyncHandler(async (req, res) => {
   // Filter out inactive products
   balances = balances.filter((b) => b.product?.isActive !== false);
 
-  // Low stock = out of stock OR quantity at/below minimum level
+  // Attach alertLevel to every balance record
+  balances = balances.map((b) => {
+    const min    = b.product?.minStockLevel || 0;
+    const reorder = b.product?.reorderPoint  || 0;
+    let alertLevel = null;
+    if (b.quantity === 0)                         alertLevel = 'out_of_stock';
+    else if (min > 0 && b.quantity <= min)        alertLevel = 'low_stock';
+    else if (reorder > 0 && b.quantity <= reorder) alertLevel = 'reorder';
+    return { ...b, alertLevel };
+  });
+
+  // lowStock=true → return only items that need attention (any alert level)
   if (lowStock === 'true') {
-    balances = balances.filter((b) => {
-      if (b.quantity === 0) return true;
-      const min = b.product?.minStockLevel || 0;
-      return min > 0 && b.quantity <= min;
-    });
+    balances = balances.filter((b) => b.alertLevel !== null);
   }
 
   res.json(new ApiResponse(200, balances));

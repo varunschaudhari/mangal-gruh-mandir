@@ -23,11 +23,14 @@ export const getDashboardStats = asyncHandler(async (req, res) => {
 
   let lowStockItems = 0;
   let outOfStockItems = 0;
+  let reorderItems = 0;
   for (const b of allBalances) {
     if (!b.product?.isActive) continue;
-    if (b.quantity === 0) { outOfStockItems++; lowStockItems++; continue; }
-    const min = b.product?.minStockLevel || 0;
-    if (min > 0 && b.quantity <= min) lowStockItems++;
+    const min    = b.product?.minStockLevel || 0;
+    const reorder = b.product?.reorderPoint  || 0;
+    if (b.quantity === 0) { outOfStockItems++; lowStockItems++; }
+    else if (min > 0 && b.quantity <= min) lowStockItems++;
+    else if (reorder > 0 && b.quantity <= reorder) reorderItems++;
   }
 
   // ── Recent Transactions ────────────────────────────────────────────────
@@ -115,7 +118,7 @@ export const getDashboardStats = asyncHandler(async (req, res) => {
   ]);
 
   res.json(new ApiResponse(200, {
-    counts: { productCount, deptCount, supplierCount, userCount, lowStockItems, outOfStockItems },
+    counts: { productCount, deptCount, supplierCount, userCount, lowStockItems, outOfStockItems, reorderItems },
     today,
     recentTransactions,
     weeklyMovement,

@@ -94,13 +94,14 @@ const Dashboard = () => {
       />
 
       {/* ── KPI Cards ── */}
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7">
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4 lg:grid-cols-4 xl:grid-cols-8">
         <StatCard label="Products"      value={counts.productCount    ?? '—'} icon={Package}       color="text-primary-600" bg="bg-primary-50"  border="border-l-primary-500" />
         <StatCard label="Departments"   value={counts.deptCount       ?? '—'} icon={Warehouse}     color="text-blue-600"    bg="bg-blue-50"     border="border-l-blue-500"    />
         <StatCard label="Suppliers"     value={counts.supplierCount   ?? '—'} icon={Truck}         color="text-green-600"   bg="bg-green-50"    border="border-l-green-500"   />
         <StatCard label="Active Users"  value={counts.userCount       ?? '—'} icon={Users}         color="text-purple-600"  bg="bg-purple-50"   border="border-l-purple-500"  />
         <StatCard label="Low Stock"     value={counts.lowStockItems   ?? '—'} icon={AlertTriangle} color="text-amber-600"   bg="bg-amber-50"    border="border-l-amber-500"   />
         <StatCard label="Out of Stock"  value={counts.outOfStockItems ?? '—'} icon={AlertTriangle} color="text-red-600"     bg="bg-red-50"      border="border-l-red-500"     />
+        <StatCard label="Reorder Soon"  value={counts.reorderItems    ?? '—'} icon={AlertTriangle} color="text-yellow-600"  bg="bg-yellow-50"   border="border-l-yellow-500"  />
         <StatCard label="Expiring (30d)" value={expiringCount}               icon={CalendarClock} color="text-orange-600"  bg="bg-orange-50"   border="border-l-orange-500"  />
       </div>
 
