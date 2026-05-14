@@ -81,7 +81,7 @@ export const updateProfile = asyncHandler(async (req, res) => {
   const user = await User.findByIdAndUpdate(
     req.user._id,
     { $set: { name: name.trim(), phone: phone?.trim() || '' } },
-    { new: true, runValidators: true }
+    { returnDocument: 'after', runValidators: true }
   ).populate('departments', 'name code');
 
   res.json(new ApiResponse(200, user, 'Profile updated'));

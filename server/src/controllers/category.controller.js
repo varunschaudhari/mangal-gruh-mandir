@@ -28,7 +28,7 @@ export const createCategory = asyncHandler(async (req, res) => {
 
 export const updateCategory = asyncHandler(async (req, res) => {
   const cat = await Category.findByIdAndUpdate(req.params.id, req.body, {
-    new: true, runValidators: true,
+    returnDocument: 'after', runValidators: true,
   }).populate('parentCategory', 'name code');
   if (!cat) throw new ApiError(404, 'Category not found');
   res.json(new ApiResponse(200, cat, 'Category updated'));

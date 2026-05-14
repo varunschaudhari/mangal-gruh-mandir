@@ -23,7 +23,7 @@ export const createDepartment = asyncHandler(async (req, res) => {
 
 export const updateDepartment = asyncHandler(async (req, res) => {
   const dept = await Department.findByIdAndUpdate(req.params.id, req.body, {
-    new: true, runValidators: true,
+    returnDocument: 'after', runValidators: true,
   });
   if (!dept) throw new ApiError(404, 'Department not found');
   res.json(new ApiResponse(200, dept, 'Department updated'));

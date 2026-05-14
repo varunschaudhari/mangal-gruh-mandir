@@ -17,7 +17,7 @@ export const createUnit = asyncHandler(async (req, res) => {
 
 export const updateUnit = asyncHandler(async (req, res) => {
   const unit = await Unit.findByIdAndUpdate(req.params.id, req.body, {
-    new: true, runValidators: true,
+    returnDocument: 'after', runValidators: true,
   });
   if (!unit) throw new ApiError(404, 'Unit not found');
   res.json(new ApiResponse(200, unit, 'Unit updated'));

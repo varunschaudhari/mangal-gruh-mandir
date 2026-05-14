@@ -47,7 +47,7 @@ export const createProduct = asyncHandler(async (req, res) => {
 export const updateProduct = asyncHandler(async (req, res) => {
   delete req.body.code; // code is immutable after creation
   const product = await Product.findByIdAndUpdate(req.params.id, req.body, {
-    new: true, runValidators: true,
+    returnDocument: 'after', runValidators: true,
   })
     .populate('category', 'name code')
     .populate('unit', 'name symbol');

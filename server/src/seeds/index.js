@@ -40,7 +40,7 @@ const seed = async () => {
   console.log(`✓ ${rolesSeed.length} roles`);
 
   // Super admin user
-  const adminEmail = process.env.SEED_ADMIN_EMAIL || 'admin@mandir.local';
+  const adminEmail = process.env.SEED_ADMIN_EMAIL || 'admin@mandir.com';
   const existing = await User.findOne({ email: adminEmail });
   if (!existing) {
     await User.create({

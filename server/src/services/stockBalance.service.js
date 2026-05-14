@@ -24,7 +24,7 @@ export async function recomputeBalance(productId, departmentId) {
   await StockBalance.findOneAndUpdate(
     { product: pid, department: did },
     { $set: { quantity: Math.max(0, qty), lastTransactionDate: lastDate, lastUpdated: new Date() } },
-    { upsert: true, new: true }
+    { upsert: true, returnDocument: 'after' }
   );
 
   return Math.max(0, qty);

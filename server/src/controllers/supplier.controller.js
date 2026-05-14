@@ -27,7 +27,7 @@ export const createSupplier = asyncHandler(async (req, res) => {
 
 export const updateSupplier = asyncHandler(async (req, res) => {
   const supplier = await Supplier.findByIdAndUpdate(req.params.id, req.body, {
-    new: true, runValidators: true,
+    returnDocument: 'after', runValidators: true,
   });
   if (!supplier) throw new ApiError(404, 'Supplier not found');
   res.json(new ApiResponse(200, supplier, 'Supplier updated'));
