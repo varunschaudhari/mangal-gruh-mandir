@@ -32,7 +32,7 @@ const navConfig = [
     permission: 'masters:read',
     children: [
       { label: 'Current Stock', to: '/inventory/current', icon: Package,   permission: 'masters:read' },
-      { label: 'Stock Ledger',  to: '/inventory/ledger',  icon: BookOpen,  permission: 'masters:read' },
+      { label: 'Stock Ledger',  to: '/inventory/ledger',  icon: BookOpen,  permission: 'transactions:read' },
     ],
   },
   {

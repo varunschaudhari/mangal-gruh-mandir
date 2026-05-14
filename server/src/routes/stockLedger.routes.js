@@ -6,6 +6,6 @@ import { getLedger } from '../controllers/stockLedger.controller.js';
 const router = Router();
 
 router.use(protect);
-router.get('/', authorize('masters:read'), getLedger);
+router.get('/', authorize('transactions:read'), getLedger);
 
 export default router;

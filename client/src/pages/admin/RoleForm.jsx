@@ -16,11 +16,13 @@ const PERMISSION_GROUPS = {
 };
 
 const PERMISSION_LABELS = {
-  'users:read': 'View users', 'users:write': 'Create/edit users', 'users:delete': 'Delete users',
+  'users:read': 'View users & roles', 'users:write': 'Create/edit users & roles', 'users:delete': 'Delete roles',
   'masters:read': 'View masters', 'masters:write': 'Create/edit masters', 'masters:delete': 'Delete masters',
   'transactions:read': 'View transactions', 'transactions:create': 'Create transactions', 'transactions:delete': 'Void transactions',
   'reports:read': 'View reports',
 };
+
+const ALL_PERMISSIONS = Object.values(PERMISSION_GROUPS).flat();
 
 const toSlug = (name) => name.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
 
@@ -47,11 +49,13 @@ const RoleForm = () => {
 
   useEffect(() => {
     if (role) {
+      // '*' wildcard means all permissions — expand it so checkboxes show correctly
+      const perms = role.permissions?.includes('*') ? ALL_PERMISSIONS : (role.permissions || []);
       reset({
         name: role.name,
         slug: role.slug,
         description: role.description || '',
-        permissions: role.permissions || [],
+        permissions: perms,
         isActive: role.isActive,
       });
     }
@@ -87,6 +91,7 @@ const RoleForm = () => {
   };
 
   const isSystemRole = isEdit && role?.isSystem;
+  const isWildcard = isEdit && role?.permissions?.includes('*');
 
   if (isEdit && isLoading) return <PageLoader />;
 
@@ -129,6 +134,11 @@ const RoleForm = () => {
         </FormSection>
 
         <FormSection title="Permissions">
+          {isWildcard && (
+            <div className="rounded-lg bg-primary-50 border border-primary-200 px-4 py-3 text-sm text-primary-800 font-medium">
+              ✦ This role has full wildcard access (<code className="font-mono text-xs bg-primary-100 px-1 rounded">*</code>). All permissions are granted automatically — changes here will not reduce access unless you save.
+            </div>
+          )}
           {Object.entries(PERMISSION_GROUPS).map(([group, perms]) => {
             const allChecked = perms.every((p) => permissions.includes(p));
             const someChecked = perms.some((p) => permissions.includes(p));
