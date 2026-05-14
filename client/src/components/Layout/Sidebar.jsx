@@ -72,7 +72,7 @@ const NavItem = ({ item, can }) => {
   const location = useLocation();
   const isActive = item.to && location.pathname.startsWith(item.to);
   const childActive = item.children?.some((c) => location.pathname.startsWith(c.to));
-  const [open, setOpen] = useState(childActive);
+  const [open, setOpen] = useState(true);
 
   if (item.permission && !can(item.permission)) return null;
 
