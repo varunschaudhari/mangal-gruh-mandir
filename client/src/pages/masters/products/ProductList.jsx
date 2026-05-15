@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { createColumnHelper } from '@tanstack/react-table';
-import { Plus, Search, Pencil, Trash2 } from 'lucide-react';
+import { Plus, Search, Pencil, Trash2, Eye } from 'lucide-react';
 import { getProducts, deleteProduct } from '../../../api/product.api.js';
 import DataTable from '../../../components/ui/DataTable.jsx';
 import PageHeader from '../../../components/ui/PageHeader.jsx';
@@ -72,13 +72,16 @@ const ProductList = () => {
       size: 100,
       cell: ({ row }) => (
         <div className="flex items-center gap-2">
+          <Link to={`/masters/products/${row.original._id}`} className="btn-ghost p-1 text-gray-400 hover:text-primary-600" title="View details">
+            <Eye className="h-4 w-4" />
+          </Link>
           {can('masters:write') && (
-            <Link to={`/masters/products/${row.original._id}/edit`} className="btn-ghost p-1 text-gray-400 hover:text-indigo-600">
+            <Link to={`/masters/products/${row.original._id}/edit`} className="btn-ghost p-1 text-gray-400 hover:text-indigo-600" title="Edit">
               <Pencil className="h-4 w-4" />
             </Link>
           )}
           {can('masters:delete') && (
-            <button onClick={() => setDeleteTarget(row.original)} className="btn-ghost p-1 text-gray-400 hover:text-red-600">
+            <button onClick={() => setDeleteTarget(row.original)} className="btn-ghost p-1 text-gray-400 hover:text-red-600" title="Delete">
               <Trash2 className="h-4 w-4" />
             </button>
           )}

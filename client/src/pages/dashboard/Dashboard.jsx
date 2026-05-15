@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
+import { Link } from 'react-router-dom';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, Legend,
@@ -6,6 +7,7 @@ import {
 import {
   Package, Truck, Warehouse, AlertTriangle, Users,
   ArrowDownToLine, ArrowUpFromLine, ArrowLeftRight, Trash2, TrendingUp, CalendarClock,
+  Zap,
 } from 'lucide-react';
 import { getDashboardStats } from '../../api/dashboard.api.js';
 import { getExpiringBatches } from '../../api/stockBatch.api.js';
@@ -15,6 +17,7 @@ import { PageLoader } from '../../components/ui/Spinner.jsx';
 import PageHeader from '../../components/ui/PageHeader.jsx';
 import { fDate } from '../../utils/formatters.js';
 import { useAuth } from '../../context/AuthContext.jsx';
+import { usePermissions } from '../../hooks/usePermissions.js';
 
 const TYPE_LABELS = {
   STOCK_IN: 'Stock In', STOCK_OUT: 'Stock Out',
@@ -27,6 +30,13 @@ const TYPE_ICONS = {
   STOCK_IN: ArrowDownToLine, STOCK_OUT: ArrowUpFromLine,
   TRANSFER: ArrowLeftRight, WASTAGE: Trash2,
 };
+
+const QUICK_ACTIONS = [
+  { label: 'Stock In',   to: '/transactions/stock-in',  icon: ArrowDownToLine, cls: 'bg-green-50 text-green-700 hover:bg-green-100 border-green-200' },
+  { label: 'Stock Out',  to: '/transactions/stock-out',  icon: ArrowUpFromLine, cls: 'bg-amber-50 text-amber-700 hover:bg-amber-100 border-amber-200' },
+  { label: 'Transfer',   to: '/transactions/transfer',   icon: ArrowLeftRight,  cls: 'bg-blue-50 text-blue-700 hover:bg-blue-100 border-blue-200'   },
+  { label: 'Wastage',    to: '/transactions/wastage',    icon: Trash2,          cls: 'bg-red-50 text-red-700 hover:bg-red-100 border-red-200'       },
+];
 
 const TodayCard = ({ type, count }) => {
   const Icon = TYPE_ICONS[type] || Package;
@@ -66,6 +76,7 @@ const CustomTooltip = ({ active, payload, label }) => {
 
 const Dashboard = () => {
   const { user } = useAuth();
+  const { can } = usePermissions();
 
   const { data, isLoading } = useQuery({
     queryKey: ['dashboard'],
@@ -104,6 +115,28 @@ const Dashboard = () => {
         <StatCard label="Reorder Soon"  value={counts.reorderItems    ?? '—'} icon={AlertTriangle} color="text-yellow-600"  bg="bg-yellow-50"   border="border-l-yellow-500"  />
         <StatCard label="Expiring (30d)" value={expiringCount}               icon={CalendarClock} color="text-orange-600"  bg="bg-orange-50"   border="border-l-orange-500"  />
       </div>
+
+      {/* ── Quick Actions ── */}
+      {can('transactions:write') && (
+        <div>
+          <div className="flex items-center gap-2 mb-3">
+            <Zap className="h-4 w-4 text-primary-600" />
+            <h2 className="text-sm font-semibold text-gray-700">Quick Actions</h2>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            {QUICK_ACTIONS.map(({ label, to, icon: Icon, cls }) => (
+              <Link
+                key={to}
+                to={to}
+                className={`flex items-center gap-3 rounded-lg border px-4 py-3 transition-colors ${cls}`}
+              >
+                <Icon className="h-5 w-5 shrink-0" />
+                <span className="text-sm font-semibold">{label}</span>
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* ── Today's activity ── */}
       <div>
@@ -152,14 +185,14 @@ const Dashboard = () => {
           ) : (
             <div className="space-y-2">
               {topProducts.map((p, i) => (
-                <div key={p._id} className="flex items-center gap-2 text-sm">
+                <Link key={p._id} to={`/masters/products/${p._id}`} className="flex items-center gap-2 text-sm hover:bg-gray-50 rounded-md px-1 py-0.5 -mx-1">
                   <span className="w-5 h-5 rounded-full bg-primary-100 text-primary-700 text-xs font-bold flex items-center justify-center shrink-0">{i + 1}</span>
                   <div className="flex-1 min-w-0">
                     <p className="font-medium truncate">{p.name}</p>
                     <p className="text-xs text-gray-400">{p.code}</p>
                   </div>
                   <span className="text-xs font-semibold text-gray-600 shrink-0">{p.txnCount} txns</span>
-                </div>
+                </Link>
               ))}
             </div>
           )}
@@ -170,7 +203,7 @@ const Dashboard = () => {
       <div className="card overflow-hidden">
         <div className="px-4 py-3 border-b bg-gray-50 flex items-center justify-between">
           <h3 className="text-sm font-semibold text-gray-700">Recent Transactions</h3>
-          <a href="/transactions/history" className="text-xs text-primary-600 hover:underline">View all</a>
+          <Link to="/transactions/history" className="text-xs text-primary-600 hover:underline">View all</Link>
         </div>
         {recentTransactions.length === 0 ? (
           <div className="p-6 text-center text-sm text-gray-400">No transactions yet.</div>
@@ -182,7 +215,9 @@ const Dashboard = () => {
                   {TYPE_LABELS[t.transactionType]}
                 </Badge>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate">{t.product?.name}</p>
+                  <Link to={`/masters/products/${t.product?._id}`} className="text-sm font-medium truncate hover:text-primary-600 hover:underline block">
+                    {t.product?.name}
+                  </Link>
                   <p className="text-xs text-gray-400">
                     {t.fromDepartment?.name && `${t.fromDepartment.name} → `}
                     {t.toDepartment?.name}

@@ -5,6 +5,7 @@ import Login from './pages/auth/Login.jsx';
 import Dashboard from './pages/dashboard/Dashboard.jsx';
 import ProductList from './pages/masters/products/ProductList.jsx';
 import ProductForm from './pages/masters/products/ProductForm.jsx';
+import ProductDetail from './pages/masters/products/ProductDetail.jsx';
 import DepartmentList from './pages/masters/departments/DepartmentList.jsx';
 import DepartmentForm from './pages/masters/departments/DepartmentForm.jsx';
 import SupplierList from './pages/masters/suppliers/SupplierList.jsx';
@@ -60,6 +61,7 @@ const App = () => (
         <Route path="/masters/products" element={<ProductList />} />
         <Route path="/masters/products/new" element={<ProductForm />} />
         <Route path="/masters/products/:id/edit" element={<ProductForm />} />
+        <Route path="/masters/products/:id" element={<ProductDetail />} />
 
         <Route path="/masters/departments" element={<DepartmentList />} />
         <Route path="/masters/departments/new" element={<DepartmentForm />} />
