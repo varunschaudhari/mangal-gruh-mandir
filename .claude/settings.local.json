@@ -45,7 +45,8 @@
       "Bash(Get-ChildItem -Path \"c:\\\\Users\\\\varun.chaudhari\\\\my-projects\\\\mangal-gruh-mandir\\\\client\\\\src\\\\pages\\\\masters\" -Recurse)",
       "Bash(Select-Object FullName)",
       "PowerShell(Get-ChildItem -Path \"c:\\\\Users\\\\varun.chaudhari\\\\my-projects\\\\mangal-gruh-mandir\\\\client\\\\src\\\\pages\\\\masters\" -Recurse | Where-Object { -not $_.PSIsContainer } | Select-Object FullName)",
-      "PowerShell(Get-ChildItem -Path \"c:\\\\Users\\\\varun.chaudhari\\\\my-projects\\\\mangal-gruh-mandir\\\\client\\\\src\\\\pages\\\\transactions\" -Recurse | Where-Object { -not $_.PSIsContainer } | Select-Object FullName)"
+      "PowerShell(Get-ChildItem -Path \"c:\\\\Users\\\\varun.chaudhari\\\\my-projects\\\\mangal-gruh-mandir\\\\client\\\\src\\\\pages\\\\transactions\" -Recurse | Where-Object { -not $_.PSIsContainer } | Select-Object FullName)",
+      "Bash(npm list *)"
     ]
   }
 }
