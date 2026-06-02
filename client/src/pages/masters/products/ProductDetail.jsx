@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   ArrowLeft, Pencil, Package, BarChart2,
   ArrowDownToLine, ArrowUpFromLine, ArrowLeftRight, Trash2,
-  AlertTriangle, CheckCircle2,
+  AlertTriangle, CheckCircle2, Printer,
 } from 'lucide-react';
 import { getProduct } from '../../../api/product.api.js';
 import { getBalances } from '../../../api/stockBalance.api.js';
@@ -13,6 +13,7 @@ import PageHeader from '../../../components/ui/PageHeader.jsx';
 import Badge from '../../../components/ui/Badge.jsx';
 import { PageLoader } from '../../../components/ui/Spinner.jsx';
 import { ConfirmModal } from '../../../components/ui/Modal.jsx';
+import { printTransactionReceipt } from '../../../utils/printReceipt.js';
 import { fDate } from '../../../utils/formatters.js';
 import { usePermissions } from '../../../hooks/usePermissions.js';
 import toast from 'react-hot-toast';
@@ -247,7 +248,7 @@ const ProductDetail = () => {
                       <th className="table-th text-right">Qty</th>
                       <th className="table-th">By</th>
                       <th className="table-th">Status</th>
-                      {can('transactions:delete') && <th className="table-th" />}
+                      <th className="table-th" />
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
@@ -277,15 +278,22 @@ const ProductDetail = () => {
                               : <Badge variant="success" size="sm">Active</Badge>
                             }
                           </td>
-                          {can('transactions:delete') && (
-                            <td className="table-td">
-                              {!t.isVoided && (
+                          <td className="table-td">
+                            <div className="flex items-center gap-2">
+                              <button
+                                onClick={() => printTransactionReceipt(t)}
+                                className="p-1 text-gray-400 hover:text-primary-600 rounded"
+                                title="Print receipt"
+                              >
+                                <Printer className="h-4 w-4" />
+                              </button>
+                              {can('transactions:delete') && !t.isVoided && (
                                 <button onClick={() => setVoidTarget(t)} className="text-xs text-red-600 hover:underline">
                                   Void
                                 </button>
                               )}
-                            </td>
-                          )}
+                            </div>
+                          </td>
                         </tr>
                       );
                     })}

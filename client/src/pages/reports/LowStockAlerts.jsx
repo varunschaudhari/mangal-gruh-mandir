@@ -5,7 +5,8 @@ import { getDepartments } from '../../api/department.api.js';
 import PageHeader from '../../components/ui/PageHeader.jsx';
 import Badge from '../../components/ui/Badge.jsx';
 import { PageLoader } from '../../components/ui/Spinner.jsx';
-import { AlertTriangle, PackageX, RefreshCw, ShoppingCart } from 'lucide-react';
+import { AlertTriangle, PackageX, RefreshCw, ShoppingCart, Download } from 'lucide-react';
+import { exportToExcel } from '../../utils/exportToExcel.js';
 
 const LowStockAlerts = () => {
   const [deptFilter, setDeptFilter] = useState('');
@@ -35,6 +36,21 @@ const LowStockAlerts = () => {
   const lowStock    = alerts.filter((b) => b.alertLevel === 'low_stock');
   const reorderSoon = alerts.filter((b) => b.alertLevel === 'reorder');
 
+  const handleExport = () => {
+    const STATUS = { out_of_stock: 'Out of Stock', low_stock: 'Low Stock', reorder: 'Reorder Soon' };
+    const rows = alerts.map((b) => ({
+      'Product':        b.product?.name || '',
+      'Code':           b.product?.code || '',
+      'Department':     b.department?.name || '',
+      'Current Qty':    b.quantity,
+      'Unit':           b.product?.unit?.symbol || '',
+      'Min Level':      b.product?.minStockLevel || '',
+      'Reorder Point':  b.product?.reorderPoint || '',
+      'Status':         STATUS[b.alertLevel] || '',
+    }));
+    exportToExcel(rows, `Stock_Alerts_${new Date().toISOString().split('T')[0]}`, 'Stock Alerts');
+  };
+
   return (
     <div>
       <PageHeader
@@ -42,10 +58,17 @@ const LowStockAlerts = () => {
         subtitle="Products that need attention"
         breadcrumbs={[{ label: 'Reports' }, { label: 'Low Stock Alerts' }]}
         actions={
-          <button onClick={() => refetch()} disabled={isFetching} className="btn btn-ghost text-sm flex items-center gap-1">
-            <RefreshCw className={`h-4 w-4 ${isFetching ? 'animate-spin' : ''}`} />
-            Refresh
-          </button>
+          <div className="flex gap-2">
+            <button onClick={() => refetch()} disabled={isFetching} className="btn btn-ghost text-sm flex items-center gap-1">
+              <RefreshCw className={`h-4 w-4 ${isFetching ? 'animate-spin' : ''}`} />
+              Refresh
+            </button>
+            {alerts.length > 0 && (
+              <button onClick={handleExport} className="btn btn-ghost text-sm flex items-center gap-1.5">
+                <Download className="h-4 w-4" /> Export Excel
+              </button>
+            )}
+          </div>
         }
       />
 

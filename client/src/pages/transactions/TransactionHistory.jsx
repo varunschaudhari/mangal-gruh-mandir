@@ -2,55 +2,66 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getTransactions, voidTransaction } from '../../api/stockTransaction.api.js';
 import { getDepartments } from '../../api/department.api.js';
+import { getProducts } from '../../api/product.api.js';
 import PageHeader from '../../components/ui/PageHeader.jsx';
-import { ConfirmModal } from '../../components/ui/Modal.jsx';
 import Badge from '../../components/ui/Badge.jsx';
 import { PageLoader } from '../../components/ui/Spinner.jsx';
 import { fDate } from '../../utils/formatters.js';
+import { printTransactionReceipt } from '../../utils/printReceipt.js';
 import { usePermissions } from '../../hooks/usePermissions.js';
 import toast from 'react-hot-toast';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
+import { Printer, Download } from 'lucide-react';
+import { exportToExcel } from '../../utils/exportToExcel.js';
 
 const TYPE_LABELS = {
-  STOCK_IN: 'Stock In',
-  STOCK_OUT: 'Stock Out',
-  TRANSFER: 'Transfer',
-  WASTAGE: 'Wastage',
-  OPENING_BALANCE: 'Opening',
-  ADJUSTMENT: 'Adjustment',
+  STOCK_IN: 'Stock In', STOCK_OUT: 'Stock Out',
+  TRANSFER: 'Transfer', WASTAGE: 'Wastage',
+  OPENING_BALANCE: 'Opening', ADJUSTMENT: 'Adjustment',
 };
 
 const TYPE_VARIANTS = {
-  STOCK_IN: 'success',
-  STOCK_OUT: 'warning',
-  TRANSFER: 'info',
-  WASTAGE: 'danger',
-  OPENING_BALANCE: 'default',
-  ADJUSTMENT: 'default',
+  STOCK_IN: 'success', STOCK_OUT: 'warning',
+  TRANSFER: 'info', WASTAGE: 'danger',
+  OPENING_BALANCE: 'default', ADJUSTMENT: 'default',
 };
 
-const TYPES = ['', 'STOCK_IN', 'STOCK_OUT', 'TRANSFER', 'WASTAGE'];
+const TYPES = ['STOCK_IN', 'STOCK_OUT', 'TRANSFER', 'WASTAGE'];
 
 const TransactionHistory = () => {
   const qc = useQueryClient();
   const { can } = usePermissions();
 
-  const [filters, setFilters] = useState({ transactionType: '', department: '', startDate: null, endDate: null });
+  const [filters, setFilters] = useState({
+    transactionType: '', department: '', product: '', startDate: null, endDate: null,
+  });
   const [page, setPage] = useState(1);
+  const [productSearch, setProductSearch] = useState('');
+  const [showProductDropdown, setShowProductDropdown] = useState(false);
+  const [selectedProductName, setSelectedProductName] = useState('');
   const [voidTarget, setVoidTarget] = useState(null);
   const [voidReason, setVoidReason] = useState('');
 
   const { data: deptsRes } = useQuery({ queryKey: ['departments'], queryFn: getDepartments });
   const departments = deptsRes?.data?.data || [];
 
+  const { data: productsRes } = useQuery({ queryKey: ['products'], queryFn: getProducts });
+  const allProducts = productsRes?.data?.data || [];
+  const filteredProducts = productSearch
+    ? allProducts.filter((p) =>
+        p.name.toLowerCase().includes(productSearch.toLowerCase()) ||
+        p.code.toLowerCase().includes(productSearch.toLowerCase())
+      )
+    : allProducts.slice(0, 20);
+
   const params = {
-    page,
-    limit: 20,
+    page, limit: 20,
     ...(filters.transactionType && { transactionType: filters.transactionType }),
-    ...(filters.department && { department: filters.department }),
-    ...(filters.startDate && { startDate: filters.startDate.toISOString() }),
-    ...(filters.endDate && { endDate: filters.endDate.toISOString() }),
+    ...(filters.department     && { department: filters.department }),
+    ...(filters.product        && { product: filters.product }),
+    ...(filters.startDate      && { startDate: filters.startDate.toISOString() }),
+    ...(filters.endDate        && { endDate: filters.endDate.toISOString() }),
   };
 
   const { data, isLoading } = useQuery({
@@ -76,19 +87,108 @@ const TransactionHistory = () => {
 
   const setFilter = (key, value) => { setFilters((f) => ({ ...f, [key]: value })); setPage(1); };
 
+  const handleExport = () => {
+    const rows = txns.map((t) => ({
+      'TXN #':           t.transactionNumber,
+      'Date':            t.transactionDate ? new Date(t.transactionDate).toLocaleDateString('en-IN') : '',
+      'Type':            TYPE_LABELS[t.transactionType] || t.transactionType,
+      'Product':         t.product?.name || '',
+      'Product Code':    t.product?.code || '',
+      'From Dept':       t.fromDepartment?.name || '',
+      'To Dept':         t.toDepartment?.name || '',
+      'Quantity':        t.quantity,
+      'Unit':            t.unit?.symbol || '',
+      'Supplier':        t.supplier?.name || '',
+      'Rate (₹)':        t.rate || '',
+      'Total Value (₹)': t.totalValue || '',
+      'Recorded By':     t.createdBy?.name || '',
+      'Status':          t.isVoided ? 'Voided' : 'Active',
+    }));
+    const dateStr = new Date().toISOString().split('T')[0];
+    exportToExcel(rows, `Transactions_${dateStr}`, 'Transactions');
+  };
+
+  const clearProductFilter = () => {
+    setFilter('product', '');
+    setSelectedProductName('');
+    setProductSearch('');
+  };
+
+  const hasFilters = filters.transactionType || filters.department || filters.product || filters.startDate || filters.endDate;
+
   return (
     <div>
-      <PageHeader title="Transaction History" breadcrumbs={[{ label: 'Transactions' }, { label: 'History' }]} />
+      <PageHeader
+        title="Transaction History"
+        breadcrumbs={[{ label: 'Transactions' }, { label: 'History' }]}
+        actions={
+          txns.length > 0 && (
+            <button onClick={handleExport} className="btn btn-ghost text-sm flex items-center gap-1.5">
+              <Download className="h-4 w-4" /> Export Excel
+            </button>
+          )
+        }
+      />
 
-      {/* Filters */}
+      {/* ── Filters ── */}
       <div className="card p-4 mb-4 flex flex-wrap items-end gap-3">
+
+        {/* Product search */}
+        <div className="relative">
+          <label className="label">Product</label>
+          <input
+            type="text"
+            value={selectedProductName || productSearch}
+            onChange={(e) => {
+              if (filters.product) clearProductFilter();
+              setProductSearch(e.target.value);
+              setShowProductDropdown(true);
+            }}
+            onFocus={() => setShowProductDropdown(true)}
+            placeholder="Search product…"
+            className="input text-sm w-48"
+          />
+          {filters.product && (
+            <button onClick={clearProductFilter} className="absolute right-2 top-8 text-gray-400 hover:text-gray-600 text-xs">✕</button>
+          )}
+          {showProductDropdown && !filters.product && (
+            <>
+              <div className="fixed inset-0 z-10" onClick={() => setShowProductDropdown(false)} />
+              <div className="absolute z-20 top-full mt-1 w-64 bg-white border border-gray-200 rounded-lg shadow-lg max-h-52 overflow-y-auto">
+                {filteredProducts.length === 0 ? (
+                  <div className="p-3 text-sm text-gray-400">No products found</div>
+                ) : (
+                  filteredProducts.map((p) => (
+                    <button
+                      key={p._id}
+                      className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 flex items-center gap-2"
+                      onClick={() => {
+                        setFilter('product', p._id);
+                        setSelectedProductName(p.name);
+                        setProductSearch('');
+                        setShowProductDropdown(false);
+                      }}
+                    >
+                      <span className="flex-1 font-medium truncate">{p.name}</span>
+                      <span className="text-xs text-gray-400 font-mono">{p.code}</span>
+                    </button>
+                  ))
+                )}
+              </div>
+            </>
+          )}
+        </div>
+
+        {/* Type */}
         <div>
           <label className="label">Type</label>
           <select value={filters.transactionType} onChange={(e) => setFilter('transactionType', e.target.value)} className="input text-sm">
             <option value="">All Types</option>
-            {TYPES.filter(Boolean).map((t) => <option key={t} value={t}>{TYPE_LABELS[t]}</option>)}
+            {TYPES.map((t) => <option key={t} value={t}>{TYPE_LABELS[t]}</option>)}
           </select>
         </div>
+
+        {/* Department */}
         <div>
           <label className="label">Department</label>
           <select value={filters.department} onChange={(e) => setFilter('department', e.target.value)} className="input text-sm">
@@ -96,6 +196,8 @@ const TransactionHistory = () => {
             {departments.map((d) => <option key={d._id} value={d._id}>{d.name}</option>)}
           </select>
         </div>
+
+        {/* Date range */}
         <div>
           <label className="label">From Date</label>
           <DatePicker
@@ -119,9 +221,15 @@ const TransactionHistory = () => {
             minDate={filters.startDate}
           />
         </div>
-        {(filters.transactionType || filters.department || filters.startDate || filters.endDate) && (
+
+        {hasFilters && (
           <button
-            onClick={() => { setFilters({ transactionType: '', department: '', startDate: null, endDate: null }); setPage(1); }}
+            onClick={() => {
+              setFilters({ transactionType: '', department: '', product: '', startDate: null, endDate: null });
+              setSelectedProductName('');
+              setProductSearch('');
+              setPage(1);
+            }}
             className="btn btn-ghost text-sm"
           >
             Clear
@@ -129,6 +237,7 @@ const TransactionHistory = () => {
         )}
       </div>
 
+      {/* ── Table ── */}
       <div className="card overflow-hidden">
         {isLoading ? (
           <PageLoader />
@@ -148,7 +257,7 @@ const TransactionHistory = () => {
                   <th className="table-th text-right">Qty</th>
                   <th className="table-th">By</th>
                   <th className="table-th">Status</th>
-                  {can('transactions:delete') && <th className="table-th" />}
+                  <th className="table-th" />
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
@@ -171,13 +280,20 @@ const TransactionHistory = () => {
                     <td className="table-td text-sm">{t.createdBy?.name}</td>
                     <td className="table-td">
                       {t.isVoided
-                        ? <Badge variant="danger" size="sm">Voided</Badge>
+                        ? <Badge variant="danger"  size="sm">Voided</Badge>
                         : <Badge variant="success" size="sm">Active</Badge>
                       }
                     </td>
-                    {can('transactions:delete') && (
-                      <td className="table-td">
-                        {!t.isVoided && (
+                    <td className="table-td">
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => printTransactionReceipt(t)}
+                          className="p-1 text-gray-400 hover:text-primary-600 rounded"
+                          title="Print receipt"
+                        >
+                          <Printer className="h-4 w-4" />
+                        </button>
+                        {can('transactions:delete') && !t.isVoided && (
                           <button
                             onClick={() => setVoidTarget(t)}
                             className="text-xs text-red-600 hover:underline"
@@ -185,8 +301,8 @@ const TransactionHistory = () => {
                             Void
                           </button>
                         )}
-                      </td>
-                    )}
+                      </div>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -194,7 +310,6 @@ const TransactionHistory = () => {
           </div>
         )}
 
-        {/* Pagination */}
         {pagination && pagination.totalPages > 1 && (
           <div className="flex items-center justify-between border-t px-4 py-3 text-sm text-gray-600">
             <span>{pagination.total} transactions</span>
@@ -207,7 +322,7 @@ const TransactionHistory = () => {
         )}
       </div>
 
-      {/* Void modal */}
+      {/* ── Void modal ── */}
       {voidTarget && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
           <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-md mx-4">

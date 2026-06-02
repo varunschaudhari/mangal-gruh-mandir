@@ -1,12 +1,13 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { AlertTriangle, CalendarClock } from 'lucide-react';
+import { AlertTriangle, CalendarClock, Download } from 'lucide-react';
 import { getExpiringBatches } from '../../api/stockBatch.api.js';
 import { getDepartments } from '../../api/department.api.js';
 import PageHeader from '../../components/ui/PageHeader.jsx';
 import Badge from '../../components/ui/Badge.jsx';
 import { PageLoader } from '../../components/ui/Spinner.jsx';
 import { fDate } from '../../utils/formatters.js';
+import { exportToExcel } from '../../utils/exportToExcel.js';
 
 const DAY_OPTIONS = [7, 14, 30, 60, 90];
 
@@ -39,6 +40,24 @@ const ExpiringStock = () => {
   const expired = batches.filter((b) => daysUntil(b.expiryDate) <= 0);
   const expiring = batches.filter((b) => daysUntil(b.expiryDate) > 0);
 
+  const handleExport = () => {
+    const rows = batches.map((b) => {
+      const d = daysUntil(b.expiryDate);
+      return {
+        'Product':       b.product?.name || '',
+        'Code':          b.product?.code || '',
+        'Department':    b.department?.name || '',
+        'Batch Ref':     b.batchRef || '',
+        'Remaining Qty': b.remainingQty,
+        'Unit':          b.product?.unit?.symbol || '',
+        'Expiry Date':   fDate(b.expiryDate),
+        'Days Left':     d <= 0 ? `Expired ${Math.abs(d)}d ago` : `${d} days`,
+        'Status':        d <= 0 ? 'Expired' : d <= 7 ? 'Critical' : d <= 14 ? 'Warning' : 'Expiring Soon',
+      };
+    });
+    exportToExcel(rows, `Expiring_Stock_${days}days_${new Date().toISOString().split('T')[0]}`, 'Expiring Stock');
+  };
+
   return (
     <div className="space-y-4">
       <PageHeader
@@ -46,6 +65,13 @@ const ExpiringStock = () => {
         subtitle="Batches nearing or past their expiry date"
         breadcrumbs={[{ label: 'Reports' }, { label: 'Expiring Stock' }]}
         icon={<CalendarClock className="h-5 w-5 text-amber-500" />}
+        actions={
+          batches.length > 0 && (
+            <button onClick={handleExport} className="btn btn-ghost text-sm flex items-center gap-1.5">
+              <Download className="h-4 w-4" /> Export Excel
+            </button>
+          )
+        }
       />
 
       {/* Filters */}

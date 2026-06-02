@@ -6,6 +6,8 @@ import PageHeader from '../../components/ui/PageHeader.jsx';
 import Badge from '../../components/ui/Badge.jsx';
 import { PageLoader } from '../../components/ui/Spinner.jsx';
 import { fDate } from '../../utils/formatters.js';
+import { exportToExcel } from '../../utils/exportToExcel.js';
+import { Download } from 'lucide-react';
 
 const CurrentStock = () => {
   const [deptFilter, setDeptFilter] = useState('');
@@ -18,6 +20,23 @@ const CurrentStock = () => {
   const params = {
     ...(deptFilter && { department: deptFilter }),
     ...(lowStockOnly && { lowStock: 'true' }),
+  };
+
+  const handleExport = () => {
+    const rows = balances.map((b) => ({
+      'Department':    b.department?.name || '',
+      'Product':       b.product?.name || '',
+      'Code':          b.product?.code || '',
+      'Category':      b.product?.category?.name || '',
+      'Quantity':      b.quantity,
+      'Unit':          b.product?.unit?.symbol || '',
+      'Min Level':     b.product?.minStockLevel || '',
+      'Reorder Point': b.product?.reorderPoint || '',
+      'Status':        b.quantity === 0 ? 'Out of Stock' : (b.product?.minStockLevel && b.quantity <= b.product.minStockLevel ? 'Low Stock' : 'OK'),
+      'Last Updated':  b.lastTransactionDate ? new Date(b.lastTransactionDate).toLocaleDateString('en-IN') : '',
+    }));
+    const dateStr = new Date().toISOString().split('T')[0];
+    exportToExcel(rows, `Stock_Statement_${dateStr}`, 'Current Stock');
   };
 
   const { data, isLoading, refetch } = useQuery({
@@ -50,7 +69,14 @@ const CurrentStock = () => {
         subtitle="Live stock levels across all departments"
         breadcrumbs={[{ label: 'Inventory' }, { label: 'Current Stock' }]}
         actions={
-          <button onClick={() => refetch()} className="btn btn-ghost text-sm">Refresh</button>
+          <div className="flex gap-2">
+            <button onClick={() => refetch()} className="btn btn-ghost text-sm">Refresh</button>
+            {balances.length > 0 && (
+              <button onClick={handleExport} className="btn btn-ghost text-sm flex items-center gap-1.5">
+                <Download className="h-4 w-4" /> Export Excel
+              </button>
+            )}
+          </div>
         }
       />
 
