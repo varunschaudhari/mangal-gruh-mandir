@@ -33,7 +33,7 @@ const Login = () => {
         </div>
 
         {/* Form */}
-        <div className="card p-8">
+        <div className="card p-6 sm:p-8">
           <h2 className="mb-6 text-lg font-semibold text-gray-800">Sign in to your account</h2>
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
             <div>

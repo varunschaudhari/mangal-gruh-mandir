@@ -4,6 +4,7 @@ import {
   LayoutDashboard, ArrowDownToLine, ArrowUpFromLine, ArrowLeftRight,
   Trash2, Package, Warehouse, Users, Tag, Ruler, Truck, Shield,
   ChevronDown, ChevronRight, FlameKindling, History, AlertTriangle, BookOpen, CalendarClock,
+  X,
 } from 'lucide-react';
 import { usePermissions } from '../../hooks/usePermissions.js';
 
@@ -68,9 +69,8 @@ const navConfig = [
   },
 ];
 
-const NavItem = ({ item, can }) => {
+const NavItem = ({ item, can, onNavigate }) => {
   const location = useLocation();
-  const isActive = item.to && location.pathname.startsWith(item.to);
   const childActive = item.children?.some((c) => location.pathname.startsWith(c.to));
   const [open, setOpen] = useState(true);
 
@@ -80,6 +80,7 @@ const NavItem = ({ item, can }) => {
     return (
       <NavLink
         to={item.to}
+        onClick={onNavigate}
         className={({ isActive }) =>
           `flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
             isActive ? 'bg-primary-600 text-white' : 'text-gray-300 hover:bg-gray-700 hover:text-white'
@@ -114,6 +115,7 @@ const NavItem = ({ item, can }) => {
             <NavLink
               key={child.to}
               to={child.to}
+              onClick={onNavigate}
               className={({ isActive }) =>
                 `flex items-center gap-2 rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
                   isActive ? 'bg-primary-600 text-white' : 'text-gray-400 hover:bg-gray-700 hover:text-white'
@@ -130,26 +132,42 @@ const NavItem = ({ item, can }) => {
   );
 };
 
-const Sidebar = () => {
+const Sidebar = ({ isOpen, onClose }) => {
   const { can } = usePermissions();
 
   return (
-    <aside className="flex h-screen w-60 shrink-0 flex-col bg-gray-900">
-      {/* Logo */}
-      <div className="flex items-center gap-2 border-b border-gray-700 px-4 py-4">
-        <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary-600">
-          <FlameKindling className="h-4 w-4 text-white" />
+    <aside
+      className={`
+        fixed inset-y-0 left-0 z-40 flex h-screen w-64 shrink-0 flex-col bg-gray-900
+        transform transition-transform duration-300 ease-in-out
+        lg:static lg:translate-x-0
+        ${isOpen ? 'translate-x-0' : '-translate-x-full'}
+      `}
+    >
+      {/* Logo + close button */}
+      <div className="flex items-center justify-between border-b border-gray-700 px-4 py-4">
+        <div className="flex items-center gap-2">
+          <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary-600">
+            <FlameKindling className="h-4 w-4 text-white" />
+          </div>
+          <div>
+            <p className="text-xs font-bold leading-tight text-white">Mangal Grah Mandir</p>
+            <p className="text-xs text-gray-400">Stock Management</p>
+          </div>
         </div>
-        <div>
-          <p className="text-xs font-bold leading-tight text-white">Mangal Grah Mandir</p>
-          <p className="text-xs text-gray-400">Stock Management</p>
-        </div>
+        {/* Close button — mobile only */}
+        <button
+          onClick={onClose}
+          className="lg:hidden rounded-md p-1 text-gray-400 hover:bg-gray-700 hover:text-white"
+        >
+          <X className="h-5 w-5" />
+        </button>
       </div>
 
       {/* Nav */}
       <nav className="flex-1 overflow-y-auto p-3 space-y-1">
         {navConfig.map((item, i) => (
-          <NavItem key={i} item={item} can={can} />
+          <NavItem key={i} item={item} can={can} onNavigate={onClose} />
         ))}
       </nav>
     </aside>

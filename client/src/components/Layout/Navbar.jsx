@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { LogOut, User, KeyRound, ChevronDown, Bell } from 'lucide-react';
+import { LogOut, User, KeyRound, ChevronDown, Bell, Menu } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '../../context/AuthContext.jsx';
 import { getDashboardStats } from '../../api/dashboard.api.js';
@@ -16,7 +16,7 @@ const AlertBell = () => {
   });
 
   const counts = data?.data?.data?.counts || {};
-  const critical = counts.lowStockItems ?? 0;       // out-of-stock + low stock
+  const critical = counts.lowStockItems ?? 0;
   const reorder  = counts.reorderItems  ?? 0;
   const total    = critical + reorder;
 
@@ -36,7 +36,7 @@ const AlertBell = () => {
   );
 };
 
-const Navbar = () => {
+const Navbar = ({ onMenuToggle }) => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
@@ -48,20 +48,32 @@ const Navbar = () => {
   };
 
   return (
-    <header className="flex h-14 shrink-0 items-center justify-between border-b bg-white px-6">
-      <div />
-      <div className="flex items-center gap-3">
+    <header className="flex h-14 shrink-0 items-center justify-between border-b bg-white px-4">
+      {/* Hamburger — mobile only */}
+      <button
+        onClick={onMenuToggle}
+        className="lg:hidden rounded-md p-2 text-gray-500 hover:bg-gray-100 transition-colors"
+        aria-label="Toggle menu"
+      >
+        <Menu className="h-5 w-5" />
+      </button>
+
+      {/* Desktop spacer */}
+      <div className="hidden lg:block" />
+
+      <div className="flex items-center gap-2 sm:gap-3">
         <AlertBell />
 
         <div className="relative">
           <button
             onClick={() => setOpen(!open)}
-            className="flex items-center gap-2 rounded-md px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-100"
+            className="flex items-center gap-2 rounded-md px-2 sm:px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-100"
           >
-            <div className="flex h-7 w-7 items-center justify-center rounded-full bg-primary-100 text-primary-700 text-xs font-bold">
+            <div className="flex h-7 w-7 items-center justify-center rounded-full bg-primary-100 text-primary-700 text-xs font-bold shrink-0">
               {user?.name?.[0]?.toUpperCase()}
             </div>
-            <div className="text-left">
+            {/* Hide name on very small screens */}
+            <div className="text-left hidden sm:block">
               <p className="font-medium leading-tight">{user?.name}</p>
               <p className="text-xs text-gray-400">{ROLE_LABELS[user?.role] || user?.role}</p>
             </div>

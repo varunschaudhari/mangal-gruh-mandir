@@ -105,7 +105,7 @@ const Dashboard = () => {
       />
 
       {/* ── KPI Cards ── */}
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4 lg:grid-cols-4 xl:grid-cols-8">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 xl:grid-cols-8">
         <StatCard label="Products"      value={counts.productCount    ?? '—'} icon={Package}       color="text-primary-600" bg="bg-primary-50"  border="border-l-primary-500" />
         <StatCard label="Departments"   value={counts.deptCount       ?? '—'} icon={Warehouse}     color="text-blue-600"    bg="bg-blue-50"     border="border-l-blue-500"    />
         <StatCard label="Suppliers"     value={counts.supplierCount   ?? '—'} icon={Truck}         color="text-green-600"   bg="bg-green-50"    border="border-l-green-500"   />
@@ -123,7 +123,7 @@ const Dashboard = () => {
             <Zap className="h-4 w-4 text-primary-600" />
             <h2 className="text-sm font-semibold text-gray-700">Quick Actions</h2>
           </div>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
             {QUICK_ACTIONS.map(({ label, to, icon: Icon, cls }) => (
               <Link
                 key={to}
