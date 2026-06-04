@@ -218,6 +218,72 @@ export const getTransaction = asyncHandler(async (req, res) => {
   res.json(new ApiResponse(200, txn));
 });
 
+export const createBatchTransactions = asyncHandler(async (req, res) => {
+  const {
+    transactionDate, stockInType, toDepartment,
+    supplier, invoiceNumber, invoiceDate, donorName, notes,
+    items,
+  } = req.body;
+
+  if (!Array.isArray(items) || items.length === 0) throw new ApiError(400, 'At least one item is required');
+  if (!toDepartment) throw new ApiError(400, 'toDepartment is required');
+
+  if (req.user.role === 'staff') {
+    const userDepts = req.user.departments?.map((d) => d.toString()) || [];
+    if (userDepts.length > 0 && !userDepts.includes(toDepartment?.toString())) {
+      throw new ApiError(403, 'You do not have access to this department');
+    }
+  }
+
+  const createdIds = [];
+
+  for (const item of items) {
+    const { product: productId, quantity, rate, batchRef, expiryDate, manufacturingDate } = item;
+
+    const product = await Product.findById(productId).lean();
+    if (!product) throw new ApiError(404, `Product not found: ${productId}`);
+
+    const transactionNumber = await generateTransactionNumber(transactionDate || new Date());
+
+    const txn = await StockTransaction.create({
+      transactionNumber,
+      transactionType: 'STOCK_IN',
+      transactionDate: transactionDate || new Date(),
+      product: productId,
+      toDepartment,
+      quantity,
+      unit: product.unit,
+      rate: rate || 0,
+      totalValue: (rate || 0) * quantity,
+      stockInType: stockInType || undefined,
+      supplier: supplier || undefined,
+      invoiceNumber: invoiceNumber || undefined,
+      invoiceDate: invoiceDate || undefined,
+      donorName: donorName || undefined,
+      expiryDate: expiryDate || undefined,
+      manufacturingDate: manufacturingDate || undefined,
+      batchRef: batchRef || undefined,
+      notes: notes || undefined,
+      createdBy: req.user._id,
+    });
+
+    await createBatch(txn);
+    await updateBalancesForTransaction(txn);
+
+    createdIds.push(txn._id);
+  }
+
+  const populated = await StockTransaction.find({ _id: { $in: createdIds } })
+    .populate('product', 'name code')
+    .populate('toDepartment', 'name code')
+    .populate('unit', 'name symbol')
+    .populate('supplier', 'name')
+    .populate('createdBy', 'name')
+    .lean();
+
+  res.status(201).json(new ApiResponse(201, populated, `${createdIds.length} transaction(s) created`));
+});
+
 export const voidTransaction = asyncHandler(async (req, res) => {
   const { voidReason } = req.body;
   if (!voidReason?.trim()) throw new ApiError(400, 'Void reason is required');

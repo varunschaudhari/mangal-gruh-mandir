@@ -389,7 +389,12 @@ const AssetTransactionDetail = () => {
           </div>
           <h1 className="text-2xl font-bold text-gray-900 leading-tight">{asset?.name}</h1>
           <p className="text-sm text-gray-500 mt-0.5">
-            {borrower?.name} · {asset?.category} · {quantityBorrowed} unit{quantityBorrowed > 1 ? 's' : ''}
+            <button
+              onClick={() => navigate(`/assets/borrowers/${borrower?._id}?name=${encodeURIComponent(borrower?.name || '')}`)}
+              className="hover:text-primary-600 hover:underline font-medium">
+              {borrower?.name}
+            </button>
+            {' · '}{asset?.category} · {quantityBorrowed} unit{quantityBorrowed > 1 ? 's' : ''}
           </p>
         </div>
         {notes && (
@@ -458,11 +463,20 @@ const AssetTransactionDetail = () => {
 
           {/* Asset card */}
           <div className="bg-white rounded-xl border border-gray-100 p-4">
-            <div className="flex items-center gap-2 mb-3">
-              <Package className="h-4 w-4 text-gray-400" />
-              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Asset</p>
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <Package className="h-4 w-4 text-gray-400" />
+                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Asset</p>
+              </div>
+              <button onClick={() => navigate(`/assets/${asset?._id}/history`)}
+                className="text-xs text-primary-600 hover:underline">History →</button>
             </div>
-            <Row label="Name">{asset?.name}</Row>
+            <Row label="Name">
+              <button onClick={() => navigate(`/assets/${asset?._id}/history`)}
+                className="font-medium text-gray-800 hover:text-primary-600 hover:underline">
+                {asset?.name}
+              </button>
+            </Row>
             <Row label="Category">{asset?.category}</Row>
             <Row label="Quantity">{quantityBorrowed} unit{quantityBorrowed > 1 ? 's' : ''}</Row>
             <Row label="Total Available">{asset?.totalQuantity}</Row>

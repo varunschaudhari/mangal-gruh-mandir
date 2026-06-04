@@ -36,6 +36,9 @@ import NewBorrowRequest from './pages/assets/NewBorrowRequest.jsx';
 import ReturnAsset from './pages/assets/ReturnAsset.jsx';
 import AssetTransactionDetail from './pages/assets/AssetTransactionDetail.jsx';
 import AssetReports from './pages/assets/AssetReports.jsx';
+import AssetHistory from './pages/assets/AssetHistory.jsx';
+import BorrowerHistory from './pages/assets/BorrowerHistory.jsx';
+import UpcomingReturns from './pages/assets/UpcomingReturns.jsx';
 import Settings from './pages/settings/Settings.jsx';
 
 const App = () => (
@@ -94,6 +97,9 @@ const App = () => (
         <Route path="/assets/borrows/:id/return" element={<ReturnAsset />} />
         <Route path="/assets/borrows/:id" element={<AssetTransactionDetail />} />
         <Route path="/assets/reports" element={<AssetReports />} />
+        <Route path="/assets/upcoming" element={<UpcomingReturns />} />
+        <Route path="/assets/:id/history" element={<AssetHistory />} />
+        <Route path="/assets/borrowers/:userId" element={<BorrowerHistory />} />
 
         {/* Settings */}
         <Route path="/settings" element={<Settings />} />

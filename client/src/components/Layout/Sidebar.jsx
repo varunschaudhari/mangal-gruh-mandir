@@ -65,9 +65,10 @@ const navConfig = [
     icon: Armchair,
     permission: 'assets:read',
     children: [
-      { label: 'Asset List',       to: '/assets',         icon: Armchair,       permission: 'assets:write' },
-      { label: 'Borrow Requests',  to: '/assets/borrows',  icon: ClipboardList, permission: 'assets:read' },
-      { label: 'Reports',          to: '/assets/reports',  icon: BarChart2,     permission: 'assets:read' },
+      { label: 'Asset List',       to: '/assets',          icon: Armchair,       permission: 'assets:write' },
+      { label: 'Borrow Requests',  to: '/assets/borrows',  icon: ClipboardList,  permission: 'assets:read' },
+      { label: 'Upcoming Returns', to: '/assets/upcoming', icon: CalendarClock,  permission: 'assets:read' },
+      { label: 'Reports',          to: '/assets/reports',  icon: BarChart2,      permission: 'assets:read' },
     ],
   },
   {

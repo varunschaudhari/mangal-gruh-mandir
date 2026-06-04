@@ -7,7 +7,7 @@ import {
   XCircle, Bell, Search, ChevronLeft, ChevronRight, MoreVertical,
   FileSpreadsheet, FileText, Download,
 } from 'lucide-react';
-import { getAssetTransactions, checkoutAsset, extendBorrow, cancelBorrow, sendManualReminder } from '../../api/assetTransaction.api.js';
+import { getAssetTransactions, checkoutAsset, extendBorrow, cancelBorrow, sendManualReminder, bulkSendReminders } from '../../api/assetTransaction.api.js';
 import { exportAssetExcel, exportAssetPDF } from '../../api/assetReport.api.js';
 import { getApprovers } from '../../api/user.api.js';
 import { getSettings } from '../../api/settings.api.js';
@@ -289,6 +289,16 @@ const AssetTransactions = () => {
     onError: (err) => toast.error(err.response?.data?.message || 'Failed'),
   });
 
+  const bulkMut = useMutation({
+    mutationFn: bulkSendReminders,
+    onSuccess: (res) => {
+      const { sent, total } = res.data?.data || {};
+      toast.success(`Reminders sent to ${sent} of ${total} overdue borrower(s)`);
+      qc.invalidateQueries({ queryKey: ['asset-transactions'] });
+    },
+    onError: (err) => toast.error(err.response?.data?.message || 'Failed'),
+  });
+
   const setFilter = (val) => {
     setPage(1);
     if (val) setSearchParams({ status: val });
@@ -373,7 +383,14 @@ const AssetTransactions = () => {
         subtitle="Track asset borrowing and returns"
         breadcrumbs={[{ label: 'Assets' }, { label: 'Borrow Requests' }]}
         actions={
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
+            {can('assets:manage') && statusFilter === 'overdue' && total > 0 && (
+              <button onClick={() => bulkMut.mutate()} disabled={bulkMut.isPending}
+                className="btn-danger flex items-center gap-2 text-sm">
+                <Bell className="h-4 w-4" />
+                {bulkMut.isPending ? 'Sending…' : `Remind All (${total})`}
+              </button>
+            )}
             <ExportMenu statusFilter={statusFilter} searchInput={debouncedSearch} />
             {can('assets:manage') && (
               <Link to="/assets/borrows/new" className="btn-primary"><Plus className="h-4 w-4" /> New Request</Link>

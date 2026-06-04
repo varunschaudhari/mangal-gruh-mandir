@@ -50,7 +50,9 @@
       "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\varun.chaudhari\\\\my-projects\\\\mangal-gruh-mandir\\\\server\\\\src\\\\models\" -File)",
       "Bash(Select-Object Name)",
       "Bash(Select-String -Path \"c:\\\\Users\\\\varun.chaudhari\\\\my-projects\\\\mangal-gruh-mandir\\\\client\\\\src\\\\api\\\\*.js\" -Pattern \"^export const get\\\\w+ = \\\\\\(params\\\\\\)\")",
-      "Bash(Select-Object Filename, Line)"
+      "Bash(Select-Object Filename, Line)",
+      "Bash(node src/index.js)",
+      "Bash(ping -n 3 127.0.0.1)"
     ]
   }
 }

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { createColumnHelper } from '@tanstack/react-table';
-import { Plus, Pencil, Trash2, IndianRupee } from 'lucide-react';
+import { Plus, Pencil, Trash2, IndianRupee, History } from 'lucide-react';
 import { getAssets, deleteAsset } from '../../api/asset.api.js';
 import DataTable from '../../components/ui/DataTable.jsx';
 import PageHeader from '../../components/ui/PageHeader.jsx';
@@ -49,6 +49,7 @@ const AssetList = () => {
       id: 'actions', header: 'Actions', size: 90,
       cell: ({ row }) => (
         <div className="flex gap-2">
+          <Link to={`/assets/${row.original._id}/history`} className="btn-ghost p-1 text-gray-400 hover:text-purple-600" title="View borrow history"><History className="h-4 w-4" /></Link>
           {can('assets:write') && <Link to={`/assets/${row.original._id}/edit`} className="btn-ghost p-1 text-gray-400 hover:text-indigo-600"><Pencil className="h-4 w-4" /></Link>}
           {can('assets:write') && <button onClick={() => setDeleteTarget(row.original)} className="btn-ghost p-1 text-gray-400 hover:text-red-600"><Trash2 className="h-4 w-4" /></button>}
         </div>

@@ -3,6 +3,7 @@ import protect from '../middleware/auth.js';
 import authorize from '../middleware/authorize.js';
 import {
   createTransaction,
+  createBatchTransactions,
   getTransactions,
   getTransaction,
   voidTransaction,
@@ -11,6 +12,8 @@ import {
 const router = Router();
 
 router.use(protect);
+
+router.post('/batch', authorize('transactions:create'), createBatchTransactions);
 
 router.route('/')
   .get(authorize('transactions:read'), getTransactions)

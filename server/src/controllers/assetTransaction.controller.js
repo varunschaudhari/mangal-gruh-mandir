@@ -5,7 +5,7 @@ import Settings from '../models/Settings.js';
 import ApiError from '../utils/ApiError.js';
 import ApiResponse from '../utils/ApiResponse.js';
 import asyncHandler from '../utils/asyncHandler.js';
-import { sendAssetApprovalNotification, sendManualAssetReminder } from '../services/assetReminder.service.js';
+import { sendAssetApprovalNotification, sendManualAssetReminder, processAssetReminders } from '../services/assetReminder.service.js';
 import { generateAssetTransactionNumber } from '../services/assetTransactionNumber.service.js';
 
 const POPULATE = [
@@ -224,6 +224,26 @@ export const cancelBorrow = asyncHandler(async (req, res) => {
 
   const populated = await AssetTransaction.findById(txn._id).populate(POPULATE);
   res.json(new ApiResponse(200, populated, 'Borrow request cancelled'));
+});
+
+export const bulkSendReminders = asyncHandler(async (req, res) => {
+  const POPULATE = [
+    { path: 'asset',    select: 'name' },
+    { path: 'borrower', select: 'name phone whatsappAlertsEnabled smsAlertsEnabled' },
+  ];
+
+  const overdue = await AssetTransaction.find({ status: 'overdue' }).populate(POPULATE);
+  if (!overdue.length) {
+    return res.json(new ApiResponse(200, { sent: 0, failed: 0, total: 0 }, 'No overdue transactions found'));
+  }
+
+  let sent = 0; let failed = 0;
+  for (const txn of overdue) {
+    try { await sendManualAssetReminder(txn); sent++; }
+    catch { failed++; }
+  }
+
+  res.json(new ApiResponse(200, { sent, failed, total: overdue.length }, `Reminders sent to ${sent} borrower(s)`));
 });
 
 export const sendManualReminderEndpoint = asyncHandler(async (req, res) => {
