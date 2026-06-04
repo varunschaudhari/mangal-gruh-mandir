@@ -11,7 +11,8 @@
     "seed:test": "node src/seeds/testData.seed.js",
     "migrate:assets": "node src/migrations/addAssetPermissions.js",
     "seed:assets": "node src/seeds/assetTestData.seed.js",
-    "add:supplier": "node src/seeds/addSupplier.js"
+    "add:supplier":  "node src/seeds/addSupplier.js",
+    "reset:assets":  "node src/seeds/resetAssets.js"
   },
   "dependencies": {
     "axios": "^1.17.0",

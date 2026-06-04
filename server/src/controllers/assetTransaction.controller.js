@@ -6,13 +6,15 @@ import ApiError from '../utils/ApiError.js';
 import ApiResponse from '../utils/ApiResponse.js';
 import asyncHandler from '../utils/asyncHandler.js';
 import { sendAssetApprovalNotification, sendManualAssetReminder, processAssetReminders } from '../services/assetReminder.service.js';
+import { recomputeGroupStatus } from '../services/borrowGroupStatus.service.js';
 import { generateAssetTransactionNumber } from '../services/assetTransactionNumber.service.js';
 
 const POPULATE = [
-  { path: 'asset',    select: 'name category finePerDay totalQuantity' },
-  { path: 'borrower', select: 'name phone' },
+  { path: 'asset',      select: 'name category finePerDay totalQuantity' },
+  { path: 'borrower',   select: 'name phone' },
   { path: 'approvedBy', select: 'name' },
-  { path: 'createdBy', select: 'name' },
+  { path: 'createdBy',  select: 'name' },
+  { path: 'group',      select: 'groupNumber status' },
   { path: 'extensions.approvedBy', select: 'name' },
   { path: 'extensions.extendedBy', select: 'name' },
 ];
@@ -110,6 +112,7 @@ export const checkoutAsset = asyncHandler(async (req, res) => {
   await txn.save();
 
   const populated = await AssetTransaction.findById(txn._id).populate(POPULATE);
+  recomputeGroupStatus(txn.group).catch(console.error);
   res.json(new ApiResponse(200, populated, 'Asset checked out successfully'));
 });
 
@@ -142,6 +145,7 @@ export const returnAsset = asyncHandler(async (req, res) => {
 
   await txn.save();
   const populated = await AssetTransaction.findById(txn._id).populate(POPULATE);
+  recomputeGroupStatus(txn.group).catch(console.error);
   res.json(new ApiResponse(200, populated, 'Asset returned successfully'));
 });
 
@@ -223,6 +227,7 @@ export const cancelBorrow = asyncHandler(async (req, res) => {
   await txn.save();
 
   const populated = await AssetTransaction.findById(txn._id).populate(POPULATE);
+  recomputeGroupStatus(txn.group).catch(console.error);
   res.json(new ApiResponse(200, populated, 'Borrow request cancelled'));
 });
 

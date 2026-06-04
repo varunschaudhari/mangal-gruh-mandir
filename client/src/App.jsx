@@ -39,6 +39,7 @@ import AssetReports from './pages/assets/AssetReports.jsx';
 import StockValuation from './pages/reports/StockValuation.jsx';
 import SupplierReport from './pages/reports/SupplierReport.jsx';
 import AssetHistory from './pages/assets/AssetHistory.jsx';
+import BorrowGroupDetail from './pages/assets/BorrowGroupDetail.jsx';
 import BorrowerHistory from './pages/assets/BorrowerHistory.jsx';
 import UpcomingReturns from './pages/assets/UpcomingReturns.jsx';
 import Settings from './pages/settings/Settings.jsx';
@@ -102,6 +103,7 @@ const App = () => (
         <Route path="/assets/borrows/:id" element={<AssetTransactionDetail />} />
         <Route path="/assets/reports" element={<AssetReports />} />
         <Route path="/assets/upcoming" element={<UpcomingReturns />} />
+        <Route path="/assets/borrows/groups/:id" element={<BorrowGroupDetail />} />
         <Route path="/assets/:id/history" element={<AssetHistory />} />
         <Route path="/assets/borrowers/:userId" element={<BorrowerHistory />} />
 

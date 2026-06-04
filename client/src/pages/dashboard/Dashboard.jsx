@@ -7,7 +7,7 @@ import {
 import {
   Package, Truck, Warehouse, AlertTriangle, Users,
   ArrowDownToLine, ArrowUpFromLine, ArrowLeftRight, Trash2, TrendingUp, CalendarClock,
-  Zap, ShoppingBag, CalendarDays,
+  ShoppingBag, CalendarDays,
 } from 'lucide-react';
 import { getDashboardStats } from '../../api/dashboard.api.js';
 import { getExpiringBatches } from '../../api/stockBatch.api.js';
@@ -31,30 +31,30 @@ const TYPE_ICONS = {
   TRANSFER: ArrowLeftRight, WASTAGE: Trash2,
 };
 
-const QUICK_ACTIONS = [
-  { label: 'Stock In',   to: '/transactions/stock-in',  icon: ArrowDownToLine, cls: 'bg-green-50 text-green-700 hover:bg-green-100 border-green-200' },
-  { label: 'Stock Out',  to: '/transactions/stock-out',  icon: ArrowUpFromLine, cls: 'bg-amber-50 text-amber-700 hover:bg-amber-100 border-amber-200' },
-  { label: 'Transfer',   to: '/transactions/transfer',   icon: ArrowLeftRight,  cls: 'bg-blue-50 text-blue-700 hover:bg-blue-100 border-blue-200'   },
-  { label: 'Wastage',    to: '/transactions/wastage',    icon: Trash2,          cls: 'bg-red-50 text-red-700 hover:bg-red-100 border-red-200'       },
-];
+const TYPE_ROUTES = {
+  STOCK_IN:  '/transactions/history',
+  STOCK_OUT: '/transactions/history',
+  TRANSFER:  '/transactions/history',
+  WASTAGE:   '/transactions/history',
+};
 
 const TodayCard = ({ type, count }) => {
   const Icon = TYPE_ICONS[type] || Package;
   const variants = {
-    success: 'text-green-600 bg-green-50',
-    warning: 'text-amber-600 bg-amber-50',
-    info:    'text-blue-600 bg-blue-50',
-    danger:  'text-red-600 bg-red-50',
+    success: 'text-green-600 bg-green-50 hover:bg-green-100 border border-green-100',
+    warning: 'text-amber-600 bg-amber-50 hover:bg-amber-100 border border-amber-100',
+    info:    'text-blue-600 bg-blue-50 hover:bg-blue-100 border border-blue-100',
+    danger:  'text-red-600 bg-red-50 hover:bg-red-100 border border-red-100',
   };
   const cls = variants[TYPE_VARIANTS[type]] || '';
   return (
-    <div className={`rounded-lg px-4 py-3 flex items-center gap-3 ${cls}`}>
+    <Link to={TYPE_ROUTES[type]} className={`rounded-lg px-4 py-3 flex items-center gap-3 transition-colors ${cls}`}>
       <Icon className="h-5 w-5 shrink-0" />
       <div>
         <p className="text-xs font-medium opacity-75">{TYPE_LABELS[type]}</p>
         <p className="text-xl font-bold">{count}</p>
       </div>
-    </div>
+    </Link>
   );
 };
 
@@ -106,14 +106,14 @@ const Dashboard = () => {
 
       {/* ── KPI Cards ── */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 xl:grid-cols-8">
-        <StatCard label="Products"      value={counts.productCount    ?? '—'} icon={Package}       color="text-primary-600" bg="bg-primary-50"  border="border-l-primary-500" />
-        <StatCard label="Departments"   value={counts.deptCount       ?? '—'} icon={Warehouse}     color="text-blue-600"    bg="bg-blue-50"     border="border-l-blue-500"    />
-        <StatCard label="Suppliers"     value={counts.supplierCount   ?? '—'} icon={Truck}         color="text-green-600"   bg="bg-green-50"    border="border-l-green-500"   />
-        <StatCard label="Active Users"  value={counts.userCount       ?? '—'} icon={Users}         color="text-purple-600"  bg="bg-purple-50"   border="border-l-purple-500"  />
-        <StatCard label="Low Stock"     value={counts.lowStockItems   ?? '—'} icon={AlertTriangle} color="text-amber-600"   bg="bg-amber-50"    border="border-l-amber-500"   />
-        <StatCard label="Out of Stock"  value={counts.outOfStockItems ?? '—'} icon={AlertTriangle} color="text-red-600"     bg="bg-red-50"      border="border-l-red-500"     />
-        <StatCard label="Reorder Soon"  value={counts.reorderItems    ?? '—'} icon={AlertTriangle} color="text-yellow-600"  bg="bg-yellow-50"   border="border-l-yellow-500"  />
-        <StatCard label="Expiring (30d)" value={expiringCount}               icon={CalendarClock} color="text-orange-600"  bg="bg-orange-50"   border="border-l-orange-500"  />
+        <StatCard label="Products"      value={counts.productCount    ?? '—'} icon={Package}       color="text-primary-600" bg="bg-primary-50"  border="border-l-primary-500" to="/masters/products"         />
+        <StatCard label="Departments"   value={counts.deptCount       ?? '—'} icon={Warehouse}     color="text-blue-600"    bg="bg-blue-50"     border="border-l-blue-500"    to="/masters/departments"      />
+        <StatCard label="Suppliers"     value={counts.supplierCount   ?? '—'} icon={Truck}         color="text-green-600"   bg="bg-green-50"    border="border-l-green-500"   to="/masters/suppliers"        />
+        <StatCard label="Active Users"  value={counts.userCount       ?? '—'} icon={Users}         color="text-purple-600"  bg="bg-purple-50"   border="border-l-purple-500"  to="/admin/users"              />
+        <StatCard label="Low Stock"     value={counts.lowStockItems   ?? '—'} icon={AlertTriangle} color="text-amber-600"   bg="bg-amber-50"    border="border-l-amber-500"   to="/reports/low-stock"        />
+        <StatCard label="Out of Stock"  value={counts.outOfStockItems ?? '—'} icon={AlertTriangle} color="text-red-600"     bg="bg-red-50"      border="border-l-red-500"     to="/reports/low-stock"        />
+        <StatCard label="Reorder Soon"  value={counts.reorderItems    ?? '—'} icon={AlertTriangle} color="text-yellow-600"  bg="bg-yellow-50"   border="border-l-yellow-500"  to="/reports/low-stock"        />
+        <StatCard label="Expiring (30d)" value={expiringCount}               icon={CalendarClock} color="text-orange-600"  bg="bg-orange-50"   border="border-l-orange-500"  to="/reports/expiring-stock"   />
       </div>
 
       {/* ── Asset Status Widget ── */}
@@ -151,28 +151,6 @@ const Dashboard = () => {
                 <p className="text-xs text-amber-600 font-medium">Due This Week</p>
               </div>
             </Link>
-          </div>
-        </div>
-      )}
-
-      {/* ── Quick Actions ── */}
-      {can('transactions:write') && (
-        <div>
-          <div className="flex items-center gap-2 mb-3">
-            <Zap className="h-4 w-4 text-primary-600" />
-            <h2 className="text-sm font-semibold text-gray-700">Quick Actions</h2>
-          </div>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
-            {QUICK_ACTIONS.map(({ label, to, icon: Icon, cls }) => (
-              <Link
-                key={to}
-                to={to}
-                className={`flex items-center gap-3 rounded-lg border px-4 py-3 transition-colors ${cls}`}
-              >
-                <Icon className="h-5 w-5 shrink-0" />
-                <span className="text-sm font-semibold">{label}</span>
-              </Link>
-            ))}
           </div>
         </div>
       )}

@@ -42,6 +42,8 @@ const assetTransactionSchema = new mongoose.Schema(
     extensions:    { type: [extensionSchema], default: [] },
     remindersSent: [{ reminderType: String, sentAt: Date }],
 
+    group:     { type: mongoose.Schema.Types.ObjectId, ref: 'BorrowGroup' },
+
     notes:     { type: String },
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   },

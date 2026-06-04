@@ -5,7 +5,7 @@ import { createColumnHelper } from '@tanstack/react-table';
 import {
   Plus, ShoppingBag, RotateCcw, AlertTriangle, CalendarPlus,
   XCircle, Bell, Search, ChevronLeft, ChevronRight, MoreVertical,
-  FileSpreadsheet, FileText, Download,
+  FileSpreadsheet, FileText, Download, Layers,
 } from 'lucide-react';
 import { getAssetTransactions, checkoutAsset, extendBorrow, cancelBorrow, sendManualReminder, bulkSendReminders } from '../../api/assetTransaction.api.js';
 import { exportAssetExcel, exportAssetPDF } from '../../api/assetReport.api.js';
@@ -313,8 +313,23 @@ const AssetTransactions = () => {
 
   const columns = [
     col.accessor('transactionNumber', {
-      header: 'Ref No.', size: 155,
-      cell: (i) => <span className="font-mono text-xs font-bold text-primary-600">{i.getValue() || '—'}</span>,
+      header: 'Ref No.', size: 175,
+      cell: (i) => {
+        const grp = i.row.original.group;
+        return (
+          <div>
+            <span className="font-mono text-xs font-bold text-primary-600">{i.getValue() || '—'}</span>
+            {grp && (
+              <button
+                onClick={(e) => { e.stopPropagation(); navigate(`/assets/borrows/groups/${grp._id}`); }}
+                className="mt-0.5 flex items-center gap-1 text-xs text-purple-600 hover:underline"
+              >
+                <Layers className="h-3 w-3" /> {grp.groupNumber}
+              </button>
+            )}
+          </div>
+        );
+      },
     }),
     col.accessor('borrower.name', {
       header: 'Borrower',
