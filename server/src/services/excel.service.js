@@ -148,3 +148,170 @@ export async function generateDailyReportExcel(res, { date, department, transact
   await wb.xlsx.write(res);
   res.end();
 }
+
+export async function generateValuationExcel(res, { rows, grandTotal, departmentName, generatedAt }) {
+  const wb = new ExcelJS.Workbook();
+  wb.creator = 'Mangal Grah Mandir';
+  wb.created = new Date();
+
+  const sheet = wb.addWorksheet('Stock Valuation');
+  sheet.columns = [
+    { key: 'product',  width: 30 },
+    { key: 'code',     width: 14 },
+    { key: 'dept',     width: 22 },
+    { key: 'qty',      width: 12 },
+    { key: 'unit',     width: 10 },
+    { key: 'rate',     width: 14 },
+    { key: 'value',    width: 18 },
+  ];
+
+  sheet.mergeCells('A1:G1');
+  const t = sheet.getCell('A1');
+  t.value = 'Mangal Grah Mandir – Stock Valuation Report';
+  t.font = { bold: true, size: 14, color: { argb: 'FFEA580C' } };
+  t.alignment = { horizontal: 'center' };
+  sheet.getRow(1).height = 26;
+
+  sheet.mergeCells('A2:G2');
+  const sub = sheet.getCell('A2');
+  sub.value = `${departmentName ? 'Department: ' + departmentName + '   |   ' : ''}Generated: ${generatedAt}`;
+  sub.font = { size: 9, color: { argb: 'FF6B7280' } };
+  sub.alignment = { horizontal: 'center' };
+
+  sheet.addRow([]);
+  setHeaderRow(sheet, ['Product', 'Code', 'Department', 'Current Qty', 'Unit', 'Last Rate (₹)', 'Total Value (₹)']);
+
+  for (const r of rows) {
+    const row = sheet.addRow([
+      r.product?.name || '',
+      r.product?.code || '',
+      r.department?.name || '',
+      r.quantity,
+      r.product?.unit?.symbol || '',
+      r.lastRate || 0,
+      r.totalValue || 0,
+    ]);
+    row.eachCell((cell) => {
+      cell.border = { bottom: { style: 'hair', color: { argb: 'FFE5E7EB' } } };
+    });
+    row.getCell(4).alignment = { horizontal: 'right' };
+    row.getCell(6).numFmt = '₹#,##0.00';
+    row.getCell(7).numFmt = '₹#,##0.00';
+    row.getCell(6).alignment = { horizontal: 'right' };
+    row.getCell(7).alignment = { horizontal: 'right' };
+    if (r.totalValue > 0) row.getCell(7).font = { bold: true };
+  }
+
+  // Grand total row
+  const totalRow = sheet.addRow(['GRAND TOTAL', '', '', '', '', '', grandTotal]);
+  totalRow.eachCell((cell) => {
+    cell.font = { bold: true, color: { argb: 'FFEA580C' } };
+    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFF7ED' } };
+  });
+  totalRow.getCell(7).numFmt = '₹#,##0.00';
+
+  sheet.views = [{ state: 'frozen', ySplit: 4 }];
+
+  res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+  res.setHeader('Content-Disposition', `attachment; filename="stock-valuation-${generatedAt}.xlsx"`);
+  await wb.xlsx.write(res);
+  res.end();
+}
+
+export async function generateSupplierReportExcel(res, { suppliers, grandTotal, generatedAt }) {
+  const wb = new ExcelJS.Workbook();
+  wb.creator = 'Mangal Grah Mandir';
+  wb.created = new Date();
+
+  // Summary sheet
+  const summary = wb.addWorksheet('Summary');
+  summary.columns = [
+    { key: 'supplier', width: 28 },
+    { key: 'phone',    width: 16 },
+    { key: 'count',    width: 14 },
+    { key: 'value',    width: 18 },
+  ];
+
+  summary.mergeCells('A1:D1');
+  const t = summary.getCell('A1');
+  t.value = 'Mangal Grah Mandir – Supplier Purchase Report';
+  t.font = { bold: true, size: 14, color: { argb: 'FFEA580C' } };
+  t.alignment = { horizontal: 'center' };
+  summary.getRow(1).height = 26;
+
+  summary.mergeCells('A2:D2');
+  summary.getCell('A2').value = `Generated: ${generatedAt}`;
+  summary.getCell('A2').font = { size: 9, color: { argb: 'FF6B7280' } };
+  summary.getCell('A2').alignment = { horizontal: 'center' };
+  summary.addRow([]);
+
+  setHeaderRow(summary, ['Supplier', 'Phone', 'Purchases', 'Total Value (₹)']);
+
+  for (const sup of suppliers) {
+    const row = summary.addRow([sup.supplier?.name || '', sup.supplier?.phone || '', sup.count, sup.totalValue]);
+    row.eachCell((cell) => {
+      cell.border = { bottom: { style: 'hair', color: { argb: 'FFE5E7EB' } } };
+    });
+    row.getCell(3).alignment = { horizontal: 'center' };
+    row.getCell(4).numFmt = '₹#,##0.00';
+    row.getCell(4).alignment = { horizontal: 'right' };
+  }
+
+  const totalRow = summary.addRow(['GRAND TOTAL', '', suppliers.reduce((s, sup) => s + sup.count, 0), grandTotal]);
+  totalRow.eachCell((cell) => {
+    cell.font = { bold: true, color: { argb: 'FFEA580C' } };
+    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFF7ED' } };
+  });
+  totalRow.getCell(4).numFmt = '₹#,##0.00';
+
+  // Detail sheet — all transactions
+  const detail = wb.addWorksheet('Transactions');
+  detail.columns = [
+    { key: 'supplier', width: 22 },
+    { key: 'date',     width: 14 },
+    { key: 'txnNo',    width: 20 },
+    { key: 'product',  width: 28 },
+    { key: 'code',     width: 12 },
+    { key: 'dept',     width: 18 },
+    { key: 'qty',      width: 10 },
+    { key: 'unit',     width: 8  },
+    { key: 'rate',     width: 12 },
+    { key: 'value',    width: 14 },
+    { key: 'invoice',  width: 18 },
+  ];
+
+  setHeaderRow(detail, ['Supplier', 'Date', 'TXN #', 'Product', 'Code', 'Department', 'Qty', 'Unit', 'Rate (₹)', 'Value (₹)', 'Invoice #']);
+
+  const blue100 = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFDBEAFE' } };
+
+  for (const sup of suppliers) {
+    for (const t of sup.transactions) {
+      const row = detail.addRow([
+        sup.supplier?.name || '',
+        new Date(t.transactionDate).toLocaleDateString('en-IN'),
+        t.transactionNumber || '',
+        t.product?.name || '',
+        t.product?.code || '',
+        t.toDepartment?.name || '',
+        t.quantity,
+        t.unit?.symbol || '',
+        t.rate || 0,
+        t.totalValue || 0,
+        t.invoiceNumber || '',
+      ]);
+      row.eachCell((cell) => {
+        cell.fill = blue100;
+        cell.border = { bottom: { style: 'hair', color: { argb: 'FFE5E7EB' } } };
+      });
+      row.getCell(9).numFmt = '₹#,##0.00';
+      row.getCell(10).numFmt = '₹#,##0.00';
+    }
+  }
+
+  detail.views = [{ state: 'frozen', ySplit: 1 }];
+
+  res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+  res.setHeader('Content-Disposition', `attachment; filename="supplier-report-${generatedAt}.xlsx"`);
+  await wb.xlsx.write(res);
+  res.end();
+}

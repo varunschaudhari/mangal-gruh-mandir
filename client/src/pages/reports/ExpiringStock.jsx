@@ -1,13 +1,15 @@
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { AlertTriangle, CalendarClock, Download } from 'lucide-react';
+import { useQuery, useMutation } from '@tanstack/react-query';
+import { AlertTriangle, CalendarClock, Download, FileText, MessageCircle, Copy, Check } from 'lucide-react';
 import { getExpiringBatches } from '../../api/stockBatch.api.js';
 import { getDepartments } from '../../api/department.api.js';
+import { downloadExpiringPDF, getExpiringWhatsApp } from '../../api/report.api.js';
 import PageHeader from '../../components/ui/PageHeader.jsx';
 import Badge from '../../components/ui/Badge.jsx';
 import { PageLoader } from '../../components/ui/Spinner.jsx';
 import { fDate } from '../../utils/formatters.js';
 import { exportToExcel } from '../../utils/exportToExcel.js';
+import toast from 'react-hot-toast';
 
 const DAY_OPTIONS = [7, 14, 30, 60, 90];
 
@@ -26,6 +28,9 @@ const urgencyVariant = (days) => {
 const ExpiringStock = () => {
   const [days, setDays] = useState(30);
   const [department, setDepartment] = useState('');
+  const [waText, setWaText] = useState('');
+  const [showWa, setShowWa] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   const { data, isLoading } = useQuery({
     queryKey: ['expiring-batches', days, department],
@@ -39,6 +44,26 @@ const ExpiringStock = () => {
 
   const expired = batches.filter((b) => daysUntil(b.expiryDate) <= 0);
   const expiring = batches.filter((b) => daysUntil(b.expiryDate) > 0);
+
+  const params = { days, ...(department && { department }) };
+
+  const pdfMut = useMutation({
+    mutationFn: () => downloadExpiringPDF(params),
+    onError: () => toast.error('PDF export failed'),
+  });
+
+  const waMut = useMutation({
+    mutationFn: () => getExpiringWhatsApp(params),
+    onSuccess: (res) => { setWaText(res.data.data.text); setShowWa(true); },
+    onError: () => toast.error('Failed to generate summary'),
+  });
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(waText);
+    setCopied(true);
+    toast.success('Copied to clipboard');
+    setTimeout(() => setCopied(false), 2000);
+  };
 
   const handleExport = () => {
     const rows = batches.map((b) => {
@@ -67,9 +92,17 @@ const ExpiringStock = () => {
         icon={<CalendarClock className="h-5 w-5 text-amber-500" />}
         actions={
           batches.length > 0 && (
-            <button onClick={handleExport} className="btn btn-ghost text-sm flex items-center gap-1.5">
-              <Download className="h-4 w-4" /> Export Excel
-            </button>
+            <div className="flex gap-2 flex-wrap">
+              <button onClick={() => pdfMut.mutate()} disabled={pdfMut.isPending} className="btn btn-ghost text-sm flex items-center gap-1.5 border">
+                <FileText className="h-4 w-4 text-red-500" /> {pdfMut.isPending ? 'Generating…' : 'PDF'}
+              </button>
+              <button onClick={handleExport} className="btn btn-ghost text-sm flex items-center gap-1.5 border">
+                <Download className="h-4 w-4 text-green-600" /> Excel
+              </button>
+              <button onClick={() => waMut.mutate()} disabled={waMut.isPending} className="btn btn-ghost text-sm flex items-center gap-1.5 border">
+                <MessageCircle className="h-4 w-4 text-green-500" /> {waMut.isPending ? 'Preparing…' : 'WhatsApp'}
+              </button>
+            </div>
           )
         }
       />
@@ -97,6 +130,29 @@ const ExpiringStock = () => {
           {departments.map((d) => <option key={d._id} value={d._id}>{d.name}</option>)}
         </select>
       </div>
+
+      {showWa && waText && (
+        <div className="card p-4 bg-green-50 border border-green-200">
+          <div className="flex items-center justify-between mb-2">
+            <h4 className="font-semibold text-sm text-green-800 flex items-center gap-1.5">
+              <MessageCircle className="h-4 w-4" /> WhatsApp Summary
+            </h4>
+            <div className="flex gap-2">
+              <button onClick={handleCopy} className="btn btn-ghost text-xs flex items-center gap-1 border border-green-300">
+                {copied ? <Check className="h-3 w-3 text-green-600" /> : <Copy className="h-3 w-3" />}
+                {copied ? 'Copied!' : 'Copy'}
+              </button>
+              <button onClick={() => window.open(`https://wa.me/?text=${encodeURIComponent(waText)}`, '_blank')}
+                className="btn text-xs bg-green-500 text-white hover:bg-green-600 flex items-center gap-1 px-3 py-1.5 rounded-md">
+                <MessageCircle className="h-3 w-3" /> Open WhatsApp
+              </button>
+            </div>
+          </div>
+          <pre className="text-xs text-gray-700 whitespace-pre-wrap font-sans leading-relaxed bg-white rounded p-3 border border-green-100 max-h-60 overflow-y-auto">
+            {waText}
+          </pre>
+        </div>
+      )}
 
       {isLoading ? (
         <PageLoader />

@@ -5,7 +5,7 @@ import {
   LayoutDashboard, ArrowDownToLine, ArrowUpFromLine, ArrowLeftRight,
   Trash2, Package, Warehouse, Users, Tag, Ruler, Truck, Shield,
   ChevronDown, ChevronRight, FlameKindling, History, AlertTriangle, BookOpen, CalendarClock,
-  X, Armchair, ClipboardList, Settings2, BarChart2,
+  X, Armchair, ClipboardList, Settings2, BarChart2, TrendingUp,
 } from 'lucide-react';
 import { usePermissions } from '../../hooks/usePermissions.js';
 import { getAssetCounts } from '../../api/assetTransaction.api.js';
@@ -46,6 +46,8 @@ const navConfig = [
       { label: 'Daily Movement',   to: '/reports/daily',          icon: FlameKindling,  permission: 'reports:read' },
       { label: 'Low Stock Alerts', to: '/reports/low-stock',      icon: AlertTriangle,  permission: 'reports:read' },
       { label: 'Expiring Stock',   to: '/reports/expiring-stock', icon: CalendarClock,  permission: 'reports:read' },
+      { label: 'Stock Valuation',  to: '/reports/valuation',      icon: TrendingUp,     permission: 'reports:read' },
+      { label: 'Supplier Report',  to: '/reports/suppliers',      icon: Truck,          permission: 'reports:read' },
     ],
   },
   {
