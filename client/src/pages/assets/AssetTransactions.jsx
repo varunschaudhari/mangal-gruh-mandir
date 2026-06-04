@@ -318,7 +318,14 @@ const AssetTransactions = () => {
     }),
     col.accessor('borrower.name', {
       header: 'Borrower',
-      cell: (i) => <span className="font-medium text-gray-900">{i.getValue()}</span>,
+      cell: (i) => (
+        <button
+          onClick={(e) => { e.stopPropagation(); navigate(`/assets/borrowers/${i.row.original.borrower?._id}?name=${encodeURIComponent(i.getValue() || '')}`); }}
+          className="font-medium text-gray-900 hover:text-primary-600 hover:underline text-left"
+        >
+          {i.getValue()}
+        </button>
+      ),
     }),
     col.accessor('asset.name', {
       header: 'Asset',
