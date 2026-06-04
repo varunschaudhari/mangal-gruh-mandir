@@ -12,7 +12,7 @@ const LowStockAlerts = () => {
   const [deptFilter, setDeptFilter] = useState('');
   const [search, setSearch] = useState('');
 
-  const { data: deptsRes } = useQuery({ queryKey: ['departments'], queryFn: getDepartments });
+  const { data: deptsRes } = useQuery({ queryKey: ['departments'], queryFn: () => getDepartments() });
   const departments = deptsRes?.data?.data || [];
 
   const params = { lowStock: 'true', ...(deptFilter && { department: deptFilter }) };

@@ -14,7 +14,7 @@ const CurrentStock = () => {
   const [lowStockOnly, setLowStockOnly] = useState(false);
   const [search, setSearch] = useState('');
 
-  const { data: deptsRes } = useQuery({ queryKey: ['departments'], queryFn: getDepartments });
+  const { data: deptsRes } = useQuery({ queryKey: ['departments'], queryFn: () => getDepartments() });
   const departments = deptsRes?.data?.data || [];
 
   const params = {

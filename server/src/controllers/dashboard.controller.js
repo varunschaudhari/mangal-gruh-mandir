@@ -4,6 +4,7 @@ import Supplier from '../models/Supplier.js';
 import User from '../models/User.js';
 import StockTransaction from '../models/StockTransaction.js';
 import StockBalance from '../models/StockBalance.js';
+import AssetTransaction from '../models/AssetTransaction.js';
 import asyncHandler from '../utils/asyncHandler.js';
 import ApiResponse from '../utils/ApiResponse.js';
 
@@ -106,6 +107,19 @@ export const getDashboardStats = asyncHandler(async (req, res) => {
   const today = { STOCK_IN: 0, STOCK_OUT: 0, WASTAGE: 0, TRANSFER: 0 };
   for (const row of todayAgg) today[row._id] = row.count;
 
+  // ── Asset Counts ──────────────────────────────────────────────────────────
+  const weekEnd = new Date(); weekEnd.setDate(weekEnd.getDate() + 7); weekEnd.setHours(23, 59, 59, 999);
+  const todayMidnight = new Date(); todayMidnight.setHours(0, 0, 0, 0);
+
+  const [assetCheckedOut, assetOverdue, assetDueThisWeek] = await Promise.all([
+    AssetTransaction.countDocuments({ status: { $in: ['checked_out', 'overdue'] } }),
+    AssetTransaction.countDocuments({ status: 'overdue' }),
+    AssetTransaction.countDocuments({
+      status: { $in: ['checked_out', 'approved'] },
+      expectedReturnDate: { $gte: todayMidnight, $lte: weekEnd },
+    }),
+  ]);
+
   // ── Top 5 Most Active Products (last 7 days) ────────────────────────────
   const topProducts = await StockTransaction.aggregate([
     { $match: { isVoided: false, transactionDate: { $gte: sevenDaysAgo } } },
@@ -119,6 +133,7 @@ export const getDashboardStats = asyncHandler(async (req, res) => {
 
   res.json(new ApiResponse(200, {
     counts: { productCount, deptCount, supplierCount, userCount, lowStockItems, outOfStockItems, reorderItems },
+    assetCounts: { checkedOut: assetCheckedOut, overdue: assetOverdue, dueThisWeek: assetDueThisWeek },
     today,
     recentTransactions,
     weeklyMovement,

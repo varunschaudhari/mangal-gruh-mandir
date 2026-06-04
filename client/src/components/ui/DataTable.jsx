@@ -10,7 +10,7 @@ import { useState } from 'react';
 import { ChevronUp, ChevronDown, ChevronsUpDown, ChevronLeft, ChevronRight } from 'lucide-react';
 import { PageLoader } from './Spinner.jsx';
 
-const DataTable = ({ columns, data, loading, globalFilter, onGlobalFilterChange, pageSize = 15 }) => {
+const DataTable = ({ columns, data, loading, globalFilter, onGlobalFilterChange, pageSize = 15, onRowClick }) => {
   const [sorting, setSorting] = useState([]);
   const [pagination, setPagination] = useState({ pageIndex: 0, pageSize });
 
@@ -68,7 +68,11 @@ const DataTable = ({ columns, data, loading, globalFilter, onGlobalFilterChange,
               </tr>
             ) : (
               table.getRowModel().rows.map((row) => (
-                <tr key={row.id} className="hover:bg-gray-50 transition-colors">
+                <tr
+                  key={row.id}
+                  onClick={onRowClick ? () => onRowClick(row.original) : undefined}
+                  className={`hover:bg-gray-50 transition-colors ${onRowClick ? 'cursor-pointer' : ''}`}
+                >
                   {row.getVisibleCells().map((cell) => (
                     <td key={cell.id} className="table-td">
                       {flexRender(cell.column.columnDef.cell, cell.getContext())}

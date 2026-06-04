@@ -18,7 +18,7 @@ const CategoryList = () => {
   const qc = useQueryClient();
   const [deleteTarget, setDeleteTarget] = useState(null);
 
-  const { data, isLoading } = useQuery({ queryKey: ['categories'], queryFn: getCategories });
+  const { data, isLoading } = useQuery({ queryKey: ['categories'], queryFn: () => getCategories() });
   const deleteMut = useMutation({
     mutationFn: (id) => deleteCategory(id),
     onSuccess: () => { toast.success('Category deleted'); qc.invalidateQueries({ queryKey: ['categories'] }); setDeleteTarget(null); },

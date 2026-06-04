@@ -17,7 +17,7 @@ const CategoryForm = () => {
   const { register, handleSubmit, reset, formState: { errors } } = useForm({ defaultValues: { isActive: true, sortOrder: 0 } });
 
   const { data: res, isLoading } = useQuery({ queryKey: ['category', id], queryFn: () => getCategory(id), enabled: isEdit });
-  const { data: allCats } = useQuery({ queryKey: ['categories'], queryFn: getCategories });
+  const { data: allCats } = useQuery({ queryKey: ['categories'], queryFn: () => getCategories() });
 
   useEffect(() => {
     if (res?.data?.data) {

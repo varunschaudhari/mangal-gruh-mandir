@@ -28,7 +28,7 @@ const StockIn = () => {
   const selectedProduct = watch('product');
   const hasExpiry = watch('hasExpiry');
 
-  const { data: deptsRes } = useQuery({ queryKey: ['departments'], queryFn: getDepartments });
+  const { data: deptsRes } = useQuery({ queryKey: ['departments'], queryFn: () => getDepartments() });
   const { data: suppliersRes } = useQuery({ queryKey: ['suppliers'], queryFn: () => getSuppliers({ isActive: true, limit: 100 }) });
 
   const departments = deptsRes?.data?.data || [];

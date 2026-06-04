@@ -20,7 +20,7 @@ const DepartmentList = () => {
   const qc = useQueryClient();
   const [deleteTarget, setDeleteTarget] = useState(null);
 
-  const { data, isLoading } = useQuery({ queryKey: ['departments'], queryFn: getDepartments });
+  const { data, isLoading } = useQuery({ queryKey: ['departments'], queryFn: () => getDepartments() });
 
   const deleteMut = useMutation({
     mutationFn: (id) => deleteDepartment(id),

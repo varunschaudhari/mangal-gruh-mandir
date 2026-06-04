@@ -43,10 +43,10 @@ const TransactionHistory = () => {
   const [voidTarget, setVoidTarget] = useState(null);
   const [voidReason, setVoidReason] = useState('');
 
-  const { data: deptsRes } = useQuery({ queryKey: ['departments'], queryFn: getDepartments });
+  const { data: deptsRes } = useQuery({ queryKey: ['departments'], queryFn: () => getDepartments() });
   const departments = deptsRes?.data?.data || [];
 
-  const { data: productsRes } = useQuery({ queryKey: ['products'], queryFn: getProducts });
+  const { data: productsRes } = useQuery({ queryKey: ['products'], queryFn: () => getProducts() });
   const allProducts = productsRes?.data?.data || [];
   const filteredProducts = productSearch
     ? allProducts.filter((p) =>

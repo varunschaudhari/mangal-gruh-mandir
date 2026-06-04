@@ -35,7 +35,7 @@ const StockLedger = () => {
   const [endDate, setEndDate] = useState(null);
   const [submitted, setSubmitted] = useState(false);
 
-  const { data: deptsRes } = useQuery({ queryKey: ['departments'], queryFn: getDepartments });
+  const { data: deptsRes } = useQuery({ queryKey: ['departments'], queryFn: () => getDepartments() });
   const { data: prodsRes } = useQuery({
     queryKey: ['products', 'all'],
     queryFn: () => getProducts({ limit: 500, isActive: true }),

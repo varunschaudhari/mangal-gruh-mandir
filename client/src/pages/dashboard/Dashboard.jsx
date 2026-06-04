@@ -7,7 +7,7 @@ import {
 import {
   Package, Truck, Warehouse, AlertTriangle, Users,
   ArrowDownToLine, ArrowUpFromLine, ArrowLeftRight, Trash2, TrendingUp, CalendarClock,
-  Zap,
+  Zap, ShoppingBag, CalendarDays,
 } from 'lucide-react';
 import { getDashboardStats } from '../../api/dashboard.api.js';
 import { getExpiringBatches } from '../../api/stockBatch.api.js';
@@ -94,7 +94,7 @@ const Dashboard = () => {
   if (isLoading) return <PageLoader />;
 
   const stats = data?.data?.data;
-  const { counts = {}, today = {}, recentTransactions = [], weeklyMovement = [], topProducts = [] } = stats || {};
+  const { counts = {}, assetCounts = {}, today = {}, recentTransactions = [], weeklyMovement = [], topProducts = [] } = stats || {};
   const expiringCount = expiringRes?.data?.data?.length ?? '—';
 
   return (
@@ -115,6 +115,45 @@ const Dashboard = () => {
         <StatCard label="Reorder Soon"  value={counts.reorderItems    ?? '—'} icon={AlertTriangle} color="text-yellow-600"  bg="bg-yellow-50"   border="border-l-yellow-500"  />
         <StatCard label="Expiring (30d)" value={expiringCount}               icon={CalendarClock} color="text-orange-600"  bg="bg-orange-50"   border="border-l-orange-500"  />
       </div>
+
+      {/* ── Asset Status Widget ── */}
+      {can('assets:read') && (
+        <div>
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <ShoppingBag className="h-4 w-4 text-purple-600" />
+              <h2 className="text-sm font-semibold text-gray-700">Asset Status</h2>
+            </div>
+            <Link to="/assets/borrows" className="text-xs text-primary-600 hover:underline">View all</Link>
+          </div>
+          <div className="grid grid-cols-3 gap-3">
+            <Link to="/assets/borrows?status=checked_out"
+              className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 flex items-center gap-3 hover:bg-blue-100 transition-colors">
+              <ShoppingBag className="h-5 w-5 text-blue-600 shrink-0" />
+              <div>
+                <p className="text-2xl font-bold text-blue-700">{assetCounts.checkedOut ?? '—'}</p>
+                <p className="text-xs text-blue-600 font-medium">Checked Out</p>
+              </div>
+            </Link>
+            <Link to="/assets/borrows?status=overdue"
+              className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 flex items-center gap-3 hover:bg-red-100 transition-colors">
+              <AlertTriangle className="h-5 w-5 text-red-600 shrink-0" />
+              <div>
+                <p className="text-2xl font-bold text-red-700">{assetCounts.overdue ?? '—'}</p>
+                <p className="text-xs text-red-600 font-medium">Overdue</p>
+              </div>
+            </Link>
+            <Link to="/assets/borrows"
+              className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 flex items-center gap-3 hover:bg-amber-100 transition-colors">
+              <CalendarDays className="h-5 w-5 text-amber-600 shrink-0" />
+              <div>
+                <p className="text-2xl font-bold text-amber-700">{assetCounts.dueThisWeek ?? '—'}</p>
+                <p className="text-xs text-amber-600 font-medium">Due This Week</p>
+              </div>
+            </Link>
+          </div>
+        </div>
+      )}
 
       {/* ── Quick Actions ── */}
       {can('transactions:write') && (

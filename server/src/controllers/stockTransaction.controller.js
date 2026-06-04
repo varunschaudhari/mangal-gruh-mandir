@@ -1,8 +1,12 @@
 import StockTransaction from '../models/StockTransaction.js';
 import Product from '../models/Product.js';
+import StockBalance from '../models/StockBalance.js';
+import Department from '../models/Department.js';
 import { generateTransactionNumber } from '../services/transactionNumber.service.js';
 import { updateBalancesForTransaction } from '../services/stockBalance.service.js';
 import { createBatch, consumeBatches, transferBatches, restoreBatchesForVoid } from '../services/fifo.service.js';
+import { checkAndAlert } from '../services/whatsapp.service.js';
+import { sendSmsAlerts } from '../services/sms.service.js';
 import asyncHandler from '../utils/asyncHandler.js';
 import ApiError from '../utils/ApiError.js';
 import ApiResponse from '../utils/ApiResponse.js';
@@ -86,6 +90,37 @@ export const createTransaction = asyncHandler(async (req, res) => {
   }
 
   await updateBalancesForTransaction(txn);
+
+  // Alerts — fire after outgoing transactions (non-blocking)
+  if (['STOCK_OUT', 'WASTAGE', 'TRANSFER'].includes(transactionType)) {
+    const deptId = fromDepartment;
+    Promise.all([
+      StockBalance.findOne({ product: productId, department: deptId }).lean(),
+      Product.findById(productId).populate('unit', 'symbol').lean(),
+      Department.findById(deptId).lean(),
+    ]).then(async ([balance, prod, dept]) => {
+      const alertPayload = { balance, product: prod, department: dept };
+      await Promise.allSettled([
+        checkAndAlert(alertPayload),
+        (async () => {
+          // Build SMS payload separately (reuse same alert logic)
+          const min = prod?.minStockLevel || 0;
+          const reorder = prod?.reorderPoint || 0;
+          const qty = balance?.quantity ?? 0;
+          let alertLevel = null;
+          if (qty === 0) alertLevel = 'out_of_stock';
+          else if (min > 0 && qty <= min) alertLevel = 'low_stock';
+          else if (reorder > 0 && qty <= reorder) alertLevel = 'reorder';
+          if (alertLevel) {
+            await sendSmsAlerts({
+              product: prod?.name, department: dept?.name,
+              quantity: qty, unit: prod?.unit?.symbol, alertLevel,
+            });
+          }
+        })(),
+      ]);
+    }).catch((err) => console.error('[Alert error]', err.message));
+  }
 
   const populated = await StockTransaction.findById(txn._id)
     .populate('product', 'name code')

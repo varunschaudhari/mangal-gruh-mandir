@@ -37,7 +37,7 @@ const DailyMovement = () => {
   const [copied, setCopied] = useState(false);
   const [showWhatsApp, setShowWhatsApp] = useState(false);
 
-  const { data: deptsRes } = useQuery({ queryKey: ['departments'], queryFn: getDepartments });
+  const { data: deptsRes } = useQuery({ queryKey: ['departments'], queryFn: () => getDepartments() });
   const departments = deptsRes?.data?.data || [];
 
   const dateStr = date ? date.toISOString().split('T')[0] : '';

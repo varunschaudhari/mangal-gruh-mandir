@@ -5,17 +5,20 @@ export const ROLE_PERMISSIONS = {
     'masters:read', 'masters:write', 'masters:delete',
     'transactions:read', 'transactions:create', 'transactions:void',
     'reports:read', 'reports:export',
+    'assets:read', 'assets:write', 'assets:manage',
   ],
   store_manager: [
     'users:read',
     'masters:read', 'masters:write',
     'transactions:read', 'transactions:create', 'transactions:void',
     'reports:read', 'reports:export',
+    'assets:read', 'assets:manage',
   ],
   staff: [
     'masters:read',
     'transactions:read', 'transactions:create',
     'reports:read',
+    'assets:read',
   ],
   viewer: [
     'masters:read',

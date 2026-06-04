@@ -28,7 +28,7 @@ const StockOut = () => {
   const selectedProduct = watch('product');
   const fromDept = watch('fromDepartment');
 
-  const { data: deptsRes } = useQuery({ queryKey: ['departments'], queryFn: getDepartments });
+  const { data: deptsRes } = useQuery({ queryKey: ['departments'], queryFn: () => getDepartments() });
   const departments = deptsRes?.data?.data || [];
 
   const mutation = useMutation({

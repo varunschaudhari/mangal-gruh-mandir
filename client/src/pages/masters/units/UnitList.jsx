@@ -23,7 +23,7 @@ const UnitList = () => {
   const [editTarget, setEditTarget] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
 
-  const { data, isLoading } = useQuery({ queryKey: ['units'], queryFn: getUnits });
+  const { data, isLoading } = useQuery({ queryKey: ['units'], queryFn: () => getUnits() });
   const { register, handleSubmit, reset, formState: { errors } } = useForm({ defaultValues: { type: 'count', isActive: true } });
 
   const openEdit = (unit) => { setEditTarget(unit); reset(unit); setModalOpen(true); };

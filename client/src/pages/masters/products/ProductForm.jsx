@@ -25,8 +25,8 @@ const ProductForm = () => {
     queryFn: () => getProduct(id),
     enabled: isEdit,
   });
-  const { data: categoriesRes } = useQuery({ queryKey: ['categories'], queryFn: getCategories });
-  const { data: unitsRes } = useQuery({ queryKey: ['units'], queryFn: getUnits });
+  const { data: categoriesRes } = useQuery({ queryKey: ['categories'], queryFn: () => getCategories() });
+  const { data: unitsRes } = useQuery({ queryKey: ['units'], queryFn: () => getUnits() });
 
   useEffect(() => {
     if (productRes?.data?.data) {

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { createColumnHelper } from '@tanstack/react-table';
-import { Plus, Pencil, KeyRound } from 'lucide-react';
+import { Plus, Pencil, KeyRound, MessageCircle, MessageSquare, Key } from 'lucide-react';
 import { getUsers, resetUserPassword } from '../../api/user.api.js';
 import DataTable from '../../components/ui/DataTable.jsx';
 import PageHeader from '../../components/ui/PageHeader.jsx';
@@ -24,7 +24,7 @@ const UserList = () => {
   const [resetTarget, setResetTarget] = useState(null);
   const { register, handleSubmit, reset, formState: { errors } } = useForm();
 
-  const { data, isLoading } = useQuery({ queryKey: ['users'], queryFn: getUsers });
+  const { data, isLoading } = useQuery({ queryKey: ['users'], queryFn: () => getUsers() });
   const resetMut = useMutation({
     mutationFn: ({ id, newPassword }) => resetUserPassword(id, { newPassword }),
     onSuccess: () => { toast.success('Password reset'); setResetTarget(null); reset(); },
@@ -38,7 +38,14 @@ const UserList = () => {
       header: 'Name',
       cell: (i) => (
         <div>
-          <p className="font-medium text-gray-900">{i.getValue()}</p>
+          <div className="flex items-center gap-2">
+            <p className="font-medium text-gray-900">{i.getValue()}</p>
+            {i.row.original.canApproveAssets && (
+              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-medium bg-purple-50 text-purple-700 border border-purple-200">
+                <Key className="h-3 w-3" /> Approver
+              </span>
+            )}
+          </div>
           <p className="text-xs text-gray-400">{i.row.original.email}</p>
         </div>
       ),
@@ -62,6 +69,22 @@ const UserList = () => {
       cell: (i) => <span className="text-xs text-gray-500">{fDateTime(i.getValue())}</span>,
     }),
     col.accessor('isActive', { header: 'Status', size: 80, cell: (i) => <ActiveBadge isActive={i.getValue()} /> }),
+    col.display({
+      id: 'alerts',
+      header: 'Alerts',
+      size: 110,
+      cell: ({ row }) => {
+        const wa  = row.original.whatsappAlertsEnabled;
+        const sms = row.original.smsAlertsEnabled;
+        if (!wa && !sms) return <span className="text-xs text-gray-400">None</span>;
+        return (
+          <div className="flex items-center gap-1.5">
+            {wa  && <span className="flex items-center gap-1 text-xs font-medium text-green-600 bg-green-50 px-1.5 py-0.5 rounded"><MessageCircle className="h-3 w-3" />WA</span>}
+            {sms && <span className="flex items-center gap-1 text-xs font-medium text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded"><MessageSquare className="h-3 w-3" />SMS</span>}
+          </div>
+        );
+      },
+    }),
     col.display({
       id: 'actions', header: 'Actions', size: 100,
       cell: ({ row }) => (

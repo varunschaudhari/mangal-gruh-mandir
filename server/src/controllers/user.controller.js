@@ -4,10 +4,21 @@ import ApiResponse from '../utils/ApiResponse.js';
 import asyncHandler from '../utils/asyncHandler.js';
 
 export const getUsers = asyncHandler(async (req, res) => {
-  const users = await User.find()
+  const filter = {};
+  if (req.query.active !== undefined)           filter.isActive = req.query.active === 'true';
+  if (req.query.canApproveAssets !== undefined) filter.canApproveAssets = req.query.canApproveAssets === 'true';
+
+  const users = await User.find(filter)
     .populate('departments', 'name code')
     .select('-password -refreshToken')
     .sort({ createdAt: -1 });
+  res.json(new ApiResponse(200, users));
+});
+
+export const getApprovers = asyncHandler(async (req, res) => {
+  const users = await User.find({ canApproveAssets: true, isActive: true })
+    .select('name')
+    .sort({ name: 1 });
   res.json(new ApiResponse(200, users));
 });
 
@@ -20,7 +31,7 @@ export const getUser = asyncHandler(async (req, res) => {
 });
 
 export const createUser = asyncHandler(async (req, res) => {
-  const { name, email, password, phone, role, departments } = req.body;
+  const { name, email, password, phone, role, departments, whatsappAlertsEnabled, smsAlertsEnabled, canApproveAssets } = req.body;
 
   if (req.user.role !== 'super_admin' && role === 'super_admin') {
     throw new ApiError(403, 'Cannot create super_admin user');
@@ -30,6 +41,7 @@ export const createUser = asyncHandler(async (req, res) => {
 
   const user = await User.create({
     name, email, password, phone, role, departments,
+    whatsappAlertsEnabled, smsAlertsEnabled, canApproveAssets,
     createdBy: req.user._id,
   });
 
@@ -38,7 +50,7 @@ export const createUser = asyncHandler(async (req, res) => {
 });
 
 export const updateUser = asyncHandler(async (req, res) => {
-  const { name, phone, role, departments, isActive } = req.body;
+  const { name, phone, role, departments, isActive, whatsappAlertsEnabled, smsAlertsEnabled, canApproveAssets } = req.body;
 
   const target = await User.findById(req.params.id);
   if (!target) throw new ApiError(404, 'User not found');
@@ -50,7 +62,7 @@ export const updateUser = asyncHandler(async (req, res) => {
     throw new ApiError(403, 'Cannot assign super_admin role');
   }
 
-  Object.assign(target, { name, phone, role, departments, isActive });
+  Object.assign(target, { name, phone, role, departments, isActive, whatsappAlertsEnabled, smsAlertsEnabled, canApproveAssets });
   await target.save({ validateBeforeSave: false });
 
   const populated = await User.findById(target._id).populate('departments', 'name code');

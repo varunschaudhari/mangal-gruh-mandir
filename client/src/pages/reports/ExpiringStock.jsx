@@ -32,7 +32,7 @@ const ExpiringStock = () => {
     queryFn: () => getExpiringBatches({ days, department: department || undefined }),
   });
 
-  const { data: deptsRes } = useQuery({ queryKey: ['departments'], queryFn: getDepartments });
+  const { data: deptsRes } = useQuery({ queryKey: ['departments'], queryFn: () => getDepartments() });
 
   const batches = data?.data?.data || [];
   const departments = deptsRes?.data?.data || [];

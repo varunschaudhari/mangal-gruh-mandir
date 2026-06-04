@@ -8,9 +8,12 @@
     "dev": "nodemon src/index.js",
     "start": "node src/index.js",
     "seed": "node src/seeds/index.js",
-    "seed:test": "node src/seeds/testData.seed.js"
+    "seed:test": "node src/seeds/testData.seed.js",
+    "migrate:assets": "node src/migrations/addAssetPermissions.js",
+    "seed:assets": "node src/seeds/assetTestData.seed.js"
   },
   "dependencies": {
+    "axios": "^1.17.0",
     "bcryptjs": "^3.0.3",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",

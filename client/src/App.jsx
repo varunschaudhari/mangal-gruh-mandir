@@ -29,6 +29,14 @@ import Profile from './pages/auth/Profile.jsx';
 import ChangePassword from './pages/auth/ChangePassword.jsx';
 import RoleList from './pages/admin/RoleList.jsx';
 import RoleForm from './pages/admin/RoleForm.jsx';
+import AssetList from './pages/assets/AssetList.jsx';
+import AssetForm from './pages/assets/AssetForm.jsx';
+import AssetTransactions from './pages/assets/AssetTransactions.jsx';
+import NewBorrowRequest from './pages/assets/NewBorrowRequest.jsx';
+import ReturnAsset from './pages/assets/ReturnAsset.jsx';
+import AssetTransactionDetail from './pages/assets/AssetTransactionDetail.jsx';
+import AssetReports from './pages/assets/AssetReports.jsx';
+import Settings from './pages/settings/Settings.jsx';
 
 const App = () => (
   <Routes>
@@ -77,6 +85,19 @@ const App = () => (
 
         <Route path="/masters/units" element={<UnitList />} />
 
+        {/* Assets */}
+        <Route path="/assets" element={<AssetList />} />
+        <Route path="/assets/new" element={<AssetForm />} />
+        <Route path="/assets/:id/edit" element={<AssetForm />} />
+        <Route path="/assets/borrows" element={<AssetTransactions />} />
+        <Route path="/assets/borrows/new" element={<NewBorrowRequest />} />
+        <Route path="/assets/borrows/:id/return" element={<ReturnAsset />} />
+        <Route path="/assets/borrows/:id" element={<AssetTransactionDetail />} />
+        <Route path="/assets/reports" element={<AssetReports />} />
+
+        {/* Settings */}
+        <Route path="/settings" element={<Settings />} />
+
         {/* Admin */}
         <Route path="/admin/users" element={<UserList />} />
         <Route path="/admin/users/new" element={<UserForm />} />
@@ -84,10 +105,11 @@ const App = () => (
         <Route path="/admin/roles" element={<RoleList />} />
         <Route path="/admin/roles/new" element={<RoleForm />} />
         <Route path="/admin/roles/:id/edit" element={<RoleForm />} />
+
+        {/* Catch-all inside layout — any unknown path goes to dashboard */}
+        <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Route>
     </Route>
-
-    <Route path="*" element={<Navigate to="/dashboard" replace />} />
   </Routes>
 );
 

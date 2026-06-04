@@ -11,6 +11,9 @@ const userSchema = new mongoose.Schema(
     isActive: { type: Boolean, default: true },
     lastLogin: { type: Date },
     refreshToken: { type: String, select: false },
+    whatsappAlertsEnabled: { type: Boolean, default: false },
+    smsAlertsEnabled: { type: Boolean, default: false },
+    canApproveAssets: { type: Boolean, default: false },
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   },
   { timestamps: true }
