@@ -25,6 +25,12 @@ const settingsSchema = new mongoose.Schema(
     alertOnLowStock:   { type: Boolean, default: true },
     alertOnReorder:    { type: Boolean, default: true },
 
+    // ── 80G / Tax Exemption ──────────────────────────────────────────────────
+    trustPAN:       { type: String, default: '' },
+    reg80GNumber:   { type: String, default: '' },
+    reg80GFrom:     { type: Date },
+    reg80GTo:       { type: Date },
+
     // ── Asset Settings ───────────────────────────────────────────────────────
     assetMaxBorrowDays: { type: Number, default: 7, min: 1, max: 30 },
   },

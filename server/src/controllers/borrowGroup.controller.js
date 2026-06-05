@@ -6,8 +6,7 @@ import Settings from '../models/Settings.js';
 import ApiError from '../utils/ApiError.js';
 import ApiResponse from '../utils/ApiResponse.js';
 import asyncHandler from '../utils/asyncHandler.js';
-import { generateBorrowGroupNumber } from '../services/borrowGroupNumber.service.js';
-import { generateAssetTransactionNumber } from '../services/assetTransactionNumber.service.js';
+import { generateBorrowRequestNumber } from '../services/borrowRequestNumber.service.js';
 import { recomputeGroupStatus } from '../services/borrowGroupStatus.service.js';
 import { sendAssetApprovalNotification } from '../services/assetReminder.service.js';
 
@@ -104,7 +103,7 @@ export const createGroup = asyncHandler(async (req, res) => {
   }
 
   // Create group
-  const groupNumber = await generateBorrowGroupNumber();
+  const groupNumber = await generateBorrowRequestNumber();
   const group = await BorrowGroup.create({
     groupNumber, borrower, approvedBy,
     approvedAt: new Date(), expectedReturnDate,
@@ -113,10 +112,10 @@ export const createGroup = asyncHandler(async (req, res) => {
     createdBy: req.user._id,
   });
 
-  // Create individual transactions
+  // Create individual transactions — sub-numbered as BR-YYYY-NNNN/1, /2, …
   const transactions = [];
-  for (const item of items) {
-    const txnNumber = await generateAssetTransactionNumber();
+  for (const [idx, item] of items.entries()) {
+    const txnNumber = items.length === 1 ? groupNumber : `${groupNumber}/${idx + 1}`;
     const txn = await AssetTransaction.create({
       transactionNumber: txnNumber,
       group: group._id,

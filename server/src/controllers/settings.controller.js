@@ -1,5 +1,7 @@
+import axios from 'axios';
 import Settings from '../models/Settings.js';
 import ApiResponse from '../utils/ApiResponse.js';
+import ApiError from '../utils/ApiError.js';
 import asyncHandler from '../utils/asyncHandler.js';
 
 export const getSettings = asyncHandler(async (req, res) => {
@@ -20,6 +22,7 @@ export const updateSettings = asyncHandler(async (req, res) => {
     waEnabled, waPhoneNumberId, waAccessToken, waTemplateName,
     smsEnabled, msg91AuthKey, msg91TemplateId,
     alertOnOutOfStock, alertOnLowStock, alertOnReorder,
+    trustPAN, reg80GNumber, reg80GFrom, reg80GTo,
     assetMaxBorrowDays,
   } = req.body;
 
@@ -43,8 +46,42 @@ export const updateSettings = asyncHandler(async (req, res) => {
   if (alertOnLowStock   !== undefined) settings.alertOnLowStock   = alertOnLowStock;
   if (alertOnReorder    !== undefined) settings.alertOnReorder    = alertOnReorder;
 
+  if (trustPAN     !== undefined) settings.trustPAN     = trustPAN;
+  if (reg80GNumber !== undefined) settings.reg80GNumber = reg80GNumber;
+  if (reg80GFrom   !== undefined) settings.reg80GFrom   = reg80GFrom || undefined;
+  if (reg80GTo     !== undefined) settings.reg80GTo     = reg80GTo || undefined;
+
   if (assetMaxBorrowDays !== undefined) settings.assetMaxBorrowDays = assetMaxBorrowDays;
 
   await settings.save();
   res.json(new ApiResponse(200, settings, 'Settings saved'));
+});
+
+export const testWhatsApp = asyncHandler(async (req, res) => {
+  const { phone } = req.body;
+  if (!phone) throw new ApiError(400, 'Phone number is required (with country code, e.g. 919876543210)');
+
+  const settings = await Settings.getOrCreate();
+  const phoneNumberId = settings.waPhoneNumberId || process.env.WA_PHONE_NUMBER_ID;
+  const accessToken   = settings.waAccessToken   || process.env.WA_ACCESS_TOKEN;
+
+  if (!phoneNumberId) throw new ApiError(400, 'WhatsApp Phone Number ID is not configured');
+  if (!accessToken)   throw new ApiError(400, 'WhatsApp Access Token is not configured');
+
+  try {
+    await axios.post(
+      `https://graph.facebook.com/v19.0/${phoneNumberId}/messages`,
+      {
+        messaging_product: 'whatsapp',
+        to: phone,
+        type: 'template',
+        template: { name: 'hello_world', language: { code: 'en_US' } },
+      },
+      { headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' } }
+    );
+    res.json(new ApiResponse(200, null, `Test message sent to ${phone}. Check WhatsApp!`));
+  } catch (err) {
+    const metaError = err.response?.data?.error;
+    throw new ApiError(400, metaError?.message || 'Failed to send WhatsApp message');
+  }
 });

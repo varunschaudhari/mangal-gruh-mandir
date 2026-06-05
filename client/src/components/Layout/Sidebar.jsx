@@ -5,7 +5,7 @@ import {
   LayoutDashboard, ArrowDownToLine, ArrowUpFromLine, ArrowLeftRight,
   Trash2, Package, Warehouse, Users, Tag, Ruler, Truck, Shield,
   ChevronDown, ChevronRight, FlameKindling, History, AlertTriangle, BookOpen, CalendarClock,
-  X, Armchair, ClipboardList, Settings2, BarChart2, TrendingUp,
+  X, Armchair, ClipboardList, Settings2, BarChart2, TrendingUp, Heart,
 } from 'lucide-react';
 import { usePermissions } from '../../hooks/usePermissions.js';
 import { getAssetCounts } from '../../api/assetTransaction.api.js';
@@ -71,6 +71,16 @@ const navConfig = [
       { label: 'Borrow Requests',  to: '/assets/borrows',  icon: ClipboardList,  permission: 'assets:read' },
       { label: 'Upcoming Returns', to: '/assets/upcoming', icon: CalendarClock,  permission: 'assets:read' },
       { label: 'Reports',          to: '/assets/reports',  icon: BarChart2,      permission: 'assets:read' },
+    ],
+  },
+  {
+    label: 'Donations',
+    icon: Heart,
+    permission: 'donations:read',
+    children: [
+      { label: 'History',   to: '/donations',      icon: History, permission: 'donations:read' },
+      { label: 'New Entry', to: '/donations/new',   icon: Heart,   permission: 'donations:write' },
+      { label: 'Occasions', to: '/admin/donation-occasions', icon: Tag, permission: 'masters:write' },
     ],
   },
   {

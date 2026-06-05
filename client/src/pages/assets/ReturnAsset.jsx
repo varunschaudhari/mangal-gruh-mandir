@@ -20,7 +20,7 @@ const Field = ({ label, required, error, hint, children }) => (
 );
 
 const ReturnAsset = () => {
-  const { id } = useParams();
+  const { txnId: id } = useParams();
   const navigate = useNavigate();
   const qc = useQueryClient();
   const [suggestedFine, setSuggestedFine] = useState(0);

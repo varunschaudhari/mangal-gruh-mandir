@@ -245,7 +245,7 @@ const StockIn = () => {
 
                 {item.hasExpiry && (
                   <FormRow cols={2}>
-                    <DatePickerField name={`items.${index}.expiryDate`} control={control} label="Expiry Date" required />
+                    <DatePickerField name={`items.${index}.expiryDate`} control={control} label="Expiry Date" required allowFuture />
                     <DatePickerField name={`items.${index}.manufacturingDate`} control={control} label="Manufacturing Date" />
                   </FormRow>
                 )}

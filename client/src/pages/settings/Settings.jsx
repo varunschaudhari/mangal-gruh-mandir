@@ -3,9 +3,9 @@ import { useForm } from 'react-hook-form';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Building2, MessageCircle, MessageSquare, Bell,
-  Armchair, Save, Eye, EyeOff, CheckCircle2,
+  Armchair, Save, Eye, EyeOff, CheckCircle2, Send, FileCheck2,
 } from 'lucide-react';
-import { getSettings, updateSettings } from '../../api/settings.api.js';
+import { getSettings, updateSettings, testWhatsApp } from '../../api/settings.api.js';
 import PageHeader from '../../components/ui/PageHeader.jsx';
 import { PageLoader } from '../../components/ui/Spinner.jsx';
 import toast from 'react-hot-toast';
@@ -47,7 +47,7 @@ const Toggle = ({ label, description, checked, onChange }) => (
   </label>
 );
 
-const SecretInput = ({ register: reg, name, placeholder, hint }) => {
+const SecretInput = ({ reg, name, placeholder, hint }) => {
   const [show, setShow] = useState(false);
   return (
     <div>
@@ -71,6 +71,9 @@ const SecretInput = ({ register: reg, name, placeholder, hint }) => {
 const Settings = () => {
   const qc = useQueryClient();
   const { register, handleSubmit, reset, watch, setValue, formState: { isDirty } } = useForm();
+  const [testPhone,   setTestPhone]   = useState('');
+  const [testLoading, setTestLoading] = useState(false);
+  const [testResult,  setTestResult]  = useState(null); // { ok, msg }
 
   const waEnabled  = watch('waEnabled');
   const smsEnabled = watch('smsEnabled');
@@ -155,6 +158,48 @@ const Settings = () => {
                 <p>3. Generate a permanent System User token (never expires)</p>
                 <p>4. Enable WhatsApp on individual users in User Management</p>
               </div>
+
+              {/* ── Test WhatsApp ── */}
+              <div className="rounded-lg border border-green-200 bg-white p-4">
+                <p className="text-sm font-semibold text-gray-700 mb-1">Test Connection</p>
+                <p className="text-xs text-gray-400 mb-3">
+                  Sends a <span className="font-mono">hello_world</span> template to verify your credentials.
+                  The recipient must be in your Meta test phone list.
+                </p>
+                <div className="flex gap-2">
+                  <input
+                    type="tel"
+                    value={testPhone}
+                    onChange={(e) => { setTestPhone(e.target.value); setTestResult(null); }}
+                    placeholder="919876543210  (no + or spaces)"
+                    className="input flex-1 text-sm font-mono"
+                  />
+                  <button
+                    type="button"
+                    disabled={testLoading || !testPhone}
+                    onClick={async () => {
+                      setTestLoading(true); setTestResult(null);
+                      try {
+                        await testWhatsApp(testPhone);
+                        setTestResult({ ok: true, msg: 'Message sent! Check WhatsApp on ' + testPhone });
+                      } catch (err) {
+                        setTestResult({ ok: false, msg: err.response?.data?.message || 'Failed to send' });
+                      } finally {
+                        setTestLoading(false);
+                      }
+                    }}
+                    className="btn-primary flex items-center gap-2 shrink-0 disabled:opacity-50"
+                  >
+                    <Send className="h-4 w-4" />
+                    {testLoading ? 'Sending…' : 'Send Test'}
+                  </button>
+                </div>
+                {testResult && (
+                  <div className={`mt-2 text-xs rounded-lg px-3 py-2 ${testResult.ok ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>
+                    {testResult.ok ? '✓ ' : '✗ '}{testResult.msg}
+                  </div>
+                )}
+              </div>
             </div>
           )}
         </Section>
@@ -212,6 +257,29 @@ const Settings = () => {
               />
             </div>
           </div>
+        </Section>
+
+        {/* ── 80G / Tax Exemption ── */}
+        <Section icon={FileCheck2} title="80G Tax Exemption" subtitle="Section 80G registration details — printed on 80G donation receipts" color="text-emerald-600" bg="bg-emerald-50">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Field label="Trust PAN" hint="PAN of the registered trust / temple">
+              <input {...register('trustPAN')} className="input uppercase font-mono" placeholder="AAAAB1234C" />
+            </Field>
+            <Field label="80G Registration No." hint="e.g. 80G/2023/0012345">
+              <input {...register('reg80GNumber')} className="input font-mono text-sm" placeholder="80G/YYYY/XXXXXXX" />
+            </Field>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Field label="Valid From" hint="Registration validity start date">
+              <input {...register('reg80GFrom')} type="date" className="input" />
+            </Field>
+            <Field label="Valid To" hint="Registration validity end date">
+              <input {...register('reg80GTo')} type="date" className="input" />
+            </Field>
+          </div>
+          <p className="text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg p-3">
+            These details appear on the 80G tax exemption receipt. To issue 80G receipts, mark donations as "80G Eligible" when recording them and ensure the donor's PAN is captured.
+          </p>
         </Section>
 
         {/* ── Asset Settings ── */}

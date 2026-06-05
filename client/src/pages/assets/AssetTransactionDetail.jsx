@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   ShoppingBag, RotateCcw, CalendarPlus, Shield, Clock,
   AlertTriangle, IndianRupee, Bell, ArrowLeft, XCircle,
-  CheckCircle2, Hash, Package, User, Pencil, Printer,
+  CheckCircle2, Hash, Package, User, Pencil, Printer, Layers,
 } from 'lucide-react';
 import { getAssetTransaction, checkoutAsset, extendBorrow, cancelBorrow, sendManualReminder } from '../../api/assetTransaction.api.js';
 import { getApprovers } from '../../api/user.api.js';
@@ -311,6 +311,8 @@ const AssetTransactionDetail = () => {
   const txn = data?.data?.data;
   if (!txn) return <div className="p-6 text-gray-400">Transaction not found.</div>;
 
+  const group = txn.group;
+
   const {
     status, asset, borrower, quantityBorrowed, transactionNumber,
     expectedReturnDate, actualReturnDate, cancellationReason,
@@ -376,6 +378,21 @@ const AssetTransactionDetail = () => {
         className="inline-flex items-center gap-1.5 text-sm text-gray-400 hover:text-gray-700 transition-colors mb-1">
         <ArrowLeft className="h-4 w-4" /> Borrow Requests
       </button>
+
+      {/* ── Group banner ── */}
+      {group && (
+        <button
+          onClick={() => navigate(`/assets/borrows/groups/${group._id}`)}
+          className="w-full flex items-center gap-3 rounded-xl border border-purple-200 bg-purple-50 px-4 py-3 text-left hover:bg-purple-100 transition-colors"
+        >
+          <Layers className="h-4 w-4 text-purple-500 shrink-0" />
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold text-purple-800">Part of a multi-item borrow group</p>
+            <p className="text-xs text-purple-500">{group.groupNumber} — click to view all items in this group</p>
+          </div>
+          <span className="text-xs text-purple-400 shrink-0">View Group →</span>
+        </button>
+      )}
 
       {/* ── Page header ── */}
       <div className="flex items-start justify-between gap-4">

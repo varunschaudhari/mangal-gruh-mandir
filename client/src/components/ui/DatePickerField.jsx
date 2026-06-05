@@ -3,7 +3,7 @@ import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import { FormField } from './FormField.jsx';
 
-const DatePickerField = ({ name, control, label, required, error, maxDate, minDate }) => (
+const DatePickerField = ({ name, control, label, required, error, maxDate, minDate, allowFuture = false }) => (
   <FormField label={label} required={required} error={error}>
     <Controller
       name={name}
@@ -14,7 +14,7 @@ const DatePickerField = ({ name, control, label, required, error, maxDate, minDa
           selected={field.value ? new Date(field.value) : null}
           onChange={(date) => field.onChange(date)}
           dateFormat="dd/MM/yyyy"
-          maxDate={maxDate ?? new Date()}
+          maxDate={allowFuture ? undefined : (maxDate ?? new Date())}
           minDate={minDate}
           placeholderText="DD/MM/YYYY"
           className="input w-full"

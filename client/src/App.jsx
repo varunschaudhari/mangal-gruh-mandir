@@ -34,12 +34,16 @@ import AssetForm from './pages/assets/AssetForm.jsx';
 import AssetTransactions from './pages/assets/AssetTransactions.jsx';
 import NewBorrowRequest from './pages/assets/NewBorrowRequest.jsx';
 import ReturnAsset from './pages/assets/ReturnAsset.jsx';
-import AssetTransactionDetail from './pages/assets/AssetTransactionDetail.jsx';
+import BorrowDetail from './pages/assets/BorrowDetail.jsx';
 import AssetReports from './pages/assets/AssetReports.jsx';
 import StockValuation from './pages/reports/StockValuation.jsx';
 import SupplierReport from './pages/reports/SupplierReport.jsx';
 import AssetHistory from './pages/assets/AssetHistory.jsx';
-import BorrowGroupDetail from './pages/assets/BorrowGroupDetail.jsx';
+import DonationList from './pages/donations/DonationList.jsx';
+import NewDonation from './pages/donations/NewDonation.jsx';
+import DonationDetail from './pages/donations/DonationDetail.jsx';
+import DonorDetail from './pages/donations/DonorDetail.jsx';
+import DonationOccasionList from './pages/donations/DonationOccasionList.jsx';
 import BorrowerHistory from './pages/assets/BorrowerHistory.jsx';
 import UpcomingReturns from './pages/assets/UpcomingReturns.jsx';
 import Settings from './pages/settings/Settings.jsx';
@@ -99,13 +103,19 @@ const App = () => (
         <Route path="/assets/:id/edit" element={<AssetForm />} />
         <Route path="/assets/borrows" element={<AssetTransactions />} />
         <Route path="/assets/borrows/new" element={<NewBorrowRequest />} />
-        <Route path="/assets/borrows/:id/return" element={<ReturnAsset />} />
-        <Route path="/assets/borrows/:id" element={<AssetTransactionDetail />} />
+        <Route path="/assets/borrows/:txnId/return" element={<ReturnAsset />} />
+        <Route path="/assets/borrows/groups/:groupId" element={<BorrowDetail />} />
+        <Route path="/assets/borrows/:txnId" element={<BorrowDetail />} />
         <Route path="/assets/reports" element={<AssetReports />} />
         <Route path="/assets/upcoming" element={<UpcomingReturns />} />
-        <Route path="/assets/borrows/groups/:id" element={<BorrowGroupDetail />} />
         <Route path="/assets/:id/history" element={<AssetHistory />} />
         <Route path="/assets/borrowers/:userId" element={<BorrowerHistory />} />
+
+        {/* Donations */}
+        <Route path="/donations"                  element={<DonationList />} />
+        <Route path="/donations/new"              element={<NewDonation />} />
+        <Route path="/donations/donors/:id"       element={<DonorDetail />} />
+        <Route path="/donations/:id"              element={<DonationDetail />} />
 
         {/* Settings */}
         <Route path="/settings" element={<Settings />} />
@@ -114,6 +124,7 @@ const App = () => (
         <Route path="/admin/users" element={<UserList />} />
         <Route path="/admin/users/new" element={<UserForm />} />
         <Route path="/admin/users/:id/edit" element={<UserForm />} />
+        <Route path="/admin/donation-occasions" element={<DonationOccasionList />} />
         <Route path="/admin/roles" element={<RoleList />} />
         <Route path="/admin/roles/new" element={<RoleForm />} />
         <Route path="/admin/roles/:id/edit" element={<RoleForm />} />

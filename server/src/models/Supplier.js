@@ -9,8 +9,9 @@ const supplierSchema = new mongoose.Schema(
     email: { type: String, default: '', lowercase: true, trim: true },
     address: { type: String, default: '' },
     city: { type: String, default: '' },
-    gstin: { type: String, default: '' },
-    notes: { type: String, default: '' },
+    gstin:     { type: String, default: '' },
+    panNumber: { type: String, default: '' },
+    notes:     { type: String, default: '' },
     isActive: { type: Boolean, default: true },
   },
   { timestamps: true }

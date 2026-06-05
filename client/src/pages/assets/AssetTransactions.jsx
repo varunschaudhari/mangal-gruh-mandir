@@ -315,16 +315,18 @@ const AssetTransactions = () => {
     col.accessor('transactionNumber', {
       header: 'Ref No.', size: 175,
       cell: (i) => {
-        const grp = i.row.original.group;
+        const row = i.row.original;
+        const grp = row.group;
+        const isSubItem = i.getValue()?.includes('/');
         return (
           <div>
             <span className="font-mono text-xs font-bold text-primary-600">{i.getValue() || '—'}</span>
-            {grp && (
+            {grp && isSubItem && (
               <button
                 onClick={(e) => { e.stopPropagation(); navigate(`/assets/borrows/groups/${grp._id}`); }}
                 className="mt-0.5 flex items-center gap-1 text-xs text-purple-600 hover:underline"
               >
-                <Layers className="h-3 w-3" /> {grp.groupNumber}
+                <Layers className="h-3 w-3" /> View group
               </button>
             )}
           </div>
@@ -333,20 +335,29 @@ const AssetTransactions = () => {
     }),
     col.accessor('borrower.name', {
       header: 'Borrower',
-      cell: (i) => (
-        <button
-          onClick={(e) => { e.stopPropagation(); navigate(`/assets/borrowers/${i.row.original.borrower?._id}?name=${encodeURIComponent(i.getValue() || '')}`); }}
-          className="font-medium text-gray-900 hover:text-primary-600 hover:underline text-left"
-        >
-          {i.getValue()}
-        </button>
-      ),
+      cell: (i) => {
+        const row = i.row.original;
+        const grp = row.group;
+        const isSubItem = row.transactionNumber?.includes('/');
+        return (
+          <div>
+            <button
+              onClick={(e) => { e.stopPropagation(); navigate(`/assets/borrowers/${row.borrower?._id}?name=${encodeURIComponent(i.getValue() || '')}`); }}
+              className="font-medium text-gray-900 hover:text-primary-600 hover:underline text-left"
+            >
+              {i.getValue()}
+            </button>
+            {grp && isSubItem && (
+              <p className="text-xs text-purple-600 font-mono mt-0.5">{grp.groupNumber} · multi-item</p>
+            )}
+          </div>
+        );
+      },
     }),
     col.accessor('asset.name', {
       header: 'Asset',
       cell: (i) => <span className="text-gray-700">{i.getValue()}</span>,
     }),
-    col.accessor('quantityBorrowed', { header: 'Qty', size: 50, cell: (i) => <span className="font-semibold text-gray-700">{i.getValue()}</span> }),
     col.accessor('expectedReturnDate', {
       header: 'Return By', size: 115,
       cell: (i) => {
@@ -442,7 +453,7 @@ const AssetTransactions = () => {
         columns={columns}
         data={txns}
         loading={isLoading}
-        onRowClick={(row) => navigate(`/assets/borrows/${row._id}`)}
+        onRowClick={(row) => row.group ? navigate(`/assets/borrows/groups/${row.group._id}`) : navigate(`/assets/borrows/${row._id}`)}
       />
 
       {pages > 1 && (

@@ -7,7 +7,7 @@ import ApiResponse from '../utils/ApiResponse.js';
 import asyncHandler from '../utils/asyncHandler.js';
 import { sendAssetApprovalNotification, sendManualAssetReminder, processAssetReminders } from '../services/assetReminder.service.js';
 import { recomputeGroupStatus } from '../services/borrowGroupStatus.service.js';
-import { generateAssetTransactionNumber } from '../services/assetTransactionNumber.service.js';
+import { generateBorrowRequestNumber } from '../services/borrowRequestNumber.service.js';
 
 const POPULATE = [
   { path: 'asset',      select: 'name category finePerDay totalQuantity' },
@@ -82,7 +82,7 @@ export const createBorrowRequest = asyncHandler(async (req, res) => {
   const available = assetDoc.totalQuantity - (borrowed[0]?.total || 0);
   if (quantityBorrowed > available) throw new ApiError(400, `Only ${available} unit(s) available for the requested period`);
 
-  const transactionNumber = await generateAssetTransactionNumber();
+  const transactionNumber = await generateBorrowRequestNumber();
 
   const txn = await AssetTransaction.create({
     transactionNumber,

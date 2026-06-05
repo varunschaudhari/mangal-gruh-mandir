@@ -76,6 +76,9 @@ const SupplierForm = () => {
             <FormField label="GSTIN" hint="Optional">
               <input {...register('gstin')} className="input" placeholder="GST number" />
             </FormField>
+            <FormField label="PAN Number" hint="Required for 80G donation receipts">
+              <input {...register('panNumber')} className="input uppercase" placeholder="ABCDE1234F" />
+            </FormField>
             <FormField label=" ">
               <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer mt-2">
                 <input type="checkbox" {...register('isActive')} className="h-4 w-4 rounded" /> Active
