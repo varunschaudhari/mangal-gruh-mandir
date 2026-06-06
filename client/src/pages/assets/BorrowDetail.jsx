@@ -42,7 +42,8 @@ const fmtTime = (d) => d ? new Date(d).toLocaleString('en-IN', { day: '2-digit',
 
 // ── Print Slip (single item only) ─────────────────────────────────────────────
 function printHandoverSlip(txn) {
-  const { transactionNumber, asset, borrower, quantityBorrowed, expectedReturnDate, checkedOutAt, conditionAtCheckout, approvedBy, createdBy, notes } = txn;
+  const { transactionNumber, asset, borrower, externalBorrower, borrowerType, quantityBorrowed, expectedReturnDate, checkedOutAt, conditionAtCheckout, approvedBy, createdBy, notes } = txn;
+  const borrowerName = borrowerType === 'external' ? (externalBorrower?.name || '—') : (borrower?.name || '—');
   const p = (d) => d ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
   const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"/><title>Handover Slip</title>
   <style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:Arial,sans-serif;font-size:12px;padding:28px;max-width:580px;margin:0 auto}
@@ -59,7 +60,7 @@ function printHandoverSlip(txn) {
   <div class="row"><span class="lbl">Category</span><span class="val">${asset?.category||'—'}</span></div>
   <div class="row"><span class="lbl">Quantity</span><span class="val">${quantityBorrowed}</span></div></div>
   <div class="section"><div class="section-title">Borrower Details</div>
-  <div class="row"><span class="lbl">Borrower</span><span class="val">${borrower?.name||'—'}</span></div>
+  <div class="row"><span class="lbl">Borrower</span><span class="val">${borrowerName}</span></div>
   <div class="row"><span class="lbl">Expected Return</span><span class="val">${p(expectedReturnDate)}</span></div>
   <div class="row"><span class="lbl">Approved By</span><span class="val">${approvedBy?.name||'—'}</span></div>
   ${checkedOutAt?`<div class="row"><span class="lbl">Date of Collection</span><span class="val">${p(checkedOutAt)}</span></div>`:''}
@@ -68,7 +69,7 @@ function printHandoverSlip(txn) {
   <div class="section"><div class="section-title">Terms</div>
   <div style="font-size:11px;color:#555;line-height:1.6">• The borrower is responsible for safe custody until returned.<br/>
   • Any damage must be reported immediately.<br/>• Asset must be returned by <strong>${p(expectedReturnDate)}</strong>.${asset?.finePerDay>0?` Fine of ₹${asset.finePerDay}/day applies.`:''}</div></div>
-  <div class="sig-area"><div class="sig-box"><div class="sig-line"></div><div class="sig-name">${borrower?.name||'Borrower'}</div><div style="font-size:10px;color:#777">Borrower Signature</div></div>
+  <div class="sig-area"><div class="sig-box"><div class="sig-line"></div><div class="sig-name">${borrowerName}</div><div style="font-size:10px;color:#777">Borrower Signature</div></div>
   <div class="sig-box"><div class="sig-line"></div><div class="sig-name">${createdBy?.name||'Help Desk'}</div><div style="font-size:10px;color:#777">Issued By</div></div></div>
   <div class="footer">Printed on ${p(new Date())} · Mangal Grah Mandir Asset Management</div>
   <script>window.onload=()=>{window.print()}<\/script></body></html>`;
@@ -365,7 +366,9 @@ const BorrowDetail = () => {
     group = singleTxn ? {
       _id: singleTxn._id,
       groupNumber: singleTxn.transactionNumber,
+      borrowerType: singleTxn.borrowerType,
       borrower: singleTxn.borrower,
+      externalBorrower: singleTxn.externalBorrower,
       approvedBy: singleTxn.approvedBy,
       approvedAt: singleTxn.approvedAt,
       expectedReturnDate: singleTxn.expectedReturnDate,
@@ -382,7 +385,9 @@ const BorrowDetail = () => {
 
   if (!group) return <div className="p-6 text-gray-400">Not found.</div>;
 
-  const { status, borrower, approvedBy, expectedReturnDate, extensions = [], remindersSent = [], notes, cancellationReason } = group;
+  const { status, borrowerType, borrower, externalBorrower, approvedBy, expectedReturnDate, extensions = [], remindersSent = [], notes, cancellationReason } = group;
+  const isExternal   = borrowerType === 'external';
+  const borrowerName = isExternal ? externalBorrower?.name : borrower?.name;
   const isSingle     = transactions.length === 1;
   const isActive     = !['returned', 'cancelled'].includes(status);
   const hasApproved  = transactions.some((t) => t.status === 'approved');
@@ -415,7 +420,12 @@ const BorrowDetail = () => {
               </span>
             )}
           </div>
-          <h1 className="text-2xl font-bold text-gray-900">{borrower?.name}</h1>
+          <div className="flex items-center gap-2">
+            <h1 className="text-2xl font-bold text-gray-900">{borrowerName}</h1>
+            {isExternal && (
+              <span className="text-xs font-semibold bg-amber-100 text-amber-700 border border-amber-200 rounded-full px-2 py-0.5">External</span>
+            )}
+          </div>
           <p className="text-sm text-gray-500 mt-0.5">
             Approved by {approvedBy?.name || '—'} · Due {fmt(expectedReturnDate)}
             {notes && <> · <span className="italic">"{notes}"</span></>}

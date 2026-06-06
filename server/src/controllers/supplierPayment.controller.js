@@ -5,8 +5,10 @@ import Settings from '../models/Settings.js';
 import ApiError from '../utils/ApiError.js';
 import ApiResponse from '../utils/ApiResponse.js';
 import asyncHandler from '../utils/asyncHandler.js';
+import mongoose from 'mongoose';
 import { generatePaymentNumber } from '../services/paymentNumber.service.js';
 import { notifyPaymentSubmitted, notifyPaymentStatusChange } from '../services/paymentNotification.service.js';
+import { logAction } from '../services/audit.service.js';
 
 const POPULATE = [
   { path: 'supplier',   select: 'name address city gstin phone bankAccounts creditDays' },
@@ -140,6 +142,115 @@ export const getSupplierLedger = asyncHandler(async (req, res) => {
 
 const PM_LABEL = { cash: 'Cash', upi: 'UPI', neft: 'NEFT', rtgs: 'RTGS', cheque: 'Cheque' };
 
+// GET /supplier-payments/invoice-register
+export const getInvoiceRegister = asyncHandler(async (req, res) => {
+  const { supplierId, from, to, status, search, page = 1, limit = 50 } = req.query;
+
+  const match = {
+    transactionType: 'STOCK_IN',
+    stockInType:     'PURCHASE',
+    isVoided:        false,
+  };
+
+  if (supplierId) match.supplier = new mongoose.Types.ObjectId(supplierId);
+  if (from || to) {
+    match.invoiceDate = {};
+    if (from) match.invoiceDate.$gte = new Date(from);
+    if (to)   { const d = new Date(to); d.setHours(23, 59, 59, 999); match.invoiceDate.$lte = d; }
+  }
+  if (search) match.invoiceNumber = { $regex: search.trim(), $options: 'i' };
+
+  // Aggregate: group by invoiceNumber + supplier
+  const agg = await StockTransaction.aggregate([
+    { $match: match },
+    { $lookup: { from: 'products',   localField: 'product',  foreignField: '_id', as: 'productDoc' } },
+    { $lookup: { from: 'suppliers',  localField: 'supplier', foreignField: '_id', as: 'supplierDoc' } },
+    { $lookup: { from: 'units',      localField: 'unit',     foreignField: '_id', as: 'unitDoc' } },
+    {
+      $group: {
+        _id:          { invoiceNumber: '$invoiceNumber', supplier: '$supplier' },
+        invoiceNumber: { $first: '$invoiceNumber' },
+        invoiceDate:   { $first: '$invoiceDate' },
+        transactionDate: { $first: '$transactionDate' },
+        dueDate:       { $first: '$dueDate' },
+        supplierId:    { $first: '$supplier' },
+        supplierName:  { $first: { $arrayElemAt: ['$supplierDoc.name', 0] } },
+        totalValue:    { $sum: '$totalValue' },
+        itemCount:     { $sum: 1 },
+        items: {
+          $push: {
+            _id:             '$_id',
+            transactionNumber: '$transactionNumber',
+            product:         { $arrayElemAt: ['$productDoc.name', 0] },
+            productCode:     { $arrayElemAt: ['$productDoc.code', 0] },
+            quantity:        '$quantity',
+            unit:            { $arrayElemAt: ['$unitDoc.symbol', 0] },
+            rate:            '$rate',
+            totalValue:      '$totalValue',
+            batchRef:        '$batchRef',
+            expiryDate:      '$expiryDate',
+          },
+        },
+      },
+    },
+    { $sort: { invoiceDate: -1, transactionDate: -1 } },
+  ]);
+
+  // Fetch all approved payments to build paid map per (invoiceNumber, supplier)
+  const supplierIds = [...new Set(agg.map((g) => g.supplierId?.toString()).filter(Boolean))];
+  const payments = await SupplierPayment.find({
+    supplier: { $in: supplierIds },
+    status:   'approved',
+  }).select('supplier invoices paymentNumber paymentDate').lean();
+
+  // paidMap keyed by `${supplierId}__${invoiceNumber}`
+  const paidMap = {};
+  const paymentRefMap = {};
+  for (const p of payments) {
+    for (const inv of p.invoices) {
+      const key = `${p.supplier}__${inv.invoiceNumber || '__advance__'}`;
+      paidMap[key]       = (paidMap[key] || 0) + (inv.paidAmount || 0);
+      if (!paymentRefMap[key]) paymentRefMap[key] = [];
+      paymentRefMap[key].push({ paymentNumber: p.paymentNumber, paymentDate: p.paymentDate, paidAmount: inv.paidAmount });
+    }
+  }
+
+  let result = agg.map((g) => {
+    const key       = `${g.supplierId}__${g.invoiceNumber || '__advance__'}`;
+    const paidSoFar = paidMap[key] || 0;
+    const remaining = Math.max(0, g.totalValue - paidSoFar);
+    const isOverdue = g.dueDate && new Date(g.dueDate) < new Date() && remaining > 0;
+    const payStatus = paidSoFar === 0 ? 'unpaid' : paidSoFar >= g.totalValue ? 'paid' : 'partial';
+    return {
+      invoiceNumber:   g.invoiceNumber,
+      invoiceDate:     g.invoiceDate || g.transactionDate,
+      dueDate:         g.dueDate,
+      supplierId:      g.supplierId,
+      supplierName:    g.supplierName,
+      totalValue:      g.totalValue,
+      paidSoFar,
+      remaining,
+      itemCount:       g.itemCount,
+      paymentStatus:   payStatus,
+      isOverdue,
+      payments:        paymentRefMap[key] || [],
+      items:           g.items,
+    };
+  });
+
+  // Filter by status after enrichment
+  if (status) result = result.filter((r) => r.paymentStatus === status);
+
+  const total      = result.length;
+  const skip       = (Number(page) - 1) * Number(limit);
+  const paginated  = result.slice(skip, skip + Number(limit));
+
+  res.json(new ApiResponse(200, {
+    invoices: paginated,
+    pagination: { total, page: Number(page), limit: Number(limit), totalPages: Math.ceil(total / Number(limit)) },
+  }));
+});
+
 // GET /supplier-payments
 export const getPayments = asyncHandler(async (req, res) => {
   const filter = {};
@@ -244,10 +355,11 @@ export const createPayment = asyncHandler(async (req, res) => {
   });
 
   const populated = await SupplierPayment.findById(payment._id).populate(POPULATE);
-  notifyPaymentSubmitted({
-    payment,
-    supplierName:  supplierDoc.name,
-    submitterName: req.user.name,
+  notifyPaymentSubmitted({ payment, supplierName: supplierDoc.name, submitterName: req.user.name });
+  logAction(req, {
+    action: 'payment.create', entity: 'SupplierPayment',
+    entityId: payment.paymentNumber, entityRef: payment._id,
+    meta: { supplier: supplierDoc.name, amount: payment.totalAmount, mode: payment.paymentMode },
   });
   res.status(201).json(new ApiResponse(201, populated, 'Payment submitted for approval'));
 });
@@ -268,6 +380,12 @@ export const approvePayment = asyncHandler(async (req, res) => {
   await payment.save();
   const populated = await SupplierPayment.findById(payment._id).populate(POPULATE);
   notifyPaymentStatusChange({ payment, approverName: req.user.name });
+  logAction(req, {
+    action: 'payment.approve', entity: 'SupplierPayment',
+    entityId: payment.paymentNumber, entityRef: payment._id,
+    before: { status: 'pending_approval' }, after: { status: 'approved' },
+    meta: { approvalNote: approvalNote?.trim() || undefined },
+  });
   res.json(new ApiResponse(200, populated, 'Payment approved'));
 });
 
@@ -296,7 +414,10 @@ export const bulkApprovePayments = asyncHandler(async (req, res) => {
     payment.status = 'approved';
     notifyPaymentStatusChange({ payment, approverName: req.user.name });
   }
-
+  logAction(req, {
+    action: 'payment.bulk_approve', entity: 'SupplierPayment',
+    meta: { count: payments.length, ids: payments.map((p) => p.paymentNumber), approvalNote: note },
+  });
   res.json(new ApiResponse(200, { approved: payments.length }, `${payments.length} payment(s) approved`));
 });
 
@@ -317,6 +438,12 @@ export const rejectPayment = asyncHandler(async (req, res) => {
   await payment.save();
   const populated = await SupplierPayment.findById(payment._id).populate(POPULATE);
   notifyPaymentStatusChange({ payment, approverName: req.user.name });
+  logAction(req, {
+    action: 'payment.reject', entity: 'SupplierPayment',
+    entityId: payment.paymentNumber, entityRef: payment._id,
+    before: { status: 'pending_approval' }, after: { status: 'rejected' },
+    meta: { rejectionReason },
+  });
   res.json(new ApiResponse(200, populated, 'Payment rejected'));
 });
 
@@ -354,6 +481,12 @@ export const voidPayment = asyncHandler(async (req, res) => {
   payment.voidReason = voidReason.trim();
   await payment.save();
   const populated = await SupplierPayment.findById(payment._id).populate(POPULATE);
+  logAction(req, {
+    action: 'payment.void', entity: 'SupplierPayment',
+    entityId: payment.paymentNumber, entityRef: payment._id,
+    before: { status: 'approved' }, after: { status: 'voided' },
+    meta: { voidReason, amount: payment.totalAmount },
+  });
   res.json(new ApiResponse(200, populated, 'Payment voided'));
 });
 

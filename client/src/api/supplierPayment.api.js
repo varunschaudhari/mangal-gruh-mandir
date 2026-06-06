@@ -15,3 +15,4 @@ export const downloadVoucher        = (id)           => api.get(`/supplier-payme
 export const getSupplierInvoices    = (supplierId)   => api.get(`/supplier-payments/invoices/${supplierId}`);
 export const getSupplierLedger      = (supplierId)   => api.get(`/supplier-payments/ledger/${supplierId}`);
 export const getSupplierOutstanding = (supplierId)   => api.get(`/supplier-payments/outstanding/${supplierId}`);
+export const getInvoiceRegister     = (params)       => api.get('/supplier-payments/invoice-register', { params });

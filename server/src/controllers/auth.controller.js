@@ -3,6 +3,7 @@ import User from '../models/User.js';
 import ApiError from '../utils/ApiError.js';
 import ApiResponse from '../utils/ApiResponse.js';
 import asyncHandler from '../utils/asyncHandler.js';
+import { logAction, logLoginFailure } from '../services/audit.service.js';
 
 const signToken = (id, role) =>
   jwt.sign({ id, role }, process.env.JWT_SECRET, {
@@ -19,8 +20,14 @@ export const login = asyncHandler(async (req, res) => {
   if (!email || !password) throw new ApiError(400, 'Email and password are required');
 
   const user = await User.findOne({ email }).select('+password');
-  if (!user || !user.isActive) throw new ApiError(401, 'Invalid credentials');
-  if (!(await user.matchPassword(password))) throw new ApiError(401, 'Invalid credentials');
+  if (!user || !user.isActive) {
+    logLoginFailure(req, email);
+    throw new ApiError(401, 'Invalid credentials');
+  }
+  if (!(await user.matchPassword(password))) {
+    logLoginFailure(req, email);
+    throw new ApiError(401, 'Invalid credentials');
+  }
 
   const accessToken = signToken(user._id, user.role);
   const refreshToken = signRefreshToken(user._id);
@@ -29,6 +36,11 @@ export const login = asyncHandler(async (req, res) => {
   user.lastLogin = new Date();
   await user.save({ validateBeforeSave: false });
 
+  logAction(req, {
+    action: 'auth.login', entity: 'User',
+    entityId: user.email, entityRef: user._id,
+    meta: { role: user.role },
+  });
   res.json(
     new ApiResponse(200, {
       accessToken,

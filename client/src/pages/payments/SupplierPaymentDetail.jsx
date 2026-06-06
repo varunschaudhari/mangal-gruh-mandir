@@ -3,6 +3,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { ArrowLeft, CheckCircle2, XCircle, Download, Building2, Ban, Clock, UserCircle2, FileCheck, FileX, Trash2 } from 'lucide-react';
 import { getPayment, approvePayment, rejectPayment, voidPayment, downloadVoucher } from '../../api/supplierPayment.api.js';
+import EntityAuditTrail from '../../components/ui/EntityAuditTrail.jsx';
 import { PageLoader } from '../../components/ui/Spinner.jsx';
 import Badge from '../../components/ui/Badge.jsx';
 import Modal from '../../components/ui/Modal.jsx';
@@ -332,6 +333,9 @@ export default function SupplierPaymentDetail() {
 
       {/* Activity timeline */}
       <ActivityTimeline payment={payment} />
+
+      {/* Audit trail */}
+      {payment?._id && <EntityAuditTrail entityRef={payment._id} title="Payment History" />}
 
       {/* Void modal */}
       <Modal open={voidModal} onClose={() => setVoidModal(false)} title="Void Payment" size="sm">

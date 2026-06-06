@@ -2,6 +2,7 @@ import User from '../models/User.js';
 import ApiError from '../utils/ApiError.js';
 import ApiResponse from '../utils/ApiResponse.js';
 import asyncHandler from '../utils/asyncHandler.js';
+import { logAction } from '../services/audit.service.js';
 
 export const getUsers = asyncHandler(async (req, res) => {
   const filter = {};
@@ -46,6 +47,11 @@ export const createUser = asyncHandler(async (req, res) => {
   });
 
   const populated = await User.findById(user._id).populate('departments', 'name code');
+  logAction(req, {
+    action: 'user.create', entity: 'User',
+    entityId: user.email, entityRef: user._id,
+    meta: { role: user.role },
+  });
   res.status(201).json(new ApiResponse(201, populated, 'User created successfully'));
 });
 
@@ -62,10 +68,17 @@ export const updateUser = asyncHandler(async (req, res) => {
     throw new ApiError(403, 'Cannot assign super_admin role');
   }
 
+  const before = { role: target.role, isActive: target.isActive, canApprovePayments: target.canApprovePayments, canApproveAssets: target.canApproveAssets };
   Object.assign(target, { name, phone, role, departments, isActive, whatsappAlertsEnabled, smsAlertsEnabled, canApproveAssets, canApprovePayments });
   await target.save({ validateBeforeSave: false });
 
   const populated = await User.findById(target._id).populate('departments', 'name code');
+  logAction(req, {
+    action: 'user.update', entity: 'User',
+    entityId: target.email, entityRef: target._id,
+    before,
+    after: { role: target.role, isActive: target.isActive, canApprovePayments: target.canApprovePayments, canApproveAssets: target.canApproveAssets },
+  });
   res.json(new ApiResponse(200, populated, 'User updated successfully'));
 });
 
@@ -78,5 +91,9 @@ export const resetUserPassword = asyncHandler(async (req, res) => {
 
   user.password = newPassword;
   await user.save();
+  logAction(req, {
+    action: 'user.password_reset', entity: 'User',
+    entityId: user.email, entityRef: user._id,
+  });
   res.json(new ApiResponse(200, null, 'Password reset successfully'));
 });

@@ -56,6 +56,8 @@ import SupplierAgingReport from './pages/reports/SupplierAgingReport.jsx';
 import FestivalCostReport from './pages/reports/FestivalCostReport.jsx';
 import ConsumptionTrend from './pages/reports/ConsumptionTrend.jsx';
 import ReorderSuggestions from './pages/reports/ReorderSuggestions.jsx';
+import AuditLog from './pages/admin/AuditLog.jsx';
+import InvoiceRegister from './pages/payments/InvoiceRegister.jsx';
 
 const App = () => (
   <Routes>
@@ -134,7 +136,8 @@ const App = () => (
         {/* Payments */}
         <Route path="/payments" element={<SupplierPayments />} />
         <Route path="/payments/new" element={<NewSupplierPayment />} />
-        <Route path="/payments/templates" element={<PaymentTemplates />} />
+        <Route path="/payments/templates"        element={<PaymentTemplates />} />
+        <Route path="/payments/invoice-register" element={<InvoiceRegister />} />
         <Route path="/payments/:id" element={<SupplierPaymentDetail />} />
 
         {/* Settings */}
@@ -148,6 +151,7 @@ const App = () => (
         <Route path="/admin/roles" element={<RoleList />} />
         <Route path="/admin/roles/new" element={<RoleForm />} />
         <Route path="/admin/roles/:id/edit" element={<RoleForm />} />
+        <Route path="/admin/audit-log" element={<AuditLog />} />
 
         {/* Catch-all inside layout — any unknown path goes to dashboard */}
         <Route path="*" element={<Navigate to="/dashboard" replace />} />

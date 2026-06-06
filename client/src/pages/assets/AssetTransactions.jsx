@@ -45,7 +45,7 @@ const CheckoutModal = ({ txn, onClose, onSuccess }) => {
       <div className="space-y-4">
         <p className="text-sm text-gray-600">
           Handing <span className="font-semibold text-gray-900">{txn.asset?.name}</span> × {txn.quantityBorrowed} to{' '}
-          <span className="font-semibold text-gray-900">{txn.borrower?.name}</span>
+          <span className="font-semibold text-gray-900">{txn.externalBorrower?.name || txn.borrower?.name}</span>
         </p>
         <div>
           <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Condition at handover <span className="text-red-400">*</span></p>
@@ -88,7 +88,7 @@ const ExtendModal = ({ txn, onClose, onSuccess }) => {
     <Modal open onClose={onClose} title="Extend Return Date">
       <div className="space-y-4">
         <p className="text-sm text-gray-600">
-          <span className="font-semibold text-gray-900">{txn.asset?.name}</span> — {txn.borrower?.name}
+          <span className="font-semibold text-gray-900">{txn.asset?.name}</span> — {txn.externalBorrower?.name || txn.borrower?.name}
           <span className="ml-2 text-xs bg-amber-50 text-amber-700 border border-amber-200 rounded px-2 py-0.5">Current due: {fmt(txn.expectedReturnDate)}</span>
         </p>
         <div>
@@ -131,7 +131,7 @@ const CancelModal = ({ txn, onClose, onSuccess }) => {
     <Modal open onClose={onClose} title="Cancel Borrow Request" size="sm">
       <div className="space-y-4">
         <p className="text-sm text-gray-600">
-          Cancel <span className="font-semibold text-gray-900">{txn.asset?.name}</span> for <span className="font-semibold text-gray-900">{txn.borrower?.name}</span>?
+          Cancel <span className="font-semibold text-gray-900">{txn.asset?.name}</span> for <span className="font-semibold text-gray-900">{txn.externalBorrower?.name || txn.borrower?.name}</span>?
         </p>
         <div>
           <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Reason (optional)</p>
@@ -333,22 +333,30 @@ const AssetTransactions = () => {
         );
       },
     }),
-    col.accessor('borrower.name', {
-      header: 'Borrower',
-      cell: (i) => {
-        const row = i.row.original;
-        const grp = row.group;
-        const isSubItem = row.transactionNumber?.includes('/');
+    col.display({
+      id: 'borrower', header: 'Borrower',
+      cell: ({ row }) => {
+        const { borrower, externalBorrower, borrowerType, group, transactionNumber } = row.original;
+        const isSubItem  = transactionNumber?.includes('/');
+        const isExternal = borrowerType === 'external';
+        const name       = isExternal ? externalBorrower?.name : borrower?.name;
         return (
           <div>
-            <button
-              onClick={(e) => { e.stopPropagation(); navigate(`/assets/borrowers/${row.borrower?._id}?name=${encodeURIComponent(i.getValue() || '')}`); }}
-              className="font-medium text-gray-900 hover:text-primary-600 hover:underline text-left"
-            >
-              {i.getValue()}
-            </button>
-            {grp && isSubItem && (
-              <p className="text-xs text-purple-600 font-mono mt-0.5">{grp.groupNumber} · multi-item</p>
+            {isExternal ? (
+              <div className="flex items-center gap-1.5">
+                <span className="font-medium text-gray-900">{name}</span>
+                <span className="text-[10px] font-semibold bg-amber-100 text-amber-700 border border-amber-200 rounded-full px-1.5 py-0.5 leading-none">External</span>
+              </div>
+            ) : (
+              <button
+                onClick={(e) => { e.stopPropagation(); navigate(`/assets/borrowers/${borrower?._id}?name=${encodeURIComponent(name || '')}`); }}
+                className="font-medium text-gray-900 hover:text-primary-600 hover:underline text-left"
+              >
+                {name}
+              </button>
+            )}
+            {group && isSubItem && (
+              <p className="text-xs text-purple-600 font-mono mt-0.5">{group.groupNumber} · multi-item</p>
             )}
           </div>
         );

@@ -68,7 +68,11 @@
       "Bash(mongosh --version)",
       "Bash(node src/seeds/testData.seed.js)",
       "Bash(node -e \"const p = require\\('./package.json'\\); const seeds = Object.entries\\(p.scripts\\).filter\\(\\([k]\\) => k.includes\\('seed'\\)\\); console.log\\(JSON.stringify\\(seeds, null, 2\\)\\)\")",
-      "Bash(node -e \"const l = require\\('lucide-react'\\); console.log\\('BookTemplate:', !!l.BookTemplate\\); console.log\\('FileCheck:', !!l.FileCheck\\); console.log\\('FileX:', !!l.FileX\\);\")"
+      "Bash(node -e \"const l = require\\('lucide-react'\\); console.log\\('BookTemplate:', !!l.BookTemplate\\); console.log\\('FileCheck:', !!l.FileCheck\\); console.log\\('FileX:', !!l.FileX\\);\")",
+      "Bash(node src/seeds/addShantiBhushanTraders.js)",
+      "Bash(node --input-type=module --eval \"import './server/src/models/BorrowGroup.js'\")",
+      "Bash(findstr /V \"node_modules\")",
+      "Bash(node -e \"const lr = require\\('./node_modules/lucide-react'\\); console.log\\('Users:', typeof lr.Users\\); console.log\\('Phone:', typeof lr.Phone\\); console.log\\('MapPin:', typeof lr.MapPin\\); console.log\\('CreditCard:', typeof lr.CreditCard\\);\")"
     ]
   }
 }

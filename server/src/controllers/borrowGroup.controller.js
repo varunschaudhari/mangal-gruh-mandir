@@ -33,7 +33,10 @@ export const getGroups = asyncHandler(async (req, res) => {
   if (req.query.search) {
     const s = req.query.search.trim();
     const userMatches = await User.find({ name: { $regex: s, $options: 'i' } }).select('_id').lean();
-    const orClauses = [{ groupNumber: { $regex: s, $options: 'i' } }];
+    const orClauses = [
+      { groupNumber:              { $regex: s, $options: 'i' } },
+      { 'externalBorrower.name': { $regex: s, $options: 'i' } },
+    ];
     if (userMatches.length) orClauses.push({ borrower: { $in: userMatches.map((u) => u._id) } });
     filter.$or = orClauses;
   }
@@ -70,18 +73,24 @@ export const getGroup = asyncHandler(async (req, res) => {
 
 // ── Create ────────────────────────────────────────────────────────────────────
 export const createGroup = asyncHandler(async (req, res) => {
-  const { borrower, approvedBy, expectedReturnDate, notes, items } = req.body;
+  const { borrower, borrowerType = 'staff', externalBorrower, approvedBy, expectedReturnDate, notes, items } = req.body;
 
   if (!items || items.length === 0) throw new ApiError(400, 'At least one item is required');
 
-  const [borrowerDoc, approver, settings] = await Promise.all([
-    User.findById(borrower),
+  const [approver, settings] = await Promise.all([
     User.findById(approvedBy),
     Settings.getOrCreate(),
   ]);
 
-  if (!borrowerDoc)                throw new ApiError(404, 'Borrower not found');
   if (!approver?.canApproveAssets) throw new ApiError(400, 'Selected approver does not have asset approval authority');
+
+  if (borrowerType === 'staff') {
+    const borrowerDoc = await User.findById(borrower);
+    if (!borrowerDoc) throw new ApiError(404, 'Borrower not found');
+  } else {
+    if (!externalBorrower?.name?.trim())  throw new ApiError(400, 'External borrower name is required');
+    if (!externalBorrower?.phone?.trim()) throw new ApiError(400, 'External borrower phone is required');
+  }
 
   const today = new Date(); today.setHours(0, 0, 0, 0);
   const returnDate = new Date(expectedReturnDate);
@@ -102,11 +111,16 @@ export const createGroup = asyncHandler(async (req, res) => {
     if (item.quantity > available) throw new ApiError(400, `Only ${available} unit(s) of "${assetDoc.name}" available`);
   }
 
+  // Build borrower fields for group + transactions
+  const borrowerFields = borrowerType === 'staff'
+    ? { borrower }
+    : { externalBorrower: { name: externalBorrower.name.trim(), phone: externalBorrower.phone.trim(), address: externalBorrower.address?.trim(), idProofType: externalBorrower.idProofType || undefined, idProofNumber: externalBorrower.idProofNumber?.trim() } };
+
   // Create group
   const groupNumber = await generateBorrowRequestNumber();
   const group = await BorrowGroup.create({
-    groupNumber, borrower, approvedBy,
-    approvedAt: new Date(), expectedReturnDate,
+    groupNumber, borrowerType, ...borrowerFields,
+    approvedBy, approvedAt: new Date(), expectedReturnDate,
     status: 'approved',
     notes: notes || undefined,
     createdBy: req.user._id,
@@ -120,8 +134,8 @@ export const createGroup = asyncHandler(async (req, res) => {
       transactionNumber: txnNumber,
       group: group._id,
       asset: item.asset,
-      borrower, approvedBy,
-      approvedAt: new Date(),
+      borrowerType, ...borrowerFields,
+      approvedBy, approvedAt: new Date(),
       quantityBorrowed: item.quantity,
       expectedReturnDate,
       status: 'approved',
@@ -135,10 +149,13 @@ export const createGroup = asyncHandler(async (req, res) => {
 
   // Send one approval notification using first transaction's data
   if (populatedTxns.length > 0) {
+    const borrowerInfo = borrowerType === 'staff'
+      ? populatedGroup.borrower
+      : { name: externalBorrower.name, phone: externalBorrower.phone };
     const notifTxn = {
       ...populatedTxns[0].toObject(),
-      borrower:    populatedGroup.borrower,
-      asset:       { name: populatedTxns.map((t) => t.asset?.name).join(', ') },
+      borrower:         borrowerInfo,
+      asset:            { name: populatedTxns.map((t) => t.asset?.name).join(', ') },
       quantityBorrowed: populatedTxns.reduce((s, t) => s + t.quantityBorrowed, 0),
       expectedReturnDate,
     };

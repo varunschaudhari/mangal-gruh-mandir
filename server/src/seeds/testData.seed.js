@@ -167,7 +167,7 @@ const seed = async () => {
   // ── 1. Suppliers ───────────────────────────────────────────────────────────
 
   console.log('Creating suppliers...');
-  const [kirana, flowerMart, dairy, trust, amul, dryFruits] = await Promise.all([
+  const [kirana, flowerMart, dairy, trust, amul, dryFruits, shantiBhushan] = await Promise.all([
     Supplier.create({ name: 'Shri Ganesh Kirana Store', type: 'vendor', contactPerson: 'Ramesh Patil', phone: '9876543210', city: 'Amalner', gstin: '27AABCS1234A1Z5', creditDays: 30,
       bankAccounts: [{ label: 'Main Account', bankName: 'State Bank of India', accountHolderName: 'Ramesh Patil', accountNumber: '12345678901', ifscCode: 'SBIN0002654', isDefault: true }] }),
     Supplier.create({ name: 'Pushpa Flower Mart', type: 'vendor', contactPerson: 'Sunita Joshi', phone: '9823456780', city: 'Amalner', creditDays: 7,
@@ -180,8 +180,10 @@ const seed = async () => {
       bankAccounts: [{ label: 'Business Account', bankName: 'Axis Bank', accountHolderName: 'Kiran Mehta', accountNumber: '918020034567890', ifscCode: 'UTIB0000789', upiId: 'kiran.amul@axisb', isDefault: true }] }),
     Supplier.create({ name: 'Shri Ganpati Dry Fruits', type: 'vendor', contactPerson: 'Mohan Agrawal', phone: '9977665544', city: 'Amalner', creditDays: 15,
       bankAccounts: [{ label: 'Current Account', bankName: 'Central Bank of India', accountHolderName: 'Mohan Agrawal', accountNumber: '3253000123456', ifscCode: 'CBIN0280987', isDefault: true }] }),
+    Supplier.create({ name: 'ShantiBhushan Traders', type: 'vendor', contactPerson: 'Ashish Chaudhari', phone: '+919923933355', city: 'Amalner', creditDays: 30,
+      bankAccounts: [] }),
   ]);
-  console.log('  ✓ 6 vendors (with bank accounts)');
+  console.log('  ✓ 7 vendors (with bank accounts)');
 
   // Individual named donors
   const [donorRamesh, donorSavita, donorPatel] = await Promise.all([

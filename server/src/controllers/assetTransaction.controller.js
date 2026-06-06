@@ -31,7 +31,10 @@ export const getTransactions = asyncHandler(async (req, res) => {
       User.find({ name: { $regex: s, $options: 'i' } }).select('_id').lean(),
       Asset.find({ name: { $regex: s, $options: 'i' } }).select('_id').lean(),
     ]);
-    const orClauses = [{ transactionNumber: { $regex: s, $options: 'i' } }];
+    const orClauses = [
+      { transactionNumber:           { $regex: s, $options: 'i' } },
+      { 'externalBorrower.name':     { $regex: s, $options: 'i' } },
+    ];
     if (userMatches.length)  orClauses.push({ borrower: { $in: userMatches.map((u) => u._id) } });
     if (assetMatches.length) orClauses.push({ asset:    { $in: assetMatches.map((a) => a._id) } });
     filter.$or = orClauses;
@@ -56,18 +59,24 @@ export const getTransaction = asyncHandler(async (req, res) => {
 });
 
 export const createBorrowRequest = asyncHandler(async (req, res) => {
-  const { asset: assetId, borrower: borrowerId, quantityBorrowed, expectedReturnDate, approvedBy: approverId, notes } = req.body;
+  const { asset: assetId, borrower: borrowerId, borrowerType = 'staff', externalBorrower, quantityBorrowed, expectedReturnDate, approvedBy: approverId, notes } = req.body;
 
-  const [assetDoc, borrowerDoc, approver, settings] = await Promise.all([
+  const [assetDoc, approver, settings] = await Promise.all([
     Asset.findById(assetId),
-    User.findById(borrowerId),
     User.findById(approverId),
     Settings.getOrCreate(),
   ]);
 
   if (!assetDoc || !assetDoc.isActive) throw new ApiError(404, 'Asset not found or inactive');
-  if (!borrowerDoc)                    throw new ApiError(404, 'Borrower not found');
   if (!approver?.canApproveAssets)     throw new ApiError(400, 'Selected approver does not have asset approval authority');
+
+  if (borrowerType === 'staff') {
+    const borrowerDoc = await User.findById(borrowerId);
+    if (!borrowerDoc) throw new ApiError(404, 'Borrower not found');
+  } else {
+    if (!externalBorrower?.name?.trim())  throw new ApiError(400, 'External borrower name is required');
+    if (!externalBorrower?.phone?.trim()) throw new ApiError(400, 'External borrower phone is required');
+  }
 
   const today = new Date(); today.setHours(0, 0, 0, 0);
   const returnDate = new Date(expectedReturnDate);
@@ -82,11 +91,15 @@ export const createBorrowRequest = asyncHandler(async (req, res) => {
   const available = assetDoc.totalQuantity - (borrowed[0]?.total || 0);
   if (quantityBorrowed > available) throw new ApiError(400, `Only ${available} unit(s) available for the requested period`);
 
+  const borrowerFields = borrowerType === 'staff'
+    ? { borrower: borrowerId }
+    : { externalBorrower: { name: externalBorrower.name.trim(), phone: externalBorrower.phone.trim(), address: externalBorrower.address?.trim(), idProofType: externalBorrower.idProofType || undefined, idProofNumber: externalBorrower.idProofNumber?.trim() } };
+
   const transactionNumber = await generateBorrowRequestNumber();
 
   const txn = await AssetTransaction.create({
     transactionNumber,
-    asset: assetId, borrower: borrowerId, quantityBorrowed,
+    asset: assetId, borrowerType, ...borrowerFields, quantityBorrowed,
     expectedReturnDate, approvedBy: approverId, approvedAt: new Date(),
     status: 'approved', notes: notes || undefined,
     createdBy: req.user._id,

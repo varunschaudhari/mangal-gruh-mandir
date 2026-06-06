@@ -6,7 +6,7 @@ import {
   Trash2, Package, Warehouse, Users, Tag, Ruler, Truck, Shield,
   ChevronDown, ChevronRight, FlameKindling, History, AlertTriangle, BookOpen, CalendarClock,
   X, Armchair, ClipboardList, Settings2, BarChart2, TrendingUp, Heart, CreditCard, Plus,
-  ShoppingCart, BookTemplate,
+  ShoppingCart, BookTemplate, FileText,
 } from 'lucide-react';
 import { usePermissions } from '../../hooks/usePermissions.js';
 import { getAssetCounts } from '../../api/assetTransaction.api.js';
@@ -94,9 +94,10 @@ const navConfig = [
     icon: CreditCard,
     permission: 'payments:read',
     children: [
-      { label: 'All Payments',    to: '/payments',            icon: CreditCard,    permission: 'payments:read'  },
-      { label: 'Record Payment',  to: '/payments/new',        icon: Plus,          permission: 'payments:write' },
-      { label: 'Templates',       to: '/payments/templates',  icon: BookTemplate,  permission: 'payments:write' },
+      { label: 'All Payments',      to: '/payments',                    icon: CreditCard,    permission: 'payments:read'  },
+      { label: 'Invoice Register',  to: '/payments/invoice-register',   icon: FileText,      permission: 'payments:read'  },
+      { label: 'Record Payment',    to: '/payments/new',                icon: Plus,          permission: 'payments:write' },
+      { label: 'Templates',         to: '/payments/templates',          icon: BookTemplate,  permission: 'payments:write' },
     ],
   },
   {
@@ -104,9 +105,10 @@ const navConfig = [
     icon: Users,
     permission: 'users:read',
     children: [
-      { label: 'Users',    to: '/admin/users', icon: Users,     permission: 'users:read' },
-      { label: 'Roles',    to: '/admin/roles', icon: Shield,    permission: 'users:read' },
-      { label: 'Settings', to: '/settings',    icon: Settings2, permission: 'users:write' },
+      { label: 'Users',     to: '/admin/users',      icon: Users,     permission: 'users:read' },
+      { label: 'Roles',     to: '/admin/roles',      icon: Shield,    permission: 'users:read' },
+      { label: 'Audit Log', to: '/admin/audit-log',  icon: History,   permission: 'users:read' },
+      { label: 'Settings',  to: '/settings',         icon: Settings2, permission: 'users:write' },
     ],
   },
 ];

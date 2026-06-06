@@ -1,7 +1,7 @@
 import { useFieldArray, useForm } from 'react-hook-form';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Package, User, CalendarDays, Shield, Info, Plus, Trash2, Hash } from 'lucide-react';
+import { Package, User, Users, CalendarDays, Shield, Info, Plus, Trash2, Hash, Phone, MapPin, CreditCard } from 'lucide-react';
 import { getAssets, getAvailability } from '../../api/asset.api.js';
 import { createBorrowGroup } from '../../api/borrowGroup.api.js';
 import { getSettings } from '../../api/settings.api.js';
@@ -9,6 +9,14 @@ import { getUsers, getApprovers } from '../../api/user.api.js';
 import { useDebounce } from '../../hooks/useDebounce.js';
 import PageHeader from '../../components/ui/PageHeader.jsx';
 import toast from 'react-hot-toast';
+
+const ID_PROOF_LABELS = {
+  aadhar:          'Aadhar Card',
+  pan:             'PAN Card',
+  driving_license: 'Driving Licence',
+  voter_id:        'Voter ID',
+  passport:        'Passport',
+};
 
 const Field = ({ label, required, error, hint, children }) => (
   <div>
@@ -50,23 +58,34 @@ const NewBorrowRequest = () => {
 
   const { register, handleSubmit, watch, control, formState: { errors } } = useForm({
     defaultValues: {
-      borrower: '', approvedBy: '', expectedReturnDate: '', notes: '',
+      borrowerType: 'staff',
+      borrower:     '',
+      extName:      '',
+      extPhone:     '',
+      extAddress:   '',
+      extIdType:    '',
+      extIdNumber:  '',
+      approvedBy:         '',
+      expectedReturnDate: '',
+      notes:              '',
       items: [{ asset: '', quantity: 1 }],
     },
   });
 
   const { fields, append, remove } = useFieldArray({ control, name: 'items' });
 
+  const borrowerType       = watch('borrowerType');
   const expectedReturnDate = watch('expectedReturnDate');
+  const isExternal         = borrowerType === 'external';
 
   const { data: assetsRes }   = useQuery({ queryKey: ['assets-borrowable'], queryFn: () => getAssets({ active: true, borrowable: true }) });
   const { data: settingsRes } = useQuery({ queryKey: ['settings'],          queryFn: getSettings });
   const { data: usersRes }    = useQuery({ queryKey: ['users-active'],      queryFn: () => getUsers({ active: true }) });
   const { data: approversRes }= useQuery({ queryKey: ['users-approvers'],   queryFn: getApprovers });
 
-  const maxDays   = settingsRes?.data?.data?.assetMaxBorrowDays || 7;
-  const today     = new Date().toISOString().split('T')[0];
-  const maxDate   = new Date(); maxDate.setDate(maxDate.getDate() + maxDays);
+  const maxDays    = settingsRes?.data?.data?.assetMaxBorrowDays || 7;
+  const today      = new Date().toISOString().split('T')[0];
+  const maxDate    = new Date(); maxDate.setDate(maxDate.getDate() + maxDays);
   const maxDateStr = maxDate.toISOString().split('T')[0];
 
   const assets    = assetsRes?.data?.data   || [];
@@ -85,16 +104,27 @@ const NewBorrowRequest = () => {
   });
 
   const onSubmit = (data) => {
-    mutation.mutate({
-      borrower:           data.borrower,
+    const payload = {
+      borrowerType:       data.borrowerType,
       approvedBy:         data.approvedBy,
       expectedReturnDate: data.expectedReturnDate,
       notes:              data.notes || undefined,
-      items: data.items.map((item) => ({
-        asset:    item.asset,
-        quantity: Number(item.quantity),
-      })),
-    });
+      items: data.items.map((item) => ({ asset: item.asset, quantity: Number(item.quantity) })),
+    };
+
+    if (data.borrowerType === 'staff') {
+      payload.borrower = data.borrower;
+    } else {
+      payload.externalBorrower = {
+        name:          data.extName,
+        phone:         data.extPhone,
+        address:       data.extAddress  || undefined,
+        idProofType:   data.extIdType   || undefined,
+        idProofNumber: data.extIdNumber || undefined,
+      };
+    }
+
+    mutation.mutate(payload);
   };
 
   return (
@@ -115,15 +145,112 @@ const NewBorrowRequest = () => {
           </div>
           <div className="p-5 bg-white space-y-4">
 
-            <Field label="Borrower" required error={errors.borrower?.message}>
-              <div className="relative">
-                <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-300" />
-                <select {...register('borrower', { required: 'Select borrower' })} className="input pl-9">
-                  <option value="">— Select staff member —</option>
-                  {users.map((u) => <option key={u._id} value={u._id}>{u.name}</option>)}
-                </select>
+            {/* ── Borrower type toggle ── */}
+            <div>
+              <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-2">Borrower Type</label>
+              <div className="flex gap-2">
+                {[
+                  { value: 'staff',    label: 'Staff Member', Icon: User },
+                  { value: 'external', label: 'External Person', Icon: Users },
+                ].map(({ value, label, Icon }) => (
+                  <label
+                    key={value}
+                    className={`flex items-center gap-2 px-4 py-2.5 rounded-lg border cursor-pointer text-sm font-medium transition-all
+                      ${borrowerType === value
+                        ? 'bg-purple-50 border-purple-400 text-purple-700'
+                        : 'bg-white border-gray-200 text-gray-500 hover:border-gray-300'}`}
+                  >
+                    <input type="radio" value={value} {...register('borrowerType')} className="sr-only" />
+                    <Icon className="h-4 w-4" />
+                    {label}
+                  </label>
+                ))}
               </div>
-            </Field>
+            </div>
+
+            {/* ── Staff borrower dropdown ── */}
+            {!isExternal && (
+              <Field label="Staff Member" required error={errors.borrower?.message}>
+                <div className="relative">
+                  <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-300" />
+                  <select
+                    {...register('borrower', { validate: (v) => !isExternal ? (v ? true : 'Select borrower') : true })}
+                    className="input pl-9"
+                  >
+                    <option value="">— Select staff member —</option>
+                    {users.map((u) => <option key={u._id} value={u._id}>{u.name}</option>)}
+                  </select>
+                </div>
+              </Field>
+            )}
+
+            {/* ── External borrower fields ── */}
+            {isExternal && (
+              <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 space-y-3">
+                <p className="text-xs font-semibold text-amber-800 uppercase tracking-wide">External Borrower Details</p>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <Field label="Full Name" required error={errors.extName?.message}>
+                    <div className="relative">
+                      <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-300" />
+                      <input
+                        type="text"
+                        placeholder="Full name"
+                        {...register('extName', { validate: (v) => isExternal ? (v?.trim() ? true : 'Name is required') : true })}
+                        className="input pl-9"
+                      />
+                    </div>
+                  </Field>
+
+                  <Field label="Phone" required error={errors.extPhone?.message}>
+                    <div className="relative">
+                      <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-300" />
+                      <input
+                        type="tel"
+                        placeholder="Mobile number"
+                        {...register('extPhone', { validate: (v) => isExternal ? (v?.trim() ? true : 'Phone is required') : true })}
+                        className="input pl-9"
+                      />
+                    </div>
+                  </Field>
+                </div>
+
+                <Field label="Address" error={errors.extAddress?.message}>
+                  <div className="relative">
+                    <MapPin className="absolute left-3 top-2.5 h-4 w-4 text-gray-300" />
+                    <textarea
+                      placeholder="Residential address"
+                      {...register('extAddress')}
+                      className="input pl-9"
+                      rows={2}
+                    />
+                  </div>
+                </Field>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <Field label="ID Proof Type" error={errors.extIdType?.message}>
+                    <div className="relative">
+                      <CreditCard className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-300" />
+                      <select {...register('extIdType')} className="input pl-9">
+                        <option value="">— Select type —</option>
+                        {Object.entries(ID_PROOF_LABELS).map(([v, l]) => (
+                          <option key={v} value={v}>{l}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </Field>
+
+                  <Field label="ID Number" error={errors.extIdNumber?.message} hint="E.g. Aadhar / PAN number">
+                    <input
+                      type="text"
+                      placeholder="Proof number"
+                      {...register('extIdNumber')}
+                      className="input"
+                    />
+                  </Field>
+                </div>
+              </div>
+            )}
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <Field label="Expected Return Date" required error={errors.expectedReturnDate?.message} hint={`Max ${maxDays} days from today`}>

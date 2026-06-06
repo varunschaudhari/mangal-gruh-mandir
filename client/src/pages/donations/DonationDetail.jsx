@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { ArrowLeft, Printer, XCircle, IndianRupee, Package, User, FileCheck2, Download } from 'lucide-react';
 import { getDonation, voidDonation, download80GReceipt, downloadDonationReceipt } from '../../api/donation.api.js';
+import EntityAuditTrail from '../../components/ui/EntityAuditTrail.jsx';
 import { printDonationReceipt } from '../../utils/donationReceipt.js';
 import { PageLoader } from '../../components/ui/Spinner.jsx';
 import Badge from '../../components/ui/Badge.jsx';
@@ -221,6 +222,9 @@ const DonationDetail = () => {
           <p className="text-sm text-red-700"><span className="font-semibold">Void reason:</span> {vr}</p>
         </div>
       )}
+
+      {/* Audit trail */}
+      {donation?._id && <EntityAuditTrail entityRef={donation._id} title="Donation History" />}
 
       <Modal open={showVoid} onClose={() => setShowVoid(false)} title="Void Donation" size="sm">
         <div className="space-y-4">

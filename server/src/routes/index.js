@@ -23,6 +23,7 @@ import assetReportRoutes from './assetReport.routes.js';
 import settingsRoutes from './settings.routes.js';
 import supplierPaymentRoutes from './supplierPayment.routes.js';
 import paymentTemplateRoutes from './paymentTemplate.routes.js';
+import auditLogRoutes from './auditLog.routes.js';
 
 const router = Router();
 
@@ -51,5 +52,6 @@ router.use('/asset-reports', assetReportRoutes);
 router.use('/settings', settingsRoutes);
 router.use('/supplier-payments',   supplierPaymentRoutes);
 router.use('/payment-templates',   paymentTemplateRoutes);
+router.use('/audit-logs',          auditLogRoutes);
 
 export default router;

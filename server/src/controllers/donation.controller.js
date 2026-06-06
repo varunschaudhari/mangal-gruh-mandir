@@ -12,6 +12,7 @@ import { generateTransactionNumber } from '../services/transactionNumber.service
 import { createBatch } from '../services/fifo.service.js';
 import { updateBalancesForTransaction } from '../services/stockBalance.service.js';
 import { sendDonationThankYou } from '../services/donationWhatsapp.service.js';
+import { logAction } from '../services/audit.service.js';
 
 const POPULATE = [
   { path: 'donor',     select: 'name phone panNumber type' },
@@ -185,11 +186,12 @@ export const createDonation = asyncHandler(async (req, res) => {
 
   const populated = await Donation.findById(donation._id).populate(POPULATE);
 
-  // Auto WhatsApp thank-you for named donations only — non-blocking
-  if (donationType === 'named') {
-    sendDonationThankYou(populated).catch(() => {});
-  }
-
+  if (donationType === 'named') sendDonationThankYou(populated).catch(() => {});
+  logAction(req, {
+    action: 'donation.create', entity: 'Donation',
+    entityId: donationNumber, entityRef: donation._id,
+    meta: { type: donationType, donor: resolvedDonorName, cashAmount, kindCount: processedKindItems.length },
+  });
   res.status(201).json(new ApiResponse(201, populated, 'Donation recorded'));
 });
 
@@ -266,9 +268,13 @@ export const voidDonation = asyncHandler(async (req, res) => {
   if (!donation)         throw new ApiError(404, 'Donation not found');
   if (donation.isVoided) throw new ApiError(400, 'Already voided');
 
-  donation.isVoided  = true;
+  donation.isVoided   = true;
   donation.voidReason = voidReason || undefined;
   await donation.save();
-
+  logAction(req, {
+    action: 'donation.void', entity: 'Donation',
+    entityId: donation.donationNumber, entityRef: donation._id,
+    meta: { voidReason },
+  });
   res.json(new ApiResponse(200, donation, 'Donation voided'));
 });

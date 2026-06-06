@@ -11,6 +11,7 @@ import { sendSmsAlerts } from '../services/sms.service.js';
 import asyncHandler from '../utils/asyncHandler.js';
 import ApiError from '../utils/ApiError.js';
 import ApiResponse from '../utils/ApiResponse.js';
+import { logAction } from '../services/audit.service.js';
 
 export const createTransaction = asyncHandler(async (req, res) => {
   const {
@@ -132,6 +133,16 @@ export const createTransaction = asyncHandler(async (req, res) => {
     .populate('createdBy', 'name')
     .lean();
 
+  logAction(req, {
+    action: 'stock.create', entity: 'StockTransaction',
+    entityId: txn.transactionNumber, entityRef: txn._id,
+    meta: {
+      type: txn.transactionType,
+      product: product.name,
+      quantity: txn.quantity,
+      stockInType: txn.stockInType,
+    },
+  });
   res.status(201).json(new ApiResponse(201, populated, 'Transaction created'));
 });
 
@@ -314,5 +325,10 @@ export const voidTransaction = asyncHandler(async (req, res) => {
 
   await updateBalancesForTransaction(txn);
 
+  logAction(req, {
+    action: 'stock.void', entity: 'StockTransaction',
+    entityId: txn.transactionNumber, entityRef: txn._id,
+    meta: { voidReason, type: txn.transactionType },
+  });
   res.json(new ApiResponse(200, { transactionNumber: txn.transactionNumber }, 'Transaction voided'));
 });

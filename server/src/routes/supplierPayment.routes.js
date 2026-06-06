@@ -6,6 +6,7 @@ import {
   createPayment, approvePayment, rejectPayment, bulkApprovePayments,
   voidPayment, exportPayments, getSupplierAging, getPaymentVoucher,
   getSupplierInvoices, getSupplierLedger, getSupplierOutstanding,
+  getInvoiceRegister,
 } from '../controllers/supplierPayment.controller.js';
 
 const router = Router();
@@ -16,6 +17,7 @@ router.get('/counts',            authorize('payments:read'), getPaymentCounts);
 router.get('/dashboard-summary', authorize('payments:read'), getPaymentDashboardSummary);
 router.get('/export',                   authorize('payments:read'),    exportPayments);
 router.get('/aging',                    authorize('payments:read'),    getSupplierAging);
+router.get('/invoice-register',         authorize('payments:read'),    getInvoiceRegister);
 router.get('/invoices/:supplierId',     authorize('payments:read'),    getSupplierInvoices);
 router.get('/ledger/:supplierId',       authorize('payments:read'),    getSupplierLedger);
 router.get('/outstanding/:supplierId',  authorize('payments:read'),    getSupplierOutstanding);

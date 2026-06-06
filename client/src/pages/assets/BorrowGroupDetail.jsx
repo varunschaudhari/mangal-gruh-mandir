@@ -5,6 +5,7 @@ import { createColumnHelper } from '@tanstack/react-table';
 import {
   ArrowLeft, ShoppingBag, RotateCcw, CalendarPlus, XCircle,
   Bell, AlertTriangle, Package, CheckCircle2, Clock, Layers,
+  Phone, MapPin, CreditCard, Users,
 } from 'lucide-react';
 import { getBorrowGroup, checkoutGroup, extendGroup, cancelGroup } from '../../api/borrowGroup.api.js';
 import { sendManualReminder } from '../../api/assetTransaction.api.js';
@@ -159,7 +160,9 @@ const BorrowGroupDetail = () => {
   if (!result) return <div className="text-gray-400 p-4">Group not found.</div>;
 
   const { group, transactions = [] } = result;
-  const { status, groupNumber, borrower, approvedBy, expectedReturnDate, extensions = [], remindersSent = [], notes, createdBy, createdAt, cancellationReason } = group;
+  const { status, groupNumber, borrowerType, borrower, externalBorrower, approvedBy, expectedReturnDate, extensions = [], remindersSent = [], notes, createdBy, createdAt, cancellationReason } = group;
+  const isExternal    = borrowerType === 'external';
+  const borrowerName  = isExternal ? externalBorrower?.name : borrower?.name;
 
   const isActive       = !['returned', 'cancelled'].includes(status);
   const hasApproved    = transactions.some((t) => t.status === 'approved');
@@ -247,7 +250,14 @@ const BorrowGroupDetail = () => {
               {returnedItems > 0 && returnedItems < totalItems && ` · ${returnedItems} returned`}
             </span>
           </div>
-          <h1 className="text-xl font-bold text-gray-900">{borrower?.name}</h1>
+          <div className="flex items-center gap-2">
+            <h1 className="text-xl font-bold text-gray-900">{borrowerName}</h1>
+            {isExternal && (
+              <span className="text-xs font-semibold bg-amber-100 text-amber-700 border border-amber-200 rounded-full px-2 py-0.5 leading-none flex items-center gap-1">
+                <Users className="h-3 w-3" /> External
+              </span>
+            )}
+          </div>
           <p className="text-sm text-gray-400 mt-0.5">
             Approved by {approvedBy?.name} · Due {fmt(expectedReturnDate)}
             {notes && <> · <span className="italic">"{notes}"</span></>}
@@ -269,6 +279,42 @@ const BorrowGroupDetail = () => {
           </div>
         ))}
       </div>
+
+      {/* External borrower info card */}
+      {isExternal && externalBorrower && (
+        <div className="bg-amber-50 rounded-xl border border-amber-200 p-4">
+          <p className="text-xs font-semibold text-amber-800 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+            <Users className="h-3.5 w-3.5" /> External Borrower Details
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+            <div className="flex items-start gap-2">
+              <Phone className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+              <div>
+                <p className="text-xs text-amber-700 font-medium">Phone</p>
+                <p className="text-gray-800">{externalBorrower.phone}</p>
+              </div>
+            </div>
+            {externalBorrower.address && (
+              <div className="flex items-start gap-2">
+                <MapPin className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-xs text-amber-700 font-medium">Address</p>
+                  <p className="text-gray-800">{externalBorrower.address}</p>
+                </div>
+              </div>
+            )}
+            {externalBorrower.idProofType && (
+              <div className="flex items-start gap-2">
+                <CreditCard className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-xs text-amber-700 font-medium capitalize">{externalBorrower.idProofType.replace(/_/g, ' ')}</p>
+                  <p className="text-gray-800 font-mono">{externalBorrower.idProofNumber || '—'}</p>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Action bar */}
       {can('assets:manage') && isActive && (
