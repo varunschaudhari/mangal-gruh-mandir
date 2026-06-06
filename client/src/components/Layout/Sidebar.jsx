@@ -229,9 +229,13 @@ const Sidebar = ({ isOpen, onClose }) => {
     >
       {/* Logo + close button */}
       <div className="flex items-center justify-between border-b border-gray-700 px-4 py-4">
-        <div className="flex items-center gap-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary-600">
-            <FlameKindling className="h-4 w-4 text-white" />
+        <div className="flex items-center gap-3">
+          <div className="flex h-12 w-12 items-center justify-center rounded-md bg-white p-1">
+            <img
+              src="/logo.png"
+              alt="Mangal Grah Mandir"
+              className="h-10 w-10 rounded object-contain"
+            />
           </div>
           <div>
             <p className="text-xs font-bold leading-tight text-white">Mangal Grah Mandir</p>
