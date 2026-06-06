@@ -1,12 +1,14 @@
-import * as XLSX from 'xlsx';
-
 /**
  * Export an array of row objects to an .xlsx file.
+ * Dynamically imports `xlsx` to avoid bundling/resolution issues at build time.
  * @param {object[]} rows     - Array of plain objects (one per row)
  * @param {string}   filename - Downloaded filename (without extension)
  * @param {string}   sheet    - Sheet tab name
  */
-export function exportToExcel(rows, filename, sheet = 'Sheet1') {
+export async function exportToExcel(rows, filename, sheet = 'Sheet1') {
+  const mod = await import('xlsx');
+  const XLSX = mod.default ?? mod;
+
   const ws = XLSX.utils.json_to_sheet(rows);
 
   // Auto-width columns
