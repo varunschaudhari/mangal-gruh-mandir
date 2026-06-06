@@ -51,6 +51,7 @@ import SupplierDetail from './pages/masters/suppliers/SupplierDetail.jsx';
 import SupplierPayments from './pages/payments/SupplierPayments.jsx';
 import NewSupplierPayment from './pages/payments/NewSupplierPayment.jsx';
 import SupplierPaymentDetail from './pages/payments/SupplierPaymentDetail.jsx';
+import PaymentTemplates from './pages/payments/PaymentTemplates.jsx';
 import SupplierAgingReport from './pages/reports/SupplierAgingReport.jsx';
 import FestivalCostReport from './pages/reports/FestivalCostReport.jsx';
 import ConsumptionTrend from './pages/reports/ConsumptionTrend.jsx';
@@ -133,6 +134,7 @@ const App = () => (
         {/* Payments */}
         <Route path="/payments" element={<SupplierPayments />} />
         <Route path="/payments/new" element={<NewSupplierPayment />} />
+        <Route path="/payments/templates" element={<PaymentTemplates />} />
         <Route path="/payments/:id" element={<SupplierPaymentDetail />} />
 
         {/* Settings */}

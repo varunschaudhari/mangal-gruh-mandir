@@ -22,6 +22,7 @@ import assetTransactionRoutes from './assetTransaction.routes.js';
 import assetReportRoutes from './assetReport.routes.js';
 import settingsRoutes from './settings.routes.js';
 import supplierPaymentRoutes from './supplierPayment.routes.js';
+import paymentTemplateRoutes from './paymentTemplate.routes.js';
 
 const router = Router();
 
@@ -48,6 +49,7 @@ router.use('/donation-occasions', donationOccasionRoutes);
 router.use('/asset-transactions', assetTransactionRoutes);
 router.use('/asset-reports', assetReportRoutes);
 router.use('/settings', settingsRoutes);
-router.use('/supplier-payments', supplierPaymentRoutes);
+router.use('/supplier-payments',   supplierPaymentRoutes);
+router.use('/payment-templates',   paymentTemplateRoutes);
 
 export default router;

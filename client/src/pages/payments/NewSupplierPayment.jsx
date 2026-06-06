@@ -1,11 +1,13 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, Plus, Trash2, AlertTriangle, CreditCard } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, AlertTriangle, CreditCard, BookTemplate, ChevronDown, X, Save, CheckCircle2 } from 'lucide-react';
 import { getSuppliers, getSupplier } from '../../api/supplier.api.js';
 import { createPayment, getSupplierInvoices } from '../../api/supplierPayment.api.js';
+import { getTemplates, createTemplate, markTemplateUsed } from '../../api/paymentTemplate.api.js';
 import PageHeader from '../../components/ui/PageHeader.jsx';
+import Modal from '../../components/ui/Modal.jsx';
 import toast from 'react-hot-toast';
 
 const fmt    = (d)  => d ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
@@ -17,6 +19,8 @@ const PM_OPTIONS = [
   { value: 'rtgs',   label: 'RTGS' },
   { value: 'cheque', label: 'Cheque' },
 ];
+const PM_LABELS = { cash: 'Cash', upi: 'UPI / Online', neft: 'NEFT', rtgs: 'RTGS', cheque: 'Cheque' };
+const STATUS_LABELS = { pending_approval: 'Pending', approved: 'Approved' };
 
 export default function NewSupplierPayment() {
   const navigate       = useNavigate();
@@ -24,15 +28,25 @@ export default function NewSupplierPayment() {
   const [searchParams] = useSearchParams();
   const preSupplier    = searchParams.get('supplier');
 
-  const { register, handleSubmit, control, watch, setValue, formState: { errors } } = useForm({
+  // Duplicate warning state
+  const [duplicateWarning, setDuplicateWarning] = useState(null); // { duplicates: [...] }
+
+  // Template states
+  const [showTemplateModal,     setShowTemplateModal]     = useState(false);
+  const [showSaveTemplateModal, setShowSaveTemplateModal] = useState(false);
+  const [templateName,          setTemplateName]          = useState('');
+  const [savingTemplate,        setSavingTemplate]        = useState(false);
+  const [createdPaymentId,      setCreatedPaymentId]      = useState(null);
+
+  const { register, handleSubmit, control, watch, setValue, getValues, formState: { errors } } = useForm({
     defaultValues: {
-      supplier:             preSupplier || '',
-      paymentDate:          new Date().toISOString().split('T')[0],
-      paymentMode:          'cash',
-      referenceNumber:      '',
+      supplier:              preSupplier || '',
+      paymentDate:           new Date().toISOString().split('T')[0],
+      paymentMode:           'cash',
+      referenceNumber:       '',
       selectedBankAccountId: '',
-      notes:                '',
-      invoices:             [],
+      notes:                 '',
+      invoices:              [],
     },
   });
 
@@ -49,7 +63,6 @@ export default function NewSupplierPayment() {
   });
   const suppliers = supRes?.data?.data || [];
 
-  // Fetch selected supplier details (for bank accounts)
   const { data: selSupRes } = useQuery({
     queryKey: ['supplier', supplierId],
     queryFn:  () => getSupplier(supplierId),
@@ -65,14 +78,19 @@ export default function NewSupplierPayment() {
   });
   const unpaidInvoices = (invRes?.data?.data || []).filter((i) => i.paymentStatus !== 'paid');
 
-  // When supplier changes, reset invoice list and select default bank account
+  const { data: templatesRes } = useQuery({
+    queryKey: ['payment-templates'],
+    queryFn:  () => getTemplates(),
+    staleTime: 2 * 60 * 1000,
+  });
+  const templates = templatesRes?.data?.data || [];
+
   useEffect(() => {
     replaceInv([]);
     const defaultAcc = bankAccounts.find((a) => a.isDefault) || bankAccounts[0];
     setValue('selectedBankAccountId', defaultAcc?._id || '');
   }, [supplierId, bankAccounts.length]);
 
-  // Calculate running total from invoices
   const invoiceTotal = invoiceItems.reduce((s, i) => s + (Number(i.paidAmount) || 0), 0);
 
   const addInvoice = (inv) => {
@@ -88,34 +106,109 @@ export default function NewSupplierPayment() {
     appendInv({ invoiceNumber: '', invoiceDate: new Date().toISOString().split('T')[0], invoiceTotal: 0, paidAmount: 0 });
   };
 
-  // Sync total amount with invoice sum when invoices exist
   useEffect(() => {
     if (invFields.length > 0) setValue('totalAmount', String(invoiceTotal));
   }, [invoiceTotal, invFields.length]);
 
-  const mutation = useMutation({
-    mutationFn: (data) => createPayment({
-      supplier:             data.supplier,
-      invoices:             data.invoices.length > 0 ? data.invoices : [],
-      totalAmount:          Number(data.totalAmount),
-      paymentDate:          data.paymentDate,
-      paymentMode:          data.paymentMode,
-      referenceNumber:      data.referenceNumber || undefined,
+  const doSubmit = (data, force = false) => {
+    mutation.mutate({
+      supplier:              data.supplier,
+      invoices:              data.invoices.length > 0 ? data.invoices : [],
+      totalAmount:           Number(data.totalAmount),
+      paymentDate:           data.paymentDate,
+      paymentMode:           data.paymentMode,
+      referenceNumber:       data.referenceNumber || undefined,
       selectedBankAccountId: data.selectedBankAccountId || undefined,
-      notes:                data.notes || undefined,
-    }),
+      notes:                 data.notes || undefined,
+      force:                 force || undefined,
+    });
+  };
+
+  const mutation = useMutation({
+    mutationFn: (data) => createPayment(data),
     onSuccess: (res) => {
       toast.success('Payment submitted for approval');
       qc.invalidateQueries({ queryKey: ['payments'] });
       qc.invalidateQueries({ queryKey: ['supplier-invoices'] });
-      navigate(`/payments/${res.data.data._id}`);
+      setDuplicateWarning(null);
+      const newId = res.data.data._id;
+      setCreatedPaymentId(newId);
+      setShowSaveTemplateModal(true);
     },
-    onError: (e) => toast.error(e.response?.data?.message || 'Failed to submit'),
+    onError: (e) => {
+      if (e.response?.status === 409 && e.response?.data?.data?.duplicates) {
+        setDuplicateWarning(e.response.data.data);
+      } else {
+        toast.error(e.response?.data?.message || 'Failed to submit');
+      }
+    },
   });
 
-  const needsRef = ['upi', 'neft', 'rtgs', 'cheque'].includes(paymentMode);
+  const handleSaveTemplate = async () => {
+    if (!templateName.trim()) { toast.error('Enter a template name'); return; }
+    setSavingTemplate(true);
+    try {
+      await createTemplate({
+        name:                  templateName.trim(),
+        supplier:              watch('supplier'),
+        paymentMode:           watch('paymentMode'),
+        selectedBankAccountId: watch('selectedBankAccountId') || undefined,
+        notes:                 watch('notes') || undefined,
+      });
+      toast.success('Template saved');
+      qc.invalidateQueries({ queryKey: ['payment-templates'] });
+      setShowSaveTemplateModal(false);
+      setTemplateName('');
+      navigate(`/payments/${createdPaymentId}`);
+    } catch { toast.error('Failed to save template'); }
+    finally   { setSavingTemplate(false); }
+  };
 
+  const loadTemplate = async (tpl) => {
+    try { await markTemplateUsed(tpl._id); } catch { /* non-blocking */ }
+    setValue('supplier', tpl.supplier._id || tpl.supplier);
+    setValue('paymentMode', tpl.paymentMode || 'cash');
+    if (tpl.selectedBankAccountId) setValue('selectedBankAccountId', tpl.selectedBankAccountId);
+    if (tpl.notes) setValue('notes', tpl.notes);
+    setShowTemplateModal(false);
+    toast.success(`Template "${tpl.name}" loaded`);
+  };
+
+  const needsRef  = ['upi', 'neft', 'rtgs', 'cheque'].includes(paymentMode);
   const selectedAcc = bankAccounts.find((a) => a._id === selectedBankAccountId);
+
+  if (showSaveTemplateModal) {
+    return (
+      <div className="max-w-3xl space-y-4">
+        <div className="card p-8 text-center space-y-4">
+          <CheckCircle2 className="h-12 w-12 text-green-500 mx-auto" />
+          <h2 className="text-lg font-bold text-gray-800">Payment Submitted!</h2>
+          <p className="text-sm text-gray-500">Save this payment config as a template for quick reuse?</p>
+          <div className="max-w-xs mx-auto space-y-3">
+            <input
+              value={templateName}
+              onChange={(e) => setTemplateName(e.target.value)}
+              placeholder="Template name (e.g. Monthly Electricity)"
+              className="input w-full"
+              autoFocus
+              onKeyDown={(e) => e.key === 'Enter' && handleSaveTemplate()}
+            />
+            <div className="flex gap-2 justify-center">
+              <button onClick={handleSaveTemplate} disabled={savingTemplate}
+                className="btn-primary flex items-center gap-1.5 text-sm">
+                <Save className="h-4 w-4" />
+                {savingTemplate ? 'Saving…' : 'Save Template'}
+              </button>
+              <button onClick={() => { setShowSaveTemplateModal(false); navigate(`/payments/${createdPaymentId}`); }}
+                className="btn-secondary text-sm">
+                Skip
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-3xl space-y-4">
@@ -128,9 +221,70 @@ export default function NewSupplierPayment() {
         title="Record Payment"
         subtitle="Submit a payment for trustee approval"
         breadcrumbs={[{ label: 'Payments', to: '/payments' }, { label: 'New' }]}
+        actions={
+          templates.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setShowTemplateModal(true)}
+              className="btn-secondary flex items-center gap-1.5 text-sm">
+              <BookTemplate className="h-4 w-4" />
+              From Template
+              <ChevronDown className="h-3.5 w-3.5" />
+            </button>
+          )
+        }
       />
 
-      <form onSubmit={handleSubmit((d) => mutation.mutate(d))} className="space-y-4">
+      {/* Duplicate warning banner */}
+      {duplicateWarning && (
+        <div className="rounded-xl border border-amber-300 bg-amber-50 p-4 space-y-3">
+          <div className="flex items-start gap-3">
+            <AlertTriangle className="h-5 w-5 text-amber-500 shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <p className="text-sm font-semibold text-amber-800">Possible duplicate payment detected</p>
+              <p className="text-xs text-amber-700 mt-0.5">
+                {duplicateWarning.duplicates.length} existing payment{duplicateWarning.duplicates.length > 1 ? 's' : ''} already
+                cover{duplicateWarning.duplicates.length === 1 ? 's' : ''} one or more of the same invoice numbers.
+              </p>
+            </div>
+            <button onClick={() => setDuplicateWarning(null)} className="text-amber-400 hover:text-amber-600">
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+          <div className="divide-y divide-amber-200 rounded-lg border border-amber-200 bg-white overflow-hidden">
+            {duplicateWarning.duplicates.map((d, i) => (
+              <div key={i} className="flex items-center justify-between px-3 py-2 text-xs">
+                <div>
+                  <span className="font-mono font-semibold text-gray-700">{d.paymentNumber}</span>
+                  <span className="ml-2 text-gray-400">by {d.createdBy || 'Unknown'}</span>
+                  <span className="ml-2 text-amber-600">· Invoices: {d.matchedInvoices.join(', ')}</span>
+                </div>
+                <div className="text-right shrink-0 ml-3">
+                  <span className="font-semibold text-gray-700">{fmtAmt(d.totalAmount)}</span>
+                  <span className={`ml-2 px-1.5 py-0.5 rounded-full text-[10px] font-bold ${d.status === 'approved' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
+                    {STATUS_LABELS[d.status] || d.status}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => doSubmit(getValues(), true)}
+              disabled={mutation.isPending}
+              className="btn btn-ghost border text-xs font-semibold text-amber-700 hover:bg-amber-100 disabled:opacity-50">
+              Submit Anyway
+            </button>
+            <button type="button" onClick={() => setDuplicateWarning(null)}
+              className="text-xs text-gray-400 hover:text-gray-600">
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
+      <form onSubmit={handleSubmit((d) => doSubmit(d))} className="space-y-4">
 
         {/* Supplier + Date */}
         <div className="card p-5 space-y-4">
@@ -220,7 +374,6 @@ export default function NewSupplierPayment() {
               </button>
             </div>
 
-            {/* Unpaid invoices selector */}
             {unpaidInvoices.length > 0 && (
               <div className="rounded-lg border border-gray-100 overflow-hidden">
                 <div className="bg-gray-50 px-3 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wider">
@@ -248,7 +401,6 @@ export default function NewSupplierPayment() {
               </div>
             )}
 
-            {/* Added invoice rows */}
             {invFields.length > 0 && (
               <div className="space-y-2">
                 <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Payment Allocation</p>
@@ -316,6 +468,34 @@ export default function NewSupplierPayment() {
           <button type="button" onClick={() => navigate('/payments')} className="btn-secondary">Cancel</button>
         </div>
       </form>
+
+      {/* Template picker modal */}
+      <Modal open={showTemplateModal} onClose={() => setShowTemplateModal(false)} title="Load from Template" size="md">
+        <div className="space-y-2 max-h-96 overflow-y-auto">
+          {templates.length === 0 ? (
+            <p className="text-sm text-gray-400 py-4 text-center">No templates saved yet.</p>
+          ) : templates.map((tpl) => (
+            <button
+              key={tpl._id}
+              type="button"
+              onClick={() => loadTemplate(tpl)}
+              className="w-full flex items-center justify-between p-3 rounded-xl border border-gray-100 hover:border-primary-300 hover:bg-orange-50 transition-all text-left">
+              <div>
+                <p className="text-sm font-semibold text-gray-800">{tpl.name}</p>
+                <p className="text-xs text-gray-400 mt-0.5">
+                  {tpl.supplier?.name} · {PM_LABELS[tpl.paymentMode] || tpl.paymentMode}
+                  {tpl.usageCount > 0 && ` · Used ${tpl.usageCount}×`}
+                </p>
+              </div>
+              <ChevronDown className="h-4 w-4 text-gray-300 rotate-[-90deg]" />
+            </button>
+          ))}
+        </div>
+        <div className="mt-4 pt-3 border-t flex justify-between items-center">
+          <a href="/payments/templates" className="text-xs text-primary-600 hover:underline">Manage templates →</a>
+          <button onClick={() => setShowTemplateModal(false)} className="btn-secondary text-sm">Close</button>
+        </div>
+      </Modal>
     </div>
   );
 }

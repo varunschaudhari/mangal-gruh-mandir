@@ -9,8 +9,9 @@ import { generatePaymentNumber } from '../services/paymentNumber.service.js';
 import { notifyPaymentSubmitted, notifyPaymentStatusChange } from '../services/paymentNotification.service.js';
 
 const POPULATE = [
-  { path: 'supplier',  select: 'name address city gstin phone bankAccounts creditDays' },
+  { path: 'supplier',   select: 'name address city gstin phone bankAccounts creditDays' },
   { path: 'approvedBy', select: 'name' },
+  { path: 'rejectedBy', select: 'name' },
   { path: 'createdBy',  select: 'name' },
   { path: 'voidedBy',   select: 'name' },
 ];
@@ -172,10 +173,36 @@ export const getPayment = asyncHandler(async (req, res) => {
 
 // POST /supplier-payments
 export const createPayment = asyncHandler(async (req, res) => {
-  const { supplier: supplierId, invoices = [], totalAmount, paymentDate, paymentMode, referenceNumber, bankName, selectedBankAccountId, notes } = req.body;
+  const { supplier: supplierId, invoices = [], totalAmount, paymentDate, paymentMode, referenceNumber, bankName, selectedBankAccountId, notes, force } = req.body;
 
   if (!supplierId)            throw new ApiError(400, 'Supplier is required');
   if (!totalAmount || totalAmount <= 0) throw new ApiError(400, 'Total amount must be greater than 0');
+
+  // Duplicate detection — skip if user explicitly forced through
+  if (!force && invoices.length > 0) {
+    const invNums = invoices.map((i) => i.invoiceNumber).filter(Boolean);
+    if (invNums.length > 0) {
+      const existing = await SupplierPayment.find({
+        supplier: supplierId,
+        status:   { $in: ['pending_approval', 'approved'] },
+        'invoices.invoiceNumber': { $in: invNums },
+      }).populate('createdBy', 'name').lean();
+
+      if (existing.length > 0) {
+        const duplicates = existing.map((p) => ({
+          paymentNumber:   p.paymentNumber,
+          totalAmount:     p.totalAmount,
+          paymentDate:     p.paymentDate,
+          status:          p.status,
+          createdBy:       p.createdBy?.name,
+          matchedInvoices: p.invoices
+            .filter((i) => invNums.includes(i.invoiceNumber))
+            .map((i) => i.invoiceNumber),
+        }));
+        return res.status(409).json({ status: 'error', message: 'Possible duplicate payment detected', data: { duplicates } });
+      }
+    }
+  }
 
   const supplierDoc = await Supplier.findById(supplierId);
   if (!supplierDoc?.isActive) throw new ApiError(404, 'Supplier not found or inactive');
@@ -285,6 +312,8 @@ export const rejectPayment = asyncHandler(async (req, res) => {
     throw new ApiError(403, 'You cannot reject a payment you submitted');
   payment.status          = 'rejected';
   payment.rejectionReason = rejectionReason;
+  payment.rejectedBy      = req.user._id;
+  payment.rejectedAt      = new Date();
   await payment.save();
   const populated = await SupplierPayment.findById(payment._id).populate(POPULATE);
   notifyPaymentStatusChange({ payment, approverName: req.user.name });

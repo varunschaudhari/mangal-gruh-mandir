@@ -1121,20 +1121,306 @@ const seed = async () => {
   }
   console.log(`  ✓ ${paymentsData.length} supplier payments`);
 
+  // ── 7. Settings ─────────────────────────────────────────────────────────────
+
+  console.log('\nCreating settings...');
+  await Settings.create({
+    templeName:         'Mangal Grah Mandir',
+    templeAddress:      'Near Mahavir Chowk, Amalner, Dist. Jalgaon – 425401, Maharashtra',
+    templePhone:        '+91 94220 12345',
+    templeEmail:        'mangalgrahmandir@gmail.com',
+    alertOnOutOfStock:  true,
+    alertOnLowStock:    true,
+    alertOnReorder:     true,
+    trustPAN:           'AAATM1234A',
+    reg80GNumber:       '80G/2023/0012345/JALGAON',
+    reg80GFrom:         new Date('2023-04-01'),
+    reg80GTo:           new Date('2026-03-31'),
+    assetMaxBorrowDays: 7,
+  });
+  console.log('  ✓ Settings (temple info + 80G registration)');
+
+  // ── 8. Assets ────────────────────────────────────────────────────────────────
+
+  console.log('\nCreating assets...');
+  const [speakers, paAmp, chairs, tables, shamiana, mandapSet, brassVessel, copperKalash, floodlights, generator, projScreen, decoLights] = await Promise.all([
+    Asset.create({ name: 'Speaker System',            category: 'Electronics', description: 'PA tower speakers — 15" woofers, 2 units',         totalQuantity: 2,   finePerDay: 50,  isBorrowable: true,  isActive: true, createdBy: adminUser._id }),
+    Asset.create({ name: 'PA Amplifier',              category: 'Electronics', description: '1000W amplifier with mixer and 2 mic stands',      totalQuantity: 1,   finePerDay: 30,  isBorrowable: true,  isActive: true, createdBy: adminUser._id }),
+    Asset.create({ name: 'Plastic Chairs',            category: 'Furniture',   description: 'White plastic chairs for events',                   totalQuantity: 150, finePerDay: 2,   isBorrowable: true,  isActive: true, createdBy: adminUser._id }),
+    Asset.create({ name: 'Folding Tables',            category: 'Furniture',   description: 'Metal folding tables 6×2 ft',                       totalQuantity: 25,  finePerDay: 10,  isBorrowable: true,  isActive: true, createdBy: adminUser._id }),
+    Asset.create({ name: 'Shamiana / Tent',           category: 'Mandap',      description: 'Large event tent 20×30 ft with poles and ropes',   totalQuantity: 2,   finePerDay: 200, isBorrowable: true,  isActive: true, createdBy: adminUser._id }),
+    Asset.create({ name: 'Mandap Decoration Set',     category: 'Mandap',      description: 'Full mandap — pillars, backdrop, flower frame',     totalQuantity: 1,   finePerDay: 100, isBorrowable: true,  isActive: true, createdBy: adminUser._id }),
+    Asset.create({ name: 'Brass Puja Vessel (Patil)', category: 'Vessels',     description: 'Large brass patil, 50L capacity',                   totalQuantity: 8,   finePerDay: 20,  isBorrowable: true,  isActive: true, createdBy: adminUser._id }),
+    Asset.create({ name: 'Copper Kalash',             category: 'Vessels',     description: 'Decorated copper kalash for abhishek puja',         totalQuantity: 20,  finePerDay: 10,  isBorrowable: true,  isActive: true, createdBy: adminUser._id }),
+    Asset.create({ name: 'Halogen Flood Light',       category: 'Electronics', description: '500W halogen light on tripod stand',                totalQuantity: 6,   finePerDay: 30,  isBorrowable: true,  isActive: true, createdBy: adminUser._id }),
+    Asset.create({ name: 'Generator (7.5 KVA)',       category: 'Electronics', description: 'Diesel generator — Kirloskar 7.5 KVA',              totalQuantity: 1,   finePerDay: 300, isBorrowable: false, isActive: true, createdBy: adminUser._id }),
+    Asset.create({ name: 'Projection Screen',         category: 'Electronics', description: '10×8 ft projection screen on stand',                totalQuantity: 1,   finePerDay: 50,  isBorrowable: true,  isActive: true, createdBy: adminUser._id }),
+    Asset.create({ name: 'LED Decoration Lights',     category: 'Decoration',  description: 'LED string lights — 100m per set',                  totalQuantity: 10,  finePerDay: 20,  isBorrowable: true,  isActive: true, createdBy: adminUser._id }),
+  ]);
+  console.log('  ✓ 12 assets (11 borrowable, 1 not borrowable)');
+
+  // ── 9. Borrow History (Groups + Transactions) ─────────────────────────────────
+
+  console.log('\nCreating borrow history...');
+
+  const [mukesh, priya, anita, vijay, kavita, rameshB, trustee1User] = await Promise.all([
+    User.findOne({ email: 'staff1@mandir.com' }),
+    User.findOne({ email: 'kitchen@mandir.com' }),
+    User.findOne({ email: 'puja@mandir.com' }),
+    User.findOne({ email: 'viewer@mandir.com' }),
+    User.findOne({ email: 'staff2@mandir.com' }),
+    User.findOne({ email: 'staff3@mandir.com' }),
+    User.findOne({ email: 'trustee1@mandir.com' }),
+  ]);
+
+  // BR-2026-0001 — Holi sound setup (returned, group of 3)
+  const grp1 = await BorrowGroup.create({
+    groupNumber: 'BR-2026-0001', borrower: mukesh._id, approvedBy: adminUser._id, approvedAt: daysAgo(83),
+    expectedReturnDate: daysAgo(79), status: 'returned',
+    notes: 'Holi festival — PA setup for kirtan programme', createdBy: adminUser._id,
+  });
+  await Promise.all([
+    AssetTransaction.create({ transactionNumber: 'BR-2026-0001/1', asset: speakers._id,    borrower: mukesh._id, quantityBorrowed: 2, expectedReturnDate: daysAgo(79), actualReturnDate: daysAgo(80), status: 'returned', approvedBy: adminUser._id, approvedAt: daysAgo(83), checkedOutAt: daysAgo(82), conditionAtCheckout: 'good', conditionAtReturn: 'good', group: grp1._id, createdBy: adminUser._id }),
+    AssetTransaction.create({ transactionNumber: 'BR-2026-0001/2', asset: paAmp._id,       borrower: mukesh._id, quantityBorrowed: 1, expectedReturnDate: daysAgo(79), actualReturnDate: daysAgo(80), status: 'returned', approvedBy: adminUser._id, approvedAt: daysAgo(83), checkedOutAt: daysAgo(82), conditionAtCheckout: 'good', conditionAtReturn: 'good', group: grp1._id, createdBy: adminUser._id }),
+    AssetTransaction.create({ transactionNumber: 'BR-2026-0001/3', asset: floodlights._id, borrower: mukesh._id, quantityBorrowed: 4, expectedReturnDate: daysAgo(79), actualReturnDate: daysAgo(80), status: 'returned', approvedBy: adminUser._id, approvedAt: daysAgo(83), checkedOutAt: daysAgo(82), conditionAtCheckout: 'good', conditionAtReturn: 'good', group: grp1._id, createdBy: adminUser._id }),
+  ]);
+
+  // BR-2026-0002 — Ram Navami mandap (returned, group of 3)
+  const grp2 = await BorrowGroup.create({
+    groupNumber: 'BR-2026-0002', borrower: priya._id, approvedBy: adminUser._id, approvedAt: daysAgo(59),
+    expectedReturnDate: daysAgo(53), status: 'returned',
+    notes: 'Ram Navami — chairs and mandap for puja programme', createdBy: adminUser._id,
+  });
+  await Promise.all([
+    AssetTransaction.create({ transactionNumber: 'BR-2026-0002/1', asset: chairs._id,    borrower: priya._id, quantityBorrowed: 50, expectedReturnDate: daysAgo(53), actualReturnDate: daysAgo(54), status: 'returned', approvedBy: adminUser._id, approvedAt: daysAgo(59), checkedOutAt: daysAgo(58), conditionAtCheckout: 'good', conditionAtReturn: 'good', group: grp2._id, createdBy: adminUser._id }),
+    AssetTransaction.create({ transactionNumber: 'BR-2026-0002/2', asset: tables._id,    borrower: priya._id, quantityBorrowed: 8,  expectedReturnDate: daysAgo(53), actualReturnDate: daysAgo(54), status: 'returned', approvedBy: adminUser._id, approvedAt: daysAgo(59), checkedOutAt: daysAgo(58), conditionAtCheckout: 'good', conditionAtReturn: 'good', group: grp2._id, createdBy: adminUser._id }),
+    AssetTransaction.create({ transactionNumber: 'BR-2026-0002/3', asset: mandapSet._id, borrower: priya._id, quantityBorrowed: 1,  expectedReturnDate: daysAgo(53), actualReturnDate: daysAgo(54), status: 'returned', approvedBy: adminUser._id, approvedAt: daysAgo(59), checkedOutAt: daysAgo(58), conditionAtCheckout: 'good', conditionAtReturn: 'fair', damageNotes: 'Minor stain on backdrop cloth — noted at return', group: grp2._id, createdBy: adminUser._id }),
+  ]);
+
+  // BR-2026-0003 — Copper Kalash for Hanuman Jayanti (returned, single item)
+  await AssetTransaction.create({
+    transactionNumber: 'BR-2026-0003', asset: copperKalash._id, borrower: anita._id,
+    quantityBorrowed: 8, expectedReturnDate: daysAgo(44), actualReturnDate: daysAgo(45),
+    status: 'returned', approvedBy: adminUser._id, approvedAt: daysAgo(49), checkedOutAt: daysAgo(48),
+    conditionAtCheckout: 'good', conditionAtReturn: 'good',
+    notes: 'Hanuman Jayanti abhishek puja', createdBy: adminUser._id,
+  });
+
+  // BR-2026-0004 — Folding Tables overdue (single item, 11 days late)
+  const lateDays4 = 11;
+  await AssetTransaction.create({
+    transactionNumber: 'BR-2026-0004', asset: tables._id, borrower: rameshB._id,
+    quantityBorrowed: 5, expectedReturnDate: daysAgo(11),
+    status: 'overdue', approvedBy: trustee1User._id, approvedAt: daysAgo(19), checkedOutAt: daysAgo(18),
+    conditionAtCheckout: 'good', lateDays: lateDays4, fineAmount: 5 * 10 * lateDays4, fineApplied: true,
+    remindersSent: [{ reminderType: 'overdue_1day', sentAt: daysAgo(10) }, { reminderType: 'overdue_3day', sentAt: daysAgo(8) }],
+    notes: 'Tables for staff quarters function', createdBy: adminUser._id,
+  });
+
+  // BR-2026-0005 — Deco lights + Brass vessels overdue (group of 2, 5 days late)
+  const lateDays5 = 5;
+  const grp5 = await BorrowGroup.create({
+    groupNumber: 'BR-2026-0005', borrower: vijay._id, approvedBy: trustee1User._id, approvedAt: daysAgo(13),
+    expectedReturnDate: daysAgo(5), status: 'overdue',
+    notes: 'Neighbourhood Ganesh puja — decoration and vessels', createdBy: adminUser._id,
+  });
+  await Promise.all([
+    AssetTransaction.create({ transactionNumber: 'BR-2026-0005/1', asset: decoLights._id,  borrower: vijay._id, quantityBorrowed: 3, expectedReturnDate: daysAgo(5), status: 'overdue', approvedBy: trustee1User._id, approvedAt: daysAgo(13), checkedOutAt: daysAgo(12), conditionAtCheckout: 'good', lateDays: lateDays5, fineAmount: 3 * 20 * lateDays5, fineApplied: true, remindersSent: [{ reminderType: 'overdue_1day', sentAt: daysAgo(4) }], group: grp5._id, createdBy: adminUser._id }),
+    AssetTransaction.create({ transactionNumber: 'BR-2026-0005/2', asset: brassVessel._id, borrower: vijay._id, quantityBorrowed: 2, expectedReturnDate: daysAgo(5), status: 'overdue', approvedBy: trustee1User._id, approvedAt: daysAgo(13), checkedOutAt: daysAgo(12), conditionAtCheckout: 'good', lateDays: lateDays5, fineAmount: 2 * 20 * lateDays5, fineApplied: true, remindersSent: [{ reminderType: 'overdue_1day', sentAt: daysAgo(4) }], group: grp5._id, createdBy: adminUser._id }),
+  ]);
+
+  // BR-2026-0006 — Active checkout, due in 4 days (group of 2)
+  const grp6 = await BorrowGroup.create({
+    groupNumber: 'BR-2026-0006', borrower: kavita._id, approvedBy: adminUser._id, approvedAt: daysAgo(3),
+    expectedReturnDate: daysFromNow(4), status: 'checked_out',
+    notes: "Puja ceremony at devotee's home — kalash and vessels", createdBy: adminUser._id,
+  });
+  await Promise.all([
+    AssetTransaction.create({ transactionNumber: 'BR-2026-0006/1', asset: copperKalash._id, borrower: kavita._id, quantityBorrowed: 5, expectedReturnDate: daysFromNow(4), status: 'checked_out', approvedBy: adminUser._id, approvedAt: daysAgo(3), checkedOutAt: daysAgo(2), conditionAtCheckout: 'good', group: grp6._id, createdBy: adminUser._id }),
+    AssetTransaction.create({ transactionNumber: 'BR-2026-0006/2', asset: brassVessel._id,  borrower: kavita._id, quantityBorrowed: 3, expectedReturnDate: daysFromNow(4), status: 'checked_out', approvedBy: adminUser._id, approvedAt: daysAgo(3), checkedOutAt: daysAgo(2), conditionAtCheckout: 'good', group: grp6._id, createdBy: adminUser._id }),
+  ]);
+
+  // BR-2026-0007 — Approved not yet checked out, Annual Utsav prep (group of 3)
+  const grp7 = await BorrowGroup.create({
+    groupNumber: 'BR-2026-0007', borrower: priya._id, approvedBy: adminUser._id, approvedAt: daysAgo(1),
+    expectedReturnDate: daysFromNow(6), status: 'approved',
+    notes: 'Annual Utsav preparations — chairs, tables, decoration', createdBy: adminUser._id,
+  });
+  await Promise.all([
+    AssetTransaction.create({ transactionNumber: 'BR-2026-0007/1', asset: chairs._id,     borrower: priya._id, quantityBorrowed: 30, expectedReturnDate: daysFromNow(6), status: 'approved', approvedBy: adminUser._id, approvedAt: daysAgo(1), group: grp7._id, createdBy: adminUser._id }),
+    AssetTransaction.create({ transactionNumber: 'BR-2026-0007/2', asset: tables._id,     borrower: priya._id, quantityBorrowed: 5,  expectedReturnDate: daysFromNow(6), status: 'approved', approvedBy: adminUser._id, approvedAt: daysAgo(1), group: grp7._id, createdBy: adminUser._id }),
+    AssetTransaction.create({ transactionNumber: 'BR-2026-0007/3', asset: decoLights._id, borrower: priya._id, quantityBorrowed: 2,  expectedReturnDate: daysFromNow(6), status: 'approved', approvedBy: adminUser._id, approvedAt: daysAgo(1), group: grp7._id, createdBy: adminUser._id }),
+  ]);
+
+  // BR-2026-0008 — Projection Screen, approved single item (Katha programme)
+  await AssetTransaction.create({
+    transactionNumber: 'BR-2026-0008', asset: projScreen._id, borrower: rameshB._id,
+    quantityBorrowed: 1, expectedReturnDate: daysFromNow(3),
+    status: 'approved', approvedBy: trustee1User._id, approvedAt: daysAgo(1),
+    notes: 'Katha programme — projection screen for bhajan videos', createdBy: adminUser._id,
+  });
+
+  const borrowTxnCount = await AssetTransaction.countDocuments();
+  console.log(`  ✓ ${borrowTxnCount} borrow transactions across 8 borrow requests (3 returned, 2 overdue, 1 active, 2 pending checkout)`);
+
+  // ── 10. Kind Donations (Vastu Daan) ────────────────────────────────────────
+
+  console.log('\nCreating kind donations...');
+
+  // Kind donation 1 — Ramesh Shah: Pure Desi Ghee vastu daan + cash
+  const kindTxn1 = await createTxn({ type: 'STOCK_IN', to: ms, product: P['GHEE-DSI'], qty: 10, rate: 600, stockInType: 'DONATION', supplier: donorRamesh, date: daysAgo(70), expiryDate: daysFromNow(90), batchRef: 'DON-RSH-MAR', notes: 'Vastu daan — Pure Desi Ghee by Ramesh Shantilal Shah', ...opts });
+  {
+    const num = await genDonNum(daysAgo(70));
+    await Donation.create({ donationNumber: num, donationType: 'named', date: daysAgo(70), donor: donorRamesh._id, occasion: generalOcc?._id, cashAmount: 2100, paymentMode: 'cash', is80G: true, kindItems: [{ product: P['GHEE-DSI']._id, quantity: 10, unit: kg._id, department: ms._id, estimatedValue: 6000, stockTransactionId: kindTxn1._id }], totalEstimatedValue: 6000, notes: 'Ghee vastu daan (10 kg) + cash — Ramesh Shantilal Shah', receivedBy: adminUser._id, createdBy: adminUser._id });
+  }
+
+  // Kind donation 2 — Patel Parivar: Rice + Sugar (prasad sponsorship vastu daan)
+  const kindTxn2a = await createTxn({ type: 'STOCK_IN', to: ms, product: P['RICE-BAS'], qty: 50, rate: 82, stockInType: 'DONATION', supplier: donorPatel, date: daysAgo(35), notes: 'Vastu daan — Basmati Rice by Patel Parivar', ...opts });
+  const kindTxn2b = await createTxn({ type: 'STOCK_IN', to: ms, product: P['SUGR'],     qty: 25, rate: 45, stockInType: 'DONATION', supplier: donorPatel, date: daysAgo(35), notes: 'Vastu daan — Sugar by Patel Parivar', ...opts });
+  {
+    const num = await genDonNum(daysAgo(35));
+    await Donation.create({ donationNumber: num, donationType: 'named', date: daysAgo(35), donor: donorPatel._id, occasion: prasadOcc?._id, cashAmount: 0, paymentMode: 'cash', is80G: true, kindItems: [{ product: P['RICE-BAS']._id, quantity: 50, unit: kg._id, department: ms._id, estimatedValue: 4100, stockTransactionId: kindTxn2a._id }, { product: P['SUGR']._id, quantity: 25, unit: kg._id, department: ms._id, estimatedValue: 1125, stockTransactionId: kindTxn2b._id }], totalEstimatedValue: 5225, notes: 'Prasad Sponsorship vastu daan — Rice (50 kg) + Sugar (25 kg) by Patel Parivar', receivedBy: adminUser._id, createdBy: adminUser._id });
+  }
+
+  // Kind donation 3 — Anonymous walk-in: Agarbatti + Diya + small cash
+  const kindTxn3a = await createTxn({ type: 'STOCK_IN', to: ms, product: P['AGBT'], qty: 500, rate: 2, stockInType: 'DONATION', date: daysAgo(10), notes: 'Vastu daan — Agarbatti by anonymous devotee', ...opts });
+  const kindTxn3b = await createTxn({ type: 'STOCK_IN', to: ms, product: P['DIYA'], qty: 100, rate: 3, stockInType: 'DONATION', date: daysAgo(10), notes: 'Vastu daan — Diya by anonymous devotee', ...opts });
+  {
+    const num = await genDonNum(daysAgo(10));
+    await Donation.create({ donationNumber: num, donationType: 'anonymous', date: daysAgo(10), donorName: 'Anonymous Devotee', donorPhone: '9800000000', occasion: generalOcc?._id, cashAmount: 500, paymentMode: 'cash', kindItems: [{ product: P['AGBT']._id, quantity: 500, unit: pcs._id, department: ms._id, estimatedValue: 1000, stockTransactionId: kindTxn3a._id }, { product: P['DIYA']._id, quantity: 100, unit: pcs._id, department: ms._id, estimatedValue: 300, stockTransactionId: kindTxn3b._id }], totalEstimatedValue: 1300, notes: 'Vastu daan (puja items) + cash by anonymous walk-in devotee', receivedBy: adminUser._id, createdBy: adminUser._id });
+  }
+
+  console.log('  ✓ 3 kind donations (vastu daan) with linked stock-in transactions');
+
+  // ── 11. Additional Borrow States ─────────────────────────────────────────────
+
+  console.log('\nCreating additional borrow states...');
+
+  // BR-2026-0009 — Cancelled (Shamiana tent, outdoor event postponed due to rain)
+  await AssetTransaction.create({
+    transactionNumber: 'BR-2026-0009', asset: shamiana._id, borrower: vijay._id,
+    quantityBorrowed: 1, expectedReturnDate: daysFromNow(2),
+    status: 'cancelled', approvedBy: trustee1User._id, approvedAt: daysAgo(4),
+    cancellationReason: 'Event postponed due to rain — shamiana no longer required',
+    notes: 'Outdoor programme rescheduled for following weekend', createdBy: adminUser._id,
+  });
+
+  // BR-2026-0010 — Extended then returned on extended due date (Halogen Flood Lights)
+  await AssetTransaction.create({
+    transactionNumber: 'BR-2026-0010', asset: floodlights._id, borrower: priya._id,
+    quantityBorrowed: 3, expectedReturnDate: daysAgo(12),
+    actualReturnDate: daysAgo(12), status: 'returned',
+    approvedBy: adminUser._id, approvedAt: daysAgo(23), checkedOutAt: daysAgo(22),
+    conditionAtCheckout: 'good', conditionAtReturn: 'good',
+    lateDays: 0, fineApplied: false,
+    extensions: [{
+      previousReturnDate: daysAgo(17),
+      newReturnDate:      daysAgo(12),
+      approvedBy:         trustee1User._id,
+      approvedAt:         daysAgo(18),
+      extendedBy:         adminUser._id,
+      notes: 'Programme extended by 5 days — additional decoration work required',
+    }],
+    notes: 'Lights for Akshaya Tritiya decoration — extension approved by trustee', createdBy: adminUser._id,
+  });
+
+  // BR-2026-0011 — Returned 2 days late, fine waived by trustee (Brass Vessels)
+  await AssetTransaction.create({
+    transactionNumber: 'BR-2026-0011', asset: brassVessel._id, borrower: mukesh._id,
+    quantityBorrowed: 3, expectedReturnDate: daysAgo(36),
+    actualReturnDate: daysAgo(34), status: 'returned',
+    approvedBy: trustee1User._id, approvedAt: daysAgo(40), checkedOutAt: daysAgo(39),
+    conditionAtCheckout: 'good', conditionAtReturn: 'good',
+    lateDays: 2, fineAmount: 3 * 20 * 2,
+    fineApplied: false, fineWaived: true,
+    fineWaivedReason: 'Trustee discretion — community event, borrower returned at first available opportunity',
+    notes: 'Vessels for community Satyanarayan puja', createdBy: adminUser._id,
+  });
+
+  console.log('  ✓ 3 additional borrow states: cancelled (BR-0009), extension+return (BR-0010), fine-waived (BR-0011)');
+
+  // ── 12. Dry Fruits — Rejected Payment Re-submission ──────────────────────────
+
+  console.log('\nCreating dry fruits payment re-submission...');
+  {
+    const payNum = await generatePaymentNumber(daysAgo(5));
+    await SupplierPayment.create({
+      paymentNumber: payNum,
+      supplier: dryFruits._id,
+      invoices: [{ invoiceNumber: 'DRY-APR05-GST', invoiceDate: daysAgo(58), invoiceTotal: 8200, paidAmount: 8200 }],
+      totalAmount: 8200,
+      paymentDate: daysAgo(5),
+      paymentMode: 'cheque',
+      referenceNumber: 'CHQ-0094',
+      status: 'pending_approval',
+      notes: 'Resubmission with GST invoice attached — original CHQ-0089 was rejected (Shri Ganpati Dry Fruits)',
+      createdBy: adminUser._id,
+    });
+  }
+  console.log('  ✓ Dry fruits re-submission (pending approval, original was rejected)');
+
+  // ── 13. Ramesh Shah — June Monthly Donation ──────────────────────────────────
+
+  console.log('\nCreating Ramesh Shah June donation...');
+  {
+    const num = await genDonNum(daysAgo(4));
+    await Donation.create({
+      donationNumber: num,
+      donationType:  'named',
+      date:           daysAgo(4),
+      donor:          donorRamesh._id,
+      occasion:       generalOcc?._id,
+      cashAmount:     5100,
+      paymentMode:    'upi',
+      paymentRef:     'UPI-RSH-JUN2026',
+      is80G:          true,
+      notes:          'June monthly donation — Ramesh Shantilal Shah',
+      receivedBy:     adminUser._id,
+      createdBy:      adminUser._id,
+    });
+  }
+  console.log('  ✓ Ramesh Shah June donation (3 monthly entries: March, May, June)');
+
+  // ── 14. Low-Stock Triggers ───────────────────────────────────────────────────
+
+  console.log('\nCreating low-stock triggers...');
+
+  // Jaggery (GUR, unit: kg) — small restock then nearly fully consumed
+  // reorderPoint: 15 kg, minStockLevel: 5 kg → target: ~0.5 kg remaining
+  await createTxn({ type: 'STOCK_IN',  to: ms,   product: P['GUR'], qty: 5,   rate: 62, stockInType: 'PURCHASE', supplier: kirana, date: daysAgo(3), notes: 'Emergency jaggery restock', ...opts });
+  await createTxn({ type: 'STOCK_OUT', from: ms,  product: P['GUR'], qty: 4.5, stockOutPurpose: 'CONSUMPTION', date: daysAgo(2), notes: 'Prasad preparation — jaggery stock critically low', ...opts });
+
+  // Camphor (KAPR, unit: g) — purchase, transfer to puja store, heavy aarti consumption
+  // reorderPoint: 300 g, minStockLevel: 100 g → target: ~20 g remaining in ps
+  await createTxn({ type: 'STOCK_IN',  to: ms, product: P['KAPR'], qty: 250, rate: 0.5, stockInType: 'PURCHASE', supplier: kirana, date: daysAgo(3), ...opts });
+  await createTxn({ type: 'TRANSFER',  from: ms, to: ps, product: P['KAPR'], qty: 250, date: daysAgo(3), ...opts });
+  await createTxn({ type: 'STOCK_OUT', from: ps, product: P['KAPR'], qty: 230, stockOutPurpose: 'OFFERING', date: daysAgo(2), notes: 'Maha aarti — heavy camphor usage, stock nearly exhausted', ...opts });
+
+  // Marigold (FLWR-MRG, unit: kg) — consume most of yesterday's delivery
+  // reorderPoint: 10 kg, minStockLevel: 5 kg → target: ~4 kg remaining in fr
+  // daysAgo(1) already transferred 20 kg to fr — consuming 16 kg at 14:00 (after 10:00 transfer)
+  await createTxn({ type: 'STOCK_OUT', from: fr, product: P['FLWR-MRG'], qty: 16, stockOutPurpose: 'OFFERING', date: daysAgo(1, 14), notes: 'Afternoon aarti + evening decoration — flowers nearly exhausted', ...opts });
+
+  console.log('  ✓ 3 low-stock triggers: GUR ~0.5 kg, KAPR ~20 g, FLWR-MRG ~4 kg (all below reorder points)');
+
   // ─── Done ─────────────────────────────────────────────────────────────────
 
   const txnCount = await StockTransaction.countDocuments();
   const donCount = await Donation.countDocuments();
   const payCount = await SupplierPayment.countDocuments();
+  const assetCount = await Asset.countDocuments();
+  const finalBorrowCount = await AssetTransaction.countDocuments();
   console.log(`\n✅  Test data seeded successfully!`);
-  console.log(`   Products          : ${productDefs.length} (Dal Bati Churma, Panchamrut & more)`);
-  console.log(`   Suppliers         : 6 vendors (with bank accounts)`);
-  console.log(`   Donors            : 3 individual + 1 charitable trust`);
-  console.log(`   Users             : 9 (super admin + manager + 2 trustees + 3 staff + viewer)`);
-  console.log(`   Stock Transactions: ${txnCount} total (3 months: March–June 2026)`);
-  console.log(`   Donations         : ${donCount} (named/hundi/anonymous across 3 months)`);
-  console.log(`   Supplier Payments : ${payCount} (approved, pending, rejected)`);
-  console.log(`   Key Events        : Holi, Ram Navami, Hanuman Jayanti, Akshaya Tritiya\n`);
+  console.log(`   Products           : ${productDefs.length} (Dal Bati Churma, Panchamrut & more)`);
+  console.log(`   Suppliers          : 6 vendors (with bank accounts)`);
+  console.log(`   Donors             : 3 individual + 1 charitable trust`);
+  console.log(`   Users              : 9 (super admin + manager + 2 trustees + 3 staff + viewer)`);
+  console.log(`   Stock Transactions : ${txnCount} total (3 months: March–June 2026)`);
+  console.log(`   Donations          : ${donCount} (named/hundi/anonymous + 3 vastu daan + recurring donor)`);
+  console.log(`   Supplier Payments  : ${payCount} (approved, pending, rejected + re-submission)`);
+  console.log(`   Assets             : ${assetCount} (11 borrowable, 1 not)`);
+  console.log(`   Borrow Transactions: ${finalBorrowCount} (returned/overdue/active/pending/cancelled/extended/fine-waived)`);
+  console.log(`   Settings           : temple info + 80G registration configured\n`);
   console.log('Login Credentials:');
   console.log('   Super Admin   : admin@mandir.com     / Admin@1234');
   console.log('   Store Manager : manager@mandir.com   / Manager@123  [can approve payments]');

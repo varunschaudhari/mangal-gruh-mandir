@@ -25,6 +25,8 @@ const supplierPaymentSchema = new mongoose.Schema({
   approvedAt:      { type: Date },
   approvalNote:    { type: String },
   rejectionReason: { type: String },
+  rejectedBy:      { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  rejectedAt:      { type: Date },
   voidedBy:        { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   voidedAt:        { type: Date },
   voidReason:      { type: String },

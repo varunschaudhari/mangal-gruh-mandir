@@ -63,7 +63,12 @@
       "Read(//mnt/c/Users/varun.chaudhari/my-projects/mangal-gruh-mandir/client/src/pages/**)",
       "Bash(node -e \"const {TimerOff} = require\\('lucide-react'\\); console.log\\(TimerOff ? 'exists' : 'missing'\\);\")",
       "Bash(node src/seeds/index.js)",
-      "PowerShell(mongosh \"mongodb://localhost:27017/mgm_stock\" --eval \"db.dropDatabase\\(\\)\" 2>&1)"
+      "PowerShell(mongosh \"mongodb://localhost:27017/mgm_stock\" --eval \"db.dropDatabase\\(\\)\" 2>&1)",
+      "Bash(mongosh \"mongodb://localhost:27017/mgm_stock\" --eval \"db.dropDatabase\\(\\)\")",
+      "Bash(mongosh --version)",
+      "Bash(node src/seeds/testData.seed.js)",
+      "Bash(node -e \"const p = require\\('./package.json'\\); const seeds = Object.entries\\(p.scripts\\).filter\\(\\([k]\\) => k.includes\\('seed'\\)\\); console.log\\(JSON.stringify\\(seeds, null, 2\\)\\)\")",
+      "Bash(node -e \"const l = require\\('lucide-react'\\); console.log\\('BookTemplate:', !!l.BookTemplate\\); console.log\\('FileCheck:', !!l.FileCheck\\); console.log\\('FileX:', !!l.FileX\\);\")"
     ]
   }
 }

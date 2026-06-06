@@ -6,7 +6,7 @@ import {
   Trash2, Package, Warehouse, Users, Tag, Ruler, Truck, Shield,
   ChevronDown, ChevronRight, FlameKindling, History, AlertTriangle, BookOpen, CalendarClock,
   X, Armchair, ClipboardList, Settings2, BarChart2, TrendingUp, Heart, CreditCard, Plus,
-  ShoppingCart,
+  ShoppingCart, BookTemplate,
 } from 'lucide-react';
 import { usePermissions } from '../../hooks/usePermissions.js';
 import { getAssetCounts } from '../../api/assetTransaction.api.js';
@@ -94,8 +94,9 @@ const navConfig = [
     icon: CreditCard,
     permission: 'payments:read',
     children: [
-      { label: 'All Payments',    to: '/payments',     icon: CreditCard, permission: 'payments:read'  },
-      { label: 'Record Payment',  to: '/payments/new', icon: Plus,       permission: 'payments:write' },
+      { label: 'All Payments',    to: '/payments',            icon: CreditCard,    permission: 'payments:read'  },
+      { label: 'Record Payment',  to: '/payments/new',        icon: Plus,          permission: 'payments:write' },
+      { label: 'Templates',       to: '/payments/templates',  icon: BookTemplate,  permission: 'payments:write' },
     ],
   },
   {

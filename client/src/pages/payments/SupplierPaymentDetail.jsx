@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, CheckCircle2, XCircle, Download, Building2, Ban } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, XCircle, Download, Building2, Ban, Clock, UserCircle2, FileCheck, FileX, Trash2 } from 'lucide-react';
 import { getPayment, approvePayment, rejectPayment, voidPayment, downloadVoucher } from '../../api/supplierPayment.api.js';
 import { PageLoader } from '../../components/ui/Spinner.jsx';
 import Badge from '../../components/ui/Badge.jsx';
@@ -10,6 +10,7 @@ import { usePermissions } from '../../hooks/usePermissions.js';
 import toast from 'react-hot-toast';
 
 const fmt    = (d)  => d ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
+const fmtTs  = (d)  => d ? new Date(d).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—';
 const fmtAmt = (n)  => n != null ? `₹${Number(n).toLocaleString('en-IN')}` : '—';
 const STATUS_COLORS = { pending_approval: 'yellow', approved: 'green', rejected: 'red', voided: 'gray' };
 const STATUS_LABELS = { pending_approval: 'Pending Approval', approved: 'Approved', rejected: 'Rejected', voided: 'Voided' };
@@ -21,6 +22,117 @@ const Row = ({ label, children }) => (
     <span className="text-sm text-gray-800 text-right font-medium">{children}</span>
   </div>
 );
+
+const TIMELINE_CONFIG = {
+  created:  { icon: Clock,      bg: 'bg-blue-100',  ring: 'ring-blue-200',  text: 'text-blue-600',  label: 'Submitted' },
+  approved: { icon: FileCheck,  bg: 'bg-green-100', ring: 'ring-green-200', text: 'text-green-600', label: 'Approved' },
+  rejected: { icon: FileX,      bg: 'bg-red-100',   ring: 'ring-red-200',   text: 'text-red-600',   label: 'Rejected' },
+  voided:   { icon: Trash2,     bg: 'bg-gray-100',  ring: 'ring-gray-200',  text: 'text-gray-500',  label: 'Voided' },
+};
+
+function buildTimeline(payment) {
+  const events = [];
+
+  if (payment.createdAt) {
+    events.push({
+      key:   'created',
+      at:    payment.createdAt,
+      by:    payment.createdBy?.name,
+      note:  payment.notes || null,
+    });
+  }
+
+  if (payment.approvedAt) {
+    events.push({
+      key:   'approved',
+      at:    payment.approvedAt,
+      by:    payment.approvedBy?.name,
+      note:  payment.approvalNote || null,
+    });
+  }
+
+  if (payment.status === 'rejected' && payment.rejectedAt) {
+    events.push({
+      key:   'rejected',
+      at:    payment.rejectedAt,
+      by:    payment.rejectedBy?.name,
+      note:  payment.rejectionReason || null,
+    });
+  } else if (payment.status === 'rejected' && !payment.rejectedAt && payment.rejectionReason) {
+    // Legacy rejection without rejectedAt — show it as approximate
+    events.push({
+      key:   'rejected',
+      at:    null,
+      by:    null,
+      note:  payment.rejectionReason,
+    });
+  }
+
+  if (payment.voidedAt) {
+    events.push({
+      key:   'voided',
+      at:    payment.voidedAt,
+      by:    payment.voidedBy?.name,
+      note:  payment.voidReason || null,
+    });
+  }
+
+  return events.sort((a, b) => (a.at && b.at ? new Date(a.at) - new Date(b.at) : 0));
+}
+
+function ActivityTimeline({ payment }) {
+  const events = buildTimeline(payment);
+  if (!events.length) return null;
+
+  return (
+    <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
+      <div className="px-4 py-3 border-b bg-gray-50 flex items-center gap-2">
+        <Clock className="h-4 w-4 text-gray-400" />
+        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Activity Timeline</p>
+      </div>
+      <div className="p-4">
+        <ol className="relative space-y-0">
+          {events.map((ev, idx) => {
+            const cfg = TIMELINE_CONFIG[ev.key];
+            const Icon = cfg.icon;
+            const isLast = idx === events.length - 1;
+            return (
+              <li key={ev.key} className="relative flex gap-4">
+                {/* Vertical line */}
+                {!isLast && (
+                  <div className="absolute left-[17px] top-9 bottom-0 w-px bg-gray-100" />
+                )}
+                {/* Icon bubble */}
+                <div className={`relative z-10 flex h-9 w-9 shrink-0 items-center justify-center rounded-full ring-4 ring-white ${cfg.bg}`}>
+                  <Icon className={`h-4 w-4 ${cfg.text}`} />
+                </div>
+                {/* Content */}
+                <div className={`flex-1 pb-6 ${isLast ? 'pb-0' : ''}`}>
+                  <div className="flex items-baseline gap-2 flex-wrap">
+                    <span className={`text-sm font-semibold ${cfg.text}`}>{cfg.label}</span>
+                    {ev.by && (
+                      <span className="flex items-center gap-1 text-xs text-gray-500">
+                        <UserCircle2 className="h-3 w-3" /> {ev.by}
+                      </span>
+                    )}
+                    {ev.at && (
+                      <span className="text-xs text-gray-400 ml-auto">{fmtTs(ev.at)}</span>
+                    )}
+                  </div>
+                  {ev.note && (
+                    <p className="mt-1 text-xs text-gray-500 bg-gray-50 rounded-lg px-3 py-2 border border-gray-100">
+                      {ev.note}
+                    </p>
+                  )}
+                </div>
+              </li>
+            );
+          })}
+        </ol>
+      </div>
+    </div>
+  );
+}
 
 export default function SupplierPaymentDetail() {
   const { id }   = useParams();
@@ -148,24 +260,6 @@ export default function SupplierPaymentDetail() {
         <p className="text-sm text-gray-400 mt-0.5">{PM_LABELS[payment.paymentMode] || payment.paymentMode}</p>
       </div>
 
-      {/* Void banner */}
-      {payment.status === 'voided' && (
-        <div className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3">
-          <p className="text-sm text-gray-600">
-            <span className="font-semibold">Voided</span>
-            {payment.voidReason ? `: ${payment.voidReason}` : ''}
-            {payment.voidedBy ? ` — by ${payment.voidedBy.name}` : ''}
-          </p>
-        </div>
-      )}
-
-      {/* Rejection reason */}
-      {payment.status === 'rejected' && payment.rejectionReason && (
-        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3">
-          <p className="text-sm text-red-700"><span className="font-semibold">Rejected:</span> {payment.rejectionReason}</p>
-        </div>
-      )}
-
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Payment info */}
         <div className="bg-white rounded-xl border border-gray-100 p-4">
@@ -178,10 +272,6 @@ export default function SupplierPaymentDetail() {
           {payment.bankName        && <Row label="Bank">{payment.bankName}</Row>}
           {payment.notes           && <Row label="Notes">{payment.notes}</Row>}
           <Row label="Submitted By">{payment.createdBy?.name || '—'}</Row>
-          {payment.approvedBy && <Row label="Approved By">{payment.approvedBy.name} · {fmt(payment.approvedAt)}</Row>}
-          {payment.approvalNote && <Row label="Approval Note">{payment.approvalNote}</Row>}
-          {payment.voidedBy && <Row label="Voided By">{payment.voidedBy.name} · {fmt(payment.voidedAt)}</Row>}
-          {payment.voidReason && <Row label="Void Reason">{payment.voidReason}</Row>}
         </div>
 
         {/* Supplier info */}
@@ -239,6 +329,9 @@ export default function SupplierPaymentDetail() {
           </table>
         </div>
       )}
+
+      {/* Activity timeline */}
+      <ActivityTimeline payment={payment} />
 
       {/* Void modal */}
       <Modal open={voidModal} onClose={() => setVoidModal(false)} title="Void Payment" size="sm">
