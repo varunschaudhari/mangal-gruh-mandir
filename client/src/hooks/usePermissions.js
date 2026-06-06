@@ -11,5 +11,5 @@ export const usePermissions = () => {
     return required.every((p) => perms.includes(p));
   };
 
-  return { can, role };
+  return { can, role, user };
 };

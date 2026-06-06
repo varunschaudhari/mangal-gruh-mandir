@@ -9,8 +9,9 @@
     "start": "node src/index.js",
     "seed": "node src/seeds/index.js",
     "seed:test": "node src/seeds/testData.seed.js",
-    "migrate:assets": "node src/migrations/addAssetPermissions.js",
     "seed:assets": "node src/seeds/assetTestData.seed.js",
+    "seed:all": "node src/seeds/index.js && node src/seeds/testData.seed.js && node src/seeds/assetTestData.seed.js",
+    "migrate:assets": "node src/migrations/addAssetPermissions.js",
     "add:supplier":  "node src/seeds/addSupplier.js",
     "reset:assets":    "node src/seeds/resetAssets.js",
     "seed:occasions":  "node src/seeds/donationOccasions.seed.js"

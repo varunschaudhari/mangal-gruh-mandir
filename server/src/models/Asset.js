@@ -9,6 +9,7 @@ const assetSchema = new mongoose.Schema(
     description:   { type: String, default: '' },
     totalQuantity: { type: Number, required: true, min: 1 },
     finePerDay:    { type: Number, default: 0, min: 0 },
+    isBorrowable:  { type: Boolean, default: true },
     isActive:      { type: Boolean, default: true },
     createdBy:     { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   },

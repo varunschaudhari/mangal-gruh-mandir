@@ -75,6 +75,7 @@ const stockTransactionSchema = new Schema(
     },
     invoiceNumber: String,
     invoiceDate: Date,
+    dueDate: Date,
     donorName: String,
     expiryDate: Date,
     manufacturingDate: Date,

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { createColumnHelper } from '@tanstack/react-table';
-import { Plus, Pencil, Trash2, IndianRupee, History } from 'lucide-react';
+import { Plus, Pencil, Trash2, IndianRupee, History, Handshake } from 'lucide-react';
 import { getAssets, deleteAsset } from '../../api/asset.api.js';
 import DataTable from '../../components/ui/DataTable.jsx';
 import PageHeader from '../../components/ui/PageHeader.jsx';
@@ -44,6 +44,12 @@ const AssetList = () => {
         : <span className="text-gray-400">—</span>,
     }),
     col.accessor('description', { header: 'Description', cell: (i) => <span className="text-gray-500 text-sm">{i.getValue() || '—'}</span> }),
+    col.accessor('isBorrowable', {
+      header: 'Borrowable', size: 100,
+      cell: (i) => i.getValue()
+        ? <span className="inline-flex items-center gap-1 text-xs font-medium text-green-700 bg-green-50 rounded-full px-2 py-0.5"><Handshake className="h-3 w-3" />Yes</span>
+        : <span className="text-xs text-gray-400">No</span>,
+    }),
     col.accessor('isActive', { header: 'Status', size: 80, cell: (i) => <ActiveBadge isActive={i.getValue()} /> }),
     col.display({
       id: 'actions', header: 'Actions', size: 90,

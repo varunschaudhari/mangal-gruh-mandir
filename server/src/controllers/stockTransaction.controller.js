@@ -1,5 +1,6 @@
 import StockTransaction from '../models/StockTransaction.js';
 import Product from '../models/Product.js';
+import Supplier from '../models/Supplier.js';
 import StockBalance from '../models/StockBalance.js';
 import Department from '../models/Department.js';
 import { generateTransactionNumber } from '../services/transactionNumber.service.js';
@@ -235,6 +236,13 @@ export const createBatchTransactions = asyncHandler(async (req, res) => {
     }
   }
 
+  // Fetch supplier credit days once (only needed for PURCHASE type)
+  let supplierCreditDays = 0;
+  if (stockInType === 'PURCHASE' && supplier) {
+    const supplierDoc = await Supplier.findById(supplier).select('creditDays').lean();
+    supplierCreditDays = supplierDoc?.creditDays || 0;
+  }
+
   const createdIds = [];
 
   for (const item of items) {
@@ -259,6 +267,9 @@ export const createBatchTransactions = asyncHandler(async (req, res) => {
       supplier: supplier || undefined,
       invoiceNumber: invoiceNumber || undefined,
       invoiceDate: invoiceDate || undefined,
+      dueDate: stockInType === 'PURCHASE' && supplierCreditDays > 0
+        ? new Date(new Date(invoiceDate || transactionDate || Date.now()).getTime() + supplierCreditDays * 86400000)
+        : undefined,
       donorName: donorName || undefined,
       expiryDate: expiryDate || undefined,
       manufacturingDate: manufacturingDate || undefined,

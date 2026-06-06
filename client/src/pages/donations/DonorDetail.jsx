@@ -1,10 +1,12 @@
+import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { createColumnHelper } from '@tanstack/react-table';
-import { ArrowLeft, Heart, IndianRupee, Package, Printer } from 'lucide-react';
-import { getDonations } from '../../api/donation.api.js';
+import { ArrowLeft, Heart, IndianRupee, Package, Printer, Download } from 'lucide-react';
+import { getDonations, downloadDonorStatement } from '../../api/donation.api.js';
 import { getSupplier } from '../../api/supplier.api.js';
 import { printDonationReceipt } from '../../utils/donationReceipt.js';
+import toast from 'react-hot-toast';
 import DataTable from '../../components/ui/DataTable.jsx';
 import Badge from '../../components/ui/Badge.jsx';
 import { PageLoader } from '../../components/ui/Spinner.jsx';
@@ -14,8 +16,9 @@ const TYPE_COLORS = { named: 'green', hundi: 'blue', anonymous: 'gray' };
 const col = createColumnHelper();
 
 const DonorDetail = () => {
-  const { id }   = useParams();
-  const navigate = useNavigate();
+  const { id }        = useParams();
+  const navigate      = useNavigate();
+  const [dlStatement, setDlStatement] = useState(false);
 
   const { data: supplierRes, isLoading: supplierLoading } = useQuery({
     queryKey: ['supplier', id],
@@ -30,6 +33,18 @@ const DonorDetail = () => {
   const donor     = supplierRes?.data?.data;
   const result    = donationsRes?.data?.data;
   const donations = result?.data || [];
+
+  const handleDownloadStatement = async () => {
+    setDlStatement(true);
+    try {
+      const res = await downloadDonorStatement(id);
+      const url = URL.createObjectURL(res.data);
+      const a   = document.createElement('a');
+      a.href = url; a.download = `Donor-Statement-${donor?.name || id}.pdf`; a.click();
+      URL.revokeObjectURL(url);
+    } catch { toast.error('Failed to generate statement'); }
+    finally { setDlStatement(false); }
+  };
 
   if (supplierLoading) return <PageLoader />;
 
@@ -79,17 +94,26 @@ const DonorDetail = () => {
       </button>
 
       {/* Header */}
-      <div className="flex items-center gap-4">
-        <div className="h-12 w-12 rounded-full bg-orange-100 flex items-center justify-center shrink-0">
-          <Heart className="h-6 w-6 text-orange-600" />
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex items-center gap-4">
+          <div className="h-12 w-12 rounded-full bg-orange-100 flex items-center justify-center shrink-0">
+            <Heart className="h-6 w-6 text-orange-600" />
+          </div>
+          <div>
+            <h1 className="text-xl font-bold text-gray-900">{donor?.name || 'Donor'}</h1>
+            <p className="text-sm text-gray-400 mt-0.5">
+              {donor?.phone && <span className="mr-3">{donor.phone}</span>}
+              {donor?.panNumber && <span>PAN: {donor.panNumber}</span>}
+            </p>
+          </div>
         </div>
-        <div>
-          <h1 className="text-xl font-bold text-gray-900">{donor?.name || 'Donor'}</h1>
-          <p className="text-sm text-gray-400 mt-0.5">
-            {donor?.phone && <span className="mr-3">{donor.phone}</span>}
-            {donor?.panNumber && <span>PAN: {donor.panNumber}</span>}
-          </p>
-        </div>
+        {donations.length > 0 && (
+          <button onClick={handleDownloadStatement} disabled={dlStatement}
+            className="btn-secondary flex items-center gap-2 text-sm disabled:opacity-50 shrink-0">
+            <Download className="h-4 w-4" />
+            {dlStatement ? 'Generating…' : 'Download Statement'}
+          </button>
+        )}
       </div>
 
       {/* Stats */}

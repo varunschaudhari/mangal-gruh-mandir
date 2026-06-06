@@ -53,7 +53,17 @@
       "Bash(Select-Object Filename, Line)",
       "Bash(node src/index.js)",
       "Bash(ping -n 3 127.0.0.1)",
-      "Read(//c/Users/varun.chaudhari/.claude/projects/c--Users-varun-chaudhari-my-projects-mangal-gruh-mandir/memory/**)"
+      "Read(//c/Users/varun.chaudhari/.claude/projects/c--Users-varun-chaudhari-my-projects-mangal-gruh-mandir/memory/**)",
+      "Bash(node --input-type=module --eval \"import './server/src/models/SupplierPayment.js'\")",
+      "Bash(node --input-type=module --eval ' *)",
+      "Bash(npx --yes acorn --ecma2020 --module src/pages/payments/NewSupplierPayment.jsx)",
+      "Bash(node --input-type=module --eval \"import './server/src/models/Supplier.js'; import './server/src/models/SupplierPayment.js'; console.log\\('ok'\\);\")",
+      "Bash(node -e \"const p = require\\('./package.json'\\); console.log\\(p.dependencies['react-hook-form']\\)\")",
+      "Bash(ls /mnt/c/Users/varun.chaudhari/my-projects/mangal-gruh-mandir/client/src/pages/payments/)",
+      "Read(//mnt/c/Users/varun.chaudhari/my-projects/mangal-gruh-mandir/client/src/pages/**)",
+      "Bash(node -e \"const {TimerOff} = require\\('lucide-react'\\); console.log\\(TimerOff ? 'exists' : 'missing'\\);\")",
+      "Bash(node src/seeds/index.js)",
+      "PowerShell(mongosh \"mongodb://localhost:27017/mgm_stock\" --eval \"db.dropDatabase\\(\\)\" 2>&1)"
     ]
   }
 }

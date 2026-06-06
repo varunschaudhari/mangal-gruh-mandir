@@ -4,6 +4,9 @@ import {
   getExpiringBatchData,
   getValuationData,
   getSupplierReportData,
+  getFestivalCostData,
+  getConsumptionTrendData,
+  getReorderSuggestionData,
 } from '../services/report.service.js';
 import {
   generateDailyReportPDF,
@@ -264,4 +267,25 @@ export const exportSupplierExcel = asyncHandler(async (req, res) => {
   const { startDate, endDate, supplier } = req.query;
   const { suppliers, grandTotal } = await getSupplierReportData(startDate, endDate, supplier);
   await generateSupplierReportExcel(res, { suppliers, grandTotal, generatedAt: today() });
+});
+
+// ── Festival Cost ─────────────────────────────────────────────────────────────
+export const getFestivalCostReport = asyncHandler(async (req, res) => {
+  const { from, to } = req.query;
+  const result = await getFestivalCostData(from, to);
+  res.json(new ApiResponse(200, result));
+});
+
+// ── Consumption Trend ─────────────────────────────────────────────────────────
+export const getConsumptionTrend = asyncHandler(async (req, res) => {
+  const { department } = req.query;
+  const result = await getConsumptionTrendData(department);
+  res.json(new ApiResponse(200, result));
+});
+
+// ── Reorder Suggestions ───────────────────────────────────────────────────────
+export const getReorderSuggestions = asyncHandler(async (req, res) => {
+  const { department } = req.query;
+  const rows = await getReorderSuggestionData(department);
+  res.json(new ApiResponse(200, rows));
 });

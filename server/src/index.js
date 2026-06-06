@@ -7,6 +7,7 @@ import connectDB from './config/db.js';
 import routes from './routes/index.js';
 import errorHandler from './middleware/errorHandler.js';
 import { processAssetReminders } from './services/assetReminder.service.js';
+import { processOverdueInvoiceAlerts } from './services/overdueInvoiceAlert.service.js';
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -35,20 +36,28 @@ app.use(errorHandler);
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT} [${process.env.NODE_ENV}]`);
   startAssetReminderScheduler();
+  startOverdueInvoiceAlertScheduler();
 });
 
-function startAssetReminderScheduler() {
-  // Run daily at 09:00 server time
-  const runAt9AM = () => {
+function scheduleDaily(hour, minute, fn) {
+  const tick = () => {
     const now  = new Date();
     const next = new Date(now);
-    next.setHours(9, 0, 0, 0);
+    next.setHours(hour, minute, 0, 0);
     if (next <= now) next.setDate(next.getDate() + 1);
-    const delay = next - now;
     setTimeout(() => {
-      processAssetReminders().catch(console.error);
-      setInterval(() => processAssetReminders().catch(console.error), 24 * 60 * 60 * 1000);
-    }, delay);
+      fn().catch(console.error);
+      setInterval(() => fn().catch(console.error), 24 * 60 * 60 * 1000);
+    }, next - now);
   };
-  runAt9AM();
+  tick();
+}
+
+function startAssetReminderScheduler() {
+  scheduleDaily(9, 0, processAssetReminders);
+}
+
+function startOverdueInvoiceAlertScheduler() {
+  // Run at 09:30 daily — after asset reminders so logs don't interleave
+  scheduleDaily(9, 30, processOverdueInvoiceAlerts);
 }

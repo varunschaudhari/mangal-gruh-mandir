@@ -20,9 +20,17 @@ import Product from '../models/Product.js';
 import Supplier from '../models/Supplier.js';
 import User from '../models/User.js';
 import StockTransaction from '../models/StockTransaction.js';
+import Donation from '../models/Donation.js';
+import SupplierPayment from '../models/SupplierPayment.js';
+import DonationOccasion from '../models/DonationOccasion.js';
+import Asset from '../models/Asset.js';
+import AssetTransaction from '../models/AssetTransaction.js';
+import BorrowGroup from '../models/BorrowGroup.js';
+import Settings from '../models/Settings.js';
 import { createBatch, consumeBatches, transferBatches } from '../services/fifo.service.js';
 import { recomputeBalance } from '../services/stockBalance.service.js';
 import { generateTransactionNumber } from '../services/transactionNumber.service.js';
+import { generatePaymentNumber } from '../services/paymentNumber.service.js';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -42,7 +50,7 @@ const daysFromNow = (n) => {
 async function createTxn({
   type, product, from, to, qty, date, supplier, rate,
   stockInType, stockOutPurpose, wastageReason,
-  expiryDate, batchRef, notes, adminUser,
+  expiryDate, batchRef, invoiceNumber, notes, adminUser,
 }) {
   let consumedBatchesResult = [];
 
@@ -69,6 +77,7 @@ async function createTxn({
     wastageReason: wastageReason || undefined,
     expiryDate: expiryDate || undefined,
     batchRef: batchRef || undefined,
+    invoiceNumber: invoiceNumber || undefined,
     consumedBatches: consumedBatchesResult,
     notes: notes || undefined,
     createdBy: adminUser._id,
@@ -159,14 +168,31 @@ const seed = async () => {
 
   console.log('Creating suppliers...');
   const [kirana, flowerMart, dairy, trust, amul, dryFruits] = await Promise.all([
-    Supplier.create({ name: 'Shri Ganesh Kirana Store',    type: 'vendor', contactPerson: 'Ramesh Patil',    phone: '9876543210', city: 'Amalner' }),
-    Supplier.create({ name: 'Pushpa Flower Mart',          type: 'vendor', contactPerson: 'Sunita Joshi',    phone: '9823456780', city: 'Amalner' }),
-    Supplier.create({ name: 'Amalner Dairy Farm',          type: 'vendor', contactPerson: 'Govind Yadav',    phone: '9812345678', city: 'Amalner' }),
-    Supplier.create({ name: 'Amalner Charitable Trust',    type: 'donor',  contactPerson: 'Shri Dinesh Shah', phone: '9800001234', city: 'Amalner' }),
-    Supplier.create({ name: 'Amul Distributor Amalner',    type: 'vendor', contactPerson: 'Kiran Mehta',     phone: '9988776655', city: 'Amalner' }),
-    Supplier.create({ name: 'Shri Ganpati Dry Fruits',     type: 'vendor', contactPerson: 'Mohan Agrawal',   phone: '9977665544', city: 'Amalner' }),
+    Supplier.create({ name: 'Shri Ganesh Kirana Store', type: 'vendor', contactPerson: 'Ramesh Patil', phone: '9876543210', city: 'Amalner', gstin: '27AABCS1234A1Z5', creditDays: 30,
+      bankAccounts: [{ label: 'Main Account', bankName: 'State Bank of India', accountHolderName: 'Ramesh Patil', accountNumber: '12345678901', ifscCode: 'SBIN0002654', isDefault: true }] }),
+    Supplier.create({ name: 'Pushpa Flower Mart', type: 'vendor', contactPerson: 'Sunita Joshi', phone: '9823456780', city: 'Amalner', creditDays: 7,
+      bankAccounts: [{ label: 'Savings', bankName: 'Bank of Maharashtra', accountHolderName: 'Sunita Joshi', accountNumber: '60043210987', ifscCode: 'MAHB0000123', upiId: 'sunita.joshi@okbom', isDefault: true }] }),
+    Supplier.create({ name: 'Amalner Dairy Farm', type: 'vendor', contactPerson: 'Govind Yadav', phone: '9812345678', city: 'Amalner', creditDays: 15,
+      bankAccounts: [{ label: 'Farm Account', bankName: 'Union Bank of India', accountHolderName: 'Govind Yadav', accountNumber: '33902345678', ifscCode: 'UBIN0568441', isDefault: true }] }),
+    Supplier.create({ name: 'Amalner Charitable Trust', type: 'donor', contactPerson: 'Shri Dinesh Shah', phone: '9800001234', city: 'Amalner', panNumber: 'AAACT1234A',
+      bankAccounts: [{ label: 'Trust Account', bankName: 'HDFC Bank', accountHolderName: 'Amalner Charitable Trust', accountNumber: '50100123456789', ifscCode: 'HDFC0001234', isDefault: true }] }),
+    Supplier.create({ name: 'Amul Distributor Amalner', type: 'vendor', contactPerson: 'Kiran Mehta', phone: '9988776655', city: 'Amalner', gstin: '27AABCM5678B1Z3', creditDays: 21,
+      bankAccounts: [{ label: 'Business Account', bankName: 'Axis Bank', accountHolderName: 'Kiran Mehta', accountNumber: '918020034567890', ifscCode: 'UTIB0000789', upiId: 'kiran.amul@axisb', isDefault: true }] }),
+    Supplier.create({ name: 'Shri Ganpati Dry Fruits', type: 'vendor', contactPerson: 'Mohan Agrawal', phone: '9977665544', city: 'Amalner', creditDays: 15,
+      bankAccounts: [{ label: 'Current Account', bankName: 'Central Bank of India', accountHolderName: 'Mohan Agrawal', accountNumber: '3253000123456', ifscCode: 'CBIN0280987', isDefault: true }] }),
   ]);
-  console.log('  ✓ 6 suppliers');
+  console.log('  ✓ 6 vendors (with bank accounts)');
+
+  // Individual named donors
+  const [donorRamesh, donorSavita, donorPatel] = await Promise.all([
+    Supplier.create({ name: 'Ramesh Shantilal Shah', type: 'donor', phone: '9812001234', city: 'Amalner', panNumber: 'ABCRS5678D',
+      bankAccounts: [{ label: 'Savings', bankName: 'State Bank of India', accountHolderName: 'Ramesh S Shah', accountNumber: '30987654321', ifscCode: 'SBIN0002654', isDefault: true }] }),
+    Supplier.create({ name: 'Savita Bhaskar Mehta', type: 'donor', phone: '9876001122', city: 'Amalner', panNumber: 'ABFSM2345B',
+      bankAccounts: [{ label: 'Account', bankName: 'Bank of Baroda', accountHolderName: 'Savita B Mehta', accountNumber: '24680135792', ifscCode: 'BARB0AMALNT', isDefault: true }] }),
+    Supplier.create({ name: 'Patel Parivar', type: 'donor', contactPerson: 'Haresh Patel', phone: '9900556677', city: 'Amalner', panNumber: 'AABPP4567C',
+      bankAccounts: [{ label: 'Family Account', bankName: 'HDFC Bank', accountHolderName: 'Haresh Patel', accountNumber: '50100987654321', ifscCode: 'HDFC0004567', isDefault: true }] }),
+  ]);
+  console.log('  ✓ 3 individual donors (with bank accounts)');
 
   // ── 2. Products ────────────────────────────────────────────────────────────
 
@@ -241,12 +267,19 @@ const seed = async () => {
 
   console.log('Creating test users...');
   await Promise.all([
-    User.create({ name: 'Suresh Sharma',   email: 'manager@mandir.com',  password: 'Manager@123',  role: 'store_manager' }),
-    User.create({ name: 'Priya Kulkarni',  email: 'kitchen@mandir.com',  password: 'Kitchen@123',  role: 'staff', departments: [kt._id] }),
-    User.create({ name: 'Anita Desai',     email: 'puja@mandir.com',     password: 'Puja@1234',    role: 'staff', departments: [ps._id] }),
-    User.create({ name: 'Vijay Patil',     email: 'viewer@mandir.com',   password: 'Viewer@123',   role: 'viewer' }),
+    User.create({ name: 'Suresh Sharma',    email: 'manager@mandir.com',   password: 'Manager@123',  role: 'store_manager', canApproveAssets: true, canApprovePayments: true }),
+    User.create({ name: 'Priya Kulkarni',   email: 'kitchen@mandir.com',   password: 'Kitchen@123',  role: 'staff', departments: [kt._id] }),
+    User.create({ name: 'Anita Desai',      email: 'puja@mandir.com',      password: 'Puja@1234',    role: 'staff', departments: [ps._id] }),
+    User.create({ name: 'Vijay Patil',      email: 'viewer@mandir.com',    password: 'Viewer@123',   role: 'viewer' }),
+    // Trustees — can approve payments
+    User.create({ name: 'Narayan Deshmukh', email: 'trustee1@mandir.com',  password: 'Trustee@123',  role: 'admin',  canApproveAssets: true, canApprovePayments: true }),
+    User.create({ name: 'Sunanda Joshi',    email: 'trustee2@mandir.com',  password: 'Trustee@456',  role: 'admin',  canApproveAssets: true, canApprovePayments: true }),
+    // Additional staff
+    User.create({ name: 'Mukesh Jadhav',    email: 'staff1@mandir.com',    password: 'Staff@1234',   role: 'staff',  departments: [ms._id] }),
+    User.create({ name: 'Kavita Raut',      email: 'staff2@mandir.com',    password: 'Staff@5678',   role: 'staff',  departments: [ps._id] }),
+    User.create({ name: 'Ramesh Borse',     email: 'staff3@mandir.com',    password: 'Staff@9012',   role: 'staff',  departments: [kt._id] }),
   ]);
-  console.log('  ✓ 4 test users');
+  console.log('  ✓ 9 test users (incl. 2 trustees + 3 additional staff)');
 
   // ── 4. Transactions ─────────────────────────────────────────────────────────
   // 3 months: March 1 → June 2, 2026
@@ -299,10 +332,10 @@ const seed = async () => {
 
   // ── Day -88: First perishable purchase (Flower Mart + Dairy) ──
   console.log('  [March 06] Perishable purchases — Flowers & Dairy...');
-  await createTxn({ type: 'STOCK_IN', to: ms, product: P['FLWR-MRG'], qty: 40, rate: 78,  stockInType: 'PURCHASE', supplier: flowerMart, date: daysAgo(88), expiryDate: daysAgo(85), batchRef: 'FL-MAR06', ...opts });
-  await createTxn({ type: 'STOCK_IN', to: ms, product: P['FLWR-RSP'], qty: 15, rate: 145, stockInType: 'PURCHASE', supplier: flowerMart, date: daysAgo(88), expiryDate: daysAgo(86), ...opts });
-  await createTxn({ type: 'STOCK_IN', to: ms, product: P['FLWR-LTS'], qty: 200,rate: 5,   stockInType: 'PURCHASE', supplier: flowerMart, date: daysAgo(88), expiryDate: daysAgo(87), ...opts });
-  await createTxn({ type: 'STOCK_IN', to: ms, product: P['LEAF-BAN'], qty: 200,rate: 3,   stockInType: 'PURCHASE', supplier: flowerMart, date: daysAgo(88), expiryDate: daysAgo(85), ...opts });
+  await createTxn({ type: 'STOCK_IN', to: ms, product: P['FLWR-MRG'], qty: 40, rate: 78,  stockInType: 'PURCHASE', supplier: flowerMart, date: daysAgo(88), expiryDate: daysAgo(85), batchRef: 'FL-MAR06', invoiceNumber: 'FL-MAR06', ...opts });
+  await createTxn({ type: 'STOCK_IN', to: ms, product: P['FLWR-RSP'], qty: 15, rate: 145, stockInType: 'PURCHASE', supplier: flowerMart, date: daysAgo(88), expiryDate: daysAgo(86), invoiceNumber: 'FL-MAR06', ...opts });
+  await createTxn({ type: 'STOCK_IN', to: ms, product: P['FLWR-LTS'], qty: 200,rate: 5,   stockInType: 'PURCHASE', supplier: flowerMart, date: daysAgo(88), expiryDate: daysAgo(87), invoiceNumber: 'FL-MAR06', ...opts });
+  await createTxn({ type: 'STOCK_IN', to: ms, product: P['LEAF-BAN'], qty: 200,rate: 3,   stockInType: 'PURCHASE', supplier: flowerMart, date: daysAgo(88), expiryDate: daysAgo(85), invoiceNumber: 'FL-MAR06', ...opts });
   await createTxn({ type: 'STOCK_IN', to: ms, product: P['MILK-COW'], qty: 80, rate: 60,  stockInType: 'PURCHASE', supplier: dairy,      date: daysAgo(88), expiryDate: daysAgo(87), batchRef: 'MLK-MAR06', ...opts });
   await createTxn({ type: 'STOCK_IN', to: ms, product: P['DAHI'],     qty: 20, rate: 68,  stockInType: 'PURCHASE', supplier: dairy,      date: daysAgo(88), expiryDate: daysAgo(85), ...opts });
   await createTxn({ type: 'STOCK_IN', to: ms, product: P['PNEER'],    qty: 8,  rate: 315, stockInType: 'PURCHASE', supplier: dairy,      date: daysAgo(88), expiryDate: daysAgo(85), ...opts });
@@ -376,7 +409,7 @@ const seed = async () => {
   await createTxn({ type: 'STOCK_IN', to: ms, product: P['MODAK'],    qty: 200, rate: 14,  stockInType: 'PURCHASE', supplier: kirana,    date: daysAgo(81), expiryDate: daysAgo(79), ...opts });
   await createTxn({ type: 'STOCK_IN', to: ms, product: P['MILK-COW'], qty: 60,  rate: 62,  stockInType: 'PURCHASE', supplier: dairy,     date: daysAgo(81), expiryDate: daysAgo(80), batchRef: 'MLK-HOLI', ...opts });
   await createTxn({ type: 'STOCK_IN', to: ms, product: P['DAHI'],     qty: 20,  rate: 70,  stockInType: 'PURCHASE', supplier: dairy,     date: daysAgo(81), expiryDate: daysAgo(78), ...opts });
-  await createTxn({ type: 'STOCK_IN', to: ms, product: P['FLWR-MRG'], qty: 60,  rate: 85,  stockInType: 'PURCHASE', supplier: flowerMart, date: daysAgo(81), expiryDate: daysAgo(78), batchRef: 'FL-HOLI', ...opts });
+  await createTxn({ type: 'STOCK_IN', to: ms, product: P['FLWR-MRG'], qty: 60,  rate: 85,  stockInType: 'PURCHASE', supplier: flowerMart, date: daysAgo(81), expiryDate: daysAgo(78), batchRef: 'FL-HOLI', invoiceNumber: 'FL-HOLI', ...opts });
 
   console.log('  [March 14] Holi Festival — transfers + big consumption...');
   await createTxn({ type: 'TRANSFER', from: ms, to: kt, product: P['LADU-BSN'], qty: 30,  date: daysAgo(80), ...opts });
@@ -413,10 +446,10 @@ const seed = async () => {
 
   // ── Day -77: Post-Holi replenishment ──
   console.log('  [March 17] Post-Holi replenishment...');
-  await createTxn({ type: 'STOCK_IN', to: ms, product: P['RICE-BAS'], qty: 100, rate: 80, stockInType: 'PURCHASE', supplier: kirana,     date: daysAgo(77), batchRef: 'INV-GK-MAR17', ...opts });
-  await createTxn({ type: 'STOCK_IN', to: ms, product: P['TOOR-DAL'], qty: 30,  rate: 120, stockInType: 'PURCHASE', supplier: kirana,    date: daysAgo(77), ...opts });
-  await createTxn({ type: 'STOCK_IN', to: ms, product: P['DAL-CHN'],  qty: 25,  rate: 90,  stockInType: 'PURCHASE', supplier: kirana,    date: daysAgo(77), ...opts });
-  await createTxn({ type: 'STOCK_IN', to: ms, product: P['FLWR-MRG'], qty: 35,  rate: 80,  stockInType: 'PURCHASE', supplier: flowerMart, date: daysAgo(77), expiryDate: daysAgo(74), batchRef: 'FL-MAR17', ...opts });
+  await createTxn({ type: 'STOCK_IN', to: ms, product: P['RICE-BAS'], qty: 100, rate: 80, stockInType: 'PURCHASE', supplier: kirana,     date: daysAgo(77), batchRef: 'INV-GK-MAR17', invoiceNumber: 'INV-GK-MAR17', ...opts });
+  await createTxn({ type: 'STOCK_IN', to: ms, product: P['TOOR-DAL'], qty: 30,  rate: 120, stockInType: 'PURCHASE', supplier: kirana,    date: daysAgo(77), invoiceNumber: 'INV-GK-MAR17', ...opts });
+  await createTxn({ type: 'STOCK_IN', to: ms, product: P['DAL-CHN'],  qty: 25,  rate: 90,  stockInType: 'PURCHASE', supplier: kirana,    date: daysAgo(77), invoiceNumber: 'INV-GK-MAR17', ...opts });
+  await createTxn({ type: 'STOCK_IN', to: ms, product: P['FLWR-MRG'], qty: 35,  rate: 80,  stockInType: 'PURCHASE', supplier: flowerMart, date: daysAgo(77), expiryDate: daysAgo(74), batchRef: 'FL-MAR17', invoiceNumber: 'FL-MAR17', ...opts });
   await createTxn({ type: 'STOCK_IN', to: ms, product: P['MILK-COW'], qty: 60,  rate: 62,  stockInType: 'PURCHASE', supplier: dairy,     date: daysAgo(77), expiryDate: daysAgo(76), batchRef: 'MLK-MAR17', ...opts });
   await createTxn({ type: 'STOCK_IN', to: ms, product: P['DAHI'],     qty: 15,  rate: 70,  stockInType: 'PURCHASE', supplier: dairy,     date: daysAgo(77), expiryDate: daysAgo(74), ...opts });
   await createTxn({ type: 'STOCK_IN', to: ms, product: P['PANCHMRT'], qty: 30,  rate: 52,  stockInType: 'PURCHASE', supplier: amul,      date: daysAgo(77), ...opts });
@@ -450,22 +483,22 @@ const seed = async () => {
 
   // ── Day -66: Month-end purchase (March) ──
   console.log('  [March 28] Month-end purchase...');
-  await createTxn({ type: 'STOCK_IN', to: ms, product: P['RICE-BAS'], qty: 150, rate: 82,  stockInType: 'PURCHASE', supplier: kirana,    date: daysAgo(66), batchRef: 'INV-GK-MAR28', ...opts });
-  await createTxn({ type: 'STOCK_IN', to: ms, product: P['ATTA-WHT'], qty: 80,  rate: 36,  stockInType: 'PURCHASE', supplier: kirana,    date: daysAgo(66), ...opts });
-  await createTxn({ type: 'STOCK_IN', to: ms, product: P['SUGR'],     qty: 80,  rate: 46,  stockInType: 'PURCHASE', supplier: kirana,    date: daysAgo(66), ...opts });
-  await createTxn({ type: 'STOCK_IN', to: ms, product: P['RCHIL'],    qty: 8,   rate: 250, stockInType: 'PURCHASE', supplier: kirana,    date: daysAgo(66), ...opts });
-  await createTxn({ type: 'STOCK_IN', to: ms, product: P['CORIAND'],  qty: 8,   rate: 200, stockInType: 'PURCHASE', supplier: kirana,    date: daysAgo(66), ...opts });
-  await createTxn({ type: 'STOCK_IN', to: ms, product: P['DAL-URD'],  qty: 25,  rate: 112, stockInType: 'PURCHASE', supplier: kirana,    date: daysAgo(66), ...opts });
-  await createTxn({ type: 'STOCK_IN', to: ms, product: P['POHA'],     qty: 20,  rate: 50,  stockInType: 'PURCHASE', supplier: kirana,    date: daysAgo(66), ...opts });
-  await createTxn({ type: 'STOCK_IN', to: ms, product: P['TOOR-DAL'], qty: 40,  rate: 122, stockInType: 'PURCHASE', supplier: kirana,    date: daysAgo(66), ...opts });
-  await createTxn({ type: 'STOCK_IN', to: ms, product: P['MONG-DAL'], qty: 25,  rate: 112, stockInType: 'PURCHASE', supplier: kirana,    date: daysAgo(66), ...opts });
+  await createTxn({ type: 'STOCK_IN', to: ms, product: P['RICE-BAS'], qty: 150, rate: 82,  stockInType: 'PURCHASE', supplier: kirana,    date: daysAgo(66), batchRef: 'INV-GK-MAR28', invoiceNumber: 'INV-GK-MAR28', ...opts });
+  await createTxn({ type: 'STOCK_IN', to: ms, product: P['ATTA-WHT'], qty: 80,  rate: 36,  stockInType: 'PURCHASE', supplier: kirana,    date: daysAgo(66), invoiceNumber: 'INV-GK-MAR28', ...opts });
+  await createTxn({ type: 'STOCK_IN', to: ms, product: P['SUGR'],     qty: 80,  rate: 46,  stockInType: 'PURCHASE', supplier: kirana,    date: daysAgo(66), invoiceNumber: 'INV-GK-MAR28', ...opts });
+  await createTxn({ type: 'STOCK_IN', to: ms, product: P['RCHIL'],    qty: 8,   rate: 250, stockInType: 'PURCHASE', supplier: kirana,    date: daysAgo(66), invoiceNumber: 'INV-GK-MAR28', ...opts });
+  await createTxn({ type: 'STOCK_IN', to: ms, product: P['CORIAND'],  qty: 8,   rate: 200, stockInType: 'PURCHASE', supplier: kirana,    date: daysAgo(66), invoiceNumber: 'INV-GK-MAR28', ...opts });
+  await createTxn({ type: 'STOCK_IN', to: ms, product: P['DAL-URD'],  qty: 25,  rate: 112, stockInType: 'PURCHASE', supplier: kirana,    date: daysAgo(66), invoiceNumber: 'INV-GK-MAR28', ...opts });
+  await createTxn({ type: 'STOCK_IN', to: ms, product: P['POHA'],     qty: 20,  rate: 50,  stockInType: 'PURCHASE', supplier: kirana,    date: daysAgo(66), invoiceNumber: 'INV-GK-MAR28', ...opts });
+  await createTxn({ type: 'STOCK_IN', to: ms, product: P['TOOR-DAL'], qty: 40,  rate: 122, stockInType: 'PURCHASE', supplier: kirana,    date: daysAgo(66), invoiceNumber: 'INV-GK-MAR28', ...opts });
+  await createTxn({ type: 'STOCK_IN', to: ms, product: P['MONG-DAL'], qty: 25,  rate: 112, stockInType: 'PURCHASE', supplier: kirana,    date: daysAgo(66), invoiceNumber: 'INV-GK-MAR28', ...opts });
   await createTxn({ type: 'STOCK_IN', to: ms, product: P['PANCHMRT'], qty: 50,  rate: 54,  stockInType: 'PURCHASE', supplier: amul,     date: daysAgo(66), ...opts });
   await createTxn({ type: 'STOCK_IN', to: ms, product: P['SHAHAD'],   qty: 5,   rate: 600, stockInType: 'PURCHASE', supplier: amul,     date: daysAgo(66), ...opts });
-  await createTxn({ type: 'STOCK_IN', to: ms, product: P['MILK-COW'], qty: 70,  rate: 62,  stockInType: 'PURCHASE', supplier: dairy,    date: daysAgo(66), expiryDate: daysAgo(65), batchRef: 'MLK-MAR28', ...opts });
-  await createTxn({ type: 'STOCK_IN', to: ms, product: P['DAHI'],     qty: 20,  rate: 70,  stockInType: 'PURCHASE', supplier: dairy,    date: daysAgo(66), expiryDate: daysAgo(63), ...opts });
-  await createTxn({ type: 'STOCK_IN', to: ms, product: P['PNEER'],    qty: 8,   rate: 320, stockInType: 'PURCHASE', supplier: dairy,    date: daysAgo(66), expiryDate: daysAgo(61), ...opts });
-  await createTxn({ type: 'STOCK_IN', to: ms, product: P['FLWR-MRG'], qty: 40,  rate: 82,  stockInType: 'PURCHASE', supplier: flowerMart, date: daysAgo(66), expiryDate: daysAgo(63), batchRef: 'FL-MAR28', ...opts });
-  await createTxn({ type: 'STOCK_IN', to: ms, product: P['LADU-BSN'], qty: 25,  rate: 345, stockInType: 'PURCHASE', supplier: kirana,   date: daysAgo(66), expiryDate: daysAgo(59), batchRef: 'SW-MAR28', ...opts });
+  await createTxn({ type: 'STOCK_IN', to: ms, product: P['MILK-COW'], qty: 70,  rate: 62,  stockInType: 'PURCHASE', supplier: dairy,    date: daysAgo(66), expiryDate: daysAgo(65), batchRef: 'MLK-MAR28', invoiceNumber: 'MLK-MAR28', ...opts });
+  await createTxn({ type: 'STOCK_IN', to: ms, product: P['DAHI'],     qty: 20,  rate: 70,  stockInType: 'PURCHASE', supplier: dairy,    date: daysAgo(66), expiryDate: daysAgo(63), invoiceNumber: 'MLK-MAR28', ...opts });
+  await createTxn({ type: 'STOCK_IN', to: ms, product: P['PNEER'],    qty: 8,   rate: 320, stockInType: 'PURCHASE', supplier: dairy,    date: daysAgo(66), expiryDate: daysAgo(61), invoiceNumber: 'MLK-MAR28', ...opts });
+  await createTxn({ type: 'STOCK_IN', to: ms, product: P['FLWR-MRG'], qty: 40,  rate: 82,  stockInType: 'PURCHASE', supplier: flowerMart, date: daysAgo(66), expiryDate: daysAgo(63), batchRef: 'FL-MAR28', invoiceNumber: 'FL-MAR28', ...opts });
+  await createTxn({ type: 'STOCK_IN', to: ms, product: P['LADU-BSN'], qty: 25,  rate: 345, stockInType: 'PURCHASE', supplier: kirana,   date: daysAgo(66), expiryDate: daysAgo(59), batchRef: 'SW-MAR28', invoiceNumber: 'INV-GK-MAR28', ...opts });
 
   // Month-end transfers
   await createTxn({ type: 'TRANSFER', from: ms, to: kt, product: P['RICE-BAS'], qty: 50,  date: daysAgo(65), ...opts });
@@ -514,9 +547,9 @@ const seed = async () => {
   await createTxn({ type: 'STOCK_IN', to: ms, product: P['FLWR-MRG'], qty: 70,  rate: 90,  stockInType: 'PURCHASE', supplier: flowerMart, date: daysAgo(58), expiryDate: daysAgo(55), batchRef: 'FL-RAMNAV', ...opts });
   await createTxn({ type: 'STOCK_IN', to: ms, product: P['FLWR-LTS'], qty: 300, rate: 5,   stockInType: 'PURCHASE', supplier: flowerMart, date: daysAgo(58), expiryDate: daysAgo(57), ...opts });
   await createTxn({ type: 'STOCK_IN', to: ms, product: P['LEAF-BAN'], qty: 200, rate: 3,   stockInType: 'PURCHASE', supplier: flowerMart, date: daysAgo(58), expiryDate: daysAgo(55), ...opts });
-  await createTxn({ type: 'STOCK_IN', to: ms, product: P['MILK-COW'], qty: 80,  rate: 62,  stockInType: 'PURCHASE', supplier: dairy,      date: daysAgo(58), expiryDate: daysAgo(57), batchRef: 'MLK-RAMNAV', ...opts });
-  await createTxn({ type: 'STOCK_IN', to: ms, product: P['DAHI'],     qty: 25,  rate: 70,  stockInType: 'PURCHASE', supplier: dairy,      date: daysAgo(58), expiryDate: daysAgo(55), ...opts });
-  await createTxn({ type: 'STOCK_IN', to: ms, product: P['DRYFRT'],   qty: 10,  rate: 820, stockInType: 'PURCHASE', supplier: dryFruits,  date: daysAgo(58), ...opts });
+  await createTxn({ type: 'STOCK_IN', to: ms, product: P['MILK-COW'], qty: 80,  rate: 62,  stockInType: 'PURCHASE', supplier: dairy,      date: daysAgo(58), expiryDate: daysAgo(57), batchRef: 'MLK-RAMNAV', invoiceNumber: 'MLK-RAMNAV', ...opts });
+  await createTxn({ type: 'STOCK_IN', to: ms, product: P['DAHI'],     qty: 25,  rate: 70,  stockInType: 'PURCHASE', supplier: dairy,      date: daysAgo(58), expiryDate: daysAgo(55), invoiceNumber: 'MLK-RAMNAV', ...opts });
+  await createTxn({ type: 'STOCK_IN', to: ms, product: P['DRYFRT'],   qty: 10,  rate: 820, stockInType: 'PURCHASE', supplier: dryFruits,  date: daysAgo(58), invoiceNumber: 'DRY-APR05', ...opts });
 
   console.log('  [April 06] Ram Navami — big festival...');
   await createTxn({ type: 'TRANSFER', from: ms, to: kt, product: P['LADU-BSN'], qty: 25,  date: daysAgo(57), ...opts });
@@ -554,8 +587,8 @@ const seed = async () => {
   await createTxn({ type: 'STOCK_IN', to: ms, product: P['LADU-BSN'], qty: 25,  rate: 350, stockInType: 'PURCHASE', supplier: kirana,     date: daysAgo(52), expiryDate: daysAgo(45), batchRef: 'SW-HANUMAN', ...opts });
   await createTxn({ type: 'STOCK_IN', to: ms, product: P['BSNA'],     qty: 20,  rate: 65,  stockInType: 'PURCHASE', supplier: kirana,     date: daysAgo(52), ...opts });
   await createTxn({ type: 'STOCK_IN', to: ms, product: P['FLWR-MRG'], qty: 45,  rate: 85,  stockInType: 'PURCHASE', supplier: flowerMart, date: daysAgo(52), expiryDate: daysAgo(49), batchRef: 'FL-HANUMAN', ...opts });
-  await createTxn({ type: 'STOCK_IN', to: ms, product: P['MILK-COW'], qty: 55,  rate: 62,  stockInType: 'PURCHASE', supplier: dairy,      date: daysAgo(52), expiryDate: daysAgo(51), batchRef: 'MLK-HANUMAN', ...opts });
-  await createTxn({ type: 'STOCK_IN', to: ms, product: P['DAHI'],     qty: 18,  rate: 70,  stockInType: 'PURCHASE', supplier: dairy,      date: daysAgo(52), expiryDate: daysAgo(49), ...opts });
+  await createTxn({ type: 'STOCK_IN', to: ms, product: P['MILK-COW'], qty: 55,  rate: 62,  stockInType: 'PURCHASE', supplier: dairy,      date: daysAgo(52), expiryDate: daysAgo(51), batchRef: 'MLK-HANUMAN', invoiceNumber: 'MLK-HANUMAN', ...opts });
+  await createTxn({ type: 'STOCK_IN', to: ms, product: P['DAHI'],     qty: 18,  rate: 70,  stockInType: 'PURCHASE', supplier: dairy,      date: daysAgo(52), expiryDate: daysAgo(49), invoiceNumber: 'MLK-HANUMAN', ...opts });
 
   console.log('  [April 12] Hanuman Jayanti...');
   await createTxn({ type: 'TRANSFER', from: ms, to: kt, product: P['LADU-BSN'], qty: 20,  date: daysAgo(51), ...opts });
@@ -617,13 +650,13 @@ const seed = async () => {
   // ════════════════════════════════════════════════════════════════
 
   console.log('  [May 01] May monthly purchase...');
-  await createTxn({ type: 'STOCK_IN', to: ms, product: P['RICE-BAS'], qty: 120, rate: 84,  stockInType: 'PURCHASE', supplier: kirana,    date: daysAgo(32), batchRef: 'INV-GK-MAY01', ...opts });
-  await createTxn({ type: 'STOCK_IN', to: ms, product: P['ATTA-WHT'], qty: 60,  rate: 37,  stockInType: 'PURCHASE', supplier: kirana,    date: daysAgo(32), ...opts });
-  await createTxn({ type: 'STOCK_IN', to: ms, product: P['SUGR'],     qty: 60,  rate: 47,  stockInType: 'PURCHASE', supplier: kirana,    date: daysAgo(32), ...opts });
-  await createTxn({ type: 'STOCK_IN', to: ms, product: P['RCHIL'],    qty: 5,   rate: 255, stockInType: 'PURCHASE', supplier: kirana,    date: daysAgo(32), ...opts });
-  await createTxn({ type: 'STOCK_IN', to: ms, product: P['CORIAND'],  qty: 5,   rate: 205, stockInType: 'PURCHASE', supplier: kirana,    date: daysAgo(32), ...opts });
-  await createTxn({ type: 'STOCK_IN', to: ms, product: P['PANCHMRT'], qty: 50,  rate: 54,  stockInType: 'PURCHASE', supplier: amul,     date: daysAgo(32), ...opts });
-  await createTxn({ type: 'STOCK_IN', to: ms, product: P['SHAHAD'],   qty: 3,   rate: 610, stockInType: 'PURCHASE', supplier: amul,     date: daysAgo(32), ...opts });
+  await createTxn({ type: 'STOCK_IN', to: ms, product: P['RICE-BAS'], qty: 120, rate: 84,  stockInType: 'PURCHASE', supplier: kirana,    date: daysAgo(32), batchRef: 'INV-GK-MAY01', invoiceNumber: 'INV-GK-MAY01', ...opts });
+  await createTxn({ type: 'STOCK_IN', to: ms, product: P['ATTA-WHT'], qty: 60,  rate: 37,  stockInType: 'PURCHASE', supplier: kirana,    date: daysAgo(32), invoiceNumber: 'INV-GK-MAY01', ...opts });
+  await createTxn({ type: 'STOCK_IN', to: ms, product: P['SUGR'],     qty: 60,  rate: 47,  stockInType: 'PURCHASE', supplier: kirana,    date: daysAgo(32), invoiceNumber: 'INV-GK-MAY01', ...opts });
+  await createTxn({ type: 'STOCK_IN', to: ms, product: P['RCHIL'],    qty: 5,   rate: 255, stockInType: 'PURCHASE', supplier: kirana,    date: daysAgo(32), invoiceNumber: 'INV-GK-MAY01', ...opts });
+  await createTxn({ type: 'STOCK_IN', to: ms, product: P['CORIAND'],  qty: 5,   rate: 205, stockInType: 'PURCHASE', supplier: kirana,    date: daysAgo(32), invoiceNumber: 'INV-GK-MAY01', ...opts });
+  await createTxn({ type: 'STOCK_IN', to: ms, product: P['PANCHMRT'], qty: 50,  rate: 54,  stockInType: 'PURCHASE', supplier: amul,     date: daysAgo(32), invoiceNumber: 'AMUL-MAY01', ...opts });
+  await createTxn({ type: 'STOCK_IN', to: ms, product: P['SHAHAD'],   qty: 3,   rate: 610, stockInType: 'PURCHASE', supplier: amul,     date: daysAgo(32), invoiceNumber: 'AMUL-MAY01', ...opts });
   await createTxn({ type: 'STOCK_IN', to: ms, product: P['MILK-COW'], qty: 70,  rate: 64,  stockInType: 'PURCHASE', supplier: dairy,    date: daysAgo(32), expiryDate: daysAgo(31), batchRef: 'MLK-MAY01', ...opts });
   await createTxn({ type: 'STOCK_IN', to: ms, product: P['DAHI'],     qty: 20,  rate: 72,  stockInType: 'PURCHASE', supplier: dairy,    date: daysAgo(32), expiryDate: daysAgo(29), ...opts });
 
@@ -689,11 +722,11 @@ const seed = async () => {
 
   // ── Day -10: End-May purchase ──
   console.log('  [May 23] End-May purchase...');
-  await createTxn({ type: 'STOCK_IN', to: ms, product: P['RICE-BAS'], qty: 100, rate: 84,  stockInType: 'PURCHASE', supplier: kirana,    date: daysAgo(10), batchRef: 'INV-GK-MAY23', ...opts });
-  await createTxn({ type: 'STOCK_IN', to: ms, product: P['TOOR-DAL'], qty: 30,  rate: 122, stockInType: 'PURCHASE', supplier: kirana,    date: daysAgo(10), ...opts });
+  await createTxn({ type: 'STOCK_IN', to: ms, product: P['RICE-BAS'], qty: 100, rate: 84,  stockInType: 'PURCHASE', supplier: kirana,    date: daysAgo(10), batchRef: 'INV-GK-MAY23', invoiceNumber: 'INV-GK-MAY23', ...opts });
+  await createTxn({ type: 'STOCK_IN', to: ms, product: P['TOOR-DAL'], qty: 30,  rate: 122, stockInType: 'PURCHASE', supplier: kirana,    date: daysAgo(10), invoiceNumber: 'INV-GK-MAY23', ...opts });
   await createTxn({ type: 'STOCK_IN', to: ms, product: P['DRYFRT'],   qty: 10,  rate: 820, stockInType: 'PURCHASE', supplier: dryFruits, date: daysAgo(10), ...opts });
-  await createTxn({ type: 'STOCK_IN', to: ms, product: P['PANCHMRT'], qty: 40,  rate: 55,  stockInType: 'PURCHASE', supplier: amul,     date: daysAgo(10), ...opts });
-  await createTxn({ type: 'STOCK_IN', to: ms, product: P['SHAHAD'],   qty: 3,   rate: 615, stockInType: 'PURCHASE', supplier: amul,     date: daysAgo(10), ...opts });
+  await createTxn({ type: 'STOCK_IN', to: ms, product: P['PANCHMRT'], qty: 40,  rate: 55,  stockInType: 'PURCHASE', supplier: amul,     date: daysAgo(10), invoiceNumber: 'AMUL-MAY23', ...opts });
+  await createTxn({ type: 'STOCK_IN', to: ms, product: P['SHAHAD'],   qty: 3,   rate: 615, stockInType: 'PURCHASE', supplier: amul,     date: daysAgo(10), invoiceNumber: 'AMUL-MAY23', ...opts });
   await createTxn({ type: 'STOCK_IN', to: ms, product: P['MILK-COW'], qty: 60,  rate: 64,  stockInType: 'PURCHASE', supplier: dairy,    date: daysAgo(10), expiryDate: daysAgo(9), batchRef: 'MLK-MAY23', ...opts });
   await createTxn({ type: 'STOCK_IN', to: ms, product: P['DAHI'],     qty: 20,  rate: 72,  stockInType: 'PURCHASE', supplier: dairy,    date: daysAgo(10), expiryDate: daysAgo(7), ...opts });
 
@@ -750,21 +783,369 @@ const seed = async () => {
   await createTxn({ type: 'STOCK_OUT', from: ps, product: P['PANCHMRT'], qty: 3, stockOutPurpose: 'OFFERING',    date: daysAgo(1), notes: 'Daily abhishek', ...opts });
   await createTxn({ type: 'WASTAGE', from: ms, product: P['PNEER'], qty: 1, wastageReason: 'EXPIRED', date: daysAgo(1), notes: 'Paneer spoiled in main store', ...opts });
 
+  // ── 5. Donations ───────────────────────────────────────────────────────────
+
+  console.log('\nCreating donations...');
+
+  const [hundiOcc, generalOcc, ramNavamiOcc, prasadOcc] = await Promise.all([
+    DonationOccasion.findOne({ name: 'Hundi' }),
+    DonationOccasion.findOne({ name: 'General Donation' }),
+    DonationOccasion.findOne({ name: 'Ram Navami' }),
+    DonationOccasion.findOne({ name: 'Prasad Sponsorship' }),
+  ]);
+
+  function donationNumKey(date) {
+    const d = new Date(date);
+    return `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`;
+  }
+  async function genDonNum(date) {
+    const prefix = `DON-${donationNumKey(date)}-`;
+    const last = await Donation.findOne(
+      { donationNumber: { $regex: `^${prefix}` } },
+      { donationNumber: 1 },
+      { sort: { donationNumber: -1 } }
+    ).lean();
+    const seq = last?.donationNumber
+      ? parseInt(last.donationNumber.split('-').at(-1), 10) + 1
+      : 1;
+    return `${prefix}${String(seq).padStart(3, '0')}`;
+  }
+
+  const donationData = [
+    // Named — cash, Holi festival
+    {
+      donationType: 'named',
+      date: daysAgo(80),
+      donor: trust._id,
+      occasion: hundiOcc?._id,
+      cashAmount: 11000,
+      paymentMode: 'cash',
+      is80G: true,
+      notes: 'Holi festival donation by Amalner Charitable Trust',
+      receivedBy: adminUser._id,
+      createdBy: adminUser._id,
+    },
+    // Hundi — weekly March collection
+    {
+      donationType: 'hundi',
+      date: daysAgo(75),
+      occasion: hundiOcc?._id,
+      cashAmount: 8500,
+      paymentMode: 'cash',
+      notes: 'Weekly hundi collection — last week of March',
+      receivedBy: adminUser._id,
+      createdBy: adminUser._id,
+    },
+    // Anonymous — walk-in, Ram Navami
+    {
+      donationType: 'anonymous',
+      date: daysAgo(57),
+      donorName: 'Shri Ram Prasad',
+      donorPhone: '9876500001',
+      occasion: ramNavamiOcc?._id,
+      cashAmount: 5100,
+      paymentMode: 'cash',
+      notes: 'Ram Navami anonymous donation',
+      receivedBy: adminUser._id,
+      createdBy: adminUser._id,
+    },
+    // Named — UPI, Akshaya Tritiya
+    {
+      donationType: 'named',
+      date: daysAgo(45),
+      donor: trust._id,
+      occasion: generalOcc?._id,
+      cashAmount: 21000,
+      paymentMode: 'upi',
+      paymentRef: 'UPI-TXN-ACT202604',
+      is80G: true,
+      notes: 'Akshaya Tritiya — Amalner Charitable Trust donation',
+      receivedBy: adminUser._id,
+      createdBy: adminUser._id,
+    },
+    // Hundi — April weekly collection
+    {
+      donationType: 'hundi',
+      date: daysAgo(40),
+      occasion: hundiOcc?._id,
+      cashAmount: 6200,
+      paymentMode: 'cash',
+      notes: 'Hundi collection — last week of April',
+      receivedBy: adminUser._id,
+      createdBy: adminUser._id,
+    },
+    // Named — cheque, Prasad Sponsorship
+    {
+      donationType: 'named',
+      date: daysAgo(30),
+      donor: trust._id,
+      occasion: prasadOcc?._id,
+      cashAmount: 51000,
+      paymentMode: 'cheque',
+      paymentRef: 'CHQ-00124',
+      is80G: true,
+      notes: 'Prasad sponsorship — May monthly donation by Shri Dinesh Shah',
+      receivedBy: adminUser._id,
+      createdBy: adminUser._id,
+    },
+    // Hundi — May weekly collection
+    {
+      donationType: 'hundi',
+      date: daysAgo(15),
+      occasion: hundiOcc?._id,
+      cashAmount: 9800,
+      paymentMode: 'cash',
+      notes: 'Hundi collection — second week of May',
+      receivedBy: adminUser._id,
+      createdBy: adminUser._id,
+    },
+    // Anonymous — walk-in, kind (sugar already stocked separately)
+    {
+      donationType: 'anonymous',
+      date: daysAgo(5),
+      donorName: 'Smt. Laxmibai Patil',
+      donorPhone: '9823400002',
+      occasion: generalOcc?._id,
+      cashAmount: 2100,
+      paymentMode: 'cash',
+      notes: 'General donation — walk-in devotee',
+      receivedBy: adminUser._id,
+      createdBy: adminUser._id,
+    },
+  ];
+
+  for (const d of donationData) {
+    d.donationNumber = await genDonNum(d.date);
+    await Donation.create(d);
+  }
+  console.log(`  ✓ ${donationData.length} donations (trust + hundi + anonymous)`);
+
+  // ── Additional donations from individual donors + more hundi ──────────────
+  const [ganeshOcc, templeRenOcc] = await Promise.all([
+    DonationOccasion.findOne({ name: 'Ganesh Utsav' }),
+    DonationOccasion.findOne({ name: 'Temple Renovation' }),
+  ]);
+
+  const extraDonations = [
+    // Ramesh Shah — March, general cash
+    { donationType: 'named', date: daysAgo(78), donor: donorRamesh._id, occasion: generalOcc?._id, cashAmount: 5100, paymentMode: 'cash', is80G: true, notes: 'Monthly donation by Ramesh Shantilal Shah', receivedBy: adminUser._id, createdBy: adminUser._id },
+    // Savita Mehta — Ram Navami, UPI
+    { donationType: 'named', date: daysAgo(56), donor: donorSavita._id, occasion: ramNavamiOcc?._id, cashAmount: 3100, paymentMode: 'upi', paymentRef: 'UPI-SAV-RAMNAV26', is80G: false, notes: 'Ram Navami donation — Savita Bhaskar Mehta', receivedBy: adminUser._id, createdBy: adminUser._id },
+    // Patel Parivar — Temple Renovation fund, cheque
+    { donationType: 'named', date: daysAgo(48), donor: donorPatel._id, occasion: templeRenOcc?._id, cashAmount: 25000, paymentMode: 'cheque', paymentRef: 'CHQ-PAT-0456', is80G: true, notes: 'Temple Renovation Fund — Patel family contribution', receivedBy: adminUser._id, createdBy: adminUser._id },
+    // Hundi — April week 1
+    { donationType: 'hundi', date: daysAgo(60), occasion: hundiOcc?._id, cashAmount: 7200, paymentMode: 'cash', notes: 'Weekly hundi collection — first week of April', receivedBy: adminUser._id, createdBy: adminUser._id },
+    // Hundi — Hanuman Jayanti special
+    { donationType: 'hundi', date: daysAgo(51), occasion: hundiOcc?._id, cashAmount: 12500, paymentMode: 'cash', notes: 'Hanuman Jayanti special hundi collection', receivedBy: adminUser._id, createdBy: adminUser._id },
+    // Ramesh Shah — May, UPI
+    { donationType: 'named', date: daysAgo(22), donor: donorRamesh._id, occasion: generalOcc?._id, cashAmount: 7500, paymentMode: 'upi', paymentRef: 'UPI-RSH-MAY2026', is80G: true, notes: 'May monthly donation — Ramesh Shantilal Shah', receivedBy: adminUser._id, createdBy: adminUser._id },
+    // Anonymous — May walk-in
+    { donationType: 'anonymous', date: daysAgo(20), donorName: 'Shri Vitthal Devotee', donorPhone: '9823411111', occasion: generalOcc?._id, cashAmount: 1100, paymentMode: 'cash', notes: 'Anonymous walk-in donation', receivedBy: adminUser._id, createdBy: adminUser._id },
+    // Savita Mehta — recent general
+    { donationType: 'named', date: daysAgo(7), donor: donorSavita._id, occasion: generalOcc?._id, cashAmount: 2100, paymentMode: 'cash', notes: 'General donation — Savita Bhaskar Mehta', receivedBy: adminUser._id, createdBy: adminUser._id },
+    // Patel Parivar — June NEFT
+    { donationType: 'named', date: daysAgo(2), donor: donorPatel._id, occasion: generalOcc?._id, cashAmount: 15000, paymentMode: 'bank_transfer', paymentRef: 'NEFT-PAT-JUN2026', is80G: true, notes: 'June donation — Patel Parivar', receivedBy: adminUser._id, createdBy: adminUser._id },
+    // Hundi — June week 1
+    { donationType: 'hundi', date: daysAgo(1), occasion: hundiOcc?._id, cashAmount: 6800, paymentMode: 'cash', notes: 'Weekly hundi collection — first week of June', receivedBy: adminUser._id, createdBy: adminUser._id },
+  ];
+
+  for (const d of extraDonations) {
+    d.donationNumber = await genDonNum(d.date);
+    await Donation.create(d);
+  }
+  console.log(`  ✓ ${extraDonations.length} additional donations (3 individual donors + hundi + anonymous)`);
+
+  // ── 6. Supplier Payments ──────────────────────────────────────────────────
+
+  console.log('Creating supplier payments...');
+
+  const paymentsData = [
+    // Kirana — approved, March consolidated (NEFT)
+    // INV-GK-MAR17: RICE-BAS(8000)+TOOR-DAL(3600)+DAL-CHN(2250) = 13850
+    // INV-GK-MAR28: RICE-BAS(12300)+ATTA-WHT(2880)+SUGR(3680)+RCHIL(2000)+CORIAND(1600)+DAL-URD(2800)+POHA(1000)+TOOR-DAL(4880)+MONG-DAL(2800)+LADU-BSN(8625) = 42565
+    {
+      supplier: kirana._id,
+      invoices: [
+        { invoiceNumber: 'INV-GK-MAR17', invoiceDate: daysAgo(77), invoiceTotal: 13850, paidAmount: 13850 },
+        { invoiceNumber: 'INV-GK-MAR28', invoiceDate: daysAgo(66), invoiceTotal: 42565, paidAmount: 42565 },
+      ],
+      totalAmount: 56415,
+      paymentDate: daysAgo(60),
+      paymentMode: 'neft',
+      referenceNumber: 'NEFT-MAR-2026-001',
+      bankName: 'SBI Amalner',
+      status: 'approved',
+      approvedBy: adminUser._id,
+      approvedAt: daysAgo(59),
+      notes: 'March consolidated payment — Shri Ganesh Kirana Store',
+      createdBy: adminUser._id,
+    },
+    // Flower Mart — approved, March (cash)
+    // FL-MAR06: FLWR-MRG(3120)+FLWR-RSP(2175)+FLWR-LTS(1000)+LEAF-BAN(600) = 6895
+    // FL-HOLI: FLWR-MRG(5100) | FL-MAR17: FLWR-MRG(2800) | FL-MAR28: FLWR-MRG(3280)
+    {
+      supplier: flowerMart._id,
+      invoices: [
+        { invoiceNumber: 'FL-MAR06',  invoiceDate: daysAgo(88), invoiceTotal: 6895,  paidAmount: 6895 },
+        { invoiceNumber: 'FL-HOLI',   invoiceDate: daysAgo(81), invoiceTotal: 5100,  paidAmount: 5100 },
+        { invoiceNumber: 'FL-MAR17',  invoiceDate: daysAgo(77), invoiceTotal: 2800,  paidAmount: 2800 },
+        { invoiceNumber: 'FL-MAR28',  invoiceDate: daysAgo(66), invoiceTotal: 3280,  paidAmount: 3280 },
+      ],
+      totalAmount: 18075,
+      paymentDate: daysAgo(58),
+      paymentMode: 'cash',
+      status: 'approved',
+      approvedBy: adminUser._id,
+      approvedAt: daysAgo(57),
+      notes: 'March flower purchases — Pushpa Flower Mart',
+      createdBy: adminUser._id,
+    },
+    // Dairy — approved, April (UPI)
+    // MLK-MAR28: MILK-COW(4340)+DAHI(1400)+PNEER(2560) = 8300
+    // MLK-RAMNAV: MILK-COW(4960)+DAHI(1750) = 6710
+    // MLK-HANUMAN: MILK-COW(3410)+DAHI(1260) = 4670
+    {
+      supplier: dairy._id,
+      invoices: [
+        { invoiceNumber: 'MLK-MAR28',  invoiceDate: daysAgo(66), invoiceTotal: 8300,  paidAmount: 8300 },
+        { invoiceNumber: 'MLK-RAMNAV', invoiceDate: daysAgo(58), invoiceTotal: 6710,  paidAmount: 6710 },
+        { invoiceNumber: 'MLK-HANUMAN',invoiceDate: daysAgo(52), invoiceTotal: 4670,  paidAmount: 4670 },
+      ],
+      totalAmount: 19680,
+      paymentDate: daysAgo(35),
+      paymentMode: 'upi',
+      referenceNumber: 'UPI-DAIRY-APR2026',
+      status: 'approved',
+      approvedBy: adminUser._id,
+      approvedAt: daysAgo(34),
+      notes: 'April dairy payment — Amalner Dairy Farm',
+      createdBy: adminUser._id,
+    },
+    // Kirana — approved, May consolidated (NEFT)
+    // INV-GK-MAY01: RICE-BAS(10080)+ATTA-WHT(2220)+SUGR(2820)+RCHIL(1275)+CORIAND(1025) = 17420
+    // INV-GK-MAY23: RICE-BAS(8400)+TOOR-DAL(3660) = 12060
+    {
+      supplier: kirana._id,
+      invoices: [
+        { invoiceNumber: 'INV-GK-MAY01', invoiceDate: daysAgo(32), invoiceTotal: 17420, paidAmount: 17420 },
+        { invoiceNumber: 'INV-GK-MAY23', invoiceDate: daysAgo(10), invoiceTotal: 12060, paidAmount: 12060 },
+      ],
+      totalAmount: 29480,
+      paymentDate: daysAgo(5),
+      paymentMode: 'neft',
+      referenceNumber: 'NEFT-MAY-2026-002',
+      bankName: 'SBI Amalner',
+      status: 'approved',
+      approvedBy: adminUser._id,
+      approvedAt: daysAgo(4),
+      notes: 'May payment — Shri Ganesh Kirana Store',
+      createdBy: adminUser._id,
+    },
+    // Amul — pending approval
+    // AMUL-MAY01: PANCHMRT(2700)+SHAHAD(1830) = 4530
+    // AMUL-MAY23: PANCHMRT(2200)+SHAHAD(1845) = 4045
+    {
+      supplier: amul._id,
+      invoices: [
+        { invoiceNumber: 'AMUL-MAY01', invoiceDate: daysAgo(32), invoiceTotal: 4530, paidAmount: 4530 },
+        { invoiceNumber: 'AMUL-MAY23', invoiceDate: daysAgo(10), invoiceTotal: 4045, paidAmount: 4045 },
+      ],
+      totalAmount: 8575,
+      paymentDate: daysAgo(3),
+      paymentMode: 'neft',
+      referenceNumber: 'NEFT-AMUL-MAY2026',
+      bankName: 'HDFC Amalner',
+      status: 'pending_approval',
+      notes: 'May payment — Amul Distributor Amalner',
+      createdBy: adminUser._id,
+    },
+    // Dry Fruits — rejected (invoice dispute)
+    // DRY-APR05: DRYFRT(10×820) = 8200
+    {
+      supplier: dryFruits._id,
+      invoices: [
+        { invoiceNumber: 'DRY-APR05', invoiceDate: daysAgo(58), invoiceTotal: 8200, paidAmount: 8200 },
+      ],
+      totalAmount: 8200,
+      paymentDate: daysAgo(12),
+      paymentMode: 'cheque',
+      referenceNumber: 'CHQ-0089',
+      bankName: 'Bank of Baroda',
+      status: 'rejected',
+      rejectionReason: 'Invoice not verified — please resubmit with GST invoice copy',
+      notes: 'April dry fruits payment — Shri Ganpati Dry Fruits',
+      createdBy: adminUser._id,
+    },
+    // Flower Mart — April+May, pending approval (for trustees to approve)
+    // FL-RAMNAV: FLWR-MRG(70×90)+FLWR-LTS(300×5)+LEAF-BAN(200×3) = 6300+1500+600 = 8400
+    // FL-HANUMAN: FLWR-MRG(45×85) = 3825
+    // FL-MAY15: FLWR-MRG(35×88)+FLWR-LTS(200×5) = 3080+1000 = 4080
+    {
+      supplier: flowerMart._id,
+      invoices: [
+        { invoiceNumber: 'FL-RAMNAV',  invoiceDate: daysAgo(58), invoiceTotal: 8400, paidAmount: 8400 },
+        { invoiceNumber: 'FL-HANUMAN', invoiceDate: daysAgo(52), invoiceTotal: 3825, paidAmount: 3825 },
+        { invoiceNumber: 'FL-MAY15',   invoiceDate: daysAgo(18), invoiceTotal: 4080, paidAmount: 4080 },
+      ],
+      totalAmount: 16305,
+      paymentDate: daysAgo(3),
+      paymentMode: 'cash',
+      status: 'pending_approval',
+      notes: 'April–May flower purchases — Pushpa Flower Mart (pending trustee approval)',
+      createdBy: adminUser._id,
+    },
+    // Dairy — April+May, pending approval
+    // MLK-APR18: MILK-COW(65×62)+DAHI(20×70) = 4030+1400 = 5430
+    // MLK-MAY01: MILK-COW(70×64)+DAHI(20×72) = 4480+1440 = 5920
+    // MLK-MAY15: MILK-COW(55×64)+DAHI(15×72)+PNEER(5×325) = 3520+1080+1625 = 6225
+    {
+      supplier: dairy._id,
+      invoices: [
+        { invoiceNumber: 'MLK-APR18', invoiceDate: daysAgo(45), invoiceTotal: 5430, paidAmount: 5430 },
+        { invoiceNumber: 'MLK-MAY01', invoiceDate: daysAgo(32), invoiceTotal: 5920, paidAmount: 5920 },
+        { invoiceNumber: 'MLK-MAY15', invoiceDate: daysAgo(18), invoiceTotal: 6225, paidAmount: 6225 },
+      ],
+      totalAmount: 17575,
+      paymentDate: daysAgo(1),
+      paymentMode: 'upi',
+      referenceNumber: 'UPI-DAIRY-JUN2026',
+      status: 'pending_approval',
+      notes: 'April–May dairy payment — Amalner Dairy Farm (pending trustee approval)',
+      createdBy: adminUser._id,
+    },
+  ];
+
+  for (const p of paymentsData) {
+    p.paymentNumber = await generatePaymentNumber(p.paymentDate);
+    await SupplierPayment.create(p);
+  }
+  console.log(`  ✓ ${paymentsData.length} supplier payments`);
+
   // ─── Done ─────────────────────────────────────────────────────────────────
 
   const txnCount = await StockTransaction.countDocuments();
+  const donCount = await Donation.countDocuments();
+  const payCount = await SupplierPayment.countDocuments();
   console.log(`\n✅  Test data seeded successfully!`);
-  console.log(`   Products     : ${productDefs.length} (including Dal Bati Churma + Panchamrut items)`);
-  console.log(`   Suppliers    : 6`);
-  console.log(`   Users        : 4`);
-  console.log(`   Transactions : ${txnCount} total (3 months: March–June 2026)`);
-  console.log(`   Key Events   : Holi, Ram Navami, Hanuman Jayanti, Akshaya Tritiya\n`);
+  console.log(`   Products          : ${productDefs.length} (Dal Bati Churma, Panchamrut & more)`);
+  console.log(`   Suppliers         : 6 vendors (with bank accounts)`);
+  console.log(`   Donors            : 3 individual + 1 charitable trust`);
+  console.log(`   Users             : 9 (super admin + manager + 2 trustees + 3 staff + viewer)`);
+  console.log(`   Stock Transactions: ${txnCount} total (3 months: March–June 2026)`);
+  console.log(`   Donations         : ${donCount} (named/hundi/anonymous across 3 months)`);
+  console.log(`   Supplier Payments : ${payCount} (approved, pending, rejected)`);
+  console.log(`   Key Events        : Holi, Ram Navami, Hanuman Jayanti, Akshaya Tritiya\n`);
   console.log('Login Credentials:');
-  console.log('   Super Admin   : admin@mandir.com    / Admin@1234');
-  console.log('   Store Manager : manager@mandir.com  / Manager@123');
-  console.log('   Kitchen Staff : kitchen@mandir.com  / Kitchen@123');
-  console.log('   Puja Staff    : puja@mandir.com     / Puja@1234');
-  console.log('   Viewer        : viewer@mandir.com   / Viewer@123\n');
+  console.log('   Super Admin   : admin@mandir.com     / Admin@1234');
+  console.log('   Store Manager : manager@mandir.com   / Manager@123  [can approve payments]');
+  console.log('   Trustee 1     : trustee1@mandir.com  / Trustee@123  [can approve payments]');
+  console.log('   Trustee 2     : trustee2@mandir.com  / Trustee@456  [can approve payments]');
+  console.log('   Kitchen Staff : kitchen@mandir.com   / Kitchen@123');
+  console.log('   Puja Staff    : puja@mandir.com      / Puja@1234');
+  console.log('   Staff 1       : staff1@mandir.com    / Staff@1234');
+  console.log('   Staff 2       : staff2@mandir.com    / Staff@5678');
+  console.log('   Staff 3       : staff3@mandir.com    / Staff@9012');
+  console.log('   Viewer        : viewer@mandir.com    / Viewer@123\n');
 
   await mongoose.disconnect();
 };

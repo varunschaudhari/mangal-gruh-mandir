@@ -109,6 +109,235 @@ export function generateDonationPDF(res, { donations, from, to }) {
   doc.end();
 }
 
+// ── Standard Donation Receipt ─────────────────────────────────────────────────
+export function generateDonationReceipt(res, { donation, settings }) {
+  const doc = new PDFDocument({ size: 'A4', margin: 50, bufferPages: true });
+  res.setHeader('Content-Type', 'application/pdf');
+  res.setHeader('Content-Disposition', `attachment; filename="RECEIPT-${donation.donationNumber}.pdf"`);
+  doc.pipe(res);
+
+  const W    = doc.page.width - 100;
+  const LEFT = 50;
+  const PM   = { cash: 'Cash', upi: 'UPI / Online', cheque: 'Cheque', bank_transfer: 'Bank Transfer' };
+
+  const templeName = settings?.templeName || 'Mangal Grah Mandir, Amalner';
+  const donorName  = donation.donor?.name || donation.donorName || (donation.donationType === 'hundi' ? 'Hundi Collection' : 'Anonymous');
+  const donorPhone = donation.donorPhone || donation.donor?.phone || '';
+  const donorPAN   = donation.panNumber   || donation.donor?.panNumber || '';
+  const occasion   = donation.occasion?.name || 'General Donation';
+  const cashAmt    = donation.cashAmount || 0;
+  const kindItems  = donation.kindItems || [];
+  const kindTotal  = kindItems.reduce((s, i) => s + (i.estimatedValue || 0), 0);
+  const grandTotal = cashAmt + kindTotal;
+
+  // Header
+  doc.rect(LEFT, 40, W, 62).fill(C.primary);
+  doc.fillColor(C.white).fontSize(17).font('Helvetica-Bold')
+    .text(templeName, LEFT + 12, 50, { width: W - 24 });
+  doc.fontSize(8).font('Helvetica')
+    .text('DONATION RECEIPT', LEFT + 12, 72, { width: W - 24, characterSpacing: 1 });
+
+  // Receipt No + Date
+  let y = 120;
+  doc.fillColor(C.dark).fontSize(9);
+  doc.font('Helvetica-Bold').text('Receipt No.', LEFT, y, { continued: true });
+  doc.font('Helvetica').text(`  ${donation.donationNumber || '—'}`);
+  doc.font('Helvetica-Bold').text('Date', LEFT + W - 120, y, { continued: true });
+  doc.font('Helvetica').text(`  ${fmtDate(donation.date)}`);
+  y += 20;
+
+  doc.moveTo(LEFT, y).lineTo(LEFT + W, y).strokeColor('#E5E7EB').lineWidth(1).stroke();
+  y += 16;
+
+  // Donor section
+  if (donorName !== 'Hundi Collection') {
+    doc.fillColor(C.gray).fontSize(8).font('Helvetica').text('Received with thanks from:', LEFT, y);
+    y += 14;
+    doc.fillColor(C.dark).fontSize(16).font('Helvetica-Bold').text(donorName, LEFT, y);
+    y += 24;
+    if (donorPhone) { doc.fontSize(9).font('Helvetica').fillColor(C.gray).text(`Phone: ${donorPhone}`, LEFT, y); y += 14; }
+    if (donorPAN)   { doc.fontSize(9).font('Helvetica').fillColor(C.gray).text(`PAN: ${donorPAN}`, LEFT, y); y += 14; }
+  }
+
+  y += 6;
+  doc.fontSize(9).font('Helvetica-Bold').fillColor(C.dark).text('Occasion / Purpose:', LEFT, y, { continued: true });
+  doc.font('Helvetica').text(`  ${occasion}`);
+  y = doc.y + 12;
+
+  // Cash amount box
+  if (cashAmt > 0) {
+    doc.rect(LEFT, y, W, 54).fill(C.light);
+    doc.fillColor(C.primary).fontSize(24).font('Helvetica-Bold')
+      .text(`₹${cashAmt.toLocaleString('en-IN')}/-`, LEFT, y + 8, { width: W, align: 'center' });
+    doc.fillColor(C.dark).fontSize(9).font('Helvetica')
+      .text(`(${amountToWords(cashAmt)} Rupees Only)`, LEFT, y + 36, { width: W, align: 'center' });
+    y += 64;
+    doc.fontSize(9).font('Helvetica-Bold').fillColor(C.dark).text('Paid by:', LEFT, y, { continued: true });
+    doc.font('Helvetica').text(`  ${PM[donation.paymentMode] || donation.paymentMode || 'Cash'}${donation.paymentRef ? ` — Ref: ${donation.paymentRef}` : ''}`);
+    y = doc.y + 14;
+  }
+
+  // Kind items table
+  if (kindItems.length > 0) {
+    doc.fillColor(C.dark).fontSize(9).font('Helvetica-Bold').text('Kind Donation Items (Vastu Daan):', LEFT, y);
+    y = doc.y + 8;
+    const cols = [{ w: 220, label: 'Item' }, { w: 100, label: 'Quantity' }, { w: 100, label: 'Est. Value (₹)' }];
+    doc.rect(LEFT, y, W, 14).fill(C.primary);
+    let cx = LEFT + 4;
+    cols.forEach((c) => {
+      doc.fillColor(C.white).fontSize(8).font('Helvetica-Bold').text(c.label, cx, y + 3, { width: c.w - 4 });
+      cx += c.w;
+    });
+    y += 14;
+    for (const item of kindItems) {
+      doc.rect(LEFT, y, W, 13).fill('#FFF7ED');
+      cx = LEFT + 4;
+      const cells = [
+        item.product?.name || '—',
+        `${item.quantity} ${item.unit?.symbol || ''}`,
+        item.estimatedValue > 0 ? `₹${item.estimatedValue.toLocaleString('en-IN')}` : '—',
+      ];
+      cells.forEach((text, i) => {
+        doc.fillColor(C.dark).fontSize(8).font('Helvetica').text(String(text), cx, y + 2, { width: cols[i].w - 4 });
+        cx += cols[i].w;
+      });
+      y += 13;
+    }
+    y += 8;
+  }
+
+  // Grand total
+  if (grandTotal > 0) {
+    doc.rect(LEFT, y, W, 26).fill(C.primary);
+    doc.fillColor(C.white).fontSize(11).font('Helvetica-Bold')
+      .text(`Total Donation Value: ₹${grandTotal.toLocaleString('en-IN')}`, LEFT + 8, y + 8);
+    y += 36;
+  }
+
+  y += 10;
+  doc.moveTo(LEFT, y).lineTo(LEFT + W, y).strokeColor('#E5E7EB').lineWidth(0.5).stroke();
+  y += 16;
+
+  // Signature block
+  doc.fillColor(C.dark).fontSize(9).font('Helvetica-Bold').text(`For ${templeName}`, LEFT, y);
+  doc.font('Helvetica').fillColor(C.gray).text(`Date: ${fmtDate(new Date())}`, LEFT + W - 130, y);
+  y += 44;
+  doc.moveTo(LEFT, y).lineTo(LEFT + 130, y).strokeColor('#9CA3AF').lineWidth(0.5).stroke();
+  y += 6;
+  doc.fillColor(C.gray).fontSize(8).font('Helvetica').text('Authorized Signatory', LEFT, y);
+
+  const pageCount = doc.bufferedPageRange().count;
+  for (let i = 0; i < pageCount; i++) {
+    doc.switchToPage(i);
+    doc.fillColor(C.gray).fontSize(7).font('Helvetica')
+      .text(`Donation Receipt · ${donation.donationNumber} · ${templeName}`, LEFT, doc.page.height - 32, { width: W, align: 'center' });
+  }
+
+  doc.end();
+}
+
+// ── Donor Statement ───────────────────────────────────────────────────────────
+export function generateDonorStatement(res, { donor, donations, settings }) {
+  const doc = new PDFDocument({ size: 'A4', margin: 40, bufferPages: true });
+  res.setHeader('Content-Type', 'application/pdf');
+  const safeName = (donor.name || 'Donor').replace(/[^a-zA-Z0-9_-]/g, '_');
+  res.setHeader('Content-Disposition', `attachment; filename="Donor-Statement-${safeName}.pdf"`);
+  doc.pipe(res);
+
+  const W    = doc.page.width - 80;
+  const LEFT = 40;
+  const templeName = settings?.templeName || 'Mangal Grah Mandir, Amalner';
+
+  const totalCash = donations.reduce((s, d) => s + (d.cashAmount || 0), 0);
+  const totalKind = donations.reduce((s, d) => s + (d.kindItems || []).reduce((k, i) => k + (i.estimatedValue || 0), 0), 0);
+
+  // Header
+  doc.rect(LEFT, 30, W, 54).fill(C.primary);
+  doc.fillColor(C.white).fontSize(16).font('Helvetica-Bold').text(templeName, LEFT + 10, 40, { width: W - 20 });
+  doc.fontSize(9).font('Helvetica').text('Donor Contribution Statement', LEFT + 10, 60);
+
+  doc.fillColor(C.dark).fontSize(9).font('Helvetica').text(`Generated: ${fmtDate(new Date())}`, LEFT, 96, { align: 'right', width: W });
+
+  // Donor info box
+  let y = 114;
+  doc.rect(LEFT, y, W, 40).fill(C.light);
+  doc.fillColor(C.primary).fontSize(14).font('Helvetica-Bold').text(donor.name || 'Donor', LEFT + 10, y + 6, { width: W - 20 });
+  const meta = [donor.phone, donor.panNumber ? `PAN: ${donor.panNumber}` : null].filter(Boolean).join('  ·  ');
+  if (meta) doc.fillColor(C.gray).fontSize(8).font('Helvetica').text(meta, LEFT + 10, y + 26);
+  y += 50;
+
+  // Summary boxes
+  const boxes = [
+    { label: 'Total Donations',  value: String(donations.length) },
+    { label: 'Cash Donated',     value: `₹${totalCash.toLocaleString('en-IN')}` },
+    { label: 'Kind Value (Est)', value: `₹${totalKind.toLocaleString('en-IN')}` },
+    { label: 'Grand Total',      value: `₹${(totalCash + totalKind).toLocaleString('en-IN')}` },
+  ];
+  const bw = (W - 9) / 4;
+  boxes.forEach((b, i) => {
+    const bx = LEFT + i * (bw + 3);
+    doc.rect(bx, y, bw, 34).fill(C.light);
+    doc.fillColor(C.primary).fontSize(13).font('Helvetica-Bold').text(b.value, bx, y + 4, { width: bw, align: 'center' });
+    doc.fillColor(C.gray).fontSize(7).font('Helvetica').text(b.label, bx, y + 22, { width: bw, align: 'center' });
+  });
+  y += 46;
+
+  // Table
+  const cols = [
+    { label: 'Receipt No.', w: 100 }, { label: 'Date',    w: 65 },
+    { label: 'Occasion',    w: 110 }, { label: 'Cash (₹)', w: 60 },
+    { label: 'Kind Items',  w: 55 },  { label: 'Total (₹)', w: 55 },
+  ];
+  doc.rect(LEFT, y, W, 14).fill(C.primary);
+  let cx = LEFT + 3;
+  cols.forEach((c) => {
+    doc.fillColor(C.white).fontSize(7).font('Helvetica-Bold').text(c.label, cx, y + 3, { width: c.w - 3 });
+    cx += c.w;
+  });
+  y += 14;
+
+  let rowNum = 0;
+  for (const d of donations) {
+    if (y > doc.page.height - 50) { doc.addPage(); y = 40; }
+    const bg    = rowNum % 2 === 0 ? C.white : '#FFF7ED';
+    const kVal  = (d.kindItems || []).reduce((s, k) => s + (k.estimatedValue || 0), 0);
+    const total = (d.cashAmount || 0) + kVal;
+    doc.rect(LEFT, y, W, 13).fill(bg);
+    const cells = [
+      d.donationNumber || '—', fmtDate(d.date), d.occasion?.name || '—',
+      d.cashAmount > 0 ? `₹${d.cashAmount.toLocaleString('en-IN')}` : '—',
+      (d.kindItems || []).length > 0 ? `${(d.kindItems || []).length} item${(d.kindItems || []).length > 1 ? 's' : ''}` : '—',
+      total > 0 ? `₹${total.toLocaleString('en-IN')}` : '—',
+    ];
+    cx = LEFT + 3;
+    cells.forEach((text, i) => {
+      doc.fillColor(C.dark).fontSize(7).font('Helvetica').text(String(text), cx, y + 2, { width: cols[i].w - 3, ellipsis: true });
+      cx += cols[i].w;
+    });
+    doc.moveTo(LEFT, y + 13).lineTo(LEFT + W, y + 13).strokeColor('#E5E7EB').lineWidth(0.5).stroke();
+    y += 13; rowNum++;
+  }
+
+  // Total row
+  if (y > doc.page.height - 30) { doc.addPage(); y = 40; }
+  doc.rect(LEFT, y, W, 16).fill(C.primary);
+  doc.fillColor(C.white).fontSize(8).font('Helvetica-Bold')
+    .text('Grand Total', LEFT + 3, y + 4, { width: cols[0].w + cols[1].w + cols[2].w + cols[3].w - 3 });
+  const totalsCx = LEFT + cols[0].w + cols[1].w + cols[2].w + 3;
+  doc.text(`₹${totalCash.toLocaleString('en-IN')}`, totalsCx, y + 4, { width: cols[3].w - 3 });
+  const grandCx = totalsCx + cols[3].w + cols[4].w;
+  doc.text(`₹${(totalCash + totalKind).toLocaleString('en-IN')}`, grandCx, y + 4, { width: cols[5].w - 3 });
+
+  const pageCount = doc.bufferedPageRange().count;
+  for (let i = 0; i < pageCount; i++) {
+    doc.switchToPage(i);
+    doc.fillColor(C.gray).fontSize(7).font('Helvetica')
+      .text(`Donor Statement · ${donor.name} · ${templeName}`, LEFT, doc.page.height - 28, { width: W, align: 'center' });
+  }
+
+  doc.end();
+}
+
 // ── 80G Tax Exemption Receipt ─────────────────────────────────────────────────
 export function generate80GReceipt(res, { donation, settings }) {
   const doc = new PDFDocument({ size: 'A4', margin: 50, bufferPages: true });

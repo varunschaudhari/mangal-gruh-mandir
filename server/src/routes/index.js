@@ -21,6 +21,7 @@ import donationOccasionRoutes from './donationOccasion.routes.js';
 import assetTransactionRoutes from './assetTransaction.routes.js';
 import assetReportRoutes from './assetReport.routes.js';
 import settingsRoutes from './settings.routes.js';
+import supplierPaymentRoutes from './supplierPayment.routes.js';
 
 const router = Router();
 
@@ -47,5 +48,6 @@ router.use('/donation-occasions', donationOccasionRoutes);
 router.use('/asset-transactions', assetTransactionRoutes);
 router.use('/asset-reports', assetReportRoutes);
 router.use('/settings', settingsRoutes);
+router.use('/supplier-payments', supplierPaymentRoutes);
 
 export default router;

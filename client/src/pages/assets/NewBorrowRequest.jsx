@@ -59,7 +59,7 @@ const NewBorrowRequest = () => {
 
   const expectedReturnDate = watch('expectedReturnDate');
 
-  const { data: assetsRes }   = useQuery({ queryKey: ['assets-active'],    queryFn: () => getAssets({ active: true }) });
+  const { data: assetsRes }   = useQuery({ queryKey: ['assets-borrowable'], queryFn: () => getAssets({ active: true, borrowable: true }) });
   const { data: settingsRes } = useQuery({ queryKey: ['settings'],          queryFn: getSettings });
   const { data: usersRes }    = useQuery({ queryKey: ['users-active'],      queryFn: () => getUsers({ active: true }) });
   const { data: approversRes }= useQuery({ queryKey: ['users-approvers'],   queryFn: getApprovers });

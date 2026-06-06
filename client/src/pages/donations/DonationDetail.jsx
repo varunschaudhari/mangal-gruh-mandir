@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, Printer, XCircle, IndianRupee, Package, User, FileCheck2 } from 'lucide-react';
-import { getDonation, voidDonation, download80GReceipt } from '../../api/donation.api.js';
+import { ArrowLeft, Printer, XCircle, IndianRupee, Package, User, FileCheck2, Download } from 'lucide-react';
+import { getDonation, voidDonation, download80GReceipt, downloadDonationReceipt } from '../../api/donation.api.js';
 import { printDonationReceipt } from '../../utils/donationReceipt.js';
 import { PageLoader } from '../../components/ui/Spinner.jsx';
 import Badge from '../../components/ui/Badge.jsx';
@@ -27,9 +27,10 @@ const DonationDetail = () => {
   const navigate = useNavigate();
   const { can }  = usePermissions();
   const qc       = useQueryClient();
-  const [showVoid,      setShowVoid]      = useState(false);
-  const [voidReason,    setVoidReason]    = useState('');
-  const [downloading80G, setDownloading80G] = useState(false);
+  const [showVoid,        setShowVoid]        = useState(false);
+  const [voidReason,      setVoidReason]      = useState('');
+  const [downloading80G,  setDownloading80G]  = useState(false);
+  const [downloadingPdf,  setDownloadingPdf]  = useState(false);
 
   const { data, isLoading } = useQuery({ queryKey: ['donation', id], queryFn: () => getDonation(id) });
 
@@ -60,6 +61,18 @@ const DonationDetail = () => {
     finally { setDownloading80G(false); }
   };
 
+  const handleReceiptDownload = async () => {
+    setDownloadingPdf(true);
+    try {
+      const res = await downloadDonationReceipt(id);
+      const url = URL.createObjectURL(res.data);
+      const a   = document.createElement('a');
+      a.href = url; a.download = `RECEIPT-${donationNumber}.pdf`; a.click();
+      URL.revokeObjectURL(url);
+    } catch { toast.error('Failed to generate receipt'); }
+    finally { setDownloadingPdf(false); }
+  };
+
   const displayDonor = donor?.name || donorName || (donationType === 'hundi' ? 'Hundi Collection' : 'Anonymous');
   const kindTotal    = kindItems.reduce((s, k) => s + (k.estimatedValue || 0), 0);
 
@@ -85,10 +98,17 @@ const DonationDetail = () => {
         </div>
         <div className="flex gap-2 shrink-0">
           {donationType !== 'hundi' && !isVoided && (
-            <button onClick={() => printDonationReceipt(donation)}
-              className="btn-secondary flex items-center gap-2 text-sm">
-              <Printer className="h-4 w-4" /> Print Receipt
-            </button>
+            <>
+              <button onClick={() => printDonationReceipt(donation)}
+                className="btn-secondary flex items-center gap-2 text-sm">
+                <Printer className="h-4 w-4" /> Print
+              </button>
+              <button onClick={handleReceiptDownload} disabled={downloadingPdf}
+                className="btn-secondary flex items-center gap-2 text-sm disabled:opacity-50">
+                <Download className="h-4 w-4" />
+                {downloadingPdf ? 'Generating…' : 'Receipt PDF'}
+              </button>
+            </>
           )}
           {is80G && donationType === 'named' && !isVoided && (
             <button onClick={handle80GDownload} disabled={downloading80G}

@@ -13,7 +13,8 @@ const userSchema = new mongoose.Schema(
     refreshToken: { type: String, select: false },
     whatsappAlertsEnabled: { type: Boolean, default: false },
     smsAlertsEnabled: { type: Boolean, default: false },
-    canApproveAssets: { type: Boolean, default: false },
+    canApproveAssets:    { type: Boolean, default: false },
+    canApprovePayments:  { type: Boolean, default: false },
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   },
   { timestamps: true }

@@ -4,7 +4,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   User, Mail, Phone, Lock, Shield, Building2,
-  MessageCircle, MessageSquare, Bell, CheckCircle2, Key,
+  MessageCircle, MessageSquare, Bell, CheckCircle2, Key, CreditCard,
 } from 'lucide-react';
 import { getUser, createUser, updateUser } from '../../api/user.api.js';
 import { getDepartments } from '../../api/department.api.js';
@@ -73,14 +73,16 @@ const UserForm = () => {
     defaultValues: {
       role: 'staff', isActive: true,
       whatsappAlertsEnabled: false, smsAlertsEnabled: false,
-      canApproveAssets: false,
+      canApproveAssets:    false,
+      canApprovePayments:  false,
     },
   });
 
   const selectedRole      = watch('role');
   const whatsappEnabled   = watch('whatsappAlertsEnabled');
   const smsEnabled        = watch('smsAlertsEnabled');
-  const canApprove        = watch('canApproveAssets');
+  const canApprove         = watch('canApproveAssets');
+  const canApprovePayments = watch('canApprovePayments');
   const phone             = watch('phone');
 
   const { data: userRes, isLoading } = useQuery({
@@ -222,6 +224,24 @@ const UserForm = () => {
               <input type="checkbox" {...register('canApproveAssets')} className="sr-only" />
               <div className={`w-10 h-5 rounded-full transition-colors flex items-center ${canApprove ? 'bg-purple-500' : 'bg-gray-200'}`}>
                 <div className={`w-4 h-4 bg-white rounded-full shadow-sm transition-transform mx-0.5 ${canApprove ? 'translate-x-5' : 'translate-x-0'}`} />
+              </div>
+            </div>
+          </label>
+
+          <label className={`flex items-start gap-3 p-3.5 rounded-lg border-2 cursor-pointer transition-all ${
+            canApprovePayments ? 'bg-emerald-50 border-emerald-400 text-emerald-700' : 'bg-white border-gray-100 hover:border-gray-200'
+          }`}>
+            <div className={`mt-0.5 shrink-0 ${canApprovePayments ? 'text-emerald-600' : 'text-gray-300'}`}>
+              <CreditCard className="h-5 w-5" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className={`text-sm font-semibold ${canApprovePayments ? 'text-emerald-700' : 'text-gray-600'}`}>Can Approve Payments</p>
+              <p className="text-xs text-gray-400 mt-0.5">This person can approve or reject supplier payment vouchers (trustee-level access)</p>
+            </div>
+            <div className="shrink-0 mt-0.5">
+              <input type="checkbox" {...register('canApprovePayments')} className="sr-only" />
+              <div className={`w-10 h-5 rounded-full transition-colors flex items-center ${canApprovePayments ? 'bg-emerald-500' : 'bg-gray-200'}`}>
+                <div className={`w-4 h-4 bg-white rounded-full shadow-sm transition-transform mx-0.5 ${canApprovePayments ? 'translate-x-5' : 'translate-x-0'}`} />
               </div>
             </div>
           </label>

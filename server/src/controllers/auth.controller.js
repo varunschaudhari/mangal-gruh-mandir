@@ -39,6 +39,8 @@ export const login = asyncHandler(async (req, res) => {
         email: user.email,
         role: user.role,
         departments: user.departments,
+        canApproveAssets:   user.canApproveAssets,
+        canApprovePayments: user.canApprovePayments,
       },
     }, 'Login successful')
   );

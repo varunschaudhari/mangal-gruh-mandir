@@ -7,6 +7,7 @@ export const ROLE_PERMISSIONS = {
     'reports:read', 'reports:export',
     'assets:read', 'assets:write', 'assets:manage',
     'donations:read', 'donations:write',
+    'payments:read', 'payments:write', 'payments:approve',
   ],
   store_manager: [
     'users:read',
@@ -15,6 +16,7 @@ export const ROLE_PERMISSIONS = {
     'reports:read', 'reports:export',
     'assets:read', 'assets:manage',
     'donations:read', 'donations:write',
+    'payments:read', 'payments:write', 'payments:approve',
   ],
   staff: [
     'masters:read',
@@ -22,11 +24,13 @@ export const ROLE_PERMISSIONS = {
     'reports:read',
     'assets:read',
     'donations:read',
+    'payments:read', 'payments:write',
   ],
   viewer: [
     'masters:read',
     'reports:read',
     'donations:read',
+    'payments:read',
   ],
 };
 

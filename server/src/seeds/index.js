@@ -6,10 +6,24 @@ import Category from '../models/Category.js';
 import Unit from '../models/Unit.js';
 import User from '../models/User.js';
 import Role from '../models/Role.js';
+import DonationOccasion from '../models/DonationOccasion.js';
 import { departments } from './departments.seed.js';
 import { categories } from './categories.seed.js';
 import { units } from './units.seed.js';
 import { rolesSeed } from './roles.seed.js';
+
+const OCCASIONS = [
+  { name: 'Hundi',               sortOrder: 1 },
+  { name: 'General Donation',    sortOrder: 2 },
+  { name: 'Ganesh Utsav',        sortOrder: 3 },
+  { name: 'Ram Navami',          sortOrder: 4 },
+  { name: 'Diwali Programme',    sortOrder: 5 },
+  { name: 'Navratri',            sortOrder: 6 },
+  { name: 'Prasad Sponsorship',  sortOrder: 7 },
+  { name: 'Temple Renovation',   sortOrder: 8 },
+  { name: 'Annual Utsav',        sortOrder: 9 },
+  { name: 'Annadan Programme',   sortOrder: 10 },
+];
 
 const seed = async () => {
   await connectDB();
@@ -39,6 +53,12 @@ const seed = async () => {
   }
   console.log(`✓ ${rolesSeed.length} roles`);
 
+  // Donation Occasions
+  for (const o of OCCASIONS) {
+    await DonationOccasion.updateOne({ name: o.name }, { $setOnInsert: o }, { upsert: true });
+  }
+  console.log(`✓ ${OCCASIONS.length} donation occasions`);
+
   // Super admin user
   const adminEmail = process.env.SEED_ADMIN_EMAIL || 'admin@mandir.com';
   const existing = await User.findOne({ email: adminEmail });
@@ -48,9 +68,12 @@ const seed = async () => {
       email: adminEmail,
       password: process.env.SEED_ADMIN_PASSWORD || 'Admin@1234',
       role: 'super_admin',
+      canApproveAssets: true,
+      canApprovePayments: true,
     });
     console.log(`✓ Super admin created: ${adminEmail}`);
   } else {
+    await User.updateOne({ _id: existing._id }, { $set: { canApproveAssets: true, canApprovePayments: true } });
     console.log(`- Super admin already exists: ${adminEmail}`);
   }
 

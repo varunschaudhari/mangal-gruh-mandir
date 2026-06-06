@@ -29,3 +29,6 @@ export const downloadValuationPDF    = (params)         => downloadReport('/repo
 export const downloadValuationExcel  = (params)         => downloadReport('/reports/valuation/excel',    params, `stock-valuation-${d()}.xlsx`);
 export const downloadSupplierPDF     = (params)         => downloadReport('/reports/suppliers/pdf',      params, `supplier-report-${d()}.pdf`);
 export const downloadSupplierExcel   = (params)         => downloadReport('/reports/suppliers/excel',    params, `supplier-report-${d()}.xlsx`);
+export const getFestivalCostReport   = (params)         => api.get('/reports/festival-cost',        { params });
+export const getConsumptionTrend     = (params)         => api.get('/reports/consumption-trend',    { params });
+export const getReorderSuggestions   = (params)         => api.get('/reports/reorder-suggestions',  { params });

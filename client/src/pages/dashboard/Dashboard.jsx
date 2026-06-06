@@ -7,10 +7,11 @@ import {
 import {
   Package, Truck, Warehouse, AlertTriangle, Users,
   ArrowDownToLine, ArrowUpFromLine, ArrowLeftRight, Trash2, TrendingUp, CalendarClock,
-  ShoppingBag, CalendarDays,
+  ShoppingBag, CalendarDays, CreditCard, Clock, IndianRupee, TimerOff,
 } from 'lucide-react';
 import { getDashboardStats } from '../../api/dashboard.api.js';
 import { getExpiringBatches } from '../../api/stockBatch.api.js';
+import { getPaymentDashboardSummary } from '../../api/supplierPayment.api.js';
 import { StatCard } from '../../components/ui/Card.jsx';
 import Badge from '../../components/ui/Badge.jsx';
 import { PageLoader } from '../../components/ui/Spinner.jsx';
@@ -91,11 +92,26 @@ const Dashboard = () => {
     staleTime: 5 * 60 * 1000,
   });
 
+  const { data: expiring7Res } = useQuery({
+    queryKey: ['expiring-batches', 7],
+    queryFn: () => getExpiringBatches({ days: 7 }),
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const { data: paymentSummaryRes } = useQuery({
+    queryKey: ['payment-dashboard-summary'],
+    queryFn: getPaymentDashboardSummary,
+    staleTime: 2 * 60 * 1000,
+    enabled: can('payments:read'),
+  });
+
   if (isLoading) return <PageLoader />;
 
   const stats = data?.data?.data;
   const { counts = {}, assetCounts = {}, today = {}, recentTransactions = [], weeklyMovement = [], topProducts = [] } = stats || {};
-  const expiringCount = expiringRes?.data?.data?.length ?? '—';
+  const expiringCount      = expiringRes?.data?.data?.length ?? '—';
+  const expiring7Items     = (expiring7Res?.data?.data || []).slice(0, 5);
+  const paymentSummary     = paymentSummaryRes?.data?.data || {};
 
   return (
     <div className="space-y-6">
@@ -151,6 +167,90 @@ const Dashboard = () => {
                 <p className="text-xs text-amber-600 font-medium">Due This Week</p>
               </div>
             </Link>
+          </div>
+        </div>
+      )}
+
+      {/* ── Payment Status Widget ── */}
+      {can('payments:read') && paymentSummaryRes && (
+        <div>
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <CreditCard className="h-4 w-4 text-indigo-600" />
+              <h2 className="text-sm font-semibold text-gray-700">Payment Status</h2>
+            </div>
+            <Link to="/payments" className="text-xs text-primary-600 hover:underline">View all</Link>
+          </div>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            <Link to="/payments?status=pending_approval"
+              className="rounded-xl border border-yellow-200 bg-yellow-50 px-4 py-3 flex items-center gap-3 hover:bg-yellow-100 transition-colors">
+              <Clock className="h-5 w-5 text-yellow-600 shrink-0" />
+              <div>
+                <p className="text-2xl font-bold text-yellow-700">{paymentSummary.pendingCount ?? '—'}</p>
+                <p className="text-xs text-yellow-600 font-medium">Pending Approval</p>
+              </div>
+            </Link>
+            <Link to="/reports/supplier-aging"
+              className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 flex items-center gap-3 hover:bg-blue-100 transition-colors">
+              <IndianRupee className="h-5 w-5 text-blue-600 shrink-0" />
+              <div>
+                <p className="text-2xl font-bold text-blue-700">
+                  {paymentSummary.totalOutstanding != null ? `₹${Math.round(paymentSummary.totalOutstanding / 1000)}k` : '—'}
+                </p>
+                <p className="text-xs text-blue-600 font-medium">Outstanding</p>
+              </div>
+            </Link>
+            <Link to="/reports/supplier-aging"
+              className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 flex items-center gap-3 hover:bg-red-100 transition-colors">
+              <TimerOff className="h-5 w-5 text-red-600 shrink-0" />
+              <div>
+                <p className="text-2xl font-bold text-red-700">
+                  {paymentSummary.overdueAmount != null ? `₹${Math.round(paymentSummary.overdueAmount / 1000)}k` : '—'}
+                </p>
+                <p className="text-xs text-red-600 font-medium">Overdue</p>
+              </div>
+            </Link>
+            <Link to="/reports/supplier-aging"
+              className="rounded-xl border border-orange-200 bg-orange-50 px-4 py-3 flex items-center gap-3 hover:bg-orange-100 transition-colors">
+              <AlertTriangle className="h-5 w-5 text-orange-600 shrink-0" />
+              <div>
+                <p className="text-2xl font-bold text-orange-700">{paymentSummary.overdueCount ?? '—'}</p>
+                <p className="text-xs text-orange-600 font-medium">Overdue Invoices</p>
+              </div>
+            </Link>
+          </div>
+        </div>
+      )}
+
+      {/* ── Expiring Soon (7 days) ── */}
+      {expiring7Items.length > 0 && (
+        <div>
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <CalendarClock className="h-4 w-4 text-orange-600" />
+              <h2 className="text-sm font-semibold text-gray-700">Expiring Within 7 Days</h2>
+            </div>
+            <Link to="/reports/expiring-stock" className="text-xs text-primary-600 hover:underline">View all</Link>
+          </div>
+          <div className="bg-white rounded-xl border border-orange-100 overflow-hidden">
+            {expiring7Items.map((b, i) => {
+              const daysLeft = Math.ceil((new Date(b.expiryDate) - new Date()) / 86400000);
+              const isExpired = daysLeft < 0;
+              return (
+                <div key={b._id} className={`flex items-center justify-between px-4 py-2.5 text-sm ${i !== expiring7Items.length - 1 ? 'border-b border-gray-50' : ''}`}>
+                  <div>
+                    <span className="font-medium text-gray-800">{b.product?.name}</span>
+                    <span className="text-xs text-gray-400 ml-2">{b.department?.name}</span>
+                  </div>
+                  <div className="flex items-center gap-3 text-right shrink-0">
+                    <span className="text-xs text-gray-500">{b.remainingQty} {b.product?.unit?.symbol}</span>
+                    <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${isExpired ? 'bg-red-100 text-red-700' : 'bg-orange-100 text-orange-700'}`}>
+                      {isExpired ? `${Math.abs(daysLeft)}d ago` : `${daysLeft}d left`}
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
       )}

@@ -1,5 +1,5 @@
-import { createContext, useContext, useState, useCallback } from 'react';
-import { login as loginApi, logout as logoutApi } from '../api/auth.api.js';
+import { createContext, useContext, useState, useCallback, useEffect } from 'react';
+import { login as loginApi, logout as logoutApi, getMe } from '../api/auth.api.js';
 
 const AuthContext = createContext(null);
 
@@ -9,6 +9,19 @@ const parseStoredUser = () => {
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(parseStoredUser);
+
+  // Refresh user flags from the server on mount so DB changes (e.g. canApprovePayments)
+  // are picked up without requiring a re-login.
+  useEffect(() => {
+    if (!localStorage.getItem('accessToken')) return;
+    getMe()
+      .then(({ data }) => {
+        const fresh = data.data;
+        localStorage.setItem('user', JSON.stringify(fresh));
+        setUser(fresh);
+      })
+      .catch(() => {});
+  }, []);
 
   const login = useCallback(async (email, password) => {
     const { data } = await loginApi({ email, password });

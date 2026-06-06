@@ -31,7 +31,7 @@ export const getUser = asyncHandler(async (req, res) => {
 });
 
 export const createUser = asyncHandler(async (req, res) => {
-  const { name, email, password, phone, role, departments, whatsappAlertsEnabled, smsAlertsEnabled, canApproveAssets } = req.body;
+  const { name, email, password, phone, role, departments, whatsappAlertsEnabled, smsAlertsEnabled, canApproveAssets, canApprovePayments } = req.body;
 
   if (req.user.role !== 'super_admin' && role === 'super_admin') {
     throw new ApiError(403, 'Cannot create super_admin user');
@@ -41,7 +41,7 @@ export const createUser = asyncHandler(async (req, res) => {
 
   const user = await User.create({
     name, email, password, phone, role, departments,
-    whatsappAlertsEnabled, smsAlertsEnabled, canApproveAssets,
+    whatsappAlertsEnabled, smsAlertsEnabled, canApproveAssets, canApprovePayments,
     createdBy: req.user._id,
   });
 
@@ -50,7 +50,7 @@ export const createUser = asyncHandler(async (req, res) => {
 });
 
 export const updateUser = asyncHandler(async (req, res) => {
-  const { name, phone, role, departments, isActive, whatsappAlertsEnabled, smsAlertsEnabled, canApproveAssets } = req.body;
+  const { name, phone, role, departments, isActive, whatsappAlertsEnabled, smsAlertsEnabled, canApproveAssets, canApprovePayments } = req.body;
 
   const target = await User.findById(req.params.id);
   if (!target) throw new ApiError(404, 'User not found');
@@ -62,7 +62,7 @@ export const updateUser = asyncHandler(async (req, res) => {
     throw new ApiError(403, 'Cannot assign super_admin role');
   }
 
-  Object.assign(target, { name, phone, role, departments, isActive, whatsappAlertsEnabled, smsAlertsEnabled, canApproveAssets });
+  Object.assign(target, { name, phone, role, departments, isActive, whatsappAlertsEnabled, smsAlertsEnabled, canApproveAssets, canApprovePayments });
   await target.save({ validateBeforeSave: false });
 
   const populated = await User.findById(target._id).populate('departments', 'name code');

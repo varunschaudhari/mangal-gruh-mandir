@@ -47,6 +47,14 @@ import DonationOccasionList from './pages/donations/DonationOccasionList.jsx';
 import BorrowerHistory from './pages/assets/BorrowerHistory.jsx';
 import UpcomingReturns from './pages/assets/UpcomingReturns.jsx';
 import Settings from './pages/settings/Settings.jsx';
+import SupplierDetail from './pages/masters/suppliers/SupplierDetail.jsx';
+import SupplierPayments from './pages/payments/SupplierPayments.jsx';
+import NewSupplierPayment from './pages/payments/NewSupplierPayment.jsx';
+import SupplierPaymentDetail from './pages/payments/SupplierPaymentDetail.jsx';
+import SupplierAgingReport from './pages/reports/SupplierAgingReport.jsx';
+import FestivalCostReport from './pages/reports/FestivalCostReport.jsx';
+import ConsumptionTrend from './pages/reports/ConsumptionTrend.jsx';
+import ReorderSuggestions from './pages/reports/ReorderSuggestions.jsx';
 
 const App = () => (
   <Routes>
@@ -76,6 +84,10 @@ const App = () => (
         <Route path="/reports/expiring-stock" element={<ExpiringStock />} />
         <Route path="/reports/valuation" element={<StockValuation />} />
         <Route path="/reports/suppliers" element={<SupplierReport />} />
+        <Route path="/reports/supplier-aging"    element={<SupplierAgingReport />} />
+        <Route path="/reports/festival-cost"     element={<FestivalCostReport />} />
+        <Route path="/reports/consumption-trend" element={<ConsumptionTrend />} />
+        <Route path="/reports/reorder"           element={<ReorderSuggestions />} />
 
         {/* Masters */}
         <Route path="/masters/products" element={<ProductList />} />
@@ -90,6 +102,7 @@ const App = () => (
         <Route path="/masters/suppliers" element={<SupplierList />} />
         <Route path="/masters/suppliers/new" element={<SupplierForm />} />
         <Route path="/masters/suppliers/:id/edit" element={<SupplierForm />} />
+        <Route path="/masters/suppliers/:id" element={<SupplierDetail />} />
 
         <Route path="/masters/categories" element={<CategoryList />} />
         <Route path="/masters/categories/new" element={<CategoryForm />} />
@@ -116,6 +129,11 @@ const App = () => (
         <Route path="/donations/new"              element={<NewDonation />} />
         <Route path="/donations/donors/:id"       element={<DonorDetail />} />
         <Route path="/donations/:id"              element={<DonationDetail />} />
+
+        {/* Payments */}
+        <Route path="/payments" element={<SupplierPayments />} />
+        <Route path="/payments/new" element={<NewSupplierPayment />} />
+        <Route path="/payments/:id" element={<SupplierPaymentDetail />} />
 
         {/* Settings */}
         <Route path="/settings" element={<Settings />} />

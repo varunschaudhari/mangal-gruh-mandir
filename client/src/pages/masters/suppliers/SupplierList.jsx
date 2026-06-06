@@ -31,7 +31,7 @@ const SupplierList = () => {
   const suppliers = data?.data?.data || [];
 
   const columns = [
-    col.accessor('name', { header: 'Name', cell: (i) => <span className="font-medium text-gray-900">{i.getValue()}</span> }),
+    col.accessor('name', { header: 'Name', cell: (i) => <Link to={`/masters/suppliers/${i.row.original._id}`} className="font-medium text-gray-900 hover:text-primary-600 transition-colors">{i.getValue()}</Link> }),
     col.accessor('type', { header: 'Type', size: 90, cell: (i) => <Badge variant={TYPE_COLORS[i.getValue()]}>{capitalize(i.getValue())}</Badge> }),
     col.accessor('contactPerson', { header: 'Contact Person', cell: (i) => i.getValue() || '—' }),
     col.accessor('phone', { header: 'Phone', cell: (i) => i.getValue() || '—' }),

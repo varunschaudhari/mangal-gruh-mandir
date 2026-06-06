@@ -232,6 +232,33 @@ export const get80GReceipt = asyncHandler(async (req, res) => {
   generate80GReceipt(res, { donation: donation.toObject(), settings: settings.toObject() });
 });
 
+// ── Donation Receipt PDF ──────────────────────────────────────────────────────
+export const getDonationReceipt = asyncHandler(async (req, res) => {
+  const donation = await Donation.findById(req.params.id).populate(POPULATE);
+  if (!donation)         throw new ApiError(404, 'Donation not found');
+  if (donation.isVoided) throw new ApiError(400, 'Cannot generate receipt for a voided donation');
+
+  const settings = await Settings.getOrCreate();
+  const { generateDonationReceipt } = await import('../services/donationPdf.service.js');
+  generateDonationReceipt(res, { donation: donation.toObject(), settings: settings.toObject() });
+});
+
+// ── Donor Statement PDF ───────────────────────────────────────────────────────
+export const getDonorStatement = asyncHandler(async (req, res) => {
+  const { donorId } = req.params;
+  const donor = await Supplier.findById(donorId).lean();
+  if (!donor) throw new ApiError(404, 'Donor not found');
+
+  const donations = await Donation.find({ donor: donorId, isVoided: false })
+    .populate(POPULATE)
+    .sort({ date: -1 })
+    .lean();
+
+  const settings = await Settings.getOrCreate();
+  const { generateDonorStatement } = await import('../services/donationPdf.service.js');
+  generateDonorStatement(res, { donor, donations, settings: settings.toObject() });
+});
+
 // ── Void ──────────────────────────────────────────────────────────────────────
 export const voidDonation = asyncHandler(async (req, res) => {
   const { voidReason } = req.body;

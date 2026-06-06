@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Package, Tag, IndianRupee, CheckCircle2 } from 'lucide-react';
+import { Package, Tag, IndianRupee, CheckCircle2, Handshake } from 'lucide-react';
 import { getAsset, createAsset, updateAsset } from '../../api/asset.api.js';
 import PageHeader from '../../components/ui/PageHeader.jsx';
 import { PageLoader } from '../../components/ui/Spinner.jsx';
@@ -28,7 +28,7 @@ const AssetForm = () => {
   const qc = useQueryClient();
 
   const { register, handleSubmit, reset, formState: { errors } } = useForm({
-    defaultValues: { isActive: true, finePerDay: 0, category: 'Other' },
+    defaultValues: { isActive: true, isBorrowable: true, finePerDay: 0, category: 'Other' },
   });
 
   const { data: assetRes, isLoading } = useQuery({
@@ -103,11 +103,18 @@ const AssetForm = () => {
               <textarea {...register('description')} className="input" rows={3} placeholder="Optional description" />
             </Field>
 
-            <label className="flex items-center gap-2 text-sm cursor-pointer">
-              <input type="checkbox" {...register('isActive')} className="h-4 w-4 rounded text-primary-600" />
-              <CheckCircle2 className="h-4 w-4 text-gray-400" />
-              <span className="font-medium text-gray-700">Asset is Active</span>
-            </label>
+            <div className="flex flex-col gap-3 sm:flex-row sm:gap-6">
+              <label className="flex items-center gap-2 text-sm cursor-pointer">
+                <input type="checkbox" {...register('isActive')} className="h-4 w-4 rounded text-primary-600" />
+                <CheckCircle2 className="h-4 w-4 text-gray-400" />
+                <span className="font-medium text-gray-700">Asset is Active</span>
+              </label>
+              <label className="flex items-center gap-2 text-sm cursor-pointer">
+                <input type="checkbox" {...register('isBorrowable')} className="h-4 w-4 rounded text-primary-600" />
+                <Handshake className="h-4 w-4 text-gray-400" />
+                <span className="font-medium text-gray-700">Available for Borrowing</span>
+              </label>
+            </div>
           </div>
         </div>
 

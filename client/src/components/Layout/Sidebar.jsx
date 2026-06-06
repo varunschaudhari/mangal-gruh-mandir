@@ -5,10 +5,12 @@ import {
   LayoutDashboard, ArrowDownToLine, ArrowUpFromLine, ArrowLeftRight,
   Trash2, Package, Warehouse, Users, Tag, Ruler, Truck, Shield,
   ChevronDown, ChevronRight, FlameKindling, History, AlertTriangle, BookOpen, CalendarClock,
-  X, Armchair, ClipboardList, Settings2, BarChart2, TrendingUp, Heart,
+  X, Armchair, ClipboardList, Settings2, BarChart2, TrendingUp, Heart, CreditCard, Plus,
+  ShoppingCart,
 } from 'lucide-react';
 import { usePermissions } from '../../hooks/usePermissions.js';
 import { getAssetCounts } from '../../api/assetTransaction.api.js';
+import { getPaymentCounts } from '../../api/supplierPayment.api.js';
 
 const navConfig = [
   {
@@ -46,8 +48,12 @@ const navConfig = [
       { label: 'Daily Movement',   to: '/reports/daily',          icon: FlameKindling,  permission: 'reports:read' },
       { label: 'Low Stock Alerts', to: '/reports/low-stock',      icon: AlertTriangle,  permission: 'reports:read' },
       { label: 'Expiring Stock',   to: '/reports/expiring-stock', icon: CalendarClock,  permission: 'reports:read' },
-      { label: 'Stock Valuation',  to: '/reports/valuation',      icon: TrendingUp,     permission: 'reports:read' },
-      { label: 'Supplier Report',  to: '/reports/suppliers',      icon: Truck,          permission: 'reports:read' },
+      { label: 'Stock Valuation',  to: '/reports/valuation',       icon: TrendingUp,    permission: 'reports:read' },
+      { label: 'Supplier Report',  to: '/reports/suppliers',       icon: Truck,         permission: 'reports:read' },
+      { label: 'Supplier Aging',     to: '/reports/supplier-aging',    icon: AlertTriangle,  permission: 'payments:read' },
+      { label: 'Festival Cost',      to: '/reports/festival-cost',     icon: FlameKindling,  permission: 'reports:read'  },
+      { label: 'Consumption Trend',  to: '/reports/consumption-trend', icon: TrendingUp,     permission: 'reports:read'  },
+      { label: 'Reorder Suggestions',to: '/reports/reorder',           icon: ShoppingCart,   permission: 'reports:read'  },
     ],
   },
   {
@@ -81,6 +87,15 @@ const navConfig = [
       { label: 'History',   to: '/donations',      icon: History, permission: 'donations:read' },
       { label: 'New Entry', to: '/donations/new',   icon: Heart,   permission: 'donations:write' },
       { label: 'Occasions', to: '/admin/donation-occasions', icon: Tag, permission: 'masters:write' },
+    ],
+  },
+  {
+    label: 'Payments',
+    icon: CreditCard,
+    permission: 'payments:read',
+    children: [
+      { label: 'All Payments',    to: '/payments',     icon: CreditCard, permission: 'payments:read'  },
+      { label: 'Record Payment',  to: '/payments/new', icon: Plus,       permission: 'payments:write' },
     ],
   },
   {
@@ -187,8 +202,20 @@ const Sidebar = ({ isOpen, onClose }) => {
     enabled: can('assets:read'),
   });
 
-  const overdue = countsRes?.data?.data?.overdue || 0;
-  const badges  = { '/assets/borrows': overdue || null };
+  const { data: payCountsRes } = useQuery({
+    queryKey: ['payment-counts'],
+    queryFn: getPaymentCounts,
+    staleTime: 2 * 60 * 1000,
+    refetchInterval: 5 * 60 * 1000,
+    enabled: can('payments:read'),
+  });
+
+  const overdue       = countsRes?.data?.data?.overdue     || 0;
+  const pendingPayments = payCountsRes?.data?.data?.pending || 0;
+  const badges        = {
+    '/assets/borrows': overdue          || null,
+    '/payments':       pendingPayments  || null,
+  };
 
   return (
     <aside

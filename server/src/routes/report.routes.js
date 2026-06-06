@@ -7,6 +7,7 @@ import {
   getExpiringReport, exportExpiringPDF, getExpiringWhatsApp,
   getValuationReport, exportValuationPDF, exportValuationExcel,
   getSupplierReport, exportSupplierPDF, exportSupplierExcel,
+  getFestivalCostReport, getConsumptionTrend, getReorderSuggestions,
 } from '../controllers/report.controller.js';
 
 const router = Router();
@@ -38,5 +39,14 @@ router.get('/valuation/excel',    exportValuationExcel);
 router.get('/suppliers',          getSupplierReport);
 router.get('/suppliers/pdf',      exportSupplierPDF);
 router.get('/suppliers/excel',    exportSupplierExcel);
+
+// Festival cost
+router.get('/festival-cost',      getFestivalCostReport);
+
+// Consumption trend
+router.get('/consumption-trend',  getConsumptionTrend);
+
+// Reorder suggestions
+router.get('/reorder-suggestions', getReorderSuggestions);
 
 export default router;

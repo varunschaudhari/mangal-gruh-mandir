@@ -6,7 +6,8 @@ import asyncHandler from '../utils/asyncHandler.js';
 
 export const getAssets = asyncHandler(async (req, res) => {
   const filter = {};
-  if (req.query.active !== undefined) filter.isActive = req.query.active === 'true';
+  if (req.query.active     !== undefined) filter.isActive     = req.query.active     === 'true';
+  if (req.query.borrowable !== undefined) filter.isBorrowable = req.query.borrowable === 'true';
   const assets = await Asset.find(filter).sort({ name: 1 });
   res.json(new ApiResponse(200, assets));
 });
@@ -24,7 +25,7 @@ export const createAsset = asyncHandler(async (req, res) => {
 
 export const updateAsset = asyncHandler(async (req, res) => {
   const asset = await Asset.findByIdAndUpdate(req.params.id, req.body, {
-    returnDocument: 'after', runValidators: true,
+    new: true, runValidators: true,
   });
   if (!asset) throw new ApiError(404, 'Asset not found');
   res.json(new ApiResponse(200, asset, 'Asset updated'));
