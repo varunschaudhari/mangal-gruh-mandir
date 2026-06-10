@@ -4,10 +4,11 @@ const PAYMENT_MODES    = ['cash', 'upi', 'neft', 'rtgs', 'cheque'];
 const PAYMENT_STATUSES = ['pending_approval', 'approved', 'rejected', 'voided'];
 
 const invoiceAllocationSchema = new mongoose.Schema({
-  invoiceNumber: { type: String },
-  invoiceDate:   { type: Date },
-  invoiceTotal:  { type: Number, required: true, min: 0 },
-  paidAmount:    { type: Number, required: true, min: 0 },
+  purchaseEntryId: { type: mongoose.Schema.Types.ObjectId, ref: 'PurchaseEntry' },
+  invoiceNumber:   { type: String },
+  invoiceDate:     { type: Date },
+  invoiceTotal:    { type: Number, required: true, min: 0 },
+  paidAmount:      { type: Number, required: true, min: 0 },
 }, { _id: false });
 
 const supplierPaymentSchema = new mongoose.Schema({
@@ -30,6 +31,7 @@ const supplierPaymentSchema = new mongoose.Schema({
   voidedBy:        { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   voidedAt:        { type: Date },
   voidReason:      { type: String },
+  advanceApplied:  { type: Number, default: 0, min: 0 },
   notes:           { type: String },
   createdBy:       { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
 }, { timestamps: true });

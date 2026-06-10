@@ -176,11 +176,16 @@ const LowStockAlerts = () => {
           </div>
         </div>
       ) : (
-        <div className="space-y-4">
-          <AlertSection title="Out of Stock"  icon={PackageX}      items={outOfStock}  headerClass="bg-red-50 text-red-700 border-red-100"      badgeVariant="danger"  />
-          <AlertSection title="Low Stock"     icon={AlertTriangle} items={lowStock}    headerClass="bg-amber-50 text-amber-700 border-amber-100"  badgeVariant="warning" />
-          <AlertSection title="Reorder Soon"  icon={ShoppingCart}  items={reorderSoon} headerClass="bg-yellow-50 text-yellow-700 border-yellow-100" badgeVariant="info"  />
-        </div>
+        <>
+          <div className="space-y-4">
+            <AlertSection title="Out of Stock"  icon={PackageX}      items={outOfStock}  headerClass="bg-red-50 text-red-700 border-red-100"      badgeVariant="danger"  />
+            <AlertSection title="Low Stock"     icon={AlertTriangle} items={lowStock}    headerClass="bg-amber-50 text-amber-700 border-amber-100"  badgeVariant="warning" />
+            <AlertSection title="Reorder Soon"  icon={ShoppingCart}  items={reorderSoon} headerClass="bg-yellow-50 text-yellow-700 border-yellow-100" badgeVariant="info"  />
+          </div>
+          <p className="text-xs text-gray-400 mt-2">
+            Use the <strong>WhatsApp</strong> button above to send a summary for all alerts, or use the per-row <MessageCircle className="h-3 w-3 inline" /> button to alert about one item.
+          </p>
+        </>
       )}
     </div>
   );
@@ -206,6 +211,7 @@ const AlertSection = ({ title, icon: Icon, items, headerClass, badgeVariant }) =
               <th className="table-th text-right">Min Level</th>
               <th className="table-th text-right">Reorder Point</th>
               <th className="table-th">Status</th>
+              <th className="table-th w-10" />
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
@@ -225,6 +231,22 @@ const ALERT_CONFIG = {
 
 const AlertRow = ({ b }) => {
   const cfg = ALERT_CONFIG[b.alertLevel] || {};
+
+  const sendSingleAlert = () => {
+    const STATUS = { out_of_stock: 'Out of Stock ❌', low_stock: 'Low Stock ⚠️', reorder: 'Reorder Soon 🔄' };
+    const text = [
+      `⚠️ *Stock Alert — ${b.product?.name}*`,
+      `Code: ${b.product?.code || '—'}`,
+      `Department: ${b.department?.name || '—'}`,
+      `Status: ${STATUS[b.alertLevel] || b.alertLevel}`,
+      `Current Stock: *${b.quantity} ${b.product?.unit?.symbol || ''}*`,
+      b.product?.minStockLevel ? `Min Level: ${b.product.minStockLevel} ${b.product?.unit?.symbol || ''}` : null,
+      b.product?.reorderPoint  ? `Reorder Point: ${b.product.reorderPoint} ${b.product?.unit?.symbol || ''}` : null,
+      `\nPlease arrange to restock.`,
+    ].filter(Boolean).join('\n');
+    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
+  };
+
   return (
     <tr className={`hover:brightness-95 text-sm ${cfg.rowBg}`}>
       <td className="table-td">
@@ -240,6 +262,15 @@ const AlertRow = ({ b }) => {
       <td className="table-td text-right text-gray-500">{b.product?.reorderPoint || '—'}</td>
       <td className="table-td">
         <Badge variant={cfg.variant} size="sm">{cfg.label}</Badge>
+      </td>
+      <td className="table-td text-center">
+        <button
+          onClick={sendSingleAlert}
+          title="Send WhatsApp alert for this item"
+          className="inline-flex items-center justify-center h-7 w-7 rounded-full hover:bg-green-100 text-green-600 transition-colors"
+        >
+          <MessageCircle className="h-4 w-4" />
+        </button>
       </td>
     </tr>
   );

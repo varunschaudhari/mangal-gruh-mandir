@@ -332,3 +332,27 @@ export const voidTransaction = asyncHandler(async (req, res) => {
   });
   res.json(new ApiResponse(200, { transactionNumber: txn.transactionNumber }, 'Transaction voided'));
 });
+
+// GET /transactions/check-invoice?supplier=X&invoiceNumber=Y
+export const checkInvoiceDuplicate = asyncHandler(async (req, res) => {
+  const { supplier, invoiceNumber } = req.query;
+  if (!supplier || !invoiceNumber?.trim()) {
+    return res.json(new ApiResponse(200, { isDuplicate: false }));
+  }
+  const existing = await StockTransaction.findOne({
+    transactionType: 'STOCK_IN',
+    stockInType: 'PURCHASE',
+    supplier,
+    invoiceNumber: invoiceNumber.trim(),
+    isVoided: false,
+  }).select('transactionNumber invoiceDate transactionDate').lean();
+
+  res.json(new ApiResponse(200, {
+    isDuplicate: !!existing,
+    existing: existing ? {
+      transactionNumber: existing.transactionNumber,
+      invoiceDate: existing.invoiceDate,
+      transactionDate: existing.transactionDate,
+    } : null,
+  }));
+});

@@ -1,6 +1,7 @@
 import SupplierPayment from '../models/SupplierPayment.js';
 import Supplier from '../models/Supplier.js';
 import StockTransaction from '../models/StockTransaction.js';
+import PurchaseEntry from '../models/PurchaseEntry.js';
 import Settings from '../models/Settings.js';
 import ApiError from '../utils/ApiError.js';
 import ApiResponse from '../utils/ApiResponse.js';
@@ -19,12 +20,13 @@ const POPULATE = [
 ];
 
 // Aggregate approved payments per invoice for a supplier
+// Keyed by purchaseEntryId (new flow) or invoiceNumber (fallback)
 async function buildPaidMap(supplierId) {
   const payments = await SupplierPayment.find({ supplier: supplierId, status: 'approved' }).lean();
   const map = {};
   for (const p of payments) {
     for (const inv of p.invoices) {
-      const key = inv.invoiceNumber || '__advance__';
+      const key = inv.purchaseEntryId?.toString() || inv.invoiceNumber || '__advance__';
       map[key] = (map[key] || 0) + inv.paidAmount;
     }
   }
@@ -40,46 +42,38 @@ export const getPaymentCounts = asyncHandler(async (req, res) => {
 // GET /supplier-payments/invoices/:supplierId
 export const getSupplierInvoices = asyncHandler(async (req, res) => {
   const { supplierId } = req.params;
+  const entries = await PurchaseEntry.find({ supplier: supplierId, isVoided: false })
+    .sort({ invoiceDate: -1 }).lean();
 
-  const purchases = await StockTransaction.find({
-    supplier: supplierId,
-    stockInType: 'PURCHASE',
-    isVoided: false,
-  }).select('invoiceNumber invoiceDate transactionDate totalValue dueDate').sort({ invoiceDate: -1 }).lean();
-
-  // Group by invoiceNumber
-  const invoiceMap = {};
-  for (const t of purchases) {
-    const key = t.invoiceNumber || '__no_invoice__';
-    if (!invoiceMap[key]) {
-      invoiceMap[key] = {
-        invoiceNumber: t.invoiceNumber || null,
-        invoiceDate:   t.invoiceDate || t.transactionDate,
-        dueDate:       t.dueDate || null,
-        invoiceTotal:  0,
-      };
+  const payments = await SupplierPayment.find({ supplier: supplierId, status: 'approved' }).select('invoices').lean();
+  const paidMap = {};
+  for (const p of payments) {
+    for (const inv of p.invoices) {
+      if (inv.purchaseEntryId) {
+        const key = inv.purchaseEntryId.toString();
+        paidMap[key] = (paidMap[key] || 0) + (inv.paidAmount || 0);
+      }
     }
-    invoiceMap[key].invoiceTotal += t.totalValue || 0;
   }
 
-  const paidMap = await buildPaidMap(supplierId);
-
-  const invoices = Object.values(invoiceMap).map((inv) => {
-    const key        = inv.invoiceNumber || '__no_invoice__';
-    const paidSoFar  = paidMap[key] || 0;
-    const remaining  = Math.max(0, inv.invoiceTotal - paidSoFar);
-    const isOverdue  = inv.dueDate && new Date(inv.dueDate) < new Date() && remaining > 0;
+  const result = entries.map((e) => {
+    const paidSoFar = paidMap[e._id.toString()] || 0;
+    const remaining = Math.max(0, e.totalValue - paidSoFar);
     return {
-      ...inv,
+      _id:           e._id,
+      entryNumber:   e.entryNumber,
+      invoiceNumber: e.invoiceNumber,
+      invoiceDate:   e.invoiceDate,
+      dueDate:       e.dueDate,
+      invoiceTotal:  e.totalValue,
       paidSoFar,
       remaining,
-      paymentStatus: paidSoFar === 0 ? 'unpaid' : paidSoFar >= inv.invoiceTotal ? 'paid' : 'partially_paid',
-      isOverdue,
+      paymentStatus: paidSoFar === 0 ? 'unpaid' : paidSoFar >= e.totalValue ? 'paid' : 'partially_paid',
+      isOverdue: e.dueDate && new Date(e.dueDate) < new Date() && remaining > 0,
     };
   });
 
-  invoices.sort((a, b) => new Date(b.invoiceDate) - new Date(a.invoiceDate));
-  res.json(new ApiResponse(200, invoices));
+  res.json(new ApiResponse(200, result));
 });
 
 // GET /supplier-payments/outstanding/:supplierId
@@ -282,22 +276,133 @@ export const getPayment = asyncHandler(async (req, res) => {
   res.json(new ApiResponse(200, payment));
 });
 
+// GET /supplier-payments/upcoming-dues
+export const getUpcomingDues = asyncHandler(async (req, res) => {
+  const days = Math.min(180, Math.max(1, parseInt(req.query.days) || 30));
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const cutoff = new Date(today); cutoff.setDate(cutoff.getDate() + days);
+
+  const agg = await StockTransaction.aggregate([
+    {
+      $match: {
+        transactionType: 'STOCK_IN',
+        stockInType: 'PURCHASE',
+        isVoided: false,
+        dueDate: { $exists: true, $ne: null, $lte: cutoff },
+      },
+    },
+    { $lookup: { from: 'suppliers', localField: 'supplier', foreignField: '_id', as: 'supplierDoc' } },
+    {
+      $group: {
+        _id:           { supplier: '$supplier', invoiceNumber: '$invoiceNumber' },
+        supplierId:    { $first: '$supplier' },
+        supplierName:  { $first: { $arrayElemAt: ['$supplierDoc.name', 0] } },
+        invoiceNumber: { $first: '$invoiceNumber' },
+        invoiceDate:   { $first: '$invoiceDate' },
+        dueDate:       { $first: '$dueDate' },
+        invoiceTotal:  { $sum: '$totalValue' },
+      },
+    },
+    { $sort: { dueDate: 1 } },
+  ]);
+
+  if (!agg.length) return res.json(new ApiResponse(200, []));
+
+  const supplierIds = [...new Set(agg.map((g) => g.supplierId?.toString()).filter(Boolean))];
+  const payments = await SupplierPayment.find({ supplier: { $in: supplierIds }, status: 'approved' })
+    .select('supplier invoices').lean();
+
+  const paidMap = {};
+  for (const p of payments) {
+    const sid = p.supplier.toString();
+    for (const inv of p.invoices) {
+      const key = `${sid}__${inv.invoiceNumber || '__adv__'}`;
+      paidMap[key] = (paidMap[key] || 0) + (inv.paidAmount || 0);
+    }
+  }
+
+  const result = agg.map((g) => {
+    const key        = `${g.supplierId}__${g.invoiceNumber || '__adv__'}`;
+    const paidSoFar  = paidMap[key] || 0;
+    const remaining  = Math.max(0, g.invoiceTotal - paidSoFar);
+    if (remaining <= 0) return null;
+    const due = new Date(g.dueDate); due.setHours(0, 0, 0, 0);
+    const daysFromToday = Math.floor((due - today) / 86400000);
+    return {
+      supplierId:    g.supplierId,
+      supplierName:  g.supplierName,
+      invoiceNumber: g.invoiceNumber,
+      invoiceDate:   g.invoiceDate,
+      dueDate:       g.dueDate,
+      invoiceTotal:  g.invoiceTotal,
+      paidSoFar,
+      remaining,
+      daysFromToday,
+      isOverdue: daysFromToday < 0,
+    };
+  }).filter(Boolean);
+
+  res.json(new ApiResponse(200, result));
+});
+
+// GET /supplier-payments/advances/:supplierId
+export const getSupplierAdvances = asyncHandler(async (req, res) => {
+  const { supplierId } = req.params;
+
+  const [advances, appliedAgg] = await Promise.all([
+    SupplierPayment.find({
+      supplier: supplierId,
+      status: 'approved',
+      $expr: { $eq: [{ $size: '$invoices' }, 0] },
+      totalAmount: { $gt: 0 },
+    }).select('paymentNumber paymentDate totalAmount paymentMode notes').lean(),
+
+    SupplierPayment.aggregate([
+      {
+        $match: {
+          supplier: new mongoose.Types.ObjectId(supplierId),
+          status: { $in: ['pending_approval', 'approved'] },
+          advanceApplied: { $gt: 0 },
+        },
+      },
+      { $group: { _id: null, total: { $sum: '$advanceApplied' } } },
+    ]),
+  ]);
+
+  const totalAdvancePaid    = advances.reduce((s, a) => s + a.totalAmount, 0);
+  const totalAdvanceApplied = appliedAgg[0]?.total || 0;
+  const availableBalance    = Math.max(0, totalAdvancePaid - totalAdvanceApplied);
+
+  res.json(new ApiResponse(200, { advances, totalAdvancePaid, totalAdvanceApplied, availableBalance }));
+});
+
 // POST /supplier-payments
 export const createPayment = asyncHandler(async (req, res) => {
-  const { supplier: supplierId, invoices = [], totalAmount, paymentDate, paymentMode, referenceNumber, bankName, selectedBankAccountId, notes, force } = req.body;
+  const {
+    supplier: supplierId, invoices = [], totalAmount, paymentDate, paymentMode,
+    referenceNumber, bankName, selectedBankAccountId, notes, force, advanceApplied = 0,
+  } = req.body;
 
-  if (!supplierId)            throw new ApiError(400, 'Supplier is required');
-  if (!totalAmount || totalAmount <= 0) throw new ApiError(400, 'Total amount must be greater than 0');
+  if (!supplierId) throw new ApiError(400, 'Supplier is required');
+  const cashAmount = Number(totalAmount) || 0;
+  const advAmt     = Number(advanceApplied) || 0;
+  if (cashAmount < 0) throw new ApiError(400, 'Total amount cannot be negative');
+  if (cashAmount === 0 && advAmt === 0) throw new ApiError(400, 'Payment amount or advance applied must be greater than 0');
 
   // Duplicate detection — skip if user explicitly forced through
-  if (!force && invoices.length > 0) {
-    const invNums = invoices.map((i) => i.invoiceNumber).filter(Boolean);
-    if (invNums.length > 0) {
-      const existing = await SupplierPayment.find({
-        supplier: supplierId,
-        status:   { $in: ['pending_approval', 'approved'] },
-        'invoices.invoiceNumber': { $in: invNums },
-      }).populate('createdBy', 'name').lean();
+  if (!force && invoices.length > 0 && cashAmount > 0) {
+    const entryIds = invoices.map((i) => i.purchaseEntryId).filter(Boolean);
+    const invNums  = invoices.map((i) => i.invoiceNumber).filter(Boolean);
+
+    let duplicateQuery = null;
+    if (entryIds.length > 0) {
+      duplicateQuery = { supplier: supplierId, status: { $in: ['pending_approval', 'approved'] }, 'invoices.purchaseEntryId': { $in: entryIds } };
+    } else if (invNums.length > 0) {
+      duplicateQuery = { supplier: supplierId, status: { $in: ['pending_approval', 'approved'] }, 'invoices.invoiceNumber': { $in: invNums } };
+    }
+
+    if (duplicateQuery) {
+      const existing = await SupplierPayment.find(duplicateQuery).populate('createdBy', 'name').lean();
 
       if (existing.length > 0) {
         const duplicates = existing.map((p) => ({
@@ -307,8 +412,10 @@ export const createPayment = asyncHandler(async (req, res) => {
           status:          p.status,
           createdBy:       p.createdBy?.name,
           matchedInvoices: p.invoices
-            .filter((i) => invNums.includes(i.invoiceNumber))
-            .map((i) => i.invoiceNumber),
+            .filter((i) => (entryIds.length > 0
+              ? entryIds.includes(i.purchaseEntryId?.toString())
+              : invNums.includes(i.invoiceNumber)))
+            .map((i) => i.purchaseEntryId || i.invoiceNumber),
         }));
         return res.status(409).json({ status: 'error', message: 'Possible duplicate payment detected', data: { duplicates } });
       }
@@ -319,9 +426,10 @@ export const createPayment = asyncHandler(async (req, res) => {
   if (!supplierDoc?.isActive) throw new ApiError(404, 'Supplier not found or inactive');
 
   if (invoices.length > 0) {
-    const invoiceSum = invoices.reduce((s, i) => s + (Number(i.paidAmount) || 0), 0);
-    if (Math.abs(invoiceSum - Number(totalAmount)) > 0.01) {
-      throw new ApiError(400, `Invoice allocation total (₹${invoiceSum}) must equal payment amount (₹${totalAmount})`);
+    const invoiceSum   = invoices.reduce((s, i) => s + (Number(i.paidAmount) || 0), 0);
+    const expectedTotal = cashAmount + advAmt;
+    if (Math.abs(invoiceSum - expectedTotal) > 0.01) {
+      throw new ApiError(400, `Invoice allocation (₹${invoiceSum}) must equal cash amount + advance applied (₹${expectedTotal})`);
     }
   }
 
@@ -330,13 +438,15 @@ export const createPayment = asyncHandler(async (req, res) => {
   const payment = await SupplierPayment.create({
     paymentNumber,
     supplier:        supplierId,
+    advanceApplied:  advAmt || undefined,
     invoices:        invoices.map((inv) => ({
-      invoiceNumber: inv.invoiceNumber || undefined,
-      invoiceDate:   inv.invoiceDate   || undefined,
-      invoiceTotal:  Number(inv.invoiceTotal) || 0,
-      paidAmount:    Number(inv.paidAmount),
+      purchaseEntryId: inv.purchaseEntryId || undefined,
+      invoiceNumber:   inv.invoiceNumber   || undefined,
+      invoiceDate:     inv.invoiceDate     || undefined,
+      invoiceTotal:    Number(inv.invoiceTotal) || 0,
+      paidAmount:      Number(inv.paidAmount),
     })),
-    totalAmount:     Number(totalAmount),
+    totalAmount:     cashAmount,
     paymentDate:     paymentDate ? new Date(paymentDate) : new Date(),
     paymentMode:     paymentMode  || 'cash',
     referenceNumber: referenceNumber || undefined,
@@ -488,6 +598,44 @@ export const voidPayment = asyncHandler(async (req, res) => {
     meta: { voidReason, amount: payment.totalAmount },
   });
   res.json(new ApiResponse(200, populated, 'Payment voided'));
+});
+
+// PATCH /supplier-payments/:id/resubmit
+export const resubmitPayment = asyncHandler(async (req, res) => {
+  const payment = await SupplierPayment.findById(req.params.id);
+  if (!payment) throw new ApiError(404, 'Payment not found');
+  if (payment.status !== 'rejected') throw new ApiError(400, 'Only rejected payments can be resubmitted');
+  if (payment.createdBy.toString() !== req.user._id.toString())
+    throw new ApiError(403, 'Only the original submitter can resubmit this payment');
+
+  const { totalAmount, paymentDate, paymentMode, referenceNumber, bankName, notes } = req.body;
+
+  if (totalAmount !== undefined) {
+    const amt = Number(totalAmount);
+    if (amt < 0) throw new ApiError(400, 'Amount cannot be negative');
+    payment.totalAmount = amt;
+  }
+  if (paymentDate  !== undefined) payment.paymentDate      = new Date(paymentDate);
+  if (paymentMode  !== undefined) payment.paymentMode      = paymentMode;
+  if (referenceNumber !== undefined) payment.referenceNumber = referenceNumber || undefined;
+  if (bankName     !== undefined) payment.bankName         = bankName || undefined;
+  if (notes        !== undefined) payment.notes            = notes || undefined;
+
+  payment.status     = 'pending_approval';
+  payment.rejectedBy = undefined;
+  payment.rejectedAt = undefined;
+
+  await payment.save();
+  const populated     = await SupplierPayment.findById(payment._id).populate(POPULATE);
+  const supplierDoc   = await Supplier.findById(payment.supplier).lean();
+  notifyPaymentSubmitted({ payment, supplierName: supplierDoc?.name, submitterName: req.user.name });
+  logAction(req, {
+    action: 'payment.resubmit', entity: 'SupplierPayment',
+    entityId: payment.paymentNumber, entityRef: payment._id,
+    before: { status: 'rejected', rejectionReason: payment.rejectionReason },
+    after:  { status: 'pending_approval' },
+  });
+  res.json(new ApiResponse(200, populated, 'Payment resubmitted for approval'));
 });
 
 // GET /supplier-payments/dashboard-summary

@@ -4,11 +4,12 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   ArrowLeft, ShoppingBag, RotateCcw, CalendarPlus, Bell, XCircle,
   CheckCircle2, AlertTriangle, Clock, Hash, Shield, Layers, Printer,
-  IndianRupee,
+  IndianRupee, PackageX, Wrench, BadgeCheck,
 } from 'lucide-react';
 import { getBorrowGroup, checkoutGroup, extendGroup, cancelGroup } from '../../api/borrowGroup.api.js';
 import {
   getAssetTransaction, checkoutAsset, extendBorrow, cancelBorrow, sendManualReminder,
+  markAssetLost, settleFine, updateDamageStatus,
 } from '../../api/assetTransaction.api.js';
 import { getApprovers } from '../../api/user.api.js';
 import { getSettings } from '../../api/settings.api.js';
@@ -21,11 +22,11 @@ import toast from 'react-hot-toast';
 // ── Constants ─────────────────────────────────────────────────────────────────
 const STATUS_COLORS = {
   approved: 'blue', checked_out: 'green', partially_returned: 'yellow',
-  returned: 'gray', overdue: 'red', cancelled: 'gray',
+  returned: 'gray', overdue: 'red', cancelled: 'gray', lost: 'red',
 };
 const STATUS_LABELS = {
   approved: 'Approved', checked_out: 'Checked Out', partially_returned: 'Partially Returned',
-  returned: 'Returned', overdue: 'Overdue', cancelled: 'Cancelled',
+  returned: 'Returned', overdue: 'Overdue', cancelled: 'Cancelled', lost: 'Lost',
 };
 const COND_CLS = {
   good: 'bg-green-100 text-green-700',
@@ -215,6 +216,142 @@ const CancelModal = ({ isGroup, id, onClose, onSuccess }) => {
   );
 };
 
+const MarkLostModal = ({ id, onClose, onSuccess }) => {
+  const qc = useQueryClient();
+  const [reason, setReason] = useState('');
+  const mut = useMutation({
+    mutationFn: () => markAssetLost(id, { lostReason: reason || undefined }),
+    onSuccess: () => {
+      toast.success('Asset marked as lost');
+      qc.invalidateQueries({ queryKey: ['asset-transaction', id] });
+      qc.invalidateQueries({ queryKey: ['borrow-group'] });
+      qc.invalidateQueries({ queryKey: ['asset-transactions'] });
+      qc.invalidateQueries({ queryKey: ['asset-counts'] });
+      onSuccess();
+    },
+    onError: (e) => toast.error(e.response?.data?.message || 'Failed'),
+  });
+  return (
+    <Modal open onClose={onClose} title="Mark Asset as Lost" size="sm">
+      <div className="space-y-4">
+        <p className="text-sm text-gray-600">
+          Mark this asset as permanently lost. The borrower remains responsible for the loss.
+          This action cannot be undone.
+        </p>
+        <div>
+          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Reason (optional)</p>
+          <input type="text" value={reason} onChange={(e) => setReason(e.target.value)}
+            className="input" placeholder="e.g. Borrower reported stolen, cannot locate…" />
+        </div>
+        <div className="flex justify-end gap-2">
+          <button onClick={onClose} className="btn-secondary">Cancel</button>
+          <button onClick={() => mut.mutate()} disabled={mut.isPending}
+            className="btn-danger flex items-center gap-2 text-sm">
+            <PackageX className="h-4 w-4" />
+            {mut.isPending ? 'Marking…' : 'Mark as Lost'}
+          </button>
+        </div>
+      </div>
+    </Modal>
+  );
+};
+
+const SettleFineModal = ({ txn, onClose, onSuccess }) => {
+  const qc = useQueryClient();
+  const [action, setAction] = useState('paid');
+  const [waivedReason, setWaivedReason] = useState('');
+  const mut = useMutation({
+    mutationFn: () => settleFine(txn._id, { action, waivedReason: action === 'waived' ? waivedReason : undefined }),
+    onSuccess: () => {
+      toast.success(action === 'waived' ? 'Fine waived' : 'Fine marked as collected');
+      qc.invalidateQueries({ queryKey: ['asset-transaction', txn._id] });
+      qc.invalidateQueries({ queryKey: ['borrow-group'] });
+      onSuccess();
+    },
+    onError: (e) => toast.error(e.response?.data?.message || 'Failed'),
+  });
+  return (
+    <Modal open onClose={onClose} title="Settle Fine" size="sm">
+      <div className="space-y-4">
+        <p className="text-sm text-gray-600">
+          Fine of <strong>₹{(txn.fineAmount || 0).toLocaleString('en-IN')}</strong> — mark it as:
+        </p>
+        <div className="flex gap-2">
+          {[['paid', 'Collected', 'border-green-400 bg-green-50 text-green-700'],
+            ['waived', 'Waived', 'border-gray-400 bg-gray-50 text-gray-700']].map(([v, l, cls]) => (
+            <button key={v} type="button" onClick={() => setAction(v)}
+              className={`flex-1 py-2 rounded-lg border-2 text-sm font-medium transition-all ${action === v ? cls : 'border-gray-200 text-gray-400 hover:border-gray-300'}`}>
+              {l}
+            </button>
+          ))}
+        </div>
+        {action === 'waived' && (
+          <div>
+            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Reason</p>
+            <input type="text" value={waivedReason} onChange={(e) => setWaivedReason(e.target.value)}
+              className="input" placeholder="e.g. One-time waiver, financial hardship…" />
+          </div>
+        )}
+        <div className="flex justify-end gap-2">
+          <button onClick={onClose} className="btn-secondary">Cancel</button>
+          <button onClick={() => mut.mutate()} disabled={mut.isPending}
+            className="btn-primary flex items-center gap-2 text-sm">
+            <BadgeCheck className="h-4 w-4" />
+            {mut.isPending ? 'Saving…' : action === 'waived' ? 'Waive Fine' : 'Mark Collected'}
+          </button>
+        </div>
+      </div>
+    </Modal>
+  );
+};
+
+const DamageStatusModal = ({ txn, onClose, onSuccess }) => {
+  const qc = useQueryClient();
+  const DAMAGE_OPTS = [
+    { value: 'reported',  label: 'Reported',  desc: 'Damage noted, assessment pending' },
+    { value: 'assessed',  label: 'Assessed',  desc: 'Damage assessed, repair in progress' },
+    { value: 'repaired',  label: 'Repaired',  desc: 'Asset repaired and back in service' },
+  ];
+  const [status, setStatus] = useState(txn.damageStatus || 'reported');
+  const mut = useMutation({
+    mutationFn: () => updateDamageStatus(txn._id, { damageStatus: status }),
+    onSuccess: () => {
+      toast.success('Damage status updated');
+      qc.invalidateQueries({ queryKey: ['asset-transaction', txn._id] });
+      qc.invalidateQueries({ queryKey: ['borrow-group'] });
+      onSuccess();
+    },
+    onError: (e) => toast.error(e.response?.data?.message || 'Failed'),
+  });
+  return (
+    <Modal open onClose={onClose} title="Update Damage Status" size="sm">
+      <div className="space-y-4">
+        <p className="text-sm text-gray-500">Track the repair/assessment progress for this damaged asset.</p>
+        <div className="space-y-2">
+          {DAMAGE_OPTS.map(({ value, label, desc }) => (
+            <label key={value}
+              className={`flex items-start gap-3 rounded-lg border-2 p-3 cursor-pointer transition-all ${status === value ? 'border-amber-400 bg-amber-50' : 'border-gray-100 hover:border-gray-200'}`}>
+              <input type="radio" className="mt-0.5 accent-amber-500" checked={status === value} onChange={() => setStatus(value)} />
+              <div>
+                <p className={`text-sm font-semibold ${status === value ? 'text-amber-800' : 'text-gray-700'}`}>{label}</p>
+                <p className="text-xs text-gray-400">{desc}</p>
+              </div>
+            </label>
+          ))}
+        </div>
+        <div className="flex justify-end gap-2">
+          <button onClick={onClose} className="btn-secondary">Cancel</button>
+          <button onClick={() => mut.mutate()} disabled={mut.isPending}
+            className="btn-primary flex items-center gap-2 text-sm">
+            <Wrench className="h-4 w-4" />
+            {mut.isPending ? 'Saving…' : 'Update Status'}
+          </button>
+        </div>
+      </div>
+    </Modal>
+  );
+};
+
 // ── Timeline ──────────────────────────────────────────────────────────────────
 const TimelineEvent = ({ icon: Icon, title, time, detail, variant = 'done', isLast }) => {
   const dot =
@@ -305,6 +442,9 @@ function buildTimeline(group, transactions, isSingle) {
     events.push({ icon: AlertTriangle, title: `Overdue${isSingle && t?.lateDays ? ` — ${t.lateDays} day(s) past due` : ''}`, time: `Was due ${fmt(expectedReturnDate)}`, variant: 'danger' });
   } else if (status === 'cancelled') {
     events.push({ icon: XCircle, title: 'Cancelled', detail: cancellationReason || null, variant: 'danger' });
+  } else if (status === 'lost') {
+    const t = transactions[0];
+    events.push({ icon: PackageX, title: 'Reported as Lost', detail: t?.lostReason || null, variant: 'danger' });
   } else if (status === 'checked_out') {
     events.push({ icon: Clock, title: 'Awaiting return', time: `Due ${fmt(expectedReturnDate)}`, variant: 'active' });
   }
@@ -325,9 +465,12 @@ const BorrowDetail = () => {
   const qc        = useQueryClient();
   const isGroup   = !!groupId;
 
-  const [showCheckout, setShowCheckout] = useState(false);
-  const [showExtend,   setShowExtend]   = useState(false);
-  const [showCancel,   setShowCancel]   = useState(false);
+  const [showCheckout,    setShowCheckout]    = useState(false);
+  const [showExtend,      setShowExtend]      = useState(false);
+  const [showCancel,      setShowCancel]      = useState(false);
+  const [showMarkLost,    setShowMarkLost]    = useState(false);
+  const [showSettleFine,  setShowSettleFine]  = useState(false);
+  const [showDamage,      setShowDamage]      = useState(false);
 
   const groupQuery = useQuery({
     queryKey: ['borrow-group', groupId],
@@ -389,7 +532,7 @@ const BorrowDetail = () => {
   const isExternal   = borrowerType === 'external';
   const borrowerName = isExternal ? externalBorrower?.name : borrower?.name;
   const isSingle     = transactions.length === 1;
-  const isActive     = !['returned', 'cancelled'].includes(status);
+  const isActive     = !['returned', 'cancelled', 'lost'].includes(status);
   const hasApproved  = transactions.some((t) => t.status === 'approved');
   const hasCheckedOut = transactions.some((t) => ['checked_out', 'overdue'].includes(t.status));
   const activeTargets = transactions.filter((t) => ['approved', 'checked_out', 'overdue'].includes(t.status));
@@ -494,6 +637,12 @@ const BorrowDetail = () => {
           {hasApproved && (
             <button onClick={() => setShowCancel(true)} className="btn-danger flex items-center gap-2 text-sm ml-auto">
               <XCircle className="h-4 w-4" /> Cancel
+            </button>
+          )}
+          {hasCheckedOut && (
+            <button onClick={() => setShowMarkLost(true)}
+              className="btn-secondary flex items-center gap-2 text-sm text-red-600 border-red-200 hover:border-red-300">
+              <PackageX className="h-4 w-4" /> Mark Lost
             </button>
           )}
         </div>
@@ -627,24 +776,74 @@ const BorrowDetail = () => {
           {/* Fine summary (single item) */}
           {isSingle && (transactions[0]?.fineApplied || transactions[0]?.fineWaived || (transactions[0]?.lateDays > 0 && transactions[0]?.asset?.finePerDay > 0)) && (() => {
             const t = transactions[0];
+            const fineSettled = t.finePaid || t.fineWaived;
             return (
-              <div className={`rounded-xl border p-4 ${t.fineApplied ? 'border-amber-200 bg-amber-50' : 'bg-white border-gray-100'}`}>
+              <div className={`rounded-xl border p-4 ${t.fineApplied && !fineSettled ? 'border-amber-200 bg-amber-50' : 'bg-white border-gray-100'}`}>
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center gap-2">
                     <IndianRupee className="h-4 w-4 text-gray-400" />
                     <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Fine</p>
                   </div>
-                  <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${t.fineApplied ? 'bg-amber-100 text-amber-700' : t.fineWaived ? 'bg-gray-100 text-gray-500' : 'bg-red-100 text-red-600'}`}>
-                    {t.fineApplied ? 'Applied' : t.fineWaived ? 'Waived' : 'Pending'}
+                  <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${
+                    t.finePaid   ? 'bg-green-100 text-green-700' :
+                    t.fineWaived ? 'bg-gray-100 text-gray-500'  :
+                    t.fineApplied ? 'bg-amber-100 text-amber-700' :
+                    'bg-red-100 text-red-600'
+                  }`}>
+                    {t.finePaid ? 'Collected' : t.fineWaived ? 'Waived' : t.fineApplied ? 'Pending collection' : 'Pending'}
                   </span>
                 </div>
-                {t.fineApplied && <p className="text-3xl font-black text-amber-700 mb-1">₹{(t.fineAmount || 0).toLocaleString('en-IN')}</p>}
-                {t.fineWaived && t.fineWaivedReason && <p className="text-xs text-gray-500 italic">"{t.fineWaivedReason}"</p>}
+                {t.fineApplied && (
+                  <p className="text-3xl font-black text-amber-700 mb-1">₹{(t.fineAmount || 0).toLocaleString('en-IN')}</p>
+                )}
+                {t.fineWaived && t.fineWaivedReason && (
+                  <p className="text-xs text-gray-500 italic mb-2">"{t.fineWaivedReason}"</p>
+                )}
+                {t.finePaid && t.finePaidAt && (
+                  <p className="text-xs text-gray-500 mb-2">
+                    Collected on {new Date(t.finePaidAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+                  </p>
+                )}
                 {!t.fineApplied && !t.fineWaived && t.lateDays > 0 && t.asset?.finePerDay > 0 && (
                   <p className="text-sm text-red-600 font-semibold">
                     Est. ₹{(t.lateDays * t.asset.finePerDay).toLocaleString('en-IN')}
                     <span className="text-xs font-normal text-gray-400 ml-1">({t.lateDays}d × ₹{t.asset.finePerDay})</span>
                   </p>
+                )}
+                {can('assets:manage') && t.fineApplied && !fineSettled && t.status === 'returned' && (
+                  <button onClick={() => setShowSettleFine(true)}
+                    className="mt-3 text-xs font-semibold text-primary-600 hover:underline flex items-center gap-1">
+                    <BadgeCheck className="h-3.5 w-3.5" /> Settle Fine
+                  </button>
+                )}
+              </div>
+            );
+          })()}
+
+          {/* Damage tracking (single item, returned with damage) */}
+          {isSingle && transactions[0]?.status === 'returned' &&
+           (transactions[0]?.conditionAtReturn === 'damaged' || (transactions[0]?.damageStatus && transactions[0]?.damageStatus !== 'none')) && (() => {
+            const t = transactions[0];
+            const DS_LABEL = { reported: 'Damage Reported', assessed: 'Being Assessed', repaired: 'Repaired' };
+            const DS_COLOR = { reported: 'text-red-700 bg-red-50 border-red-200', assessed: 'text-amber-700 bg-amber-50 border-amber-200', repaired: 'text-green-700 bg-green-50 border-green-200' };
+            const ds = t.damageStatus || 'reported';
+            return (
+              <div className="rounded-xl border border-orange-200 bg-orange-50 p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <Wrench className="h-4 w-4 text-orange-500" />
+                    <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Damage</p>
+                  </div>
+                  <span className={`text-xs px-2 py-0.5 rounded-full font-semibold border ${DS_COLOR[ds] || DS_COLOR.reported}`}>
+                    {DS_LABEL[ds] || ds}
+                  </span>
+                </div>
+                {t.damageNotes && <p className="text-xs text-gray-600 italic mb-2">"{t.damageNotes}"</p>}
+                {can('assets:manage') && ds !== 'repaired' && (
+                  <button onClick={() => setShowDamage(true)}
+                    className="text-xs font-semibold text-primary-600 hover:underline flex items-center gap-1">
+                    <Wrench className="h-3.5 w-3.5" /> Update Assessment
+                  </button>
                 )}
               </div>
             );
@@ -657,6 +856,9 @@ const BorrowDetail = () => {
       {showCheckout && <CheckoutModal isGroup={isGroup} id={actionId} onClose={() => setShowCheckout(false)} onSuccess={() => setShowCheckout(false)} />}
       {showExtend   && <ExtendModal   isGroup={isGroup} id={actionId} currentDue={expectedReturnDate} onClose={() => setShowExtend(false)} onSuccess={() => setShowExtend(false)} />}
       {showCancel   && <CancelModal   isGroup={isGroup} id={actionId} onClose={() => setShowCancel(false)} onSuccess={() => { setShowCancel(false); navigate('/assets/borrows'); }} />}
+      {showMarkLost && <MarkLostModal id={isSingle ? transactions[0]?._id : actionId} onClose={() => setShowMarkLost(false)} onSuccess={() => setShowMarkLost(false)} />}
+      {showSettleFine && isSingle && <SettleFineModal txn={transactions[0]} onClose={() => setShowSettleFine(false)} onSuccess={() => setShowSettleFine(false)} />}
+      {showDamage && isSingle && <DamageStatusModal txn={transactions[0]} onClose={() => setShowDamage(false)} onSuccess={() => setShowDamage(false)} />}
     </div>
   );
 };

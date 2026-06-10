@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, CheckCircle2, XCircle, Download, Building2, Ban, Clock, UserCircle2, FileCheck, FileX, Trash2 } from 'lucide-react';
-import { getPayment, approvePayment, rejectPayment, voidPayment, downloadVoucher } from '../../api/supplierPayment.api.js';
+import { ArrowLeft, CheckCircle2, XCircle, Download, Building2, Ban, Clock, UserCircle2, FileCheck, FileX, Trash2, RotateCcw } from 'lucide-react';
+import { getPayment, approvePayment, rejectPayment, voidPayment, downloadVoucher, resubmitPayment } from '../../api/supplierPayment.api.js';
 import EntityAuditTrail from '../../components/ui/EntityAuditTrail.jsx';
 import { PageLoader } from '../../components/ui/Spinner.jsx';
 import Badge from '../../components/ui/Badge.jsx';
@@ -141,13 +141,18 @@ export default function SupplierPaymentDetail() {
   const qc       = useQueryClient();
   const { can, user } = usePermissions();
 
-  const [approveModal, setApproveModal] = useState(false);
-  const [approvalNote, setApprovalNote] = useState('');
-  const [rejectModal,  setRejectModal]  = useState(false);
-  const [rejectReason, setRejectReason] = useState('');
-  const [voidModal,    setVoidModal]    = useState(false);
-  const [voidReason,   setVoidReason]   = useState('');
-  const [downloading,  setDownloading]  = useState(false);
+  const [approveModal, setApproveModal]     = useState(false);
+  const [approvalNote, setApprovalNote]     = useState('');
+  const [rejectModal,  setRejectModal]      = useState(false);
+  const [rejectReason, setRejectReason]     = useState('');
+  const [voidModal,    setVoidModal]        = useState(false);
+  const [voidReason,   setVoidReason]       = useState('');
+  const [resubmitModal, setResubmitModal]   = useState(false);
+  const [rsDate,        setRsDate]          = useState('');
+  const [rsMode,        setRsMode]          = useState('');
+  const [rsRef,         setRsRef]           = useState('');
+  const [rsNotes,       setRsNotes]         = useState('');
+  const [downloading,  setDownloading]      = useState(false);
 
   const { data, isLoading } = useQuery({ queryKey: ['payment', id], queryFn: () => getPayment(id) });
 
@@ -167,6 +172,22 @@ export default function SupplierPaymentDetail() {
     mutationFn: () => rejectPayment(id, { rejectionReason: rejectReason }),
     onSuccess:  () => { toast.success('Payment rejected'); qc.invalidateQueries({ queryKey: ['payment', id] }); qc.invalidateQueries({ queryKey: ['payments'] }); setRejectModal(false); },
     onError:    (e) => toast.error(e.response?.data?.message || 'Failed'),
+  });
+
+  const resubmitMut = useMutation({
+    mutationFn: () => resubmitPayment(id, {
+      paymentDate:     rsDate  || undefined,
+      paymentMode:     rsMode  || undefined,
+      referenceNumber: rsRef   || undefined,
+      notes:           rsNotes || undefined,
+    }),
+    onSuccess: () => {
+      toast.success('Payment resubmitted for approval');
+      qc.invalidateQueries({ queryKey: ['payment', id] });
+      qc.invalidateQueries({ queryKey: ['payments'] });
+      setResubmitModal(false);
+    },
+    onError: (e) => toast.error(e.response?.data?.message || 'Failed'),
   });
 
   const voidMut = useMutation({
@@ -197,9 +218,11 @@ export default function SupplierPaymentDetail() {
   const payment = data?.data?.data;
   if (!payment)  return <div className="text-gray-400 p-6">Payment not found.</div>;
 
-  const canApprove = can('payments:approve') && user?.canApprovePayments;
-  const isPending  = payment.status === 'pending_approval';
-  const isApproved = payment.status === 'approved';
+  const canApprove  = can('payments:approve') && user?.canApprovePayments;
+  const isPending   = payment.status === 'pending_approval';
+  const isApproved  = payment.status === 'approved';
+  const isRejected  = payment.status === 'rejected';
+  const isSubmitter = user?._id === payment.createdBy?._id || user?.id === payment.createdBy?._id;
 
   return (
     <div className="max-w-3xl space-y-4">
@@ -238,6 +261,19 @@ export default function SupplierPaymentDetail() {
                 </button>
               )}
             </>
+          )}
+          {isRejected && isSubmitter && (
+            <button
+              onClick={() => {
+                setRsDate(new Date(payment.paymentDate).toISOString().split('T')[0]);
+                setRsMode(payment.paymentMode);
+                setRsRef(payment.referenceNumber || '');
+                setRsNotes(payment.notes || '');
+                setResubmitModal(true);
+              }}
+              className="btn-secondary flex items-center gap-2 text-sm border-amber-300 text-amber-700 hover:border-amber-400">
+              <RotateCcw className="h-4 w-4" /> Edit &amp; Resubmit
+            </button>
           )}
           {canApprove && isPending && (
             <>
@@ -410,6 +446,54 @@ export default function SupplierPaymentDetail() {
               disabled={!rejectReason.trim() || rejectMut.isPending}
               className="btn-danger">
               {rejectMut.isPending ? 'Rejecting…' : 'Reject'}
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Resubmit modal */}
+      <Modal open={resubmitModal} onClose={() => setResubmitModal(false)} title="Edit & Resubmit Payment">
+        <div className="space-y-4">
+          {payment.rejectionReason && (
+            <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3">
+              <p className="text-xs font-semibold text-red-600 uppercase tracking-wide mb-1">Rejection reason</p>
+              <p className="text-sm text-red-800">{payment.rejectionReason}</p>
+            </div>
+          )}
+          <p className="text-sm text-gray-500">
+            Correct the details below and resubmit <strong>{payment.paymentNumber}</strong> for approval.
+            Invoice allocation and total amount are preserved.
+          </p>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Payment Date</label>
+              <input type="date" value={rsDate} onChange={(e) => setRsDate(e.target.value)} className="input" />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Payment Mode</label>
+              <select value={rsMode} onChange={(e) => setRsMode(e.target.value)} className="input">
+                {['cash', 'upi', 'neft', 'rtgs', 'cheque'].map((m) => (
+                  <option key={m} value={m}>{PM_LABELS[m] || m}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Reference Number</label>
+            <input value={rsRef} onChange={(e) => setRsRef(e.target.value)} className="input" placeholder="UPI ID, cheque no., etc." />
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Notes</label>
+            <textarea value={rsNotes} onChange={(e) => setRsNotes(e.target.value)} rows={2} className="input" placeholder="Optional remarks…" />
+          </div>
+          <div className="flex justify-end gap-2">
+            <button onClick={() => setResubmitModal(false)} className="btn-secondary">Cancel</button>
+            <button
+              onClick={() => resubmitMut.mutate()}
+              disabled={resubmitMut.isPending}
+              className="btn-primary flex items-center gap-2 text-sm disabled:opacity-50">
+              <RotateCcw className="h-4 w-4" />
+              {resubmitMut.isPending ? 'Resubmitting…' : 'Resubmit for Approval'}
             </button>
           </div>
         </div>

@@ -7,12 +7,14 @@ import {
   getTransactions,
   getTransaction,
   voidTransaction,
+  checkInvoiceDuplicate,
 } from '../controllers/stockTransaction.controller.js';
 
 const router = Router();
 
 router.use(protect);
 
+router.get('/check-invoice', authorize('transactions:read'), checkInvoiceDuplicate);
 router.post('/batch', authorize('transactions:create'), createBatchTransactions);
 
 router.route('/')

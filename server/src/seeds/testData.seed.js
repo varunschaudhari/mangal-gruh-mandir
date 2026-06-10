@@ -31,6 +31,8 @@ import { createBatch, consumeBatches, transferBatches } from '../services/fifo.s
 import { recomputeBalance } from '../services/stockBalance.service.js';
 import { generateTransactionNumber } from '../services/transactionNumber.service.js';
 import { generatePaymentNumber } from '../services/paymentNumber.service.js';
+import PurchaseEntry from '../models/PurchaseEntry.js';
+import { generatePurchaseEntryNumber } from '../services/purchaseEntryNumber.service.js';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -1406,6 +1408,54 @@ const seed = async () => {
   console.log('  ✓ 3 low-stock triggers: GUR ~0.5 kg, KAPR ~20 g, FLWR-MRG ~4 kg (all below reorder points)');
 
   // ─── Done ─────────────────────────────────────────────────────────────────
+
+  // ── Create PurchaseEntry records from purchase transactions ──
+  console.log('\nGrouping purchase transactions into PurchaseEntry records...');
+  const purchaseTxns = await StockTransaction.find({ stockInType: 'PURCHASE', isVoided: false })
+    .sort({ transactionDate: 1 }).lean();
+
+  const groups = {};
+  for (const txn of purchaseTxns) {
+    const dateKey = new Date(txn.transactionDate).toISOString().split('T')[0];
+    const suppKey = txn.supplier?.toString() || 'unknown';
+    const deptKey = txn.toDepartment?.toString() || 'unknown';
+    // Group by supplier + invoiceNumber (if present) or supplier + dept + date (if no invoice)
+    const invKey  = txn.invoiceNumber || `__auto_${suppKey}_${deptKey}_${dateKey}`;
+    const key     = `${suppKey}__${invKey}`;
+
+    if (!groups[key]) {
+      groups[key] = {
+        supplier:      txn.supplier,
+        invoiceNumber: txn.invoiceNumber || undefined,
+        invoiceDate:   txn.invoiceDate || txn.transactionDate,
+        dueDate:       txn.dueDate || undefined,
+        receivedDate:  txn.transactionDate,
+        toDepartment:  txn.toDepartment,
+        items:         [],
+        totalValue:    0,
+      };
+    }
+    groups[key].items.push({
+      product:            txn.product,
+      quantity:           txn.quantity,
+      unit:               txn.unit,
+      rate:               txn.rate || 0,
+      totalValue:         txn.totalValue || 0,
+      expiryDate:         txn.expiryDate        || undefined,
+      manufacturingDate:  txn.manufacturingDate  || undefined,
+      batchRef:           txn.batchRef           || undefined,
+      stockTransactionId: txn._id,
+    });
+    groups[key].totalValue += txn.totalValue || 0;
+  }
+
+  let peCount = 0;
+  for (const group of Object.values(groups)) {
+    const entryNumber = await generatePurchaseEntryNumber(group.receivedDate);
+    await PurchaseEntry.create({ entryNumber, ...group, createdBy: adminUser._id });
+    peCount++;
+  }
+  console.log(`  ✓ ${peCount} purchase entries created`);
 
   const txnCount = await StockTransaction.countDocuments();
   const donCount = await Donation.countDocuments();

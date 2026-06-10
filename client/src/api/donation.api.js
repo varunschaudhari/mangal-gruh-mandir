@@ -10,3 +10,4 @@ export const exportDonationsPDF    = (params)      => api.get('/donations/export
 export const download80GReceipt        = (id) => api.get(`/donations/${id}/80g-receipt`, { responseType: 'blob' });
 export const downloadDonationReceipt   = (id) => api.get(`/donations/${id}/receipt`,     { responseType: 'blob' });
 export const downloadDonorStatement    = (id) => api.get(`/donations/donor-statement/${id}`, { responseType: 'blob' });
+export const lookupDonor               = (phone) => api.get('/donations/lookup-donor', { params: { phone } });

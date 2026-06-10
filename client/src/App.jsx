@@ -52,12 +52,16 @@ import SupplierPayments from './pages/payments/SupplierPayments.jsx';
 import NewSupplierPayment from './pages/payments/NewSupplierPayment.jsx';
 import SupplierPaymentDetail from './pages/payments/SupplierPaymentDetail.jsx';
 import PaymentTemplates from './pages/payments/PaymentTemplates.jsx';
+import UpcomingDues from './pages/payments/UpcomingDues.jsx';
 import SupplierAgingReport from './pages/reports/SupplierAgingReport.jsx';
 import FestivalCostReport from './pages/reports/FestivalCostReport.jsx';
 import ConsumptionTrend from './pages/reports/ConsumptionTrend.jsx';
 import ReorderSuggestions from './pages/reports/ReorderSuggestions.jsx';
 import AuditLog from './pages/admin/AuditLog.jsx';
 import InvoiceRegister from './pages/payments/InvoiceRegister.jsx';
+import PurchaseRegister from './pages/purchases/PurchaseRegister.jsx';
+import NewPurchaseEntry from './pages/purchases/NewPurchaseEntry.jsx';
+import PurchaseEntryDetail from './pages/purchases/PurchaseEntryDetail.jsx';
 
 const App = () => (
   <Routes>
@@ -137,8 +141,14 @@ const App = () => (
         <Route path="/payments" element={<SupplierPayments />} />
         <Route path="/payments/new" element={<NewSupplierPayment />} />
         <Route path="/payments/templates"        element={<PaymentTemplates />} />
+        <Route path="/payments/upcoming"         element={<UpcomingDues />} />
         <Route path="/payments/invoice-register" element={<InvoiceRegister />} />
         <Route path="/payments/:id" element={<SupplierPaymentDetail />} />
+
+        {/* Purchases */}
+        <Route path="/purchases"     element={<PurchaseRegister />} />
+        <Route path="/purchases/new" element={<NewPurchaseEntry />} />
+        <Route path="/purchases/:id" element={<PurchaseEntryDetail />} />
 
         {/* Settings */}
         <Route path="/settings" element={<Settings />} />

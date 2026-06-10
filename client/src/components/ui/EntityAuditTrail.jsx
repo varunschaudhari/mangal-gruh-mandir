@@ -20,6 +20,8 @@ const ACTION_LABELS = {
   'user.update':          'User Updated',
   'user.password_reset':  'Password Reset',
   'settings.update':      'Settings Updated',
+  'purchase.create':      'Purchase Entry Created',
+  'purchase.void':        'Purchase Entry Voided',
 };
 
 const ACTION_DOT = {

@@ -11,3 +11,6 @@ export const sendManualReminder    = (id)         => api.post(`/asset-transactio
 export const bulkSendReminders     = ()           => api.post('/asset-transactions/bulk-remind');
 export const getAvailability       = (params)     => api.get('/asset-transactions/availability', { params });
 export const getAssetCounts        = ()           => api.get('/asset-transactions/counts');
+export const markAssetLost         = (id, data)   => api.patch(`/asset-transactions/${id}/mark-lost`, data);
+export const settleFine            = (id, data)   => api.patch(`/asset-transactions/${id}/settle-fine`, data);
+export const updateDamageStatus    = (id, data)   => api.patch(`/asset-transactions/${id}/damage-status`, data);

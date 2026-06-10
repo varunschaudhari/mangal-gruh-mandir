@@ -46,8 +46,8 @@ async function createKindStockIn({ product, quantity, department, donorName, dat
     createdBy:         userId,
   });
 
-  await createBatch(productDoc._id, department, quantity, txn._id, { expiryDate: null, manufacturingDate: null, batchRef: null });
-  await updateBalancesForTransaction({ transactionType: 'STOCK_IN', product: productDoc._id, toDepartment: department, quantity });
+  await createBatch(txn);
+  await updateBalancesForTransaction(txn);
 
   return txn._id;
 }
@@ -76,6 +76,7 @@ export const getDonations = asyncHandler(async (req, res) => {
     const orClauses = [
       { donationNumber: { $regex: s, $options: 'i' } },
       { donorName:      { $regex: s, $options: 'i' } },
+      { donorPhone:     { $regex: s, $options: 'i' } },
     ];
     if (donorMatches.length) orClauses.push({ donor: { $in: donorMatches.map((d) => d._id) } });
     filter.$or = orClauses;
@@ -259,6 +260,60 @@ export const getDonorStatement = asyncHandler(async (req, res) => {
   const settings = await Settings.getOrCreate();
   const { generateDonorStatement } = await import('../services/donationPdf.service.js');
   generateDonorStatement(res, { donor, donations, settings: settings.toObject() });
+});
+
+// ── Donor Lookup (walk-in phone search) ───────────────────────────────────────
+export const lookupDonor = asyncHandler(async (req, res) => {
+  const { phone } = req.query;
+  if (!phone?.trim()) return res.json(new ApiResponse(200, null));
+  const phoneClean = phone.trim();
+
+  // Walk-in donors: donorPhone stored directly on Donation
+  const walkInDonations = await Donation.find({ donorPhone: phoneClean, isVoided: false })
+    .sort({ date: -1 })
+    .select('donorName donorPhone panNumber cashAmount date')
+    .lean();
+
+  if (walkInDonations.length) {
+    const latest = walkInDonations[0];
+    return res.json(new ApiResponse(200, {
+      donorName:     latest.donorName || null,
+      donorPhone:    phoneClean,
+      panNumber:     latest.panNumber || null,
+      donorId:       null,
+      donationCount: walkInDonations.length,
+      totalAmount:   walkInDonations.reduce((s, d) => s + (d.cashAmount || 0), 0),
+      lastDate:      latest.date,
+      isLinked:      false,
+    }));
+  }
+
+  // Linked Supplier-donor whose phone matches
+  const supplierMatch = await Supplier.findOne({
+    phone: { $regex: phoneClean, $options: 'i' },
+    type:  { $in: ['donor', 'both'] },
+  }).lean();
+
+  if (supplierMatch) {
+    const supplierDonations = await Donation.find({ donor: supplierMatch._id, isVoided: false })
+      .sort({ date: -1 })
+      .select('cashAmount date')
+      .lean();
+    if (supplierDonations.length) {
+      return res.json(new ApiResponse(200, {
+        donorName:     supplierMatch.name,
+        donorPhone:    supplierMatch.phone,
+        panNumber:     supplierMatch.panNumber || null,
+        donorId:       supplierMatch._id,
+        donationCount: supplierDonations.length,
+        totalAmount:   supplierDonations.reduce((s, d) => s + (d.cashAmount || 0), 0),
+        lastDate:      supplierDonations[0]?.date,
+        isLinked:      true,
+      }));
+    }
+  }
+
+  return res.json(new ApiResponse(200, null));
 });
 
 // ── Void ──────────────────────────────────────────────────────────────────────

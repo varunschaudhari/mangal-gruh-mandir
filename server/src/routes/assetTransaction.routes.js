@@ -4,6 +4,7 @@ import authorize from '../middleware/authorize.js';
 import {
   getTransactions, getTransaction, getTransactionCounts,
   createBorrowRequest, checkoutAsset, returnAsset, extendBorrow, cancelBorrow,
+  markLost, settleFine, updateDamageStatus,
   bulkSendReminders, sendManualReminderEndpoint, getAvailability,
 } from '../controllers/assetTransaction.controller.js';
 
@@ -24,6 +25,9 @@ router.patch('/:id/checkout',       authorize('assets:manage'), checkoutAsset);
 router.patch('/:id/return',         authorize('assets:manage'), returnAsset);
 router.patch('/:id/extend',         authorize('assets:manage'), extendBorrow);
 router.patch('/:id/cancel',         authorize('assets:manage'), cancelBorrow);
+router.patch('/:id/mark-lost',      authorize('assets:manage'), markLost);
+router.patch('/:id/settle-fine',    authorize('assets:manage'), settleFine);
+router.patch('/:id/damage-status',  authorize('assets:manage'), updateDamageStatus);
 router.post('/:id/send-reminder',   authorize('assets:manage'), sendManualReminderEndpoint);
 router.post('/bulk-remind',         authorize('assets:manage'), bulkSendReminders);
 

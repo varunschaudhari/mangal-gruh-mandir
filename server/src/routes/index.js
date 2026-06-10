@@ -24,6 +24,7 @@ import settingsRoutes from './settings.routes.js';
 import supplierPaymentRoutes from './supplierPayment.routes.js';
 import paymentTemplateRoutes from './paymentTemplate.routes.js';
 import auditLogRoutes from './auditLog.routes.js';
+import purchaseEntryRoutes from './purchaseEntry.routes.js';
 
 const router = Router();
 
@@ -53,5 +54,6 @@ router.use('/settings', settingsRoutes);
 router.use('/supplier-payments',   supplierPaymentRoutes);
 router.use('/payment-templates',   paymentTemplateRoutes);
 router.use('/audit-logs',          auditLogRoutes);
+router.use('/purchase-entries',    purchaseEntryRoutes);
 
 export default router;

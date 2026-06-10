@@ -264,6 +264,65 @@ export const bulkSendReminders = asyncHandler(async (req, res) => {
   res.json(new ApiResponse(200, { sent, failed, total: overdue.length }, `Reminders sent to ${sent} borrower(s)`));
 });
 
+export const markLost = asyncHandler(async (req, res) => {
+  const { lostReason } = req.body;
+  const txn = await AssetTransaction.findById(req.params.id);
+  if (!txn) throw new ApiError(404, 'Transaction not found');
+  if (!['checked_out', 'overdue'].includes(txn.status))
+    throw new ApiError(400, 'Only checked-out or overdue assets can be marked as lost');
+
+  txn.status    = 'lost';
+  txn.lostAt    = new Date();
+  txn.lostReason = lostReason || undefined;
+  await txn.save();
+
+  const populated = await AssetTransaction.findById(txn._id).populate(POPULATE);
+  recomputeGroupStatus(txn.group).catch(console.error);
+  res.json(new ApiResponse(200, populated, 'Asset marked as lost'));
+});
+
+export const settleFine = asyncHandler(async (req, res) => {
+  const { action, waivedReason } = req.body;
+  if (!['paid', 'waived'].includes(action)) throw new ApiError(400, 'action must be "paid" or "waived"');
+
+  const txn = await AssetTransaction.findById(req.params.id);
+  if (!txn) throw new ApiError(404, 'Transaction not found');
+  if (!txn.fineApplied || !txn.fineAmount) throw new ApiError(400, 'No fine applied to settle');
+  if (txn.finePaid)   throw new ApiError(400, 'Fine already marked as collected');
+  if (txn.fineWaived) throw new ApiError(400, 'Fine already waived');
+
+  if (action === 'waived') {
+    txn.fineWaived      = true;
+    txn.fineWaivedReason = waivedReason || undefined;
+  } else {
+    txn.finePaid   = true;
+    txn.finePaidAt = new Date();
+  }
+  await txn.save();
+
+  const populated = await AssetTransaction.findById(txn._id).populate(POPULATE);
+  res.json(new ApiResponse(200, populated, action === 'waived' ? 'Fine waived' : 'Fine marked as collected'));
+});
+
+export const updateDamageStatus = asyncHandler(async (req, res) => {
+  const { damageStatus } = req.body;
+  if (!['reported', 'assessed', 'repaired'].includes(damageStatus))
+    throw new ApiError(400, 'damageStatus must be reported, assessed, or repaired');
+
+  const txn = await AssetTransaction.findById(req.params.id);
+  if (!txn) throw new ApiError(404, 'Transaction not found');
+  if (txn.status !== 'returned') throw new ApiError(400, 'Damage status can only be updated on returned transactions');
+
+  txn.damageStatus = damageStatus;
+  if (damageStatus === 'reported' && txn.conditionAtReturn !== 'damaged') {
+    txn.conditionAtReturn = 'damaged';
+  }
+  await txn.save();
+
+  const populated = await AssetTransaction.findById(txn._id).populate(POPULATE);
+  res.json(new ApiResponse(200, populated, 'Damage status updated'));
+});
+
 export const sendManualReminderEndpoint = asyncHandler(async (req, res) => {
   const txn = await AssetTransaction.findById(req.params.id).populate(POPULATE);
   if (!txn) throw new ApiError(404, 'Transaction not found');

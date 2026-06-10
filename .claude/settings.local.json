@@ -72,7 +72,16 @@
       "Bash(node src/seeds/addShantiBhushanTraders.js)",
       "Bash(node --input-type=module --eval \"import './server/src/models/BorrowGroup.js'\")",
       "Bash(findstr /V \"node_modules\")",
-      "Bash(node -e \"const lr = require\\('./node_modules/lucide-react'\\); console.log\\('Users:', typeof lr.Users\\); console.log\\('Phone:', typeof lr.Phone\\); console.log\\('MapPin:', typeof lr.MapPin\\); console.log\\('CreditCard:', typeof lr.CreditCard\\);\")"
+      "Bash(node -e \"const lr = require\\('./node_modules/lucide-react'\\); console.log\\('Users:', typeof lr.Users\\); console.log\\('Phone:', typeof lr.Phone\\); console.log\\('MapPin:', typeof lr.MapPin\\); console.log\\('CreditCard:', typeof lr.CreditCard\\);\")",
+      "Bash(node --check src/models/PurchaseEntry.js)",
+      "Bash(node --check src/services/purchaseEntryNumber.service.js)",
+      "Bash(node --check src/controllers/purchaseEntry.controller.js)",
+      "Bash(node --check src/routes/purchaseEntry.routes.js)",
+      "Bash(node --check src/models/SupplierPayment.js)",
+      "Bash(node --check src/controllers/supplierPayment.controller.js)",
+      "Bash(node --check src/seeds/testData.seed.js)",
+      "Bash(Get-ChildItem -Path \"c:\\\\Users\\\\varun.chaudhari\\\\my-projects\\\\mangal-gruh-mandir\" -Directory)",
+      "Bash(Get-ChildItem -Path \"c:\\\\Users\\\\varun.chaudhari\\\\my-projects\\\\mangal-gruh-mandir\\\\client\\\\src\\\\pages\\\\reports\" -File)"
     ]
   }
 }

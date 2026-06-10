@@ -2,14 +2,15 @@ import { useState } from 'react';
 import { useFieldArray, useForm } from 'react-hook-form';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Heart, User, CalendarDays, IndianRupee, Package, Plus, Trash2, Printer, FileCheck2 } from 'lucide-react';
-import { createDonation } from '../../api/donation.api.js';
+import { Heart, User, CalendarDays, IndianRupee, Package, Plus, Trash2, Printer, FileCheck2, UserCheck, Clock } from 'lucide-react';
+import { createDonation, lookupDonor } from '../../api/donation.api.js';
 import { getOccasions } from '../../api/donationOccasion.api.js';
 import { getSuppliers } from '../../api/supplier.api.js';
 import { getDepartments } from '../../api/department.api.js';
 import api from '../../api/axios.js';
 import { printDonationReceipt } from '../../utils/donationReceipt.js';
 import PageHeader from '../../components/ui/PageHeader.jsx';
+import { useDebounce } from '../../hooks/useDebounce.js';
 import toast from 'react-hot-toast';
 
 const Field = ({ label, required, hint, error, children }) => (
@@ -41,10 +42,29 @@ const NewDonation = () => {
   });
 
   const { fields, append, remove } = useFieldArray({ control, name: 'kindItems' });
-  const donationType = watch('donationType');
-  const cashAmount   = watch('cashAmount');
-  const panNumber    = watch('panNumber');
-  const is80G        = watch('is80G');
+  const donationType  = watch('donationType');
+  const cashAmount    = watch('cashAmount');
+  const panNumber     = watch('panNumber');
+  const is80G         = watch('is80G');
+  const donorPhone    = watch('donorPhone');
+
+  const debouncedPhone = useDebounce(donorPhone, 600);
+
+  const { data: donorLookupRes } = useQuery({
+    queryKey: ['donor-lookup', debouncedPhone],
+    queryFn: () => lookupDonor(debouncedPhone),
+    enabled: donationType === 'named' && !watch('donor') && !!debouncedPhone?.trim() && debouncedPhone.trim().length >= 7,
+    staleTime: 60 * 1000,
+  });
+  const donorMatch = donorLookupRes?.data?.data;
+
+  const applyDonorSuggestion = () => {
+    if (!donorMatch) return;
+    if (donorMatch.donorName) setValue('donorName', donorMatch.donorName);
+    if (donorMatch.panNumber)  setValue('panNumber', donorMatch.panNumber);
+    if (donorMatch.donorId)    setValue('donor', donorMatch.donorId);
+    toast.success('Donor details filled in');
+  };
 
   const { data: occasionsRes } = useQuery({ queryKey: ['donation-occasions'],  queryFn: () => getOccasions({ active: true }) });
   const { data: donorsRes }    = useQuery({ queryKey: ['suppliers-donors'],     queryFn: () => getSuppliers({ type: 'donor', active: 'true' }) });
@@ -184,6 +204,29 @@ const NewDonation = () => {
                       <input {...register('donorPhone')} className="input" type="tel" placeholder="91XXXXXXXXXX" />
                     </Field>
                   </div>
+
+                  {/* Returning donor suggestion */}
+                  {donorMatch && !watch('donor') && (
+                    <div className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 flex items-start gap-3">
+                      <UserCheck className="h-5 w-5 text-blue-500 shrink-0 mt-0.5" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold text-blue-800">Returning donor found</p>
+                        <p className="text-xs text-blue-600 mt-0.5">
+                          <strong>{donorMatch.donorName || 'Unknown name'}</strong>
+                          {donorMatch.panNumber && <> · PAN: {donorMatch.panNumber}</>}
+                          {' · '}
+                          <Clock className="h-3 w-3 inline" />{' '}
+                          {donorMatch.donationCount} donation{donorMatch.donationCount !== 1 ? 's' : ''}
+                          {' · ₹'}{(donorMatch.totalAmount || 0).toLocaleString('en-IN')} total
+                        </p>
+                      </div>
+                      <button type="button" onClick={applyDonorSuggestion}
+                        className="shrink-0 text-xs font-semibold bg-blue-600 text-white px-3 py-1.5 rounded-lg hover:bg-blue-700 transition-colors">
+                        Use Details
+                      </button>
+                    </div>
+                  )}
+
                   <Field label="PAN Number" hint="Required for 80G tax exemption certificate">
                     <input {...register('panNumber')} className="input uppercase" placeholder="ABCDE1234F" />
                   </Field>

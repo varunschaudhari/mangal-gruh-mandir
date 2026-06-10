@@ -1,6 +1,6 @@
 import mongoose from 'mongoose';
 
-export const ASSET_TX_STATUSES = ['approved', 'checked_out', 'returned', 'overdue', 'cancelled'];
+export const ASSET_TX_STATUSES = ['approved', 'checked_out', 'returned', 'overdue', 'cancelled', 'lost'];
 export const ASSET_CONDITIONS  = ['good', 'fair', 'damaged'];
 export const ID_PROOF_TYPES    = ['aadhar', 'pan', 'driving_license', 'voter_id', 'passport'];
 
@@ -49,6 +49,12 @@ const assetTransactionSchema = new mongoose.Schema(
     lateDays:         { type: Number, default: 0 },
 
     cancellationReason: { type: String },
+
+    lostAt:       { type: Date },
+    lostReason:   { type: String },
+    finePaid:     { type: Boolean, default: false },
+    finePaidAt:   { type: Date },
+    damageStatus: { type: String, enum: ['none', 'reported', 'assessed', 'repaired'], default: 'none' },
 
     extensions:    { type: [extensionSchema], default: [] },
     remindersSent: [{ reminderType: String, sentAt: Date }],

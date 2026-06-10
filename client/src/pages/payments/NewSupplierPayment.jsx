@@ -4,7 +4,8 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { ArrowLeft, Plus, Trash2, AlertTriangle, CreditCard, BookTemplate, ChevronDown, X, Save, CheckCircle2 } from 'lucide-react';
 import { getSuppliers, getSupplier } from '../../api/supplier.api.js';
-import { createPayment, getSupplierInvoices } from '../../api/supplierPayment.api.js';
+import { createPayment, getSupplierAdvances } from '../../api/supplierPayment.api.js';
+import { getPendingEntries } from '../../api/purchaseEntry.api.js';
 import { getTemplates, createTemplate, markTemplateUsed } from '../../api/paymentTemplate.api.js';
 import PageHeader from '../../components/ui/PageHeader.jsx';
 import Modal from '../../components/ui/Modal.jsx';
@@ -30,6 +31,9 @@ export default function NewSupplierPayment() {
 
   // Duplicate warning state
   const [duplicateWarning, setDuplicateWarning] = useState(null); // { duplicates: [...] }
+
+  // Advance reconciliation
+  const [advanceApplied, setAdvanceApplied] = useState(0);
 
   // Template states
   const [showTemplateModal,     setShowTemplateModal]     = useState(false);
@@ -73,10 +77,10 @@ export default function NewSupplierPayment() {
 
   const { data: invRes } = useQuery({
     queryKey: ['supplier-invoices', supplierId],
-    queryFn:  () => getSupplierInvoices(supplierId),
+    queryFn:  () => getPendingEntries(supplierId),
     enabled:  !!supplierId,
   });
-  const unpaidInvoices = (invRes?.data?.data || []).filter((i) => i.paymentStatus !== 'paid');
+  const unpaidInvoices = invRes?.data?.data || [];
 
   const { data: templatesRes } = useQuery({
     queryKey: ['payment-templates'],
@@ -85,20 +89,32 @@ export default function NewSupplierPayment() {
   });
   const templates = templatesRes?.data?.data || [];
 
+  const { data: advancesRes } = useQuery({
+    queryKey: ['supplier-advances', supplierId],
+    queryFn:  () => getSupplierAdvances(supplierId),
+    enabled:  !!supplierId,
+    staleTime: 60 * 1000,
+  });
+  const advancesData     = advancesRes?.data?.data;
+  const availableAdvance = advancesData?.availableBalance || 0;
+
   useEffect(() => {
     replaceInv([]);
+    setAdvanceApplied(0);
     const defaultAcc = bankAccounts.find((a) => a.isDefault) || bankAccounts[0];
     setValue('selectedBankAccountId', defaultAcc?._id || '');
   }, [supplierId, bankAccounts.length]);
 
   const invoiceTotal = invoiceItems.reduce((s, i) => s + (Number(i.paidAmount) || 0), 0);
+  const cashRequired = Math.max(0, invoiceTotal - advanceApplied);
 
   const addInvoice = (inv) => {
     appendInv({
-      invoiceNumber: inv.invoiceNumber || '',
-      invoiceDate:   inv.invoiceDate ? new Date(inv.invoiceDate).toISOString().split('T')[0] : '',
-      invoiceTotal:  inv.invoiceTotal,
-      paidAmount:    inv.remaining,
+      purchaseEntryId: inv._id || '',
+      invoiceNumber:   inv.invoiceNumber || '',
+      invoiceDate:     inv.invoiceDate ? new Date(inv.invoiceDate).toISOString().split('T')[0] : '',
+      invoiceTotal:    inv.invoiceTotal,
+      paidAmount:      inv.remaining,
     });
   };
 
@@ -107,14 +123,15 @@ export default function NewSupplierPayment() {
   };
 
   useEffect(() => {
-    if (invFields.length > 0) setValue('totalAmount', String(invoiceTotal));
-  }, [invoiceTotal, invFields.length]);
+    if (invFields.length > 0) setValue('totalAmount', String(cashRequired));
+  }, [cashRequired, invFields.length]);
 
   const doSubmit = (data, force = false) => {
     mutation.mutate({
       supplier:              data.supplier,
       invoices:              data.invoices.length > 0 ? data.invoices : [],
       totalAmount:           Number(data.totalAmount),
+      advanceApplied:        advanceApplied > 0 ? advanceApplied : undefined,
       paymentDate:           data.paymentDate,
       paymentMode:           data.paymentMode,
       referenceNumber:       data.referenceNumber || undefined,
@@ -381,14 +398,17 @@ export default function NewSupplierPayment() {
                 </div>
                 <div className="divide-y divide-gray-50">
                   {unpaidInvoices.map((inv, i) => {
-                    const alreadyAdded = invFields.some((f) => f.invoiceNumber && f.invoiceNumber === inv.invoiceNumber);
+                    const alreadyAdded = invFields.some((f) => f.purchaseEntryId && f.purchaseEntryId === (inv._id?.toString?.() || inv._id));
                     return (
                       <div key={i}
                         className={`flex items-center justify-between px-3 py-2.5 ${alreadyAdded ? 'opacity-40' : 'hover:bg-gray-50 cursor-pointer'}`}
                         onClick={() => !alreadyAdded && addInvoice(inv)}>
                         <div>
-                          <p className="text-sm font-medium text-gray-900">{inv.invoiceNumber || 'No Invoice No.'}</p>
-                          <p className="text-xs text-gray-400">{fmt(inv.invoiceDate)}{inv.isOverdue ? ' · Overdue' : ''}</p>
+                          <p className="text-sm font-medium text-gray-900">{inv.entryNumber || inv.invoiceNumber || 'No Invoice No.'}</p>
+                          <p className="text-xs text-gray-400">
+                            {inv.invoiceNumber && inv.entryNumber && <span className="font-mono">Inv: {inv.invoiceNumber} · </span>}
+                            {fmt(inv.invoiceDate)}{inv.isOverdue ? ' · Overdue' : ''}
+                          </p>
                         </div>
                         <div className="text-right">
                           <p className="text-sm font-semibold text-gray-800">{fmtAmt(inv.invoiceTotal)}</p>
@@ -406,6 +426,7 @@ export default function NewSupplierPayment() {
                 <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Payment Allocation</p>
                 {invFields.map((field, idx) => (
                   <div key={field.id} className="grid grid-cols-12 gap-2 items-end p-3 rounded-lg bg-orange-50 border border-orange-100">
+                    <input type="hidden" {...register(`invoices.${idx}.purchaseEntryId`)} />
                     <div className="col-span-3">
                       <label className="block text-xs text-gray-500 mb-1">Invoice No.</label>
                       <input {...register(`invoices.${idx}.invoiceNumber`)} className="input text-sm font-mono" placeholder="INV-001" />
@@ -443,19 +464,91 @@ export default function NewSupplierPayment() {
           </div>
         )}
 
+        {/* Advance reconciliation */}
+        {supplierId && availableAdvance > 0 && invFields.length > 0 && (
+          <div className="card p-5 space-y-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-sm font-semibold text-gray-700">Apply Advance Credit</h3>
+                <p className="text-xs text-gray-400 mt-0.5">
+                  Available balance from prior advance payments:
+                  <span className="ml-1 font-semibold text-green-700">{fmtAmt(availableAdvance)}</span>
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <div className="flex-1 max-w-xs">
+                <label className="block text-xs font-medium text-gray-500 mb-1">Advance to apply (₹)</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min={0}
+                  max={Math.min(availableAdvance, invoiceTotal)}
+                  value={advanceApplied || ''}
+                  onChange={(e) => {
+                    const v = Math.min(
+                      Math.max(0, Number(e.target.value) || 0),
+                      Math.min(availableAdvance, invoiceTotal),
+                    );
+                    setAdvanceApplied(v);
+                  }}
+                  className="input font-semibold text-green-700"
+                  placeholder="0.00"
+                />
+              </div>
+              {advanceApplied > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setAdvanceApplied(0)}
+                  className="mt-5 text-xs text-gray-400 hover:text-gray-600"
+                >
+                  Clear
+                </button>
+              )}
+            </div>
+            {advanceApplied > 0 && (
+              <div className="flex items-center gap-4 rounded-lg bg-green-50 border border-green-200 px-4 py-2.5 text-sm">
+                <div className="flex-1">
+                  <span className="text-gray-500">Invoice total:</span>
+                  <span className="ml-2 font-semibold text-gray-800">{fmtAmt(invoiceTotal)}</span>
+                </div>
+                <div>
+                  <span className="text-gray-500">Advance applied:</span>
+                  <span className="ml-2 font-semibold text-green-700">−{fmtAmt(advanceApplied)}</span>
+                </div>
+                <div>
+                  <span className="text-gray-500">Cash required:</span>
+                  <span className="ml-2 font-bold text-gray-900">{fmtAmt(cashRequired)}</span>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Total amount */}
         <div className="card p-5">
           <div>
-            <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Total Payment Amount (₹) *</label>
+            <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
+              {advanceApplied > 0 ? 'Cash to Pay (₹) *' : 'Total Payment Amount (₹) *'}
+            </label>
             <input
-              {...register('totalAmount', { required: 'Amount is required', valueAsNumber: true, min: { value: 0.01, message: 'Must be greater than 0' } })}
-              type="number" step="0.01" min={0.01}
+              {...register('totalAmount', {
+                required: 'Amount is required',
+                valueAsNumber: true,
+                min: { value: 0, message: 'Cannot be negative' },
+              })}
+              type="number" step="0.01" min={0}
               className="input text-lg font-semibold max-w-xs"
               readOnly={invFields.length > 0}
               placeholder="0.00"
             />
             {errors.totalAmount && <p className="mt-1 text-xs text-red-500">{errors.totalAmount.message}</p>}
-            {invFields.length > 0 && (
+            {invFields.length > 0 && advanceApplied > 0 && (
+              <p className="mt-1 text-xs text-green-600 font-medium">
+                {fmtAmt(invoiceTotal)} invoice − {fmtAmt(advanceApplied)} advance = {fmtAmt(cashRequired)} cash
+              </p>
+            )}
+            {invFields.length > 0 && advanceApplied === 0 && (
               <p className="mt-1 text-xs text-gray-400">Auto-calculated from invoice allocation: {fmtAmt(invoiceTotal)}</p>
             )}
           </div>

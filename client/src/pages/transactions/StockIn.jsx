@@ -1,13 +1,15 @@
 import { useForm, Controller, useFieldArray } from 'react-hook-form';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { AlertTriangle } from 'lucide-react';
 import { getDepartments } from '../../api/department.api.js';
 import { getSuppliers } from '../../api/supplier.api.js';
-import { createBatchTransactions } from '../../api/stockTransaction.api.js';
+import { createBatchTransactions, checkInvoiceDuplicate } from '../../api/stockTransaction.api.js';
 import PageHeader from '../../components/ui/PageHeader.jsx';
 import { FormField, FormRow, FormSection, FormActions } from '../../components/ui/FormField.jsx';
 import DatePickerField from '../../components/ui/DatePickerField.jsx';
 import ProductSearchSelect from '../../components/transactions/ProductSearchSelect.jsx';
+import { useDebounce } from '../../hooks/useDebounce.js';
 import toast from 'react-hot-toast';
 
 const STOCK_IN_TYPES = [
@@ -46,8 +48,21 @@ const StockIn = () => {
 
   const { fields, append, remove } = useFieldArray({ control, name: 'items' });
 
-  const stockInType = watch('stockInType');
-  const items = watch('items');
+  const stockInType   = watch('stockInType');
+  const items         = watch('items');
+  const supplierWatch = watch('supplier');
+  const invoiceWatch  = watch('invoiceNumber');
+
+  const dSupplier = useDebounce(supplierWatch, 600);
+  const dInvoice  = useDebounce(invoiceWatch, 600);
+
+  const { data: dupRes } = useQuery({
+    queryKey: ['invoice-dup-check', dSupplier, dInvoice],
+    queryFn: () => checkInvoiceDuplicate(dSupplier, dInvoice),
+    enabled: stockInType === 'PURCHASE' && !!dSupplier && !!dInvoice?.trim(),
+    staleTime: 30 * 1000,
+  });
+  const dupCheck = dupRes?.data?.data;
 
   const { data: deptsRes } = useQuery({ queryKey: ['departments'], queryFn: () => getDepartments() });
   const { data: suppliersRes } = useQuery({ queryKey: ['suppliers'], queryFn: () => getSuppliers({ isActive: true, limit: 100 }) });
@@ -267,6 +282,20 @@ const StockIn = () => {
             <textarea {...register('notes')} className="input" rows={2} placeholder="Optional remarks…" />
           </FormField>
         </div>
+
+        {dupCheck?.isDuplicate && (
+          <div className="flex items-start gap-3 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3">
+            <AlertTriangle className="h-5 w-5 text-amber-500 shrink-0 mt-0.5" />
+            <div className="text-sm">
+              <p className="font-semibold text-amber-800">Possible duplicate invoice</p>
+              <p className="text-amber-700 text-xs mt-0.5">
+                Invoice <span className="font-mono font-bold">{invoiceWatch}</span> from this supplier
+                was already recorded in <span className="font-mono">{dupCheck.existing.transactionNumber}</span>.
+                Proceed only if this is a separate delivery.
+              </p>
+            </div>
+          </div>
+        )}
 
         <FormActions onCancel={() => navigate(-1)} loading={mutation.isPending} submitLabel="Record Stock In" />
       </form>

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import {
-  LayoutDashboard, ArrowDownToLine, ArrowUpFromLine, ArrowLeftRight,
+  LayoutDashboard, ArrowUpFromLine, ArrowLeftRight,
   Trash2, Package, Warehouse, Users, Tag, Ruler, Truck, Shield,
   ChevronDown, ChevronRight, FlameKindling, History, AlertTriangle, BookOpen, CalendarClock,
   X, Armchair, ClipboardList, Settings2, BarChart2, TrendingUp, Heart, CreditCard, Plus,
@@ -20,15 +20,23 @@ const navConfig = [
     permission: null,
   },
   {
-    label: 'Transactions',
+    label: 'Purchases',
+    icon: ShoppingCart,
+    permission: 'transactions:read',
+    children: [
+      { label: 'Purchase Register',  to: '/purchases',     icon: FileText, permission: 'transactions:read'   },
+      { label: 'New Purchase Entry', to: '/purchases/new', icon: Plus,     permission: 'transactions:create' },
+    ],
+  },
+  {
+    label: 'Stock Movement',
     icon: ArrowLeftRight,
     permission: 'transactions:read',
     children: [
-      { label: 'Stock In',   to: '/transactions/stock-in',  icon: ArrowDownToLine,  permission: 'transactions:create' },
-      { label: 'Stock Out',  to: '/transactions/stock-out', icon: ArrowUpFromLine,  permission: 'transactions:create' },
-      { label: 'Transfer',   to: '/transactions/transfer',  icon: ArrowLeftRight,   permission: 'transactions:create' },
-      { label: 'Wastage',    to: '/transactions/wastage',   icon: Trash2,           permission: 'transactions:create' },
-      { label: 'History',    to: '/transactions/history',   icon: History,          permission: 'transactions:read' },
+      { label: 'Stock Out', to: '/transactions/stock-out', icon: ArrowUpFromLine, permission: 'transactions:create' },
+      { label: 'Transfer',  to: '/transactions/transfer',  icon: ArrowLeftRight,  permission: 'transactions:create' },
+      { label: 'Wastage',   to: '/transactions/wastage',   icon: Trash2,          permission: 'transactions:create' },
+      { label: 'History',   to: '/transactions/history',   icon: History,         permission: 'transactions:read'   },
     ],
   },
   {
@@ -36,57 +44,8 @@ const navConfig = [
     icon: Package,
     permission: 'masters:read',
     children: [
-      { label: 'Current Stock', to: '/inventory/current', icon: Package,   permission: 'masters:read' },
-      { label: 'Stock Ledger',  to: '/inventory/ledger',  icon: BookOpen,  permission: 'transactions:read' },
-    ],
-  },
-  {
-    label: 'Reports',
-    icon: FlameKindling,
-    permission: 'reports:read',
-    children: [
-      { label: 'Daily Movement',   to: '/reports/daily',          icon: FlameKindling,  permission: 'reports:read' },
-      { label: 'Low Stock Alerts', to: '/reports/low-stock',      icon: AlertTriangle,  permission: 'reports:read' },
-      { label: 'Expiring Stock',   to: '/reports/expiring-stock', icon: CalendarClock,  permission: 'reports:read' },
-      { label: 'Stock Valuation',  to: '/reports/valuation',       icon: TrendingUp,    permission: 'reports:read' },
-      { label: 'Supplier Report',  to: '/reports/suppliers',       icon: Truck,         permission: 'reports:read' },
-      { label: 'Supplier Aging',     to: '/reports/supplier-aging',    icon: AlertTriangle,  permission: 'payments:read' },
-      { label: 'Festival Cost',      to: '/reports/festival-cost',     icon: FlameKindling,  permission: 'reports:read'  },
-      { label: 'Consumption Trend',  to: '/reports/consumption-trend', icon: TrendingUp,     permission: 'reports:read'  },
-      { label: 'Reorder Suggestions',to: '/reports/reorder',           icon: ShoppingCart,   permission: 'reports:read'  },
-    ],
-  },
-  {
-    label: 'Masters',
-    icon: Tag,
-    permission: 'masters:read',
-    children: [
-      { label: 'Products',    to: '/masters/products',    icon: Package,    permission: 'masters:read' },
-      { label: 'Departments', to: '/masters/departments', icon: Warehouse,  permission: 'masters:read' },
-      { label: 'Suppliers',   to: '/masters/suppliers',   icon: Truck,      permission: 'masters:read' },
-      { label: 'Categories',  to: '/masters/categories',  icon: Tag,        permission: 'masters:read' },
-      { label: 'Units',       to: '/masters/units',       icon: Ruler,      permission: 'masters:read' },
-    ],
-  },
-  {
-    label: 'Assets',
-    icon: Armchair,
-    permission: 'assets:read',
-    children: [
-      { label: 'Asset List',       to: '/assets',          icon: Armchair,       permission: 'assets:write' },
-      { label: 'Borrow Requests',  to: '/assets/borrows',  icon: ClipboardList,  permission: 'assets:read' },
-      { label: 'Upcoming Returns', to: '/assets/upcoming', icon: CalendarClock,  permission: 'assets:read' },
-      { label: 'Reports',          to: '/assets/reports',  icon: BarChart2,      permission: 'assets:read' },
-    ],
-  },
-  {
-    label: 'Donations',
-    icon: Heart,
-    permission: 'donations:read',
-    children: [
-      { label: 'History',   to: '/donations',      icon: History, permission: 'donations:read' },
-      { label: 'New Entry', to: '/donations/new',   icon: Heart,   permission: 'donations:write' },
-      { label: 'Occasions', to: '/admin/donation-occasions', icon: Tag, permission: 'masters:write' },
+      { label: 'Current Stock', to: '/inventory/current', icon: Package,  permission: 'masters:read'       },
+      { label: 'Stock Ledger',  to: '/inventory/ledger',  icon: BookOpen, permission: 'transactions:read'  },
     ],
   },
   {
@@ -94,10 +53,59 @@ const navConfig = [
     icon: CreditCard,
     permission: 'payments:read',
     children: [
-      { label: 'All Payments',      to: '/payments',                    icon: CreditCard,    permission: 'payments:read'  },
-      { label: 'Invoice Register',  to: '/payments/invoice-register',   icon: FileText,      permission: 'payments:read'  },
-      { label: 'Record Payment',    to: '/payments/new',                icon: Plus,          permission: 'payments:write' },
-      { label: 'Templates',         to: '/payments/templates',          icon: BookTemplate,  permission: 'payments:write' },
+      { label: 'All Payments',    to: '/payments',              icon: CreditCard,    permission: 'payments:read'  },
+      { label: 'Record Payment',  to: '/payments/new',          icon: Plus,          permission: 'payments:write' },
+      { label: 'Upcoming Dues',   to: '/payments/upcoming',     icon: CalendarClock, permission: 'payments:read'  },
+      { label: 'Templates',       to: '/payments/templates',    icon: BookTemplate,  permission: 'payments:write' },
+    ],
+  },
+  {
+    label: 'Donations',
+    icon: Heart,
+    permission: 'donations:read',
+    children: [
+      { label: 'History',   to: '/donations',                icon: History, permission: 'donations:read'  },
+      { label: 'New Entry', to: '/donations/new',            icon: Heart,   permission: 'donations:write' },
+      { label: 'Occasions', to: '/admin/donation-occasions', icon: Tag,     permission: 'masters:write'   },
+    ],
+  },
+  {
+    label: 'Assets',
+    icon: Armchair,
+    permission: 'assets:read',
+    children: [
+      { label: 'Asset List',       to: '/assets',          icon: Armchair,      permission: 'assets:write' },
+      { label: 'Borrow Requests',  to: '/assets/borrows',  icon: ClipboardList, permission: 'assets:read'  },
+      { label: 'Upcoming Returns', to: '/assets/upcoming', icon: CalendarClock, permission: 'assets:read'  },
+      { label: 'Reports',          to: '/assets/reports',  icon: BarChart2,     permission: 'assets:read'  },
+    ],
+  },
+  {
+    label: 'Reports',
+    icon: FlameKindling,
+    permission: 'reports:read',
+    children: [
+      { label: 'Daily Movement',    to: '/reports/daily',              icon: FlameKindling, permission: 'reports:read'   },
+      { label: 'Low Stock Alerts',  to: '/reports/low-stock',          icon: AlertTriangle, permission: 'reports:read'   },
+      { label: 'Expiring Stock',    to: '/reports/expiring-stock',     icon: CalendarClock, permission: 'reports:read'   },
+      { label: 'Stock Valuation',   to: '/reports/valuation',          icon: TrendingUp,    permission: 'reports:read'   },
+      { label: 'Supplier Report',   to: '/reports/suppliers',          icon: Truck,         permission: 'reports:read'   },
+      { label: 'Supplier Aging',    to: '/reports/supplier-aging',     icon: AlertTriangle, permission: 'payments:read'  },
+      { label: 'Festival Cost',     to: '/reports/festival-cost',      icon: FlameKindling, permission: 'reports:read'   },
+      { label: 'Consumption Trend', to: '/reports/consumption-trend',  icon: TrendingUp,    permission: 'reports:read'   },
+      { label: 'Reorder',           to: '/reports/reorder',            icon: ShoppingCart,  permission: 'reports:read'   },
+    ],
+  },
+  {
+    label: 'Masters',
+    icon: Tag,
+    permission: 'masters:read',
+    children: [
+      { label: 'Products',    to: '/masters/products',    icon: Package,   permission: 'masters:read' },
+      { label: 'Departments', to: '/masters/departments', icon: Warehouse, permission: 'masters:read' },
+      { label: 'Suppliers',   to: '/masters/suppliers',   icon: Truck,     permission: 'masters:read' },
+      { label: 'Categories',  to: '/masters/categories',  icon: Tag,       permission: 'masters:read' },
+      { label: 'Units',       to: '/masters/units',       icon: Ruler,     permission: 'masters:read' },
     ],
   },
   {

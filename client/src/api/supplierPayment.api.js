@@ -16,3 +16,6 @@ export const getSupplierInvoices    = (supplierId)   => api.get(`/supplier-payme
 export const getSupplierLedger      = (supplierId)   => api.get(`/supplier-payments/ledger/${supplierId}`);
 export const getSupplierOutstanding = (supplierId)   => api.get(`/supplier-payments/outstanding/${supplierId}`);
 export const getInvoiceRegister     = (params)       => api.get('/supplier-payments/invoice-register', { params });
+export const getUpcomingDues        = (params)       => api.get('/supplier-payments/upcoming-dues', { params });
+export const getSupplierAdvances    = (supplierId)   => api.get(`/supplier-payments/advances/${supplierId}`);
+export const resubmitPayment        = (id, data)     => api.patch(`/supplier-payments/${id}/resubmit`, data);

@@ -19,6 +19,8 @@ const ACTION_COLORS = {
   'user.update':         'bg-yellow-100 text-yellow-800',
   'user.password_reset': 'bg-orange-100 text-orange-800',
   'settings.update':     'bg-gray-100 text-gray-800',
+  'purchase.create':     'bg-teal-100 text-teal-800',
+  'purchase.void':       'bg-red-100 text-red-800',
 };
 
 const ACTION_LABELS = {
@@ -37,12 +39,15 @@ const ACTION_LABELS = {
   'user.update':          'User Updated',
   'user.password_reset':  'Password Reset',
   'settings.update':      'Settings Updated',
+  'purchase.create':      'Purchase Entry Created',
+  'purchase.void':        'Purchase Entry Voided',
 };
 
-const ENTITIES = ['', 'SupplierPayment', 'StockTransaction', 'Donation', 'User', 'Settings'];
+const ENTITIES = ['', 'PurchaseEntry', 'SupplierPayment', 'StockTransaction', 'Donation', 'User', 'Settings'];
 
 const ACTIONS = [
   '', 'auth.login', 'auth.login_failed',
+  'purchase.create', 'purchase.void',
   'payment.create', 'payment.approve', 'payment.bulk_approve', 'payment.reject', 'payment.void',
   'stock.create', 'stock.void',
   'donation.create', 'donation.void',
