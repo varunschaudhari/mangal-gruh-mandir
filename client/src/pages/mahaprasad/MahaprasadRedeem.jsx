@@ -234,10 +234,11 @@ export default function MahaprasadRedeem() {
 
   const [scanKey, setScanKey] = useState(0);
 
-  const scannerRef  = useRef(null);
-  const scannerInst = useRef(null);
-  const inputRef    = useRef(null);
-  const decodedRef  = useRef(false); // guard against double-scan callback
+  const scannerRef    = useRef(null);
+  const scannerInst   = useRef(null);
+  const stopPromiseRef = useRef(null); // tracks in-flight stop so new start() always awaits it
+  const inputRef      = useRef(null);
+  const decodedRef    = useRef(false); // guard against double-scan callback
   const wakeLockRef = useRef(null);
   const backStateRef = useRef({ coupon: null, justRedeemed: false });
 
@@ -347,15 +348,19 @@ export default function MahaprasadRedeem() {
         const { Html5Qrcode } = await import('html5-qrcode');
         if (!active) return;
 
-        // Stop and clear any previous instance before starting fresh.
-        // clear() removes the video/canvas elements Html5Qrcode injected into
-        // the container — skipping this causes start() to fail on the 2nd scan.
-        const prev = scannerInst.current;
-        if (prev) {
-          try { await prev.stop(); } catch {}
-          try { await prev.clear(); } catch {}
-          scannerInst.current = null;
+        // Wait for any in-flight stop to finish before requesting the camera again.
+        // Without this, getUserMedia can fail on some devices because the old stream
+        // hasn't been released yet when we try to open a new one.
+        if (stopPromiseRef.current) {
+          await stopPromiseRef.current.catch(() => {});
+          stopPromiseRef.current = null;
         }
+        if (!active) return;
+
+        // Manually wipe the container so Html5Qrcode never sees leftover
+        // video/canvas elements from a previous session.
+        const container = document.getElementById('qr-reader');
+        if (container) container.innerHTML = '';
         if (!active) return;
 
         const qrCode = new Html5Qrcode('qr-reader');
@@ -367,7 +372,9 @@ export default function MahaprasadRedeem() {
           (decoded) => {
             if (decodedRef.current) return;
             decodedRef.current = true;
-            qrCode.stop().catch(() => {});
+            // Track the stop promise so the next start() can wait for it.
+            stopPromiseRef.current = qrCode.stop().catch(() => {});
+            scannerInst.current = null;
             handleLookup(decoded.trim());
           },
           () => {}
@@ -382,7 +389,11 @@ export default function MahaprasadRedeem() {
 
     return () => {
       active = false;
-      scannerInst.current?.stop().catch(() => {});
+      const inst = scannerInst.current;
+      if (inst) {
+        scannerInst.current = null;
+        stopPromiseRef.current = inst.stop().catch(() => {});
+      }
     };
   }, [mode, scanKey, handleLookup]);
 
