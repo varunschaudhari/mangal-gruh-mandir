@@ -1163,8 +1163,8 @@ const seed = async () => {
     reg80GFrom:         new Date('2023-04-01'),
     reg80GTo:           new Date('2026-03-31'),
     assetMaxBorrowDays: 7,
-    mahaprasadDayPricing: { monday: 25, tuesday: 63, wednesday: 25, thursday: 63, friday: 25, saturday: 63, sunday: 63 },
-    mahaprasadDailyCap:           2500,
+    mahaprasadDayPricing: { monday: 25, tuesday: 63, wednesday: 0, thursday: 0, friday: 0, saturday: 0, sunday: 0 },
+    mahaprasadDailyCap:           0,
     mahaprasadCouponValidityDays: 1,
     mahaprasadPrinterName:        '',
   });
