@@ -12,6 +12,8 @@ const mahaprasadCouponSchema = new mongoose.Schema({
   redeemedBy:   { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   redeemedAt:   { type: Date },
   batchId:      { type: String, index: true },
+  groupSize:    { type: Number, default: 1, min: 1 },
+  isGroup:      { type: Boolean, default: false },
 }, { timestamps: true });
 
 mahaprasadCouponSchema.index({ date: 1, status: 1 });

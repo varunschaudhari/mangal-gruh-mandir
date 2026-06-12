@@ -57,10 +57,14 @@ async function drawCoupon(doc, coupon, settings, cx, cy) {
   const r = 7;
 
   const isFree      = coupon.type === 'free';
+  const isGroup     = coupon.isGroup && (coupon.groupSize || 1) > 1;
+  const groupSize   = coupon.groupSize || 1;
   const accent      = isFree ? C.freeAccent  : C.paidAccent;
   const badgeBg     = isFree ? C.freeBadgeBg : C.paidBadgeBg;
   const badgeTx     = isFree ? C.freeBadgeTx : C.paidBadgeTx;
-  const badgeLabel  = isFree ? 'FREE SEVA'   : `₹${coupon.amount}  PAID`;
+  const badgeLabel  = isGroup
+    ? (isFree ? `GROUP  ${groupSize} PERSONS` : `GROUP  ${groupSize}x  Rs.${coupon.amount}`)
+    : (isFree ? 'FREE SEVA' : `Rs.${coupon.amount}  PAID`);
 
   const HEADER_H = 48;
   const FOOTER_H = 26;
@@ -102,7 +106,7 @@ async function drawCoupon(doc, coupon, settings, cx, cy) {
     .text('Mahaprasad Seva Coupon', nameX, y + 24, { width: nameW, lineBreak: false });
 
   // ── Header: type badge ────────────────────────────────────────────────────
-  const BW = 62, BH = 16;
+  const BW = isGroup ? 82 : 62, BH = 16;
   const BX = x + w - BW - 7;
   const BY = y + (HEADER_H - BH) / 2;
 
@@ -122,6 +126,13 @@ async function drawCoupon(doc, coupon, settings, cx, cy) {
   doc.font('Helvetica-Bold').fontSize(11.5).fillColor(C.saffronDeep)
     .text(coupon.couponNumber, x, iy, { width: w, align: 'center', lineBreak: false });
   iy += 15;
+
+  // Group label — shown below coupon number for group coupons
+  if (isGroup) {
+    doc.font('Helvetica-Bold').fontSize(7.5).fillColor(accent)
+      .text(`GROUP COUPON  ·  ${groupSize} PERSONS`, x, iy, { width: w, align: 'center', lineBreak: false });
+    iy += 11;
+  }
 
   // Thin divider
   const DIV_PAD = w * 0.15;
@@ -182,8 +193,9 @@ async function drawCoupon(doc, coupon, settings, cx, cy) {
   const phone = settings?.templePhone   || '';
   const contactLine = [addr, phone].filter(Boolean).join('  ·  ');
 
+  const servingText = isGroup ? `Valid for ${groupSize} servings` : 'Valid for one serving';
   doc.font('Helvetica-Bold').fontSize(5.8).fillColor(C.white)
-    .text('Present at Prasad counter · Valid for one serving · Non-transferable',
+    .text(`Present at Prasad counter · ${servingText} · Non-transferable`,
       x + 4, ftY + 4, { width: w - 8, align: 'center', lineBreak: false });
 
   if (contactLine) {

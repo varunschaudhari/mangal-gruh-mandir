@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   ScanLine, KeyboardIcon, CheckCircle2, XCircle, RotateCcw,
   Clock, AlertTriangle, Info, ChevronRight, CloudOff,
-  Maximize2, Minimize2,
+  Maximize2, Minimize2, Users,
 } from 'lucide-react';
 import { lookupCoupon, redeemCoupon, getDailySummary } from '../../api/mahaprasad.api.js';
 import PageHeader from '../../components/ui/PageHeader.jsx';
@@ -97,6 +97,9 @@ function ErrorBanner({ message, type, onRetry }) {
 function CouponCard({ coupon, onRedeem, redeeming, justRedeemed, countdown }) {
   const isRedeemed = coupon.status === 'redeemed';
 
+  const isGroupCoupon = coupon.isGroup && (coupon.groupSize || 1) > 1;
+  const groupSize     = coupon.groupSize || 1;
+
   if (justRedeemed) {
     return (
       <div className="card p-6 border-2 border-green-300 bg-green-50 text-center space-y-3">
@@ -104,6 +107,11 @@ function CouponCard({ coupon, onRedeem, redeeming, justRedeemed, countdown }) {
         <div>
           <p className="text-lg font-black text-green-800">Redeemed!</p>
           <p className="font-mono text-sm text-green-700 mt-0.5">{coupon.couponNumber}</p>
+          {isGroupCoupon && (
+            <div className="inline-flex items-center gap-1.5 mt-2 px-3 py-1 rounded-full bg-purple-100 text-purple-700 text-sm font-semibold">
+              <Users className="h-3.5 w-3.5" /> {groupSize} persons
+            </div>
+          )}
           {coupon.type === 'free' && coupon.occasion && (
             <p className="text-xs text-green-600 mt-1">{coupon.occasion}</p>
           )}
@@ -158,9 +166,16 @@ function CouponCard({ coupon, onRedeem, redeeming, justRedeemed, countdown }) {
             {new Date(coupon.date).toLocaleDateString('en-IN', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' })}
           </p>
         </div>
-        <span className={`shrink-0 text-xs font-bold px-2.5 py-1 rounded-full ${coupon.type === 'free' ? 'bg-green-200 text-green-800' : 'bg-blue-100 text-blue-800'}`}>
-          {coupon.type === 'free' ? (coupon.occasion || 'Free Seva') : `Paid · ₹${coupon.amount}`}
-        </span>
+        <div className="flex flex-col items-end gap-1.5 shrink-0">
+          <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${coupon.type === 'free' ? 'bg-green-200 text-green-800' : 'bg-blue-100 text-blue-800'}`}>
+            {coupon.type === 'free' ? (coupon.occasion || 'Free Seva') : `Paid · ₹${coupon.amount}`}
+          </span>
+          {isGroupCoupon && (
+            <span className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full bg-purple-100 text-purple-700">
+              <Users className="h-3 w-3" /> {groupSize} persons
+            </span>
+          )}
+        </div>
       </div>
 
       {/* Meta */}

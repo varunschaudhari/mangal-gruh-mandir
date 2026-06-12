@@ -63,12 +63,16 @@ function qrEscPos(data, moduleSize = 7) {
 // ── Receipt layout ────────────────────────────────────────────────────────────
 
 function buildReceiptBytes(coupon, settings) {
-  const name    = (settings?.templeName || 'MANGAL GRAH MANDIR').toUpperCase();
-  const isFree  = coupon.type === 'free';
-  const date    = new Date(coupon.date);
-  const dateStr = date.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
-  const valDays = settings?.mahaprasadCouponValidityDays ?? 1;
-  const typeStr = isFree ? 'FREE SEVA' : `PAID  Rs.${coupon.amount}`;
+  const name      = (settings?.templeName || 'MANGAL GRAH MANDIR').toUpperCase();
+  const isFree    = coupon.type === 'free';
+  const isGroup   = coupon.isGroup && (coupon.groupSize || 1) > 1;
+  const groupSize = coupon.groupSize || 1;
+  const date      = new Date(coupon.date);
+  const dateStr   = date.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+  const valDays   = settings?.mahaprasadCouponValidityDays ?? 1;
+  const typeStr   = isGroup
+    ? (isFree ? `GROUP COUPON  ${groupSize} PERSONS` : `GROUP  ${groupSize} PERSONS  Rs.${coupon.amount}`)
+    : (isFree ? 'FREE SEVA' : `PAID  Rs.${coupon.amount}`);
 
   const expiryBytes = [];
   if (valDays > 0) {
@@ -115,7 +119,7 @@ function buildReceiptBytes(coupon, settings) {
 
     // Footer
     ...line('Present at Prasad counter'),
-    ...line('Valid for one serving'),
+    ...line(isGroup ? `Valid for ${groupSize} servings` : 'Valid for one serving'),
     ...line('Non-transferable'),
 
     // Feed + partial cut

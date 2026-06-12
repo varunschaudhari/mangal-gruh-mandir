@@ -84,7 +84,10 @@ function BatchesSection({ date, onPdfPrint, printing }) {
                   <Badge variant={b.type === 'paid' ? 'blue' : 'purple'} size="sm">
                     {b.type === 'free' ? `Free${b.occasion ? ` · ${b.occasion}` : ''}` : 'Paid'}
                   </Badge>
-                  <span className="text-xs font-semibold text-gray-700">{b.count} coupon{b.count !== 1 ? 's' : ''}</span>
+                  {b.isGroup
+                    ? <span className="text-xs font-semibold text-purple-700">Group · {b.groupSize || b.count} persons</span>
+                    : <span className="text-xs font-semibold text-gray-700">{b.count} coupon{b.count !== 1 ? 's' : ''}</span>
+                  }
                   <span className="text-xs text-gray-400 font-mono">
                     {b.couponFrom === b.couponTo ? b.couponFrom : `${b.couponFrom} → ${b.couponTo}`}
                   </span>
@@ -111,6 +114,7 @@ export default function MahaprasadCounter() {
 
   const [date,           setDate]           = useState(todayStr());
   const [qty,            setQty]            = useState(1);
+  const [isGroup,        setIsGroup]        = useState(false);
   const [type,           setType]           = useState('paid');
   const [occasionPreset, setOccasionPreset] = useState('');
   const [occasionCustom, setOccasionCustom] = useState('');
@@ -263,31 +267,31 @@ export default function MahaprasadCounter() {
   };
 
   const issueMut = useMutation({
-    mutationFn: () => issueCoupons({
-      quantity: qty,
-      type,
-      occasion: type === 'free' ? occasionValue : '',
-      date,
-    }),
-    onSuccess: async (res) => {
+    mutationFn: ({ qty: q, isGroup: ig, type: t, occasion: occ, date: d }) =>
+      issueCoupons({ quantity: q, type: t, occasion: occ, date: d, isGroup: ig }),
+    onSuccess: async (res, { qty: q, isGroup: ig }) => {
       const { coupons } = res.data.data;
-      const batch = { numbers: coupons.map((c) => c.couponNumber), coupons };
+      const batch = { numbers: coupons.map((c) => c.couponNumber), coupons, isGroup: ig, groupQty: q };
       setLastBatch(batch);
       setQty(1);
+      setIsGroup(false);
       qc.invalidateQueries({ queryKey: ['mahaprasad-summary'] });
       qc.invalidateQueries({ queryKey: ['mahaprasad-coupons'] });
       qc.invalidateQueries({ queryKey: ['mahaprasad-batches', date] });
 
       if (autoPrint) {
-        // Print each coupon directly to thermal printer — fast, no dialog
         let allOk = true;
         for (const coupon of coupons) {
           try { await handleThermalPrint(coupon); }
           catch { allOk = false; break; }
         }
-        if (allOk) toast.success(`${coupons.length} coupon${coupons.length > 1 ? 's' : ''} issued & printed`);
+        if (allOk) {
+          const label = ig ? `Group coupon (${q} persons) issued & printed` : `${coupons.length} coupon${coupons.length > 1 ? 's' : ''} issued & printed`;
+          toast.success(label);
+        }
       } else {
-        toast.success(`${coupons.length} coupon${coupons.length > 1 ? 's' : ''} issued`);
+        const label = ig ? `Group coupon (${q} persons) issued` : `${coupons.length} coupon${coupons.length > 1 ? 's' : ''} issued`;
+        toast.success(label);
       }
     },
     onError: (e) => toast.error(e.response?.data?.message || 'Failed to issue'),
@@ -295,7 +299,7 @@ export default function MahaprasadCounter() {
 
   const handleIssue = () => {
     if (!isOnline) { handleIssueOffline(); return; }
-    issueMut.mutate();
+    issueMut.mutate({ qty, isGroup, type, occasion: type === 'free' ? occasionValue : '', date });
   };
 
   // Enter key on any form input submits
@@ -418,7 +422,7 @@ export default function MahaprasadCounter() {
           <div className="flex flex-wrap gap-2 mb-3">
             {QTY_PRESETS.map((n) => (
               <button key={n} type="button"
-                onClick={() => setQty(n)}
+                onClick={() => { setQty(n); if (n === 1) setIsGroup(false); }}
                 disabled={cap > 0 && n > capRemaining}
                 className={`w-12 h-9 rounded-lg border-2 text-sm font-bold transition-all disabled:opacity-30 disabled:cursor-not-allowed ${
                   qty === n
@@ -432,7 +436,7 @@ export default function MahaprasadCounter() {
               ref={qtyInputRef}
               type="number" min={1} max={cap > 0 ? capRemaining : 200}
               value={qty}
-              onChange={(e) => setQty(Math.max(1, parseInt(e.target.value) || 1))}
+              onChange={(e) => { const v = Math.max(1, parseInt(e.target.value) || 1); setQty(v); if (v === 1) setIsGroup(false); }}
               className={`w-20 h-9 input text-center font-bold ${wouldExceed ? 'border-red-400 bg-red-50' : ''}`}
               title="Custom quantity"
             />
@@ -447,6 +451,21 @@ export default function MahaprasadCounter() {
             <p className="text-xs text-gray-400">{capRemaining} of {cap} cap remaining today</p>
           )}
           {!cap && <p className="text-xs text-gray-400">Max 200 per batch · No daily cap set</p>}
+
+          {/* Group coupon toggle */}
+          {qty > 1 && (
+            <label className="inline-flex items-center gap-2.5 cursor-pointer select-none mt-1">
+              <div
+                onClick={() => setIsGroup((v) => !v)}
+                className={`relative w-9 h-5 rounded-full transition-colors ${isGroup ? 'bg-purple-500' : 'bg-gray-200'}`}>
+                <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${isGroup ? 'translate-x-4' : 'translate-x-0.5'}`} />
+              </div>
+              <span className="text-sm text-gray-600">
+                Group coupon
+                <span className="text-gray-400 ml-1">(1 QR for all {qty} persons)</span>
+              </span>
+            </label>
+          )}
         </div>
 
         {/* Type */}
@@ -515,7 +534,9 @@ export default function MahaprasadCounter() {
             {(issueMut.isPending || offlineIssuing)
               ? (autoPrint ? 'Issuing & printing…' : 'Issuing…')
               : isOnline
-                ? `Issue ${qty} Coupon${qty > 1 ? 's' : ''}`
+                ? isGroup
+                  ? `Issue Group (${qty} persons)`
+                  : `Issue ${qty} Coupon${qty > 1 ? 's' : ''}`
                 : `Issue Coupon (offline)`}
           </button>
 
@@ -552,7 +573,9 @@ export default function MahaprasadCounter() {
             <div className="flex items-center gap-2">
               <CheckCircle2 className="h-5 w-5 text-green-600 shrink-0" />
               <p className="text-sm font-semibold text-green-800">
-                {lastBatch.numbers.length} coupon{lastBatch.numbers.length > 1 ? 's' : ''} issued
+                {lastBatch.isGroup
+                  ? `Group coupon issued · ${lastBatch.groupQty} persons`
+                  : `${lastBatch.numbers.length} coupon${lastBatch.numbers.length > 1 ? 's' : ''} issued`}
               </p>
             </div>
             <div className="flex items-center gap-2">

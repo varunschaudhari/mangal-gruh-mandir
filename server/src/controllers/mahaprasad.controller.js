@@ -57,49 +57,58 @@ async function generateCouponNumbers(date, qty) {
 
 // POST /mahaprasad/issue
 export const issueCoupons = asyncHandler(async (req, res) => {
-  const { quantity = 1, type = 'paid', occasion = '', date } = req.body;
+  const { quantity = 1, type = 'paid', occasion = '', date, isGroup = false } = req.body;
 
-  const qty = Math.min(Math.max(1, parseInt(quantity) || 1), 200);
+  const qty        = Math.min(Math.max(1, parseInt(quantity) || 1), 200);
+  const groupSize  = isGroup ? qty : 1;   // persons per coupon document
+  const couponCount = isGroup ? 1 : qty;  // number of documents to create
+
   const couponDate = date ? new Date(date) : new Date();
   couponDate.setHours(12, 0, 0, 0);
 
   const settings = await Settings.getOrCreate();
   const price    = type === 'free' ? 0 : getPriceForDate(settings, couponDate);
 
-  // Daily cap check
+  // Daily cap check — counts persons (sum of groupSize), not documents
   const cap = settings.mahaprasadDailyCap || 0;
   if (cap > 0) {
     const { start, end } = dayBounds(couponDate);
-    // Exclude 'reserved' — those are pre-fetched offline blocks, not yet issued
-    const todayCount = await MahaprasadCoupon.countDocuments({ date: { $gte: start, $lte: end }, status: { $ne: 'reserved' } });
-    if (todayCount + qty > cap) {
-      const remaining = Math.max(0, cap - todayCount);
+    const [capAgg] = await MahaprasadCoupon.aggregate([
+      { $match: { date: { $gte: start, $lte: end }, status: { $ne: 'reserved' } } },
+      { $group: { _id: null, total: { $sum: { $ifNull: ['$groupSize', 1] } } } },
+    ]);
+    const currentTotal = capAgg?.total || 0;
+    if (currentTotal + qty > cap) {
+      const remaining = Math.max(0, cap - currentTotal);
       throw new ApiError(400,
         remaining === 0
-          ? `Daily cap of ${cap} coupons reached for this date`
-          : `Only ${remaining} more coupon(s) can be issued today (cap: ${cap})`
+          ? `Daily cap of ${cap} persons reached for this date`
+          : `Only ${remaining} more person${remaining !== 1 ? 's' : ''} can be issued today (cap: ${cap})`
       );
     }
   }
 
-  const numbers = await generateCouponNumbers(couponDate, qty);
+  const numbers = await generateCouponNumbers(couponDate, couponCount);
   const batchId = nanoid(10);
 
   const docs = numbers.map((n) => ({
     couponNumber: n,
     date:         couponDate,
     type,
-    amount:       price,
+    amount:       isGroup ? price * groupSize : price,  // total amount for group
     occasion:     type === 'free' ? (occasion || '') : '',
     status:       'issued',
     issuedBy:     req.user._id,
     issuedAt:     new Date(),
     batchId,
+    groupSize,
+    isGroup:      Boolean(isGroup),
   }));
 
   const coupons = await MahaprasadCoupon.insertMany(docs, { ordered: true });
-  logAction(req, { action: 'mahaprasad.issue', entity: 'MahaprasadCoupon', entityId: batchId, entityRef: batchId, after: { qty, type, date: couponDate.toISOString().split('T')[0], occasion: type === 'free' ? occasion : undefined } });
-  res.status(201).json(new ApiResponse(201, { coupons, batchId }, `${qty} coupon(s) issued`));
+  logAction(req, { action: 'mahaprasad.issue', entity: 'MahaprasadCoupon', entityId: batchId, entityRef: batchId, after: { qty, type, isGroup: Boolean(isGroup), groupSize, date: couponDate.toISOString().split('T')[0], occasion: type === 'free' ? occasion : undefined } });
+  const msg = isGroup ? `Group coupon (${qty} persons) issued` : `${qty} coupon(s) issued`;
+  res.status(201).json(new ApiResponse(201, { coupons, batchId }, msg));
 });
 
 // GET /mahaprasad/summary
@@ -107,25 +116,36 @@ export const getDailySummary = asyncHandler(async (req, res) => {
   const { date } = req.query;
   const { start, end } = dayBounds(date);
 
-  const [total, redeemed, paidAgg] = await Promise.all([
-    // Exclude 'reserved' — offline pre-fetched blocks that haven't been issued yet
-    MahaprasadCoupon.countDocuments({ date: { $gte: start, $lte: end }, status: { $ne: 'reserved' } }),
-    MahaprasadCoupon.countDocuments({ date: { $gte: start, $lte: end }, status: 'redeemed' }),
+  // Sum groupSize (not document count) so a group coupon of 5 counts as 5 persons
+  const GS = { $ifNull: ['$groupSize', 1] };
+
+  const [summaryAgg, paidAgg, settings] = await Promise.all([
+    MahaprasadCoupon.aggregate([
+      { $match: { date: { $gte: start, $lte: end }, status: { $ne: 'reserved' } } },
+      { $group: {
+        _id:      null,
+        total:    { $sum: GS },
+        redeemed: { $sum: { $cond: [{ $eq: ['$status', 'redeemed'] }, GS, 0] } },
+        paid:     { $sum: { $cond: [{ $eq: ['$type',   'paid']     }, GS, 0] } },
+      }},
+    ]),
     MahaprasadCoupon.aggregate([
       { $match: { date: { $gte: start, $lte: end }, type: 'paid', status: { $ne: 'reserved' } } },
-      { $group: { _id: null, totalAmount: { $sum: '$amount' }, count: { $sum: 1 } } },
+      { $group: { _id: null, totalAmount: { $sum: '$amount' } } },
     ]),
+    Settings.getOrCreate(),
   ]);
 
-  const paid      = paidAgg[0]?.count       || 0;
+  const s         = summaryAgg[0] || {};
+  const total     = s.total    || 0;
+  const redeemed  = s.redeemed || 0;
+  const paid      = s.paid     || 0;
   const free      = total - paid;
   const collected = paidAgg[0]?.totalAmount || 0;
 
-  const settings  = await Settings.getOrCreate();
-
   res.json(new ApiResponse(200, {
     total, redeemed, pending: total - redeemed, paid, free, collected,
-    cap:          settings.mahaprasadDailyCap || 0,
+    cap:           settings.mahaprasadDailyCap || 0,
     pricePerPlate: getPriceForDate(settings, date),
   }));
 });
@@ -224,6 +244,8 @@ export const getBatches = asyncHandler(async (req, res) => {
       numbers:    { $push: '$couponNumber' },
       couponFrom: { $first: '$couponNumber' },
       couponTo:   { $last: '$couponNumber' },
+      groupSize:  { $first: '$groupSize' },
+      isGroup:    { $first: '$isGroup' },
     }},
     { $sort: { issuedAt: -1 } },
   ]);

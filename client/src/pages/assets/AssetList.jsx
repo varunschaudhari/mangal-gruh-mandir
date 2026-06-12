@@ -39,10 +39,17 @@ const AssetList = () => {
     col.accessor('assetCode', {
       header: 'Code', size: 120,
       cell: (i) => i.getValue()
-        ? <span className="font-mono text-xs font-bold text-orange-600">{i.getValue()}</span>
+        ? <Link to={`/assets/${i.row.original._id}/history`} className="font-mono text-xs font-bold text-orange-600 hover:underline">{i.getValue()}</Link>
         : <span className="text-gray-300 text-xs">—</span>,
     }),
-    col.accessor('name', { header: 'Asset Name', cell: (i) => <span className="font-medium text-gray-900">{i.getValue()}</span> }),
+    col.accessor('name', {
+      header: 'Asset Name',
+      cell: (i) => (
+        <Link to={`/assets/${i.row.original._id}/history`} className="font-medium text-gray-900 hover:text-primary-600 hover:underline">
+          {i.getValue()}
+        </Link>
+      ),
+    }),
     col.accessor('category', { header: 'Category', size: 120, cell: (i) => <Badge variant={CATEGORY_COLORS[i.getValue()] || 'gray'}>{i.getValue()}</Badge> }),
     col.accessor('totalQuantity', { header: 'Total Qty', size: 90, cell: (i) => <span className="font-semibold">{i.getValue()}</span> }),
     col.accessor('finePerDay', {
