@@ -7,6 +7,21 @@ import App from './App.jsx';
 import { AuthProvider } from './context/AuthContext.jsx';
 import './index.css';
 
+// Manual SW registration — vite-plugin-pwa's auto-inject has no error handling.
+// When the app is accessed via a raw IP address the SSL cert doesn't cover that
+// origin, so the SW script fetch throws a SecurityError.  Without a .catch()
+// this becomes an unhandled rejection that crashes the React root (white screen).
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker
+      .register('/sw.js', { scope: '/' })
+      .then((reg) => reg.update().catch(() => {}))
+      .catch(() => {
+        // SW unavailable (e.g. raw-IP access, no valid SSL cert) — app works fine without it.
+      });
+  });
+}
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
