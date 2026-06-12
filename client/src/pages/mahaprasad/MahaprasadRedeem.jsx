@@ -234,11 +234,11 @@ export default function MahaprasadRedeem() {
 
   const [scanKey, setScanKey] = useState(0);
 
-  const scannerRef    = useRef(null);
-  const scannerInst   = useRef(null);
+  const scannerInst    = useRef(null);
   const stopPromiseRef = useRef(null); // tracks in-flight stop so new start() always awaits it
-  const inputRef      = useRef(null);
-  const decodedRef    = useRef(false); // guard against double-scan callback
+  const inputRef       = useRef(null);
+  const decodedRef     = useRef(false); // guard against double-scan callback
+  const resetRef       = useRef(null);  // always-current reset so countdown closure is never stale
   const wakeLockRef = useRef(null);
   const backStateRef = useRef({ coupon: null, justRedeemed: false });
 
@@ -285,7 +285,8 @@ export default function MahaprasadRedeem() {
   const { data: summaryRes, refetch: refetchSummary } = useQuery({
     queryKey: ['mahaprasad-summary', todayStr()],
     queryFn:  () => getDailySummary(todayStr()),
-    staleTime: 30 * 1000,
+    staleTime:      30 * 1000,
+    refetchInterval: 60 * 1000, // keep live while screen is open (multi-device)
   });
   const summary = summaryRes?.data?.data || null;
 
@@ -401,6 +402,9 @@ export default function MahaprasadRedeem() {
     if (mode === 'manual') inputRef.current?.focus();
   }, [mode]);
 
+  // Keep resetRef current so the countdown closure always calls the live version.
+  useEffect(() => { resetRef.current = reset; }, [reset]);
+
   // ── Auto-reset countdown after successful redemption ─────────────────────
   useEffect(() => {
     if (!justRedeemed) return;
@@ -409,10 +413,10 @@ export default function MahaprasadRedeem() {
     const t = setInterval(() => {
       c -= 1;
       setCountdown(c);
-      if (c === 0) { clearInterval(t); reset(); }
+      if (c === 0) { clearInterval(t); resetRef.current?.(); }
     }, 1000);
     return () => clearInterval(t);
-  }, [justRedeemed]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [justRedeemed]);
 
   // ── Redeem mutation ───────────────────────────────────────────────────────
   const redeemMut = useMutation({
@@ -564,9 +568,8 @@ export default function MahaprasadRedeem() {
           <button key={key}
             onClick={() => {
               setCoupon(null); setError(''); setJustRedeemed(false); setCountdown(null);
+              setManualNum('');
               setMode(key);
-              // Always bump scanKey when switching to (or reselecting) scan mode
-              // so the camera restarts even if mode didn't change.
               if (key === 'scan') setScanKey((k) => k + 1);
             }}
             className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-medium transition-all ${
@@ -582,7 +585,7 @@ export default function MahaprasadRedeem() {
         <>
           {mode === 'scan' && (
             <div className="card overflow-hidden relative">
-              <div id="qr-reader" ref={scannerRef} className="w-full" style={{ minHeight: 280 }} />
+              <div id="qr-reader" className="w-full" style={{ minHeight: 280 }} />
               {looking && (
                 <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
                   <div className="bg-white rounded-xl px-5 py-4 text-sm font-semibold text-gray-700 flex items-center gap-2.5">
@@ -636,18 +639,24 @@ export default function MahaprasadRedeem() {
         <div className="space-y-3">
           <CouponCard
             coupon={coupon}
-            onRedeem={() => redeemMut.mutate()}
+            onRedeem={() => { redeemMut.reset(); redeemMut.mutate(); }}
             redeeming={redeemMut.isPending}
             justRedeemed={justRedeemed}
             countdown={countdown}
           />
+          {/* Inline redeem error — the toast vanishes after 4s so staff can miss it */}
+          {redeemMut.isError && !justRedeemed && (
+            <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-red-50 border border-red-200 text-sm text-red-700">
+              <AlertTriangle className="h-4 w-4 shrink-0" />
+              {redeemMut.error?.response?.data?.message || redeemMut.error?.message || 'Redemption failed — try again'}
+            </div>
+          )}
           {!justRedeemed && (
             <button onClick={reset}
               className="w-full btn btn-ghost border text-sm flex items-center justify-center gap-1.5 py-2.5">
               <RotateCcw className="h-4 w-4" /> Scan Next Coupon
             </button>
           )}
-          {/* Skip countdown */}
           {justRedeemed && (
             <button onClick={reset}
               className="w-full text-sm text-gray-400 hover:text-gray-600 py-1">
