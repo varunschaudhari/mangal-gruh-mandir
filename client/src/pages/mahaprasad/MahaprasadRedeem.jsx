@@ -232,6 +232,8 @@ export default function MahaprasadRedeem() {
     setSyncConflicts([]);
   }, []);
 
+  const [scanKey, setScanKey] = useState(0);
+
   const scannerRef  = useRef(null);
   const scannerInst = useRef(null);
   const inputRef    = useRef(null);
@@ -361,7 +363,7 @@ export default function MahaprasadRedeem() {
     });
 
     return () => { scannerInst.current?.stop().catch(() => {}); };
-  }, [mode, handleLookup]);
+  }, [mode, scanKey, handleLookup]); // scanKey bump forces camera restart after each scan
 
   useEffect(() => {
     if (mode === 'manual') inputRef.current?.focus();
@@ -431,7 +433,8 @@ export default function MahaprasadRedeem() {
     if (mode === 'manual') {
       setTimeout(() => inputRef.current?.focus(), 50);
     } else {
-      setMode('scan');
+      // Bump scanKey — mode stays 'scan' but the effect re-runs, restarting the camera
+      setScanKey((k) => k + 1);
     }
   }, [mode]);
 
