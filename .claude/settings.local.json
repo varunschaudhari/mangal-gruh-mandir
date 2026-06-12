@@ -99,7 +99,8 @@
       "Bash(node -e \"console.log\\(require\\('./node_modules/qrcode/package.json'\\).version\\)\")",
       "Bash(node -e \"import\\('./src/seeds/backfillAssetCodes.js'\\)\")",
       "Bash(npx vite *)",
-      "PowerShell(Set-Location \"c:\\\\Users\\\\varun.chaudhari\\\\my-projects\\\\mangal-gruh-mandir\\\\server\"; $proc = Start-Process -FilePath \"node\" -ArgumentList \"src/index.js\" -RedirectStandardOutput \"$env:TEMP\\\\mgm-server-out.txt\" -RedirectStandardError \"$env:TEMP\\\\mgm-server-err.txt\" -PassThru -NoNewWindow; Start-Sleep -Seconds 5; Get-Content \"$env:TEMP\\\\mgm-server-out.txt\" -Raw; Write-Host \"---STDERR---\"; Get-Content \"$env:TEMP\\\\mgm-server-err.txt\" -Raw; $proc.Kill\\(\\))"
+      "PowerShell(Set-Location \"c:\\\\Users\\\\varun.chaudhari\\\\my-projects\\\\mangal-gruh-mandir\\\\server\"; $proc = Start-Process -FilePath \"node\" -ArgumentList \"src/index.js\" -RedirectStandardOutput \"$env:TEMP\\\\mgm-server-out.txt\" -RedirectStandardError \"$env:TEMP\\\\mgm-server-err.txt\" -PassThru -NoNewWindow; Start-Sleep -Seconds 5; Get-Content \"$env:TEMP\\\\mgm-server-out.txt\" -Raw; Write-Host \"---STDERR---\"; Get-Content \"$env:TEMP\\\\mgm-server-err.txt\" -Raw; $proc.Kill\\(\\))",
+      "Bash(node -e \"const pkg = require\\('./node_modules/html5-qrcode/package.json'\\); console.log\\(pkg.version\\)\")"
     ]
   }
 }

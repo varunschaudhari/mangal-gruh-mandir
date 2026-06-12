@@ -340,30 +340,51 @@ export default function MahaprasadRedeem() {
   useEffect(() => {
     if (mode !== 'scan') return;
     decodedRef.current = false;
-    let html5QrCode;
+    let active = true;
 
-    import('html5-qrcode').then(({ Html5Qrcode }) => {
-      html5QrCode = new Html5Qrcode('qr-reader');
-      scannerInst.current = html5QrCode;
+    (async () => {
+      try {
+        const { Html5Qrcode } = await import('html5-qrcode');
+        if (!active) return;
 
-      html5QrCode.start(
-        { facingMode: 'environment' },
-        { fps: 10, qrbox: { width: 220, height: 220 } },
-        (decoded) => {
-          if (decodedRef.current) return;
-          decodedRef.current = true;
-          html5QrCode.stop().catch(() => {});
-          handleLookup(decoded.trim());
-        },
-        () => {}
-      ).catch(() => {
-        setMode('manual');
-        toast.error('Camera not available — use manual entry');
-      });
-    });
+        // Stop and clear any previous instance before starting fresh.
+        // clear() removes the video/canvas elements Html5Qrcode injected into
+        // the container — skipping this causes start() to fail on the 2nd scan.
+        const prev = scannerInst.current;
+        if (prev) {
+          try { await prev.stop(); } catch {}
+          try { await prev.clear(); } catch {}
+          scannerInst.current = null;
+        }
+        if (!active) return;
 
-    return () => { scannerInst.current?.stop().catch(() => {}); };
-  }, [mode, scanKey, handleLookup]); // scanKey bump forces camera restart after each scan
+        const qrCode = new Html5Qrcode('qr-reader');
+        scannerInst.current = qrCode;
+
+        await qrCode.start(
+          { facingMode: 'environment' },
+          { fps: 10, qrbox: { width: 220, height: 220 } },
+          (decoded) => {
+            if (decodedRef.current) return;
+            decodedRef.current = true;
+            qrCode.stop().catch(() => {});
+            handleLookup(decoded.trim());
+          },
+          () => {}
+        );
+      } catch {
+        if (active) {
+          setMode('manual');
+          toast.error('Camera not available — use manual entry');
+        }
+      }
+    })();
+
+    return () => {
+      active = false;
+      scannerInst.current?.stop().catch(() => {});
+    };
+  }, [mode, scanKey, handleLookup]);
 
   useEffect(() => {
     if (mode === 'manual') inputRef.current?.focus();
@@ -530,7 +551,13 @@ export default function MahaprasadRedeem() {
           { key: 'manual', label: 'Manual Entry', icon: KeyboardIcon },
         ].map(({ key, label, icon: Icon }) => (
           <button key={key}
-            onClick={() => { setMode(key); setCoupon(null); setError(''); setJustRedeemed(false); setCountdown(null); }}
+            onClick={() => {
+              setCoupon(null); setError(''); setJustRedeemed(false); setCountdown(null);
+              setMode(key);
+              // Always bump scanKey when switching to (or reselecting) scan mode
+              // so the camera restarts even if mode didn't change.
+              if (key === 'scan') setScanKey((k) => k + 1);
+            }}
             className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-medium transition-all ${
               mode === key ? 'bg-primary-600 text-white shadow-sm' : 'text-gray-500 hover:bg-gray-50'
             }`}>
