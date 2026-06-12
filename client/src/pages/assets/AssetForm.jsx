@@ -1,11 +1,13 @@
 import { useEffect } from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, Controller } from 'react-hook-form';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Package, Tag, IndianRupee, CheckCircle2, Handshake } from 'lucide-react';
+import { Package, Tag, IndianRupee, CheckCircle2, Handshake, QrCode } from 'lucide-react';
 import { getAsset, createAsset, updateAsset } from '../../api/asset.api.js';
 import PageHeader from '../../components/ui/PageHeader.jsx';
+import DatePickerField from '../../components/ui/DatePickerField.jsx';
 import { PageLoader } from '../../components/ui/Spinner.jsx';
+import { printAssetLabels } from '../../utils/assetLabel.js';
 import toast from 'react-hot-toast';
 
 const CATEGORIES = ['Electronics', 'Utensils', 'Furniture', 'Mandap', 'Vessels', 'Decoration', 'Other'];
@@ -27,9 +29,10 @@ const AssetForm = () => {
   const navigate = useNavigate();
   const qc = useQueryClient();
 
-  const { register, handleSubmit, reset, formState: { errors } } = useForm({
+  const { register, handleSubmit, reset, control, watch, formState: { errors } } = useForm({
     defaultValues: { isActive: true, isBorrowable: true, finePerDay: 0, category: 'Other' },
   });
+  const assetCodeDisplay = watch('assetCode');
 
   const { data: assetRes, isLoading } = useQuery({
     queryKey: ['asset', id], queryFn: () => getAsset(id), enabled: isEdit,
@@ -56,6 +59,15 @@ const AssetForm = () => {
       <PageHeader
         title={isEdit ? 'Edit Asset' : 'New Asset'}
         breadcrumbs={[{ label: 'Assets', to: '/assets' }, { label: isEdit ? 'Edit' : 'New' }]}
+        actions={isEdit && assetCodeDisplay && (
+          <button
+            type="button"
+            onClick={() => printAssetLabels([assetRes?.data?.data])}
+            className="btn-secondary flex items-center gap-2 text-sm"
+          >
+            <QrCode className="h-4 w-4" /> Print Label
+          </button>
+        )}
       />
 
       <form onSubmit={handleSubmit((d) => mutation.mutate(d))} className="space-y-4">
@@ -97,6 +109,17 @@ const AssetForm = () => {
                   />
                 </div>
               </Field>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <DatePickerField name="purchaseDate" control={control} label="Purchase Date" />
+              {isEdit && assetCodeDisplay && (
+                <Field label="Asset Code" hint="Auto-assigned, used on labels">
+                  <div className="input bg-gray-50 text-gray-500 font-mono font-semibold select-all">
+                    {assetCodeDisplay}
+                  </div>
+                </Field>
+              )}
             </div>
 
             <Field label="Description">

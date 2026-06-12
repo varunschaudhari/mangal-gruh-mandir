@@ -62,6 +62,13 @@ import InvoiceRegister from './pages/payments/InvoiceRegister.jsx';
 import PurchaseRegister from './pages/purchases/PurchaseRegister.jsx';
 import NewPurchaseEntry from './pages/purchases/NewPurchaseEntry.jsx';
 import PurchaseEntryDetail from './pages/purchases/PurchaseEntryDetail.jsx';
+import MahaprasadCounter from './pages/mahaprasad/MahaprasadCounter.jsx';
+import MahaprasadRedeem from './pages/mahaprasad/MahaprasadRedeem.jsx';
+import MahaprasadHistory from './pages/mahaprasad/MahaprasadHistory.jsx';
+import MahaprasadReport from './pages/mahaprasad/MahaprasadReport.jsx';
+import MahaprasadOccasionList from './pages/mahaprasad/MahaprasadOccasionList.jsx';
+import OccasionsManager from './pages/admin/OccasionsManager.jsx';
+import AssetUnitList from './pages/assets/AssetUnitList.jsx';
 
 const App = () => (
   <Routes>
@@ -129,6 +136,7 @@ const App = () => (
         <Route path="/assets/reports" element={<AssetReports />} />
         <Route path="/assets/upcoming" element={<UpcomingReturns />} />
         <Route path="/assets/:id/history" element={<AssetHistory />} />
+        <Route path="/assets/:id/units"   element={<AssetUnitList />} />
         <Route path="/assets/borrowers/:userId" element={<BorrowerHistory />} />
 
         {/* Donations */}
@@ -150,6 +158,13 @@ const App = () => (
         <Route path="/purchases/new" element={<NewPurchaseEntry />} />
         <Route path="/purchases/:id" element={<PurchaseEntryDetail />} />
 
+        {/* Mahaprasad */}
+        <Route path="/mahaprasad"         element={<MahaprasadCounter />} />
+        <Route path="/mahaprasad/redeem"  element={<MahaprasadRedeem />} />
+        <Route path="/mahaprasad/history" element={<MahaprasadHistory />} />
+        <Route path="/mahaprasad/report"    element={<MahaprasadReport />} />
+        <Route path="/mahaprasad/occasions" element={<MahaprasadOccasionList />} />
+
         {/* Settings */}
         <Route path="/settings" element={<Settings />} />
 
@@ -158,6 +173,7 @@ const App = () => (
         <Route path="/admin/users/new" element={<UserForm />} />
         <Route path="/admin/users/:id/edit" element={<UserForm />} />
         <Route path="/admin/donation-occasions" element={<DonationOccasionList />} />
+        <Route path="/admin/occasions" element={<OccasionsManager />} />
         <Route path="/admin/roles" element={<RoleList />} />
         <Route path="/admin/roles/new" element={<RoleForm />} />
         <Route path="/admin/roles/:id/edit" element={<RoleForm />} />

@@ -81,7 +81,25 @@
       "Bash(node --check src/controllers/supplierPayment.controller.js)",
       "Bash(node --check src/seeds/testData.seed.js)",
       "Bash(Get-ChildItem -Path \"c:\\\\Users\\\\varun.chaudhari\\\\my-projects\\\\mangal-gruh-mandir\" -Directory)",
-      "Bash(Get-ChildItem -Path \"c:\\\\Users\\\\varun.chaudhari\\\\my-projects\\\\mangal-gruh-mandir\\\\client\\\\src\\\\pages\\\\reports\" -File)"
+      "Bash(Get-ChildItem -Path \"c:\\\\Users\\\\varun.chaudhari\\\\my-projects\\\\mangal-gruh-mandir\\\\client\\\\src\\\\pages\\\\reports\" -File)",
+      "Bash(cat)",
+      "Read(//tmp/**)",
+      "Bash(Get-ChildItem -Recurse -Name)",
+      "Bash(node -e \"const p=require\\('./package.json'\\); const deps={...p.dependencies,...p.devDependencies}; console.log\\('qrcode:', !!deps['qrcode']\\); console.log\\('pdfkit:', !!deps['pdfkit']\\);\")",
+      "Bash(node -e \"const p=require\\('./package.json'\\); const deps={...p.dependencies,...p.devDependencies}; console.log\\('html5-qrcode:', !!deps['html5-qrcode']\\); console.log\\('jsqr:', !!deps['jsqr']\\); console.log\\('@zxing/browser:', !!deps['@zxing/browser']\\);\")",
+      "Bash(node -e \"const p=require\\('./package.json'\\); console.log\\('nanoid:', !!p.dependencies['nanoid']\\);\")",
+      "Bash(xargs grep -l \"mahaprasad\\\\|Role\\\\|permission\")",
+      "Bash(xargs grep -l \"donations:read\\\\|assets:read\\\\|payments:read\")",
+      "Bash(netstat -ano)",
+      "Bash(findstr \":3000\")",
+      "Bash(tasklist /FI \"PID eq 11572\" /FO LIST)",
+      "Bash(tasklist /FI \"PID eq 26196\" /FO LIST)",
+      "PowerShell(Get-Process -Id 11572, 26196)",
+      "Bash(node -e \"const { createRequire } = require\\('module'\\); const r = createRequire\\(import.meta.url ?? __filename\\); console.log\\(r\\('./node_modules/qrcode/package.json'\\).version\\);\")",
+      "Bash(node -e \"console.log\\(require\\('./node_modules/qrcode/package.json'\\).version\\)\")",
+      "Bash(node -e \"import\\('./src/seeds/backfillAssetCodes.js'\\)\")",
+      "Bash(npx vite *)",
+      "PowerShell(Set-Location \"c:\\\\Users\\\\varun.chaudhari\\\\my-projects\\\\mangal-gruh-mandir\\\\server\"; $proc = Start-Process -FilePath \"node\" -ArgumentList \"src/index.js\" -RedirectStandardOutput \"$env:TEMP\\\\mgm-server-out.txt\" -RedirectStandardError \"$env:TEMP\\\\mgm-server-err.txt\" -PassThru -NoNewWindow; Start-Sleep -Seconds 5; Get-Content \"$env:TEMP\\\\mgm-server-out.txt\" -Raw; Write-Host \"---STDERR---\"; Get-Content \"$env:TEMP\\\\mgm-server-err.txt\" -Raw; $proc.Kill\\(\\))"
     ]
   }
 }

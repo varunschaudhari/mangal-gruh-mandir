@@ -27,6 +27,7 @@ export const ALL_PERMISSIONS = [
   'transactions:read', 'transactions:create', 'transactions:delete',
   'reports:read',
   'assets:read', 'assets:write', 'assets:manage',
+  'mahaprasad:read', 'mahaprasad:issue', 'mahaprasad:redeem',
 ];
 
 export const PERMISSION_GROUPS = {
@@ -35,6 +36,7 @@ export const PERMISSION_GROUPS = {
   Transactions: ['transactions:read', 'transactions:create', 'transactions:delete'],
   Reports:      ['reports:read'],
   Assets:       ['assets:read', 'assets:write', 'assets:manage'],
+  Mahaprasad:   ['mahaprasad:read', 'mahaprasad:issue', 'mahaprasad:redeem'],
 };
 
 const Role = mongoose.model('Role', roleSchema);

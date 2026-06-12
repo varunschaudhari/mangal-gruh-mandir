@@ -65,10 +65,10 @@ const StockIn = () => {
   const dupCheck = dupRes?.data?.data;
 
   const { data: deptsRes } = useQuery({ queryKey: ['departments'], queryFn: () => getDepartments() });
-  const { data: suppliersRes } = useQuery({ queryKey: ['suppliers'], queryFn: () => getSuppliers({ isActive: true, limit: 100 }) });
+  const { data: suppliersRes } = useQuery({ queryKey: ['suppliers'], queryFn: () => getSuppliers({ active: true }) });
 
   const departments = deptsRes?.data?.data || [];
-  const suppliers = suppliersRes?.data?.data?.suppliers || suppliersRes?.data?.data || [];
+  const suppliers = suppliersRes?.data?.data || [];
 
   const grandTotal = items.reduce((sum, item) => {
     return sum + (parseFloat(item.quantity) || 0) * (parseFloat(item.rate) || 0);

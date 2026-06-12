@@ -3,6 +3,7 @@ import ApiError from '../utils/ApiError.js';
 import ApiResponse from '../utils/ApiResponse.js';
 import asyncHandler from '../utils/asyncHandler.js';
 import { generateProductCode } from '../utils/helpers.js';
+import { logAction } from '../services/audit.service.js';
 
 export const getProducts = asyncHandler(async (req, res) => {
   const { search, category, active, pujaItem } = req.query;
@@ -38,6 +39,7 @@ export const createProduct = asyncHandler(async (req, res) => {
   if (!req.body.code) req.body.code = await generateProductCode();
 
   const product = await Product.create({ ...req.body, createdBy: req.user._id });
+  logAction(req, { action: 'product.create', entity: 'Product', entityId: String(product._id), entityRef: product.name });
   const populated = await Product.findById(product._id)
     .populate('category', 'name code')
     .populate('unit', 'name symbol');
@@ -46,17 +48,29 @@ export const createProduct = asyncHandler(async (req, res) => {
 
 export const updateProduct = asyncHandler(async (req, res) => {
   delete req.body.code; // code is immutable after creation
+  const existing = await Product.findById(req.params.id).lean();
+  if (!existing) throw new ApiError(404, 'Product not found');
   const product = await Product.findByIdAndUpdate(req.params.id, req.body, {
     returnDocument: 'after', runValidators: true,
   })
     .populate('category', 'name code')
     .populate('unit', 'name symbol');
-  if (!product) throw new ApiError(404, 'Product not found');
+  const diffKeys = ['name', 'isActive', 'rate', 'reorderPoint', 'minStockLevel', 'alertEnabled'];
+  const before = {}, after = {};
+  diffKeys.forEach((k) => {
+    if (req.body[k] !== undefined && String(existing[k]) !== String(req.body[k])) {
+      before[k] = existing[k]; after[k] = req.body[k];
+    }
+  });
+  if (Object.keys(after).length) {
+    logAction(req, { action: 'product.update', entity: 'Product', entityId: String(req.params.id), entityRef: existing.name, before, after });
+  }
   res.json(new ApiResponse(200, product, 'Product updated'));
 });
 
 export const deleteProduct = asyncHandler(async (req, res) => {
   const product = await Product.findByIdAndDelete(req.params.id);
   if (!product) throw new ApiError(404, 'Product not found');
+  logAction(req, { action: 'product.delete', entity: 'Product', entityId: String(product._id), entityRef: product.name });
   res.json(new ApiResponse(200, null, 'Product deleted'));
 });

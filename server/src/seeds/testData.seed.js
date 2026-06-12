@@ -33,8 +33,26 @@ import { generateTransactionNumber } from '../services/transactionNumber.service
 import { generatePaymentNumber } from '../services/paymentNumber.service.js';
 import PurchaseEntry from '../models/PurchaseEntry.js';
 import { generatePurchaseEntryNumber } from '../services/purchaseEntryNumber.service.js';
+import MahaprasadCoupon from '../models/MahaprasadCoupon.js';
+import DailyCounter from '../models/DailyCounter.js';
+import MahaprasadOccasion from '../models/MahaprasadOccasion.js';
+import StockBatch from '../models/StockBatch.js';
+import StockBalance from '../models/StockBalance.js';
+import AssetUnit from '../models/AssetUnit.js';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function padUnitNum(num, total) {
+  return String(num).padStart(total > 99 ? 3 : 2, '0');
+}
+async function generateUnitsForRange(asset, startNum, endNum) {
+  const docs = [];
+  for (let i = startNum; i <= endNum; i++) {
+    docs.push({ asset: asset._id, unitCode: `${asset.assetCode}-${padUnitNum(i, asset.totalQuantity)}`, unitNumber: i });
+  }
+  if (docs.length) await AssetUnit.insertMany(docs, { ordered: false });
+  return docs.length;
+}
 
 const daysAgo = (n, hour = 10) => {
   const d = new Date();
@@ -106,22 +124,26 @@ async function createTxn({
 const seed = async () => {
   await connectDB();
 
-  // Skip if already seeded with updated data
-  const alreadyNew = await Product.findOne({ code: 'TOOR-DAL' });
-  if (alreadyNew) {
-    console.log('⚠  Updated test data already exists (TOOR-DAL found). Skipping.');
-    await mongoose.disconnect();
-    return;
-  }
-
-  // Warn if old seed data exists
-  const oldData = await Product.findOne({ code: 'RICE-BAS' });
-  if (oldData) {
-    console.log('⚠  Old test data found (RICE-BAS). Clear the DB first then re-run:');
-    console.log('   node src/seeds/index.js && node src/seeds/testData.seed.js');
-    await mongoose.disconnect();
-    return;
-  }
+  // Clear all transactional data before re-seeding
+  console.log('\n🗑   Clearing existing data...');
+  await Promise.all([
+    Product.deleteMany({}),
+    Supplier.deleteMany({}),
+    User.deleteMany({ role: { $ne: 'super_admin' } }),
+    StockTransaction.deleteMany({}),
+    StockBatch.deleteMany({}),
+    StockBalance.deleteMany({}),
+    Donation.deleteMany({}),
+    SupplierPayment.deleteMany({}),
+    Asset.deleteMany({}),
+    AssetUnit.deleteMany({}),
+    AssetTransaction.deleteMany({}),
+    BorrowGroup.deleteMany({}),
+    PurchaseEntry.deleteMany({}),
+    MahaprasadCoupon.deleteMany({}),
+    DailyCounter.deleteMany({}),
+  ]);
+  console.log('  ✓ Cleared\n');
 
   console.log('\n🌱  Seeding 3-month test data...\n');
 
@@ -1141,27 +1163,38 @@ const seed = async () => {
     reg80GFrom:         new Date('2023-04-01'),
     reg80GTo:           new Date('2026-03-31'),
     assetMaxBorrowDays: 7,
+    mahaprasadDayPricing: { monday: 25, tuesday: 63, wednesday: 25, thursday: 63, friday: 25, saturday: 63, sunday: 63 },
+    mahaprasadDailyCap:           2500,
+    mahaprasadCouponValidityDays: 1,
+    mahaprasadPrinterName:        '',
   });
-  console.log('  ✓ Settings (temple info + 80G registration)');
+  console.log('  ✓ Settings (temple info + 80G registration + mahaprasad settings)');
 
   // ── 8. Assets ────────────────────────────────────────────────────────────────
 
   console.log('\nCreating assets...');
   const [speakers, paAmp, chairs, tables, shamiana, mandapSet, brassVessel, copperKalash, floodlights, generator, projScreen, decoLights] = await Promise.all([
-    Asset.create({ name: 'Speaker System',            category: 'Electronics', description: 'PA tower speakers — 15" woofers, 2 units',         totalQuantity: 2,   finePerDay: 50,  isBorrowable: true,  isActive: true, createdBy: adminUser._id }),
-    Asset.create({ name: 'PA Amplifier',              category: 'Electronics', description: '1000W amplifier with mixer and 2 mic stands',      totalQuantity: 1,   finePerDay: 30,  isBorrowable: true,  isActive: true, createdBy: adminUser._id }),
-    Asset.create({ name: 'Plastic Chairs',            category: 'Furniture',   description: 'White plastic chairs for events',                   totalQuantity: 150, finePerDay: 2,   isBorrowable: true,  isActive: true, createdBy: adminUser._id }),
-    Asset.create({ name: 'Folding Tables',            category: 'Furniture',   description: 'Metal folding tables 6×2 ft',                       totalQuantity: 25,  finePerDay: 10,  isBorrowable: true,  isActive: true, createdBy: adminUser._id }),
-    Asset.create({ name: 'Shamiana / Tent',           category: 'Mandap',      description: 'Large event tent 20×30 ft with poles and ropes',   totalQuantity: 2,   finePerDay: 200, isBorrowable: true,  isActive: true, createdBy: adminUser._id }),
-    Asset.create({ name: 'Mandap Decoration Set',     category: 'Mandap',      description: 'Full mandap — pillars, backdrop, flower frame',     totalQuantity: 1,   finePerDay: 100, isBorrowable: true,  isActive: true, createdBy: adminUser._id }),
-    Asset.create({ name: 'Brass Puja Vessel (Patil)', category: 'Vessels',     description: 'Large brass patil, 50L capacity',                   totalQuantity: 8,   finePerDay: 20,  isBorrowable: true,  isActive: true, createdBy: adminUser._id }),
-    Asset.create({ name: 'Copper Kalash',             category: 'Vessels',     description: 'Decorated copper kalash for abhishek puja',         totalQuantity: 20,  finePerDay: 10,  isBorrowable: true,  isActive: true, createdBy: adminUser._id }),
-    Asset.create({ name: 'Halogen Flood Light',       category: 'Electronics', description: '500W halogen light on tripod stand',                totalQuantity: 6,   finePerDay: 30,  isBorrowable: true,  isActive: true, createdBy: adminUser._id }),
-    Asset.create({ name: 'Generator (7.5 KVA)',       category: 'Electronics', description: 'Diesel generator — Kirloskar 7.5 KVA',              totalQuantity: 1,   finePerDay: 300, isBorrowable: false, isActive: true, createdBy: adminUser._id }),
-    Asset.create({ name: 'Projection Screen',         category: 'Electronics', description: '10×8 ft projection screen on stand',                totalQuantity: 1,   finePerDay: 50,  isBorrowable: true,  isActive: true, createdBy: adminUser._id }),
-    Asset.create({ name: 'LED Decoration Lights',     category: 'Decoration',  description: 'LED string lights — 100m per set',                  totalQuantity: 10,  finePerDay: 20,  isBorrowable: true,  isActive: true, createdBy: adminUser._id }),
+    Asset.create({ assetCode: 'MGM-AST-001', name: 'Speaker System',            category: 'Electronics', description: 'PA tower speakers — 15" woofers, 2 units',         totalQuantity: 2,   purchaseDate: new Date('2018-09-15'), finePerDay: 50,  isBorrowable: true,  isActive: true, createdBy: adminUser._id }),
+    Asset.create({ assetCode: 'MGM-AST-002', name: 'PA Amplifier',              category: 'Electronics', description: '1000W amplifier with mixer and 2 mic stands',      totalQuantity: 1,   purchaseDate: new Date('2019-03-20'), finePerDay: 30,  isBorrowable: true,  isActive: true, createdBy: adminUser._id }),
+    Asset.create({ assetCode: 'MGM-AST-003', name: 'Plastic Chairs',            category: 'Furniture',   description: 'White plastic chairs for events',                   totalQuantity: 150, purchaseDate: new Date('2020-02-14'), finePerDay: 2,   isBorrowable: true,  isActive: true, createdBy: adminUser._id }),
+    Asset.create({ assetCode: 'MGM-AST-004', name: 'Folding Tables',            category: 'Furniture',   description: 'Metal folding tables 6×2 ft',                       totalQuantity: 25,  purchaseDate: new Date('2021-07-22'), finePerDay: 10,  isBorrowable: true,  isActive: true, createdBy: adminUser._id }),
+    Asset.create({ assetCode: 'MGM-AST-005', name: 'Shamiana / Tent',           category: 'Mandap',      description: 'Large event tent 20×30 ft with poles and ropes',   totalQuantity: 2,   purchaseDate: new Date('2017-08-20'), finePerDay: 200, isBorrowable: true,  isActive: true, createdBy: adminUser._id }),
+    Asset.create({ assetCode: 'MGM-AST-006', name: 'Mandap Decoration Set',     category: 'Mandap',      description: 'Full mandap — pillars, backdrop, flower frame',     totalQuantity: 1,   purchaseDate: new Date('2022-10-05'), finePerDay: 100, isBorrowable: true,  isActive: true, createdBy: adminUser._id }),
+    Asset.create({ assetCode: 'MGM-AST-007', name: 'Brass Puja Vessel (Patil)', category: 'Vessels',     description: 'Large brass patil, 50L capacity',                   totalQuantity: 8,   purchaseDate: new Date('2015-06-10'), finePerDay: 20,  isBorrowable: true,  isActive: true, createdBy: adminUser._id }),
+    Asset.create({ assetCode: 'MGM-AST-008', name: 'Copper Kalash',             category: 'Vessels',     description: 'Decorated copper kalash for abhishek puja',         totalQuantity: 20,  purchaseDate: new Date('2014-11-15'), finePerDay: 10,  isBorrowable: true,  isActive: true, createdBy: adminUser._id }),
+    Asset.create({ assetCode: 'MGM-AST-009', name: 'Halogen Flood Light',       category: 'Electronics', description: '500W halogen light on tripod stand',                totalQuantity: 6,   purchaseDate: new Date('2019-11-08'), finePerDay: 30,  isBorrowable: true,  isActive: true, createdBy: adminUser._id }),
+    Asset.create({ assetCode: 'MGM-AST-010', name: 'Generator (7.5 KVA)',       category: 'Electronics', description: 'Diesel generator — Kirloskar 7.5 KVA',              totalQuantity: 1,   purchaseDate: new Date('2023-08-30'), finePerDay: 300, isBorrowable: false, isActive: true, createdBy: adminUser._id }),
+    Asset.create({ assetCode: 'MGM-AST-011', name: 'Projection Screen',         category: 'Electronics', description: '10×8 ft projection screen on stand',                totalQuantity: 1,   purchaseDate: new Date('2022-01-18'), finePerDay: 50,  isBorrowable: true,  isActive: true, createdBy: adminUser._id }),
+    Asset.create({ assetCode: 'MGM-AST-012', name: 'LED Decoration Lights',     category: 'Decoration',  description: 'LED string lights — 100m per set',                  totalQuantity: 10,  purchaseDate: new Date('2023-03-15'), finePerDay: 20,  isBorrowable: true,  isActive: true, createdBy: adminUser._id }),
   ]);
-  console.log('  ✓ 12 assets (11 borrowable, 1 not borrowable)');
+
+  // Generate AssetUnit docs for all assets
+  const allAssets = [speakers, paAmp, chairs, tables, shamiana, mandapSet, brassVessel, copperKalash, floodlights, generator, projScreen, decoLights];
+  let totalUnitsCreated = 0;
+  for (const ast of allAssets) {
+    totalUnitsCreated += await generateUnitsForRange(ast, 1, ast.totalQuantity);
+  }
+  console.log(`  ✓ 12 assets (11 borrowable, 1 not borrowable) with ${totalUnitsCreated} unit docs`);
 
   // ── 9. Borrow History (Groups + Transactions) ─────────────────────────────────
 
@@ -1407,6 +1440,134 @@ const seed = async () => {
 
   console.log('  ✓ 3 low-stock triggers: GUR ~0.5 kg, KAPR ~20 g, FLWR-MRG ~4 kg (all below reorder points)');
 
+  // ── 15. Mahaprasad Occasions + Coupons ───────────────────────────────────
+
+  console.log('\nSeeding Mahaprasad data...');
+
+  const MP_OCCASIONS = [
+    { name: 'Ekadashi',           sortOrder: 1  },
+    { name: 'Ram Navami',         sortOrder: 2  },
+    { name: 'Janmashtami',        sortOrder: 3  },
+    { name: 'Navratri',           sortOrder: 4  },
+    { name: 'Ganesh Utsav',       sortOrder: 5  },
+    { name: 'Diwali',             sortOrder: 6  },
+    { name: 'Holi',               sortOrder: 7  },
+    { name: 'Maha Shivratri',     sortOrder: 8  },
+    { name: 'Annadan Seva',       sortOrder: 9  },
+    { name: 'Prasad Sponsorship', sortOrder: 10 },
+    { name: 'Temple Anniversary', sortOrder: 11 },
+    { name: 'Special Programme',  sortOrder: 12 },
+  ];
+  for (const o of MP_OCCASIONS) {
+    await MahaprasadOccasion.updateOne({ name: o.name }, { $setOnInsert: o }, { upsert: true });
+  }
+  console.log(`  ✓ ${MP_OCCASIONS.length} Mahaprasad occasions`);
+
+  // Day-of-week pricing matching Settings [Sun, Mon, Tue, Wed, Thu, Fri, Sat]
+  const MP_DAY_PRICES = [63, 25, 63, 25, 63, 25, 63];
+
+  // Deterministic variation keyed by (daysBack, salt) — no Math.random so seed is reproducible
+  const mpVar = (daysBack, salt, range) => ((daysBack * 1597 + salt * 6271) & 0x7fff) % range;
+
+  // Festival occasions by daysAgo value
+  const MP_SPECIAL = {
+    91:  'Holi',
+    84:  'Ekadashi',
+    76:  'Ekadashi',
+    63:  'Annadan Seva',
+    57:  'Ram Navami',
+    51:  'Hanuman Jayanti',
+    45:  'Annadan Seva',
+    42:  'Ekadashi',
+    28:  'Ekadashi',
+    14:  'Annadan Seva',
+    7:   'Ekadashi',
+    1:   'Ekadashi',
+  };
+
+  let mpTotalSeeded = 0;
+
+  // issue staff = mukesh (staff1), redeem staff = kavita (staff2) — loaded in section 9
+  const seedMahaprasadDay = async ({ dateObj, paid, free, redeemed, occasion, price }) => {
+    const ymd     = dateObj.toISOString().slice(0, 10).replace(/-/g, '');
+    const total   = paid + free;
+    if (total === 0) return 0;
+    const batchSz = Math.ceil(total / 3) || 1;
+    const docs    = [];
+    let seq = 1;
+
+    const push = (type, amount, occ) => {
+      const batchNum = Math.ceil(seq / batchSz);
+      const issuedAt = new Date(dateObj.getTime() + seq * 12_000);
+      const isRed    = seq <= redeemed;
+      const doc = {
+        couponNumber: `MP-${ymd}-${String(seq).padStart(3, '0')}`,
+        date:     dateObj,
+        type,
+        amount,
+        occasion: occ,
+        status:   isRed ? 'redeemed' : 'issued',
+        issuedBy: mukesh._id,
+        issuedAt,
+        batchId:  `${ymd}-B${String(batchNum).padStart(2, '0')}`,
+      };
+      if (isRed) {
+        doc.redeemedBy = kavita._id;
+        doc.redeemedAt = new Date(issuedAt.getTime() + 40 * 60_000);
+      }
+      docs.push(doc);
+      seq++;
+    };
+
+    for (let i = 0; i < paid; i++) push('paid', price, '');
+    for (let i = 0; i < free; i++) push('free', 0, occasion);
+
+    if (docs.length) await MahaprasadCoupon.insertMany(docs);
+    await DailyCounter.updateOne(
+      { module: 'mahaprasad', date: ymd },
+      { $set: { count: total } },
+      { upsert: true },
+    );
+    return total;
+  };
+
+  // 103 days: March 1 — June 12, 2026 (today)
+  console.log('  Generating 103 days of mahaprasad coupon history...');
+  for (let daysBack = 103; daysBack >= 0; daysBack--) {
+    const dateObj  = daysAgo(daysBack, 8);
+    const dow      = dateObj.getDay();              // 0=Sun … 6=Sat
+    const price    = MP_DAY_PRICES[dow];
+    const occasion = MP_SPECIAL[daysBack] || '';
+    const isSpec   = !!occasion;
+    const isSun    = dow === 0;
+    const isSat    = dow === 6;
+
+    let paid, free, redeemed;
+    if (daysBack === 0) {
+      // today — partial day (morning session only)
+      paid = 32; free = 10; redeemed = 25;
+    } else if (isSpec) {
+      paid     = 150 + mpVar(daysBack, 1, 150);
+      free     = 50  + mpVar(daysBack, 2, 50);
+      redeemed = Math.floor((paid + free) * 0.95);
+    } else if (isSun) {
+      paid     = 80  + mpVar(daysBack, 3, 50);
+      free     = 20  + mpVar(daysBack, 4, 20);
+      redeemed = Math.floor((paid + free) * 0.93);
+    } else if (isSat) {
+      paid     = 60  + mpVar(daysBack, 5, 40);
+      free     = 10  + mpVar(daysBack, 6, 20);
+      redeemed = Math.floor((paid + free) * 0.90);
+    } else {
+      paid     = 30  + mpVar(daysBack, 7, 40);
+      free     = 5   + mpVar(daysBack, 8, 15);
+      redeemed = Math.floor((paid + free) * 0.88);
+    }
+
+    mpTotalSeeded += await seedMahaprasadDay({ dateObj, paid, free, redeemed, occasion, price });
+  }
+  console.log(`  ✓ ${mpTotalSeeded} coupons (103 days: March 1 — June 12, 2026; today partial — 42 issued)`);
+
   // ─── Done ─────────────────────────────────────────────────────────────────
 
   // ── Create PurchaseEntry records from purchase transactions ──
@@ -1472,7 +1633,8 @@ const seed = async () => {
   console.log(`   Supplier Payments  : ${payCount} (approved, pending, rejected + re-submission)`);
   console.log(`   Assets             : ${assetCount} (11 borrowable, 1 not)`);
   console.log(`   Borrow Transactions: ${finalBorrowCount} (returned/overdue/active/pending/cancelled/extended/fine-waived)`);
-  console.log(`   Settings           : temple info + 80G registration configured\n`);
+  console.log(`   Settings           : temple info + 80G + mahaprasad settings (₹50/plate, cap 2500)`);
+  console.log(`   Mahaprasad Coupons : ${mpTotalSeeded} (7 days history + today — 42 issued today, 25 redeemed)\n`);
   console.log('Login Credentials:');
   console.log('   Super Admin   : admin@mandir.com     / Admin@1234');
   console.log('   Store Manager : manager@mandir.com   / Manager@123  [can approve payments]');

@@ -25,6 +25,7 @@ export const updateSettings = asyncHandler(async (req, res) => {
     alertOnOutOfStock, alertOnLowStock, alertOnReorder,
     trustPAN, reg80GNumber, reg80GFrom, reg80GTo,
     assetMaxBorrowDays,
+    mahaprasadDayPricing, mahaprasadDailyCap, mahaprasadCouponValidityDays, mahaprasadPrinterName,
   } = req.body;
 
   if (templeName    !== undefined) settings.templeName    = templeName;
@@ -53,6 +54,17 @@ export const updateSettings = asyncHandler(async (req, res) => {
   if (reg80GTo     !== undefined) settings.reg80GTo     = reg80GTo || undefined;
 
   if (assetMaxBorrowDays !== undefined) settings.assetMaxBorrowDays = assetMaxBorrowDays;
+
+  if (mahaprasadDayPricing !== undefined && typeof mahaprasadDayPricing === 'object') {
+    const days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+    days.forEach((day) => {
+      if (mahaprasadDayPricing[day] !== undefined) settings.mahaprasadDayPricing[day] = mahaprasadDayPricing[day];
+    });
+    settings.markModified('mahaprasadDayPricing');
+  }
+  if (mahaprasadDailyCap           !== undefined) settings.mahaprasadDailyCap           = mahaprasadDailyCap;
+  if (mahaprasadCouponValidityDays !== undefined) settings.mahaprasadCouponValidityDays = mahaprasadCouponValidityDays;
+  if (mahaprasadPrinterName        !== undefined) settings.mahaprasadPrinterName        = mahaprasadPrinterName;
 
   await settings.save();
   const changedKeys = Object.keys(req.body).filter((k) => req.body[k] !== undefined && !['waAccessToken', 'msg91AuthKey'].includes(k));

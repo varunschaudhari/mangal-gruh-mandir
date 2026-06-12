@@ -12,9 +12,14 @@
     "seed:assets": "node src/seeds/assetTestData.seed.js",
     "seed:all": "node src/seeds/index.js && node src/seeds/testData.seed.js",
     "migrate:assets": "node src/migrations/addAssetPermissions.js",
-    "add:supplier":  "node src/seeds/addSupplier.js",
-    "reset:assets":    "node src/seeds/resetAssets.js",
-    "seed:occasions":  "node src/seeds/donationOccasions.seed.js"
+    "migrate:mahaprasad": "node src/migrations/addMahaprasadPermissions.js",
+    "seed:mahaprasad-occasions": "node src/seeds/mahaprasadOccasions.seed.js",
+    "add:supplier": "node src/seeds/addSupplier.js",
+    "reset:assets": "node src/seeds/resetAssets.js",
+    "seed:occasions": "node src/seeds/donationOccasions.seed.js",
+    "reset:admin": "node src/seeds/resetAdminPassword.js",
+    "backfill:asset-codes": "node src/seeds/backfillAssetCodes.js",
+    "backfill:asset-units": "node src/seeds/backfillAssetUnits.js"
   },
   "dependencies": {
     "axios": "^1.17.0",
@@ -29,7 +34,8 @@
     "jsonwebtoken": "^9.0.3",
     "mongoose": "^9.6.2",
     "morgan": "^1.10.1",
-    "pdfkit": "^0.18.0"
+    "pdfkit": "^0.18.0",
+    "qrcode": "^1.5.4"
   },
   "devDependencies": {
     "nodemon": "^3.1.14"

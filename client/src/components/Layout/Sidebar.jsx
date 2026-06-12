@@ -6,7 +6,7 @@ import {
   Trash2, Package, Warehouse, Users, Tag, Ruler, Truck, Shield,
   ChevronDown, ChevronRight, FlameKindling, History, AlertTriangle, BookOpen, CalendarClock,
   X, Armchair, ClipboardList, Settings2, BarChart2, TrendingUp, Heart, CreditCard, Plus,
-  ShoppingCart, BookTemplate, FileText,
+  ShoppingCart, BookTemplate, FileText, Utensils, ScanLine, BarChart3,
 } from 'lucide-react';
 import { usePermissions } from '../../hooks/usePermissions.js';
 import { getAssetCounts } from '../../api/assetTransaction.api.js';
@@ -53,10 +53,22 @@ const navConfig = [
     icon: CreditCard,
     permission: 'payments:read',
     children: [
-      { label: 'All Payments',    to: '/payments',              icon: CreditCard,    permission: 'payments:read'  },
-      { label: 'Record Payment',  to: '/payments/new',          icon: Plus,          permission: 'payments:write' },
-      { label: 'Upcoming Dues',   to: '/payments/upcoming',     icon: CalendarClock, permission: 'payments:read'  },
-      { label: 'Templates',       to: '/payments/templates',    icon: BookTemplate,  permission: 'payments:write' },
+      { label: 'All Payments',      to: '/payments',                   icon: CreditCard,    permission: 'payments:read'  },
+      { label: 'Record Payment',    to: '/payments/new',               icon: Plus,          permission: 'payments:write' },
+      { label: 'Invoice Register',  to: '/payments/invoice-register',  icon: FileText,      permission: 'payments:read'  },
+      { label: 'Upcoming Dues',     to: '/payments/upcoming',          icon: CalendarClock, permission: 'payments:read'  },
+      { label: 'Templates',         to: '/payments/templates',         icon: BookTemplate,  permission: 'payments:write' },
+    ],
+  },
+  {
+    label: 'Mahaprasad',
+    icon: Utensils,
+    permission: 'mahaprasad:read',
+    children: [
+      { label: 'Issue Coupons', to: '/mahaprasad',          icon: Utensils,  permission: 'mahaprasad:issue'  },
+      { label: 'Redeem',        to: '/mahaprasad/redeem',  icon: ScanLine,  permission: 'mahaprasad:redeem' },
+      { label: 'History',       to: '/mahaprasad/history', icon: History,   permission: 'mahaprasad:read'   },
+      { label: 'Report',        to: '/mahaprasad/report',  icon: BarChart3, permission: 'mahaprasad:read'   },
     ],
   },
   {
@@ -64,9 +76,8 @@ const navConfig = [
     icon: Heart,
     permission: 'donations:read',
     children: [
-      { label: 'History',   to: '/donations',                icon: History, permission: 'donations:read'  },
-      { label: 'New Entry', to: '/donations/new',            icon: Heart,   permission: 'donations:write' },
-      { label: 'Occasions', to: '/admin/donation-occasions', icon: Tag,     permission: 'masters:write'   },
+      { label: 'History',   to: '/donations',     icon: History, permission: 'donations:read'  },
+      { label: 'New Entry', to: '/donations/new', icon: Heart,   permission: 'donations:write' },
     ],
   },
   {
@@ -101,11 +112,12 @@ const navConfig = [
     icon: Tag,
     permission: 'masters:read',
     children: [
-      { label: 'Products',    to: '/masters/products',    icon: Package,   permission: 'masters:read' },
-      { label: 'Departments', to: '/masters/departments', icon: Warehouse, permission: 'masters:read' },
-      { label: 'Suppliers',   to: '/masters/suppliers',   icon: Truck,     permission: 'masters:read' },
-      { label: 'Categories',  to: '/masters/categories',  icon: Tag,       permission: 'masters:read' },
-      { label: 'Units',       to: '/masters/units',       icon: Ruler,     permission: 'masters:read' },
+      { label: 'Products',    to: '/masters/products',    icon: Package,   permission: 'masters:read'  },
+      { label: 'Departments', to: '/masters/departments', icon: Warehouse, permission: 'masters:read'  },
+      { label: 'Suppliers',   to: '/masters/suppliers',   icon: Truck,     permission: 'masters:read'  },
+      { label: 'Categories',  to: '/masters/categories',  icon: Tag,       permission: 'masters:read'  },
+      { label: 'Units',       to: '/masters/units',       icon: Ruler,     permission: 'masters:read'  },
+      { label: 'Occasions',   to: '/admin/occasions',     icon: Heart,     permission: 'masters:read'  },
     ],
   },
   {
@@ -113,9 +125,9 @@ const navConfig = [
     icon: Users,
     permission: 'users:read',
     children: [
-      { label: 'Users',     to: '/admin/users',      icon: Users,     permission: 'users:read' },
-      { label: 'Roles',     to: '/admin/roles',      icon: Shield,    permission: 'users:read' },
-      { label: 'Audit Log', to: '/admin/audit-log',  icon: History,   permission: 'users:read' },
+      { label: 'Users',     to: '/admin/users',      icon: Users,     permission: 'users:read'  },
+      { label: 'Roles',     to: '/admin/roles',      icon: Shield,    permission: 'users:read'  },
+      { label: 'Audit Log', to: '/admin/audit-log',  icon: History,   permission: 'users:read'  },
       { label: 'Settings',  to: '/settings',         icon: Settings2, permission: 'users:write' },
     ],
   },

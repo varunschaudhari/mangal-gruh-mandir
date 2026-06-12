@@ -20,9 +20,9 @@ const SupplierReport = () => {
 
   const { data: suppRes } = useQuery({
     queryKey: ['suppliers'],
-    queryFn: () => getSuppliers({ isActive: true, limit: 200 }),
+    queryFn: () => getSuppliers({ active: true }),
   });
-  const supplierOptions = suppRes?.data?.data?.suppliers || suppRes?.data?.data || [];
+  const supplierOptions = suppRes?.data?.data || [];
 
   const params = {
     ...(startDate  && { startDate: startDate.toISOString().split('T')[0] }),

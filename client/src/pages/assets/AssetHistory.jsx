@@ -1,9 +1,12 @@
-import { useNavigate, useParams } from 'react-router-dom';
+import { useState } from 'react';
+import { useNavigate, useParams, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { createColumnHelper } from '@tanstack/react-table';
-import { ArrowLeft, AlertTriangle, Package, CheckCircle2, Clock, IndianRupee } from 'lucide-react';
+import { ArrowLeft, AlertTriangle, Package, CheckCircle2, Clock, IndianRupee, QrCode, Layers } from 'lucide-react';
 import { getAsset } from '../../api/asset.api.js';
 import { getAssetTransactions } from '../../api/assetTransaction.api.js';
+import { printAssetLabels } from '../../utils/assetLabel.js';
+import AssetLabelModal from '../../components/assets/AssetLabelModal.jsx';
 import DataTable from '../../components/ui/DataTable.jsx';
 import Badge from '../../components/ui/Badge.jsx';
 import { PageLoader } from '../../components/ui/Spinner.jsx';
@@ -17,6 +20,7 @@ const fmt = (d) => d ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit',
 const AssetHistory = () => {
   const { id }   = useParams();
   const navigate = useNavigate();
+  const [showLabels, setShowLabels] = useState(false);
 
   const { data: assetRes, isLoading: assetLoading } = useQuery({
     queryKey: ['asset', id],
@@ -107,15 +111,36 @@ const AssetHistory = () => {
           <Package className="h-6 w-6 text-purple-600" />
         </div>
         <div className="flex-1">
-          <h1 className="text-xl font-bold text-gray-900">{asset?.name}</h1>
+          <div className="flex items-center gap-2 flex-wrap">
+            <h1 className="text-xl font-bold text-gray-900">{asset?.name}</h1>
+            {asset?.assetCode && (
+              <span className="font-mono text-xs font-bold text-orange-600 bg-orange-50 px-2 py-0.5 rounded">
+                {asset.assetCode}
+              </span>
+            )}
+          </div>
           <p className="text-sm text-gray-400">{asset?.category} · {asset?.totalQuantity} unit{asset?.totalQuantity > 1 ? 's' : ''} total</p>
         </div>
-        {asset?.finePerDay > 0 && (
-          <div className="text-right">
-            <p className="text-xs text-gray-400">Fine/day</p>
-            <p className="text-sm font-bold text-amber-700">₹{asset.finePerDay}</p>
-          </div>
-        )}
+        <div className="flex items-center gap-3 shrink-0">
+          {asset && (
+            <>
+              <Link to={`/assets/${id}/units`}
+                className="btn-secondary flex items-center gap-2 text-sm">
+                <Layers className="h-4 w-4" /> View Units
+              </Link>
+              <button onClick={() => setShowLabels(true)}
+                className="btn-secondary flex items-center gap-2 text-sm">
+                <QrCode className="h-4 w-4" /> Print Labels
+              </button>
+            </>
+          )}
+          {asset?.finePerDay > 0 && (
+            <div className="text-right">
+              <p className="text-xs text-gray-400">Fine/day</p>
+              <p className="text-sm font-bold text-amber-700">₹{asset.finePerDay}</p>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Stats strip */}
@@ -141,6 +166,10 @@ const AssetHistory = () => {
         loading={txnLoading}
         onRowClick={(row) => navigate(`/assets/borrows/${row._id}`)}
       />
+
+      {showLabels && asset && (
+        <AssetLabelModal asset={asset} onClose={() => setShowLabels(false)} />
+      )}
     </div>
   );
 };

@@ -7,6 +7,7 @@ import Unit from '../models/Unit.js';
 import User from '../models/User.js';
 import Role from '../models/Role.js';
 import DonationOccasion from '../models/DonationOccasion.js';
+import MahaprasadOccasion from '../models/MahaprasadOccasion.js';
 import { departments } from './departments.seed.js';
 import { categories } from './categories.seed.js';
 import { units } from './units.seed.js';
@@ -58,6 +59,26 @@ const seed = async () => {
     await DonationOccasion.updateOne({ name: o.name }, { $setOnInsert: o }, { upsert: true });
   }
   console.log(`✓ ${OCCASIONS.length} donation occasions`);
+
+  // Mahaprasad Occasions
+  const MP_OCCASIONS = [
+    { name: 'Ekadashi',           sortOrder: 1  },
+    { name: 'Ram Navami',         sortOrder: 2  },
+    { name: 'Janmashtami',        sortOrder: 3  },
+    { name: 'Navratri',           sortOrder: 4  },
+    { name: 'Ganesh Utsav',       sortOrder: 5  },
+    { name: 'Diwali',             sortOrder: 6  },
+    { name: 'Holi',               sortOrder: 7  },
+    { name: 'Maha Shivratri',     sortOrder: 8  },
+    { name: 'Annadan Seva',       sortOrder: 9  },
+    { name: 'Prasad Sponsorship', sortOrder: 10 },
+    { name: 'Temple Anniversary', sortOrder: 11 },
+    { name: 'Special Programme',  sortOrder: 12 },
+  ];
+  for (const o of MP_OCCASIONS) {
+    await MahaprasadOccasion.updateOne({ name: o.name }, { $setOnInsert: o }, { upsert: true });
+  }
+  console.log(`✓ ${MP_OCCASIONS.length} mahaprasad occasions`);
 
   // Super admin user
   const adminEmail = process.env.SEED_ADMIN_EMAIL || 'admin@mandir.com';

@@ -21,6 +21,14 @@ const ACTION_COLORS = {
   'settings.update':     'bg-gray-100 text-gray-800',
   'purchase.create':     'bg-teal-100 text-teal-800',
   'purchase.void':       'bg-red-100 text-red-800',
+  'product.create':      'bg-teal-100 text-teal-800',
+  'product.update':      'bg-yellow-100 text-yellow-800',
+  'product.delete':      'bg-red-100 text-red-800',
+  'asset.create':        'bg-purple-100 text-purple-800',
+  'asset.update':        'bg-yellow-100 text-yellow-800',
+  'asset.delete':        'bg-red-100 text-red-800',
+  'mahaprasad.issue':    'bg-green-100 text-green-800',
+  'mahaprasad.redeem':   'bg-blue-100 text-blue-800',
 };
 
 const ACTION_LABELS = {
@@ -41,9 +49,17 @@ const ACTION_LABELS = {
   'settings.update':      'Settings Updated',
   'purchase.create':      'Purchase Entry Created',
   'purchase.void':        'Purchase Entry Voided',
+  'product.create':       'Product Created',
+  'product.update':       'Product Updated',
+  'product.delete':       'Product Deleted',
+  'asset.create':         'Asset Created',
+  'asset.update':         'Asset Updated',
+  'asset.delete':         'Asset Deleted',
+  'mahaprasad.issue':     'Coupon Issued',
+  'mahaprasad.redeem':    'Coupon Redeemed',
 };
 
-const ENTITIES = ['', 'PurchaseEntry', 'SupplierPayment', 'StockTransaction', 'Donation', 'User', 'Settings'];
+const ENTITIES = ['', 'PurchaseEntry', 'SupplierPayment', 'StockTransaction', 'Donation', 'User', 'Settings', 'Product', 'Asset', 'MahaprasadCoupon'];
 
 const ACTIONS = [
   '', 'auth.login', 'auth.login_failed',
@@ -53,6 +69,9 @@ const ACTIONS = [
   'donation.create', 'donation.void',
   'user.create', 'user.update', 'user.password_reset',
   'settings.update',
+  'product.create', 'product.update', 'product.delete',
+  'asset.create', 'asset.update', 'asset.delete',
+  'mahaprasad.issue', 'mahaprasad.redeem',
 ];
 
 function DiffRow({ label, value }) {

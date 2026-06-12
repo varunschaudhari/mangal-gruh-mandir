@@ -33,6 +33,20 @@ const settingsSchema = new mongoose.Schema(
 
     // ── Asset Settings ───────────────────────────────────────────────────────
     assetMaxBorrowDays: { type: Number, default: 7, min: 1, max: 30 },
+
+    // ── Mahaprasad ───────────────────────────────────────────────────────────
+    mahaprasadDayPricing: {
+      monday:    { type: Number, default: 0, min: 0 },
+      tuesday:   { type: Number, default: 0, min: 0 },
+      wednesday: { type: Number, default: 0, min: 0 },
+      thursday:  { type: Number, default: 0, min: 0 },
+      friday:    { type: Number, default: 0, min: 0 },
+      saturday:  { type: Number, default: 0, min: 0 },
+      sunday:    { type: Number, default: 0, min: 0 },
+    },
+    mahaprasadDailyCap:            { type: Number, default: 0,  min: 0 }, // 0 = no limit
+    mahaprasadCouponValidityDays:  { type: Number, default: 1,  min: 0 }, // 0 = no expiry
+    mahaprasadPrinterName:         { type: String, default: '' },
   },
   { timestamps: true }
 );

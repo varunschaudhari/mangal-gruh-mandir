@@ -3,8 +3,13 @@
 @tailwind utilities;
 
 @layer base {
+  html {
+    overscroll-behavior: none;           /* kill pull-to-refresh on Android */
+    -webkit-tap-highlight-color: transparent; /* no gray flash on tap */
+  }
   body {
     @apply bg-gray-50 text-gray-800 antialiased;
+    overscroll-behavior: none;
   }
 }
 

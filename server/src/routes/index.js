@@ -23,8 +23,11 @@ import assetReportRoutes from './assetReport.routes.js';
 import settingsRoutes from './settings.routes.js';
 import supplierPaymentRoutes from './supplierPayment.routes.js';
 import paymentTemplateRoutes from './paymentTemplate.routes.js';
+import mahaprasadRoutes from './mahaprasad.routes.js';
+import mahaprasadOccasionRoutes from './mahaprasadOccasion.routes.js';
 import auditLogRoutes from './auditLog.routes.js';
 import purchaseEntryRoutes from './purchaseEntry.routes.js';
+import assetUnitRoutes from './assetUnit.routes.js';
 
 const router = Router();
 
@@ -53,7 +56,10 @@ router.use('/asset-reports', assetReportRoutes);
 router.use('/settings', settingsRoutes);
 router.use('/supplier-payments',   supplierPaymentRoutes);
 router.use('/payment-templates',   paymentTemplateRoutes);
+router.use('/mahaprasad',           mahaprasadRoutes);
+router.use('/mahaprasad-occasions', mahaprasadOccasionRoutes);
 router.use('/audit-logs',          auditLogRoutes);
 router.use('/purchase-entries',    purchaseEntryRoutes);
+router.use('/asset-units',         assetUnitRoutes);
 
 export default router;

@@ -19,6 +19,7 @@ import PageHeader from '../../components/ui/PageHeader.jsx';
 import { fDate } from '../../utils/formatters.js';
 import { useAuth } from '../../context/AuthContext.jsx';
 import { usePermissions } from '../../hooks/usePermissions.js';
+import MahaprasadLiveTile from '../../components/mahaprasad/MahaprasadLiveTile.jsx';
 
 const TYPE_LABELS = {
   STOCK_IN: 'Stock In', STOCK_OUT: 'Stock Out',
@@ -121,6 +122,7 @@ const Dashboard = () => {
       />
 
       {/* ── KPI Cards ── */}
+      {can('masters:read') && (
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 xl:grid-cols-8">
         <StatCard label="Products"      value={counts.productCount    ?? '—'} icon={Package}       color="text-primary-600" bg="bg-primary-50"  border="border-l-primary-500" to="/masters/products"         />
         <StatCard label="Departments"   value={counts.deptCount       ?? '—'} icon={Warehouse}     color="text-blue-600"    bg="bg-blue-50"     border="border-l-blue-500"    to="/masters/departments"      />
@@ -131,6 +133,10 @@ const Dashboard = () => {
         <StatCard label="Reorder Soon"  value={counts.reorderItems    ?? '—'} icon={AlertTriangle} color="text-yellow-600"  bg="bg-yellow-50"   border="border-l-yellow-500"  to="/reports/low-stock"        />
         <StatCard label="Expiring (30d)" value={expiringCount}               icon={CalendarClock} color="text-orange-600"  bg="bg-orange-50"   border="border-l-orange-500"  to="/reports/expiring-stock"   />
       </div>
+      )}
+
+      {/* ── Mahaprasad Live Tile ── */}
+      <MahaprasadLiveTile />
 
       {/* ── Asset Status Widget ── */}
       {can('assets:read') && (
@@ -223,7 +229,7 @@ const Dashboard = () => {
       )}
 
       {/* ── Expiring Soon (7 days) ── */}
-      {expiring7Items.length > 0 && (
+      {can('reports:read') && expiring7Items.length > 0 && (
         <div>
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
@@ -256,6 +262,7 @@ const Dashboard = () => {
       )}
 
       {/* ── Today's activity ── */}
+      {can('transactions:read') && (
       <div>
         <h2 className="mb-3 text-sm font-semibold text-gray-700">Today's Activity</h2>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -264,8 +271,10 @@ const Dashboard = () => {
           ))}
         </div>
       </div>
+      )}
 
       {/* ── Chart + Top Products ── */}
+      {can('transactions:read') && (
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Weekly movement chart */}
         <div className="lg:col-span-2 card p-4">
@@ -315,8 +324,10 @@ const Dashboard = () => {
           )}
         </div>
       </div>
+      )}
 
       {/* ── Recent Transactions ── */}
+      {can('transactions:read') && (
       <div className="card overflow-hidden">
         <div className="px-4 py-3 border-b bg-gray-50 flex items-center justify-between">
           <h3 className="text-sm font-semibold text-gray-700">Recent Transactions</h3>
@@ -350,6 +361,7 @@ const Dashboard = () => {
           </div>
         )}
       </div>
+      )}
     </div>
   );
 };

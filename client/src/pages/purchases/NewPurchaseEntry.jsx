@@ -1,12 +1,12 @@
 import { useEffect } from 'react';
-import { useForm, useFieldArray } from 'react-hook-form';
+import { useForm, useFieldArray, Controller } from 'react-hook-form';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { ArrowLeft, Plus, Trash2, Package } from 'lucide-react';
 import { getSuppliers, getSupplier } from '../../api/supplier.api.js';
 import { getDepartments } from '../../api/department.api.js';
-import { getProducts } from '../../api/product.api.js';
 import { createPurchaseEntry } from '../../api/purchaseEntry.api.js';
+import ProductSearchSelect from '../../components/transactions/ProductSearchSelect.jsx';
 import PageHeader from '../../components/ui/PageHeader.jsx';
 import toast from 'react-hot-toast';
 
@@ -37,15 +37,15 @@ export default function NewPurchaseEntry() {
   });
 
   const { fields, append, remove } = useFieldArray({ control, name: 'items' });
-  const watchedItems   = watch('items');
-  const supplierId     = watch('supplier');
-  const invoiceDate    = watch('invoiceDate');
+  const watchedItems = watch('items');
+  const supplierId   = watch('supplier');
+  const invoiceDate  = watch('invoiceDate');
 
   const { data: supRes } = useQuery({
     queryKey: ['suppliers-all'],
-    queryFn:  () => getSuppliers({ limit: 200, type: 'vendor' }),
+    queryFn:  () => getSuppliers({ type: 'vendor' }),
   });
-  const suppliers = supRes?.data?.data?.suppliers || supRes?.data?.data || [];
+  const suppliers = supRes?.data?.data || [];
 
   const { data: selSupRes } = useQuery({
     queryKey: ['supplier', supplierId],
@@ -60,12 +60,6 @@ export default function NewPurchaseEntry() {
   });
   const departments = deptsRes?.data?.data || [];
 
-  const { data: productsRes } = useQuery({
-    queryKey: ['products'],
-    queryFn:  () => getProducts({ limit: 500 }),
-  });
-  const products = productsRes?.data?.data?.products || productsRes?.data?.data || [];
-
   // Auto-compute due date when supplier or invoice date changes
   useEffect(() => {
     if (selectedSupplier?.creditDays && invoiceDate) {
@@ -73,18 +67,8 @@ export default function NewPurchaseEntry() {
     }
   }, [supplierId, invoiceDate, selectedSupplier?.creditDays]);
 
-  // When a product is selected in a row, pre-fill rate from standardRate
-  const handleProductChange = (idx, productId) => {
-    const prod = products.find((p) => p._id === productId);
-    if (prod?.standardRate) {
-      setValue(`items.${idx}.rate`, prod.standardRate);
-    }
-  };
-
   const grandTotal = watchedItems.reduce((sum, item) => {
-    const qty  = Number(item.quantity) || 0;
-    const rate = Number(item.rate) || 0;
-    return sum + qty * rate;
+    return sum + (Number(item.quantity) || 0) * (Number(item.rate) || 0);
   }, 0);
 
   const mutation = useMutation({
@@ -102,17 +86,17 @@ export default function NewPurchaseEntry() {
     const payload = {
       supplier:      data.supplier,
       invoiceNumber: data.invoiceNumber || undefined,
-      invoiceDate:   data.invoiceDate || undefined,
+      invoiceDate:   data.invoiceDate   || undefined,
       receivedDate:  data.receivedDate,
-      dueDate:       data.dueDate || undefined,
+      dueDate:       data.dueDate       || undefined,
       toDepartment:  data.toDepartment,
-      notes:         data.notes || undefined,
+      notes:         data.notes         || undefined,
       items: data.items.map((item) => ({
         product:    item.product,
         quantity:   Number(item.quantity),
         rate:       Number(item.rate) || 0,
         expiryDate: item.expiryDate || undefined,
-        batchRef:   item.batchRef || undefined,
+        batchRef:   item.batchRef   || undefined,
       })),
     };
     mutation.mutate(payload);
@@ -135,7 +119,7 @@ export default function NewPurchaseEntry() {
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
 
-        {/* Header */}
+        {/* ── Invoice Details ── */}
         <div className="card p-5 space-y-4">
           <h3 className="text-sm font-semibold text-gray-700">Invoice Details</h3>
 
@@ -192,7 +176,7 @@ export default function NewPurchaseEntry() {
           </div>
         </div>
 
-        {/* Line items */}
+        {/* ── Line Items ── */}
         <div className="card p-5 space-y-3">
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-semibold text-gray-700">Items Received</h3>
@@ -204,84 +188,105 @@ export default function NewPurchaseEntry() {
             </button>
           </div>
 
-          {/* Column headers */}
+          {/* Column headers — desktop only */}
           <div className="hidden sm:grid sm:grid-cols-12 gap-2 px-1 text-xs font-semibold text-gray-400 uppercase tracking-wide">
             <div className="col-span-4">Product</div>
             <div className="col-span-2">Qty</div>
             <div className="col-span-2">Rate (₹)</div>
             <div className="col-span-2">Total</div>
-            <div className="col-span-1">Expiry</div>
-            <div className="col-span-1"></div>
+            <div className="col-span-2"></div>
           </div>
 
           {fields.map((field, idx) => {
             const qty   = Number(watchedItems[idx]?.quantity) || 0;
-            const rate  = Number(watchedItems[idx]?.rate) || 0;
+            const rate  = Number(watchedItems[idx]?.rate)     || 0;
             const total = qty * rate;
+
             return (
-              <div key={field.id} className="grid grid-cols-12 gap-2 items-start bg-orange-50 rounded-lg p-3 border border-orange-100">
-                {/* Product */}
-                <div className="col-span-12 sm:col-span-4">
-                  <label className="block text-xs text-gray-500 mb-1 sm:hidden">Product *</label>
-                  <select
-                    {...register(`items.${idx}.product`, { required: 'Required' })}
-                    className="input text-sm"
-                    onChange={(e) => handleProductChange(idx, e.target.value)}>
-                    <option value="">Select product…</option>
-                    {products.map((p) => <option key={p._id} value={p._id}>{p.name}{p.code ? ` (${p.code})` : ''}</option>)}
-                  </select>
-                  {errors.items?.[idx]?.product && <p className="mt-0.5 text-xs text-red-500">Required</p>}
+              <div key={field.id} className="bg-orange-50 rounded-lg p-3 border border-orange-100 space-y-2">
+
+                {/* Row 1: Product · Qty · Rate · Total · Delete */}
+                <div className="grid grid-cols-12 gap-2 items-start">
+
+                  {/* Product — searchable */}
+                  <div className="col-span-12 sm:col-span-4">
+                    <label className="block text-xs text-gray-500 mb-1 sm:hidden">Product *</label>
+                    <Controller
+                      name={`items.${idx}.product`}
+                      control={control}
+                      rules={{ required: 'Product is required' }}
+                      render={({ field: f }) => (
+                        <ProductSearchSelect
+                          value={f.value}
+                          onChange={f.onChange}
+                          onSelect={(prod) => {
+                            if (prod?.standardRate) setValue(`items.${idx}.rate`, prod.standardRate);
+                          }}
+                          error={errors.items?.[idx]?.product?.message}
+                        />
+                      )}
+                    />
+                  </div>
+
+                  {/* Qty */}
+                  <div className="col-span-4 sm:col-span-2">
+                    <label className="block text-xs text-gray-500 mb-1 sm:hidden">Qty *</label>
+                    <input
+                      {...register(`items.${idx}.quantity`, { required: true, min: 0.001, valueAsNumber: true })}
+                      type="number" step="0.001" min="0.001"
+                      placeholder="0"
+                      className="input text-sm" />
+                  </div>
+
+                  {/* Rate */}
+                  <div className="col-span-4 sm:col-span-2">
+                    <label className="block text-xs text-gray-500 mb-1 sm:hidden">Rate (₹)</label>
+                    <input
+                      {...register(`items.${idx}.rate`, { valueAsNumber: true, min: 0 })}
+                      type="number" step="0.01" min="0"
+                      placeholder="0.00"
+                      className="input text-sm" />
+                  </div>
+
+                  {/* Total (read-only) */}
+                  <div className="col-span-3 sm:col-span-2 flex items-end pb-1">
+                    <span className="text-sm font-semibold text-gray-800">{total > 0 ? fmtAmt(total) : '—'}</span>
+                  </div>
+
+                  {/* Delete */}
+                  <div className="col-span-1 sm:col-span-2 flex items-start justify-end">
+                    <button
+                      type="button"
+                      onClick={() => remove(idx)}
+                      disabled={fields.length === 1}
+                      className="p-1.5 rounded hover:bg-red-50 text-red-400 disabled:opacity-30 mt-0.5">
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
                 </div>
 
-                {/* Qty */}
-                <div className="col-span-4 sm:col-span-2">
-                  <label className="block text-xs text-gray-500 mb-1 sm:hidden">Qty *</label>
-                  <input
-                    {...register(`items.${idx}.quantity`, { required: true, min: 0.001, valueAsNumber: true })}
-                    type="number" step="0.001" min="0.001"
-                    placeholder="0"
-                    className="input text-sm" />
+                {/* Row 2: Batch Ref · Expiry Date */}
+                <div className="grid grid-cols-12 gap-2 items-end">
+                  <div className="col-span-12 sm:col-span-7">
+                    <input
+                      {...register(`items.${idx}.batchRef`)}
+                      className="input text-xs"
+                      placeholder="Batch / lot reference (optional)" />
+                  </div>
+
+                  <div className="col-span-12 sm:col-span-5">
+                    <label className="block text-xs text-gray-400 mb-1">
+                      Expiry Date <span className="text-gray-300">(optional · DD/MM/YYYY)</span>
+                    </label>
+                    <input
+                      {...register(`items.${idx}.expiryDate`)}
+                      type="date"
+                      className="input text-sm w-full"
+                      title="Expiry date (DD/MM/YYYY)"
+                    />
+                  </div>
                 </div>
 
-                {/* Rate */}
-                <div className="col-span-4 sm:col-span-2">
-                  <label className="block text-xs text-gray-500 mb-1 sm:hidden">Rate (₹)</label>
-                  <input
-                    {...register(`items.${idx}.rate`, { valueAsNumber: true, min: 0 })}
-                    type="number" step="0.01" min="0"
-                    placeholder="0.00"
-                    className="input text-sm" />
-                </div>
-
-                {/* Total (read-only) */}
-                <div className="col-span-4 sm:col-span-2 flex items-end">
-                  <span className="text-sm font-semibold text-gray-800 py-2">{total > 0 ? fmtAmt(total) : '—'}</span>
-                </div>
-
-                {/* Expiry */}
-                <div className="col-span-5 sm:col-span-1">
-                  <label className="block text-xs text-gray-500 mb-1 sm:hidden">Expiry</label>
-                  <input {...register(`items.${idx}.expiryDate`)} type="date" className="input text-xs" title="Expiry date" />
-                </div>
-
-                {/* Remove */}
-                <div className="col-span-1 flex items-end justify-end">
-                  <button
-                    type="button"
-                    onClick={() => remove(idx)}
-                    disabled={fields.length === 1}
-                    className="p-1.5 rounded hover:bg-red-50 text-red-400 disabled:opacity-30">
-                    <Trash2 className="h-4 w-4" />
-                  </button>
-                </div>
-
-                {/* Batch Ref — full width on its own row */}
-                <div className="col-span-12">
-                  <input
-                    {...register(`items.${idx}.batchRef`)}
-                    className="input text-xs"
-                    placeholder="Batch / lot reference (optional)" />
-                </div>
               </div>
             );
           })}
