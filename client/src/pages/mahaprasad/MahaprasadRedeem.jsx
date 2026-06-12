@@ -402,9 +402,6 @@ export default function MahaprasadRedeem() {
     if (mode === 'manual') inputRef.current?.focus();
   }, [mode]);
 
-  // Keep resetRef current so the countdown closure always calls the live version.
-  useEffect(() => { resetRef.current = reset; }, [reset]);
-
   // ── Auto-reset countdown after successful redemption ─────────────────────
   useEffect(() => {
     if (!justRedeemed) return;
@@ -473,6 +470,9 @@ export default function MahaprasadRedeem() {
       setScanKey((k) => k + 1);
     }
   }, [mode]);
+  // Keep the ref current every render so the countdown interval closure
+  // always calls the latest reset (avoids stale-mode bug without useEffect timing).
+  resetRef.current = reset;
 
   // Android hardware back button: clear coupon card if one is showing, otherwise swallow the press
   // Uses a ref so the popstate handler never goes stale without re-registering
