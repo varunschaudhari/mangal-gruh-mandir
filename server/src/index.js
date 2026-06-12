@@ -12,6 +12,10 @@ import { processOverdueInvoiceAlerts } from './services/overdueInvoiceAlert.serv
 const app = express();
 const PORT = process.env.PORT || 5000;
 
+// Trust the first proxy (Nginx) so express-rate-limit reads the real client IP
+// from X-Forwarded-For instead of the loopback address.
+app.set('trust proxy', 1);
+
 connectDB();
 
 app.use(helmet());
