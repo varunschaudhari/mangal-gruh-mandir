@@ -1,4 +1,4 @@
-import QRCode from 'qrcode';
+import QRCode from 'qrcode/lib/browser.js';
 
 const fmt = (d) => d
   ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
