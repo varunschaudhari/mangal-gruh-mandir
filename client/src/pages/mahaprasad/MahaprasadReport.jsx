@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { BarChart2, RefreshCw, Download, CalendarDays, Users, AlertTriangle, BarChart3 } from 'lucide-react';
-import { getReport, getMonthlyReport, getStaffReport, getWastageReport } from '../../api/mahaprasad.api.js';
+import { BarChart2, RefreshCw, Download, CalendarDays, Users, AlertTriangle, BarChart3, MessageCircle } from 'lucide-react';
+import { getReport, getMonthlyReport, getStaffReport, getWastageReport, getMahaprasadWhatsApp } from '../../api/mahaprasad.api.js';
+import toast from 'react-hot-toast';
 import PageHeader from '../../components/ui/PageHeader.jsx';
 import { PageLoader } from '../../components/ui/Spinner.jsx';
 import { exportToExcel } from '../../utils/exportToExcel.js';
@@ -66,10 +67,11 @@ function EmptyState() {
 
 function DailyTab() {
   const def = (() => { const to = new Date(); const from = new Date(); from.setDate(from.getDate() - 29); return { from: isoDate(from), to: isoDate(to) }; })();
-  const [from,   setFrom]   = useState(def.from);
-  const [to,     setTo]     = useState(def.to);
-  const [params, setParams] = useState(def);
-  const [active, setActive] = useState('');
+  const [from,       setFrom]      = useState(def.from);
+  const [to,         setTo]        = useState(def.to);
+  const [params,     setParams]    = useState(def);
+  const [active,     setActive]    = useState('');
+  const [waLoading,  setWaLoading] = useState(false);
 
   const { data, isLoading, refetch, isFetching } = useQuery({
     queryKey: ['mahaprasad-report', params],
@@ -89,11 +91,31 @@ function DailyTab() {
     );
   };
 
+  const handleWhatsApp = async () => {
+    const shareDate = from === to ? from : isoDate(new Date());
+    setWaLoading(true);
+    try {
+      const res = await getMahaprasadWhatsApp(shareDate);
+      const text = res?.data?.data?.text;
+      if (!text) throw new Error('No data');
+      window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank', 'noopener');
+    } catch {
+      toast.error('Failed to generate WhatsApp summary');
+    } finally {
+      setWaLoading(false);
+    }
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex justify-end gap-2">
         <button onClick={refetch} disabled={isFetching} className="btn btn-ghost border text-sm flex items-center gap-1.5">
           <RefreshCw className={`h-4 w-4 ${isFetching ? 'animate-spin' : ''}`} /> Refresh
+        </button>
+        <button onClick={handleWhatsApp} disabled={waLoading}
+          className="btn btn-ghost border text-sm flex items-center gap-1.5 text-green-700 border-green-200 hover:bg-green-50 disabled:opacity-50">
+          <MessageCircle className="h-4 w-4" />
+          {waLoading ? 'Loading…' : from === to ? 'WhatsApp' : "Today's WhatsApp"}
         </button>
         {rows.length > 0 && (
           <button onClick={handleExport} className="btn btn-ghost border text-sm flex items-center gap-1.5">

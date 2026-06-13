@@ -39,7 +39,9 @@ export default defineConfig({
         ],
       },
       workbox: {
-        globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
+        globPatterns: ['**/*.{js,css,ico,png,svg,woff2}'],
+        // html is intentionally excluded — always fetch fresh so new chunk hashes in HTML are never stale
+        navigateFallback: null,
         runtimeCaching: [
           {
             urlPattern: /\/api\//,

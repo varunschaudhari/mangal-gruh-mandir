@@ -124,7 +124,7 @@ function CouponCard({ coupon, onRedeem, redeeming, justRedeemed, countdown }) {
         <div className="h-1.5 bg-green-200 rounded-full overflow-hidden">
           <div
             className="h-full bg-green-500 rounded-full transition-all duration-1000"
-            style={{ width: `${((3 - (countdown ?? 0)) / 3) * 100}%` }}
+            style={{ width: `${((2 - (countdown ?? 0)) / 2) * 100}%` }}
           />
         </div>
       </div>
@@ -133,23 +133,23 @@ function CouponCard({ coupon, onRedeem, redeeming, justRedeemed, countdown }) {
 
   if (isRedeemed) {
     return (
-      <div className="card p-5 border-2 border-gray-200 bg-gray-50 space-y-3">
+      <div className="card p-5 border-2 border-red-300 bg-red-50 space-y-3">
         <div className="flex items-center gap-3">
-          <XCircle className="h-8 w-8 text-gray-400 shrink-0" />
+          <XCircle className="h-9 w-9 text-red-500 shrink-0" />
           <div>
-            <p className="font-mono font-bold text-gray-700">{coupon.couponNumber}</p>
-            <p className="text-xs text-gray-400 mt-0.5">This coupon was already used</p>
+            <p className="text-sm font-black text-red-700 uppercase tracking-wide">Already Redeemed</p>
+            <p className="font-mono text-sm font-bold text-red-800 mt-0.5">{coupon.couponNumber}</p>
           </div>
-          <span className="ml-auto text-xs font-semibold bg-gray-200 text-gray-600 px-2 py-1 rounded-full">Used</span>
+          <span className="ml-auto text-xs font-bold bg-red-200 text-red-700 px-2.5 py-1 rounded-full shrink-0">Used</span>
         </div>
-        <div className="grid grid-cols-2 gap-3 text-sm pt-1 border-t border-gray-200">
+        <div className="grid grid-cols-2 gap-3 text-sm pt-2 border-t border-red-200">
           <div>
-            <p className="text-xs text-gray-400">Redeemed at</p>
-            <p className="font-medium text-gray-700">{fmt(coupon.redeemedAt)}</p>
+            <p className="text-xs text-red-400 font-medium">Redeemed at</p>
+            <p className="font-semibold text-red-800">{fmt(coupon.redeemedAt)}</p>
           </div>
           <div>
-            <p className="text-xs text-gray-400">Redeemed by</p>
-            <p className="font-medium text-gray-700">{coupon.redeemedBy?.name || '—'}</p>
+            <p className="text-xs text-red-400 font-medium">Redeemed by</p>
+            <p className="font-semibold text-red-800">{coupon.redeemedBy?.name || '—'}</p>
           </div>
         </div>
       </div>
@@ -306,7 +306,7 @@ export default function MahaprasadRedeem() {
   const summary = summaryRes?.data?.data || null;
 
   // ── Lookup handler (stable ref) ──────────────────────────────────────────
-  const handleLookup = useCallback(async (number) => {
+  const handleLookup = useCallback(async (number, { autoRedeem = false } = {}) => {
     if (!number) return;
     setLooking(true);
     setError('');
@@ -329,17 +329,30 @@ export default function MahaprasadRedeem() {
           return;
         }
         if (status === 'redeemed' || status === 'redeemed-offline') {
-          setError('This coupon was already redeemed');
-          setErrorType('redeemed');
           setCoupon(offlineStore.normalizeForUi(local));
           redeemFeedback.alreadyRedeemed();
           return;
         }
-        setCoupon(offlineStore.normalizeForUi(local));
+        const normalizedLocal = offlineStore.normalizeForUi(local);
+        if (autoRedeem) {
+          redeemMut.mutate(normalizedLocal);
+        } else {
+          setCoupon(normalizedLocal);
+        }
         return;
       }
       const res = await lookupCoupon(number);
-      setCoupon(res.data.data);
+      const couponData = res.data.data;
+      if (couponData.status === 'redeemed') {
+        setCoupon(couponData);
+        redeemFeedback.alreadyRedeemed();
+        return;
+      }
+      if (autoRedeem) {
+        redeemMut.mutate(couponData);
+      } else {
+        setCoupon(couponData);
+      }
     } catch (e) {
       const status  = e.response?.status;
       const message = e.response?.data?.message || `Coupon "${number}" not found`;
@@ -351,7 +364,8 @@ export default function MahaprasadRedeem() {
     } finally {
       setLooking(false);
     }
-  }, []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // redeemMut.mutate is stable and only called after all hooks have run
 
   // ── Camera scanner ───────────────────────────────────────────────────────
   useEffect(() => {
@@ -391,7 +405,7 @@ export default function MahaprasadRedeem() {
             // Track the stop promise so the next start() can wait for it.
             stopPromiseRef.current = qrCode.stop().catch(() => {});
             scannerInst.current = null;
-            handleLookup(decoded.trim());
+            handleLookup(decoded.trim(), { autoRedeem: true });
           },
           () => {}
         );
@@ -420,7 +434,7 @@ export default function MahaprasadRedeem() {
   // ── Auto-reset countdown after successful redemption ─────────────────────
   useEffect(() => {
     if (!justRedeemed) return;
-    let c = 3;
+    let c = 2;
     setCountdown(c);
     const t = setInterval(() => {
       c -= 1;
@@ -432,10 +446,12 @@ export default function MahaprasadRedeem() {
 
   // ── Redeem mutation ───────────────────────────────────────────────────────
   const redeemMut = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (couponArg) => {
+      const target = couponArg ?? coupon;
+      if (!target) throw new Error('No coupon to redeem');
       if (!navigator.onLine) {
         const user    = JSON.parse(localStorage.getItem('mgm-offline-user') || '{}');
-        const updated = await offlineStore.markRedeemed(coupon.couponNumber, {
+        const updated = await offlineStore.markRedeemed(target.couponNumber, {
           redeemedAt:     new Date().toISOString(),
           redeemedById:   user._id  || '',
           redeemedByName: user.name || 'Staff',
@@ -443,7 +459,7 @@ export default function MahaprasadRedeem() {
         if (!updated) throw new Error('Coupon not found in offline store');
         return { offline: true, coupon: offlineStore.normalizeForUi(updated) };
       }
-      const res = await redeemCoupon(coupon.couponNumber);
+      const res = await redeemCoupon(target.couponNumber);
       return { offline: false, coupon: res.data.data };
     },
     onSuccess: ({ offline, coupon: redeemed }) => {
@@ -503,16 +519,17 @@ export default function MahaprasadRedeem() {
     return () => window.removeEventListener('popstate', handler);
   }, [reset]);
 
-  // Enter key confirms redeem when a valid coupon card is showing (not already redeemed)
+  // Enter key confirms redeem in manual mode when a valid coupon card is showing
   useEffect(() => {
     const onKey = (e) => {
       if (e.key !== 'Enter') return;
+      if (mode !== 'manual') return;
       if (!coupon || coupon.status === 'redeemed' || justRedeemed || redeemMut.isPending) return;
       redeemMut.mutate();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [coupon, justRedeemed, redeemMut]);
+  }, [coupon, justRedeemed, redeemMut, mode]);
 
   // ── Manual input: auto-submit on full coupon number ───────────────────────
   const handleManualChange = (val) => {
@@ -601,11 +618,11 @@ export default function MahaprasadRedeem() {
           {mode === 'scan' && (
             <div className="card overflow-hidden relative">
               <div id="qr-reader" className="w-full" style={{ minHeight: 280 }} />
-              {looking && (
-                <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+              {(looking || redeemMut.isPending) && (
+                <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
                   <div className="bg-white rounded-xl px-5 py-4 text-sm font-semibold text-gray-700 flex items-center gap-2.5">
-                    <div className="h-4 w-4 border-2 border-primary-500 border-t-transparent rounded-full animate-spin" />
-                    Looking up coupon…
+                    <div className={`h-4 w-4 border-2 border-t-transparent rounded-full animate-spin ${redeemMut.isPending ? 'border-green-500' : 'border-primary-500'}`} />
+                    {redeemMut.isPending ? 'Redeeming…' : 'Looking up coupon…'}
                   </div>
                 </div>
               )}

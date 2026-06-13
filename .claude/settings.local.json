@@ -104,7 +104,9 @@
       "Bash(git add *)",
       "Bash(git commit -m ' *)",
       "Bash(git push *)",
-      "Bash(cat > *)"
+      "Bash(cat > *)",
+      "Bash(npx --yes acorn --ecma2020 --module src/pages/mahaprasad/MahaprasadCounter.jsx)",
+      "Bash(npx --yes acorn --ecma2020 --module src/pages/mahaprasad/MahaprasadReport.jsx)"
     ],
     "additionalDirectories": [
       "\\tmp"

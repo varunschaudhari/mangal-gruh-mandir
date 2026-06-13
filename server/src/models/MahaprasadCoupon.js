@@ -6,7 +6,7 @@ const mahaprasadCouponSchema = new mongoose.Schema({
   type:         { type: String, enum: ['paid', 'free'], required: true },
   amount:       { type: Number, default: 0, min: 0 },
   occasion:     { type: String, default: '' },
-  status:       { type: String, enum: ['issued', 'redeemed', 'reserved'], default: 'issued', index: true },
+  status:       { type: String, enum: ['issued', 'redeemed', 'reserved', 'voided'], default: 'issued', index: true },
   issuedBy:     { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   issuedAt:     { type: Date, default: Date.now },
   redeemedBy:   { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
