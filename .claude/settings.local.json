@@ -103,7 +103,11 @@
       "Bash(node -e \"const pkg = require\\('./node_modules/html5-qrcode/package.json'\\); console.log\\(pkg.version\\)\")",
       "Bash(git add *)",
       "Bash(git commit -m ' *)",
-      "Bash(git push *)"
+      "Bash(git push *)",
+      "Bash(cat > *)"
+    ],
+    "additionalDirectories": [
+      "\\tmp"
     ]
   }
 }

@@ -13,6 +13,10 @@ const PERMISSION_GROUPS = {
   Masters:      ['masters:read', 'masters:write', 'masters:delete'],
   Transactions: ['transactions:read', 'transactions:create', 'transactions:delete'],
   Reports:      ['reports:read'],
+  Assets:       ['assets:read', 'assets:write', 'assets:manage'],
+  Donations:    ['donations:read', 'donations:write'],
+  Payments:     ['payments:read', 'payments:write', 'payments:approve'],
+  Mahaprasad:   ['mahaprasad:read', 'mahaprasad:issue', 'mahaprasad:redeem'],
 };
 
 const PERMISSION_LABELS = {
@@ -20,6 +24,10 @@ const PERMISSION_LABELS = {
   'masters:read': 'View masters', 'masters:write': 'Create/edit masters', 'masters:delete': 'Delete masters',
   'transactions:read': 'View transactions', 'transactions:create': 'Create transactions', 'transactions:delete': 'Void transactions',
   'reports:read': 'View reports',
+  'assets:read': 'View assets & borrows', 'assets:write': 'Create/edit assets', 'assets:manage': 'Manage borrow requests',
+  'donations:read': 'View donations', 'donations:write': 'Create/void donations',
+  'payments:read': 'View payments', 'payments:write': 'Create/edit payments', 'payments:approve': 'Approve/reject payments',
+  'mahaprasad:read': 'View mahaprasad', 'mahaprasad:issue': 'Issue coupons', 'mahaprasad:redeem': 'Redeem coupons',
 };
 
 const ALL_PERMISSIONS = Object.values(PERMISSION_GROUPS).flat();

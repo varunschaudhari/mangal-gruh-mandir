@@ -27,6 +27,8 @@ export const ALL_PERMISSIONS = [
   'transactions:read', 'transactions:create', 'transactions:delete',
   'reports:read',
   'assets:read', 'assets:write', 'assets:manage',
+  'donations:read', 'donations:write',
+  'payments:read', 'payments:write', 'payments:approve',
   'mahaprasad:read', 'mahaprasad:issue', 'mahaprasad:redeem',
 ];
 
@@ -36,6 +38,8 @@ export const PERMISSION_GROUPS = {
   Transactions: ['transactions:read', 'transactions:create', 'transactions:delete'],
   Reports:      ['reports:read'],
   Assets:       ['assets:read', 'assets:write', 'assets:manage'],
+  Donations:    ['donations:read', 'donations:write'],
+  Payments:     ['payments:read', 'payments:write', 'payments:approve'],
   Mahaprasad:   ['mahaprasad:read', 'mahaprasad:issue', 'mahaprasad:redeem'],
 };
 
