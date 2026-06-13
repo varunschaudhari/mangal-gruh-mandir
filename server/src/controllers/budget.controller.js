@@ -3,6 +3,7 @@ import { EXPENSE_CATEGORIES } from '../models/Expense.js';
 import ApiError from '../utils/ApiError.js';
 import ApiResponse from '../utils/ApiResponse.js';
 import asyncHandler from '../utils/asyncHandler.js';
+import { logAction } from '../services/audit.service.js';
 
 const fullBudgetList = (budgets, y, m) => {
   const map = {};
@@ -45,6 +46,15 @@ export const upsertBudgets = asyncHandler(async (req, res) => {
   if (ops.length) await ExpenseBudget.bulkWrite(ops);
 
   const result = await ExpenseBudget.find({ year: y, month: m }).lean();
+  const total  = result.reduce((s, b) => s + (b.budgetAmount || 0), 0);
+
+  logAction(req, {
+    action:   'budget.upsert',
+    entity:   'ExpenseBudget',
+    entityId: `${y}-${String(m).padStart(2, '0')}`,
+    meta:     { year: y, month: m, categoriesSet: ops.length, totalBudget: total },
+  });
+
   res.json(new ApiResponse(200, fullBudgetList(result, y, m), 'Budgets saved'));
 });
 

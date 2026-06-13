@@ -8,6 +8,7 @@ import asyncHandler from '../utils/asyncHandler.js';
 import { sendAssetApprovalNotification, sendManualAssetReminder, processAssetReminders } from '../services/assetReminder.service.js';
 import { recomputeGroupStatus } from '../services/borrowGroupStatus.service.js';
 import { generateBorrowRequestNumber } from '../services/borrowRequestNumber.service.js';
+import { logAction } from '../services/audit.service.js';
 
 const POPULATE = [
   { path: 'asset',      select: 'name category finePerDay totalQuantity' },
@@ -108,6 +109,11 @@ export const createBorrowRequest = asyncHandler(async (req, res) => {
   const populated = await AssetTransaction.findById(txn._id).populate(POPULATE);
   sendAssetApprovalNotification(populated).catch(console.error);
 
+  logAction(req, {
+    action: 'asset.borrow', entity: 'AssetTransaction',
+    entityId: txn.transactionNumber, entityRef: txn._id,
+    meta: { asset: assetDoc.name, quantity: txn.quantityBorrowed, expectedReturnDate },
+  });
   res.status(201).json(new ApiResponse(201, populated, 'Borrow request created'));
 });
 
@@ -126,6 +132,11 @@ export const checkoutAsset = asyncHandler(async (req, res) => {
 
   const populated = await AssetTransaction.findById(txn._id).populate(POPULATE);
   recomputeGroupStatus(txn.group).catch(console.error);
+  logAction(req, {
+    action: 'asset.checkout', entity: 'AssetTransaction',
+    entityId: txn.transactionNumber, entityRef: txn._id,
+    meta: { conditionAtCheckout },
+  });
   res.json(new ApiResponse(200, populated, 'Asset checked out successfully'));
 });
 
@@ -159,6 +170,11 @@ export const returnAsset = asyncHandler(async (req, res) => {
   await txn.save();
   const populated = await AssetTransaction.findById(txn._id).populate(POPULATE);
   recomputeGroupStatus(txn.group).catch(console.error);
+  logAction(req, {
+    action: 'asset.return', entity: 'AssetTransaction',
+    entityId: txn.transactionNumber, entityRef: txn._id,
+    meta: { lateDays, fineApplied: txn.fineApplied, fineAmount: txn.fineAmount },
+  });
   res.json(new ApiResponse(200, populated, 'Asset returned successfully'));
 });
 
@@ -197,6 +213,11 @@ export const extendBorrow = asyncHandler(async (req, res) => {
 
   await txn.save();
   const populated = await AssetTransaction.findById(txn._id).populate(POPULATE);
+  logAction(req, {
+    action: 'asset.extend', entity: 'AssetTransaction',
+    entityId: txn.transactionNumber, entityRef: txn._id,
+    meta: { newReturnDate },
+  });
   res.json(new ApiResponse(200, populated, 'Borrow period extended successfully'));
 });
 
@@ -241,6 +262,11 @@ export const cancelBorrow = asyncHandler(async (req, res) => {
 
   const populated = await AssetTransaction.findById(txn._id).populate(POPULATE);
   recomputeGroupStatus(txn.group).catch(console.error);
+  logAction(req, {
+    action: 'asset.cancel', entity: 'AssetTransaction',
+    entityId: txn.transactionNumber, entityRef: txn._id,
+    meta: { cancellationReason },
+  });
   res.json(new ApiResponse(200, populated, 'Borrow request cancelled'));
 });
 
@@ -278,6 +304,11 @@ export const markLost = asyncHandler(async (req, res) => {
 
   const populated = await AssetTransaction.findById(txn._id).populate(POPULATE);
   recomputeGroupStatus(txn.group).catch(console.error);
+  logAction(req, {
+    action: 'asset.lost', entity: 'AssetTransaction',
+    entityId: txn.transactionNumber, entityRef: txn._id,
+    meta: { lostReason },
+  });
   res.json(new ApiResponse(200, populated, 'Asset marked as lost'));
 });
 
@@ -301,6 +332,11 @@ export const settleFine = asyncHandler(async (req, res) => {
   await txn.save();
 
   const populated = await AssetTransaction.findById(txn._id).populate(POPULATE);
+  logAction(req, {
+    action: 'asset.fine_settle', entity: 'AssetTransaction',
+    entityId: txn.transactionNumber, entityRef: txn._id,
+    meta: { action, fineAmount: txn.fineAmount },
+  });
   res.json(new ApiResponse(200, populated, action === 'waived' ? 'Fine waived' : 'Fine marked as collected'));
 });
 
@@ -320,6 +356,11 @@ export const updateDamageStatus = asyncHandler(async (req, res) => {
   await txn.save();
 
   const populated = await AssetTransaction.findById(txn._id).populate(POPULATE);
+  logAction(req, {
+    action: 'asset.damage_update', entity: 'AssetTransaction',
+    entityId: txn.transactionNumber, entityRef: txn._id,
+    meta: { damageStatus },
+  });
   res.json(new ApiResponse(200, populated, 'Damage status updated'));
 });
 

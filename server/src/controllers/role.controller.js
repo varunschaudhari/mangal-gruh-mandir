@@ -4,6 +4,7 @@ import { flushRoleCache } from '../middleware/authorize.js';
 import asyncHandler from '../utils/asyncHandler.js';
 import ApiError from '../utils/ApiError.js';
 import ApiResponse from '../utils/ApiResponse.js';
+import { logAction } from '../services/audit.service.js';
 
 export const getRoles = asyncHandler(async (req, res) => {
   const roles = await Role.find()
@@ -44,6 +45,11 @@ export const createRole = asyncHandler(async (req, res) => {
   });
 
   flushRoleCache();
+  logAction(req, {
+    action: 'role.create', entity: 'Role',
+    entityId: role.slug, entityRef: role._id,
+    meta: { name: role.name, permissions: role.permissions },
+  });
   res.status(201).json(new ApiResponse(201, role, 'Role created'));
 });
 
@@ -66,6 +72,11 @@ export const updateRole = asyncHandler(async (req, res) => {
 
   await role.save();
   flushRoleCache();
+  logAction(req, {
+    action: 'role.update', entity: 'Role',
+    entityId: role.slug, entityRef: role._id,
+    meta: { name: role.name, permissions: role.permissions },
+  });
   res.json(new ApiResponse(200, role, 'Role updated'));
 });
 
@@ -81,5 +92,10 @@ export const deleteRole = asyncHandler(async (req, res) => {
 
   await role.deleteOne();
   flushRoleCache();
+  logAction(req, {
+    action: 'role.delete', entity: 'Role',
+    entityId: role.slug, entityRef: role._id,
+    meta: { name: role.name },
+  });
   res.json(new ApiResponse(200, null, 'Role deleted'));
 });

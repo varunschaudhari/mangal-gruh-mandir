@@ -12,9 +12,11 @@ import routes from './routes/index.js';
 import errorHandler from './middleware/errorHandler.js';
 import { processAssetReminders } from './services/assetReminder.service.js';
 import { processOverdueInvoiceAlerts } from './services/overdueInvoiceAlert.service.js';
+import { logger } from './utils/logger.js';
 
 const app = express();
 const PORT = process.env.PORT || 5000;
+const IS_PROD = process.env.NODE_ENV === 'production';
 
 // Trust the first proxy (Nginx) so express-rate-limit reads the real client IP
 // from X-Forwarded-For instead of the loopback address.
@@ -28,8 +30,38 @@ app.use(cors({
   credentials: true,
 }));
 
-if (process.env.NODE_ENV === 'development') {
-  app.use(morgan('dev'));
+// ── HTTP access logging ───────────────────────────────────────────────────────
+morgan.token('user', (req) => req.user?.email || '-');
+morgan.token('user-id', (req) => req.user?._id?.toString() || '-');
+
+if (IS_PROD) {
+  // Production: structured JSON — one line per request, captured by PM2 / systemd
+  app.use(morgan((tokens, req, res) => {
+    const status = parseInt(tokens.status(req, res)) || 0;
+    const ms     = parseFloat(tokens['response-time'](req, res)) || 0;
+    const entry  = {
+      ts:     new Date().toISOString(),
+      level:  status >= 500 ? 'error' : status >= 400 ? 'warn' : 'http',
+      method: tokens.method(req, res),
+      url:    tokens.url(req, res),
+      status,
+      ms,
+      bytes:  parseInt(tokens.res(req, res, 'content-length')) || 0,
+      ip:     tokens['remote-addr'](req, res),
+      user:   tokens.user(req, res),
+    };
+    // Warn on slow requests (> 3 s)
+    if (ms > 3000) entry.slow = true;
+    return JSON.stringify(entry);
+  }, {
+    // Skip health-check polling to keep logs clean
+    skip: (req) => req.path === '/api/health',
+  }));
+} else {
+  // Development: terse coloured output
+  app.use(morgan('dev', {
+    skip: (req) => req.path === '/api/health',
+  }));
 }
 
 app.use(express.json({ limit: '10mb' }));
@@ -43,7 +75,7 @@ app.use('/api', routes);
 app.use(errorHandler);
 
 app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT} [${process.env.NODE_ENV}]`);
+  logger.info(`Server started`, { port: PORT, env: process.env.NODE_ENV });
   startAssetReminderScheduler();
   startOverdueInvoiceAlertScheduler();
 });

@@ -2,6 +2,7 @@ import Supplier from '../models/Supplier.js';
 import ApiError from '../utils/ApiError.js';
 import ApiResponse from '../utils/ApiResponse.js';
 import asyncHandler from '../utils/asyncHandler.js';
+import { logAction } from '../services/audit.service.js';
 
 export const getSuppliers = asyncHandler(async (req, res) => {
   const { search, active, type } = req.query;
@@ -22,6 +23,11 @@ export const getSupplier = asyncHandler(async (req, res) => {
 
 export const createSupplier = asyncHandler(async (req, res) => {
   const supplier = await Supplier.create(req.body);
+  logAction(req, {
+    action: 'supplier.create', entity: 'Supplier',
+    entityId: supplier.name, entityRef: supplier._id,
+    meta: { type: supplier.type, city: supplier.city },
+  });
   res.status(201).json(new ApiResponse(201, supplier, 'Supplier created'));
 });
 
@@ -37,11 +43,19 @@ export const updateSupplier = asyncHandler(async (req, res) => {
     { new: true, runValidators: true }
   );
   if (!supplier) throw new ApiError(404, 'Supplier not found');
+  logAction(req, {
+    action: 'supplier.update', entity: 'Supplier',
+    entityId: supplier.name, entityRef: supplier._id,
+  });
   res.json(new ApiResponse(200, supplier, 'Supplier updated'));
 });
 
 export const deleteSupplier = asyncHandler(async (req, res) => {
   const supplier = await Supplier.findByIdAndDelete(req.params.id);
   if (!supplier) throw new ApiError(404, 'Supplier not found');
+  logAction(req, {
+    action: 'supplier.delete', entity: 'Supplier',
+    entityId: supplier.name, entityRef: supplier._id,
+  });
   res.json(new ApiResponse(200, null, 'Supplier deleted'));
 });

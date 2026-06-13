@@ -2,6 +2,7 @@ import DonationOccasion from '../models/DonationOccasion.js';
 import ApiError from '../utils/ApiError.js';
 import ApiResponse from '../utils/ApiResponse.js';
 import asyncHandler from '../utils/asyncHandler.js';
+import { logAction } from '../services/audit.service.js';
 
 export const getOccasions = asyncHandler(async (req, res) => {
   const filter = {};
@@ -12,17 +13,29 @@ export const getOccasions = asyncHandler(async (req, res) => {
 
 export const createOccasion = asyncHandler(async (req, res) => {
   const occasion = await DonationOccasion.create({ ...req.body, createdBy: req.user._id });
+  logAction(req, {
+    action: 'donation_occasion.create', entity: 'DonationOccasion',
+    entityId: occasion.name, entityRef: occasion._id,
+  });
   res.status(201).json(new ApiResponse(201, occasion, 'Occasion created'));
 });
 
 export const updateOccasion = asyncHandler(async (req, res) => {
   const occasion = await DonationOccasion.findByIdAndUpdate(req.params.id, req.body, { new: true, runValidators: true });
   if (!occasion) throw new ApiError(404, 'Occasion not found');
+  logAction(req, {
+    action: 'donation_occasion.update', entity: 'DonationOccasion',
+    entityId: occasion.name, entityRef: occasion._id,
+  });
   res.json(new ApiResponse(200, occasion, 'Occasion updated'));
 });
 
 export const deleteOccasion = asyncHandler(async (req, res) => {
   const occasion = await DonationOccasion.findByIdAndDelete(req.params.id);
   if (!occasion) throw new ApiError(404, 'Occasion not found');
+  logAction(req, {
+    action: 'donation_occasion.delete', entity: 'DonationOccasion',
+    entityId: occasion.name, entityRef: occasion._id,
+  });
   res.json(new ApiResponse(200, null, 'Occasion deleted'));
 });

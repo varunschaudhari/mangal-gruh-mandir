@@ -4,6 +4,7 @@ import ApiError from '../utils/ApiError.js';
 import ApiResponse from '../utils/ApiResponse.js';
 import asyncHandler from '../utils/asyncHandler.js';
 import { generateAssetCode } from '../services/assetCode.service.js';
+import { logAction } from '../services/audit.service.js';
 
 // ── Helper: pad unit number ───────────────────────────────────────────────────
 function padUnit(num, total) {
@@ -66,6 +67,11 @@ export const updateUnit = asyncHandler(async (req, res) => {
 
   const unit = await AssetUnit.findByIdAndUpdate(req.params.id, update, { new: true, runValidators: true });
   if (!unit) throw new ApiError(404, 'Unit not found');
+  logAction(req, {
+    action: 'asset.unit_update', entity: 'AssetUnit',
+    entityId: unit.unitCode, entityRef: unit._id,
+    meta: { condition, isActive },
+  });
   res.json(new ApiResponse(200, unit, 'Unit updated'));
 });
 

@@ -303,6 +303,11 @@ export const createBatchTransactions = asyncHandler(async (req, res) => {
     .populate('createdBy', 'name')
     .lean();
 
+  logAction(req, {
+    action: 'stock.batch_create', entity: 'StockTransaction',
+    entityId: `batch-${createdIds.length}`,
+    meta: { count: createdIds.length, stockInType, toDepartment, invoiceNumber },
+  });
   res.status(201).json(new ApiResponse(201, populated, `${createdIds.length} transaction(s) created`));
 });
 

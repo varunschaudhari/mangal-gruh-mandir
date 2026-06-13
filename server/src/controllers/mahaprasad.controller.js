@@ -490,6 +490,12 @@ export const reserveOffline = asyncHandler(async (req, res) => {
 
   await MahaprasadCoupon.insertMany(docs, { ordered: true });
 
+  logAction(req, {
+    action: 'mahaprasad.offline_reserve', entity: 'MahaprasadCoupon',
+    entityId: batchId,
+    meta: { count: n, date: couponDate },
+  });
+
   res.json(new ApiResponse(200, {
     coupons:  docs.map((d) => ({ couponNumber: d.couponNumber, date: d.date })),
     count:    n,
@@ -564,5 +570,15 @@ export const syncOffline = asyncHandler(async (req, res) => {
     }
   }
 
+  logAction(req, {
+    action: 'mahaprasad.offline_sync', entity: 'MahaprasadCoupon',
+    entityId: `sync-${issued.length + redeemed.length}`,
+    meta: {
+      issuedOk: results.issued.ok,
+      issuedSkipped: results.issued.skipped,
+      redeemedOk: results.redeemed.ok,
+      redeemedSkipped: results.redeemed.skipped,
+    },
+  });
   res.json(new ApiResponse(200, { results }));
 });

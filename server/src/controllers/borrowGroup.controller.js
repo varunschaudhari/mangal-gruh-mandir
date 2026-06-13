@@ -9,6 +9,7 @@ import asyncHandler from '../utils/asyncHandler.js';
 import { generateBorrowRequestNumber } from '../services/borrowRequestNumber.service.js';
 import { recomputeGroupStatus } from '../services/borrowGroupStatus.service.js';
 import { sendAssetApprovalNotification } from '../services/assetReminder.service.js';
+import { logAction } from '../services/audit.service.js';
 
 const GROUP_POPULATE = [
   { path: 'borrower',   select: 'name phone' },
@@ -162,6 +163,11 @@ export const createGroup = asyncHandler(async (req, res) => {
     sendAssetApprovalNotification(notifTxn).catch(console.error);
   }
 
+  logAction(req, {
+    action: 'asset.group_borrow', entity: 'BorrowGroup',
+    entityId: group.groupNumber, entityRef: group._id,
+    meta: { itemCount: items.length, expectedReturnDate },
+  });
   res.status(201).json(new ApiResponse(201, { group: populatedGroup, transactions: populatedTxns }, 'Borrow group created'));
 });
 
@@ -186,6 +192,11 @@ export const checkoutGroup = asyncHandler(async (req, res) => {
     AssetTransaction.find({ group: group._id }).populate(TXN_POPULATE),
   ]);
 
+  logAction(req, {
+    action: 'asset.group_checkout', entity: 'BorrowGroup',
+    entityId: group.groupNumber, entityRef: group._id,
+    meta: { conditionAtCheckout },
+  });
   res.json(new ApiResponse(200, { group: populatedGroup, transactions }, 'All assets handed over'));
 });
 
@@ -228,6 +239,11 @@ export const extendGroup = asyncHandler(async (req, res) => {
     AssetTransaction.find({ group: group._id }).populate(TXN_POPULATE),
   ]);
 
+  logAction(req, {
+    action: 'asset.group_extend', entity: 'BorrowGroup',
+    entityId: group.groupNumber, entityRef: group._id,
+    meta: { newReturnDate },
+  });
   res.json(new ApiResponse(200, { group: populatedGroup, transactions }, 'Borrow period extended'));
 });
 
@@ -250,5 +266,10 @@ export const cancelGroup = asyncHandler(async (req, res) => {
   group.cancellationReason = cancellationReason || undefined;
   await group.save();
 
+  logAction(req, {
+    action: 'asset.group_cancel', entity: 'BorrowGroup',
+    entityId: group.groupNumber, entityRef: group._id,
+    meta: { cancellationReason },
+  });
   res.json(new ApiResponse(200, { group }, 'Group cancelled'));
 });

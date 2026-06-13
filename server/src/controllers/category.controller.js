@@ -2,6 +2,7 @@ import Category from '../models/Category.js';
 import ApiError from '../utils/ApiError.js';
 import ApiResponse from '../utils/ApiResponse.js';
 import asyncHandler from '../utils/asyncHandler.js';
+import { logAction } from '../services/audit.service.js';
 
 export const getCategories = asyncHandler(async (req, res) => {
   const filter = {};
@@ -23,6 +24,11 @@ export const getCategory = asyncHandler(async (req, res) => {
 
 export const createCategory = asyncHandler(async (req, res) => {
   const cat = await Category.create(req.body);
+  logAction(req, {
+    action: 'category.create', entity: 'Category',
+    entityId: cat.name, entityRef: cat._id,
+    meta: { code: cat.code },
+  });
   res.status(201).json(new ApiResponse(201, cat, 'Category created'));
 });
 
@@ -31,11 +37,19 @@ export const updateCategory = asyncHandler(async (req, res) => {
     returnDocument: 'after', runValidators: true,
   }).populate('parentCategory', 'name code');
   if (!cat) throw new ApiError(404, 'Category not found');
+  logAction(req, {
+    action: 'category.update', entity: 'Category',
+    entityId: cat.name, entityRef: cat._id,
+  });
   res.json(new ApiResponse(200, cat, 'Category updated'));
 });
 
 export const deleteCategory = asyncHandler(async (req, res) => {
   const cat = await Category.findByIdAndDelete(req.params.id);
   if (!cat) throw new ApiError(404, 'Category not found');
+  logAction(req, {
+    action: 'category.delete', entity: 'Category',
+    entityId: cat.name, entityRef: cat._id,
+  });
   res.json(new ApiResponse(200, null, 'Category deleted'));
 });

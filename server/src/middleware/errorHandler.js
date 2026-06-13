@@ -1,4 +1,5 @@
 import ApiError from '../utils/ApiError.js';
+import { logger } from '../utils/logger.js';
 
 const errorHandler = (err, req, res, next) => {
   let error = err;
@@ -21,10 +22,14 @@ const errorHandler = (err, req, res, next) => {
   }
 
   const statusCode = error.statusCode || 500;
-  const message = error.message || 'Internal Server Error';
+  const message    = error.message    || 'Internal Server Error';
 
-  if (process.env.NODE_ENV === 'development') {
-    console.error(err);
+  // Always log 5xx — these are genuine server faults, not client errors
+  if (statusCode >= 500) {
+    logger.error(`${req.method} ${req.originalUrl} → ${statusCode} ${message}`, {
+      user:   req.user?.email,
+      stack:  err.stack,
+    });
   }
 
   res.status(statusCode).json({

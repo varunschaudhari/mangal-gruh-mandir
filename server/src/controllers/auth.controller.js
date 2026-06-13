@@ -80,6 +80,10 @@ export const refreshToken = asyncHandler(async (req, res) => {
 
 export const logout = asyncHandler(async (req, res) => {
   await User.findByIdAndUpdate(req.user._id, { refreshToken: null });
+  logAction(req, {
+    action: 'auth.logout', entity: 'User',
+    entityId: req.user.email, entityRef: req.user._id,
+  });
   res.json(new ApiResponse(200, null, 'Logged out successfully'));
 });
 
@@ -98,6 +102,11 @@ export const updateProfile = asyncHandler(async (req, res) => {
     { returnDocument: 'after', runValidators: true }
   ).populate('departments', 'name code');
 
+  logAction(req, {
+    action: 'auth.profile_update', entity: 'User',
+    entityId: req.user.email, entityRef: req.user._id,
+    meta: { name: name.trim() },
+  });
   res.json(new ApiResponse(200, user, 'Profile updated'));
 });
 
@@ -111,5 +120,9 @@ export const changePassword = asyncHandler(async (req, res) => {
 
   user.password = newPassword;
   await user.save();
+  logAction(req, {
+    action: 'auth.password_change', entity: 'User',
+    entityId: req.user.email, entityRef: req.user._id,
+  });
   res.json(new ApiResponse(200, null, 'Password changed successfully'));
 });

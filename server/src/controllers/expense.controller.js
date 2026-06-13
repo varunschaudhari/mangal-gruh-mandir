@@ -195,6 +195,10 @@ export const uploadExpenseReceipt = asyncHandler(async (req, res) => {
   expense.receiptPath = req.file.filename;
   await expense.save();
 
+  logAction(req, {
+    action: 'expense.receipt_upload', entity: 'Expense',
+    entityId: expense.expenseNumber, entityRef: expense._id,
+  });
   res.json(new ApiResponse(200, { receiptPath: expense.receiptPath }, 'Receipt uploaded'));
 });
 
@@ -210,6 +214,10 @@ export const removeExpenseReceipt = asyncHandler(async (req, res) => {
   expense.receiptPath = undefined;
   await expense.save();
 
+  logAction(req, {
+    action: 'expense.receipt_remove', entity: 'Expense',
+    entityId: expense.expenseNumber, entityRef: expense._id,
+  });
   res.json(new ApiResponse(200, {}, 'Receipt removed'));
 });
 

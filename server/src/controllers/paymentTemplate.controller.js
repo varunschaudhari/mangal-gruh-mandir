@@ -3,6 +3,7 @@ import Supplier from '../models/Supplier.js';
 import ApiError from '../utils/ApiError.js';
 import ApiResponse from '../utils/ApiResponse.js';
 import asyncHandler from '../utils/asyncHandler.js';
+import { logAction } from '../services/audit.service.js';
 
 const POPULATE = [
   { path: 'supplier',  select: 'name bankAccounts' },
@@ -40,6 +41,11 @@ export const createTemplate = asyncHandler(async (req, res) => {
   });
 
   const populated = await PaymentTemplate.findById(template._id).populate(POPULATE).lean();
+  logAction(req, {
+    action: 'template.create', entity: 'PaymentTemplate',
+    entityId: template.name, entityRef: template._id,
+    meta: { supplier: supplierDoc.name },
+  });
   res.status(201).json(new ApiResponse(201, populated, 'Template saved'));
 });
 
@@ -49,6 +55,10 @@ export const deleteTemplate = asyncHandler(async (req, res) => {
   if (!template) throw new ApiError(404, 'Template not found');
   template.isActive = false;
   await template.save();
+  logAction(req, {
+    action: 'template.delete', entity: 'PaymentTemplate',
+    entityId: template.name, entityRef: template._id,
+  });
   res.json(new ApiResponse(200, null, 'Template deleted'));
 });
 
