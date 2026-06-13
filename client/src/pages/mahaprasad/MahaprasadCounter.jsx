@@ -422,7 +422,7 @@ export default function MahaprasadCounter() {
           <div className="flex flex-wrap gap-2 mb-3">
             {QTY_PRESETS.map((n) => (
               <button key={n} type="button"
-                onClick={() => { setQty(n); if (n === 1) setIsGroup(false); }}
+                onClick={() => { setQty(n); setIsGroup(n > 1); }}
                 disabled={cap > 0 && n > capRemaining}
                 className={`w-12 h-9 rounded-lg border-2 text-sm font-bold transition-all disabled:opacity-30 disabled:cursor-not-allowed ${
                   qty === n
@@ -436,7 +436,7 @@ export default function MahaprasadCounter() {
               ref={qtyInputRef}
               type="number" min={1} max={cap > 0 ? capRemaining : 200}
               value={qty}
-              onChange={(e) => { const v = Math.max(1, parseInt(e.target.value) || 1); setQty(v); if (v === 1) setIsGroup(false); }}
+              onChange={(e) => { const v = Math.max(1, parseInt(e.target.value) || 1); setQty(v); setIsGroup(v > 1); }}
               className={`w-20 h-9 input text-center font-bold ${wouldExceed ? 'border-red-400 bg-red-50' : ''}`}
               title="Custom quantity"
             />

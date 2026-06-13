@@ -34,7 +34,7 @@ export async function printUnitLabels(asset, units) {
   for (const u of units) {
     try {
       qrMap[u._id] = await QRCode.toDataURL(u.unitCode, {
-        width: 80, margin: 1, errorCorrectionLevel: 'M',
+        width: 100, margin: 1, errorCorrectionLevel: 'M',
         color: { dark: '#1f2937', light: '#ffffff' },
       });
     } catch { qrMap[u._id] = ''; }
@@ -42,12 +42,14 @@ export async function printUnitLabels(asset, units) {
 
   const stickersHtml = units.map((u) => {
     const condColor = CONDITION_COLORS[u.condition] || '#6b7280';
+    const unitNum   = String(u.unitNumber).padStart(2, '0');
     return `
       <div class="sticker">
         <div class="s-inner">
           <div class="s-left">
             <div class="s-temple">Mangal Grah Mandir</div>
             <div class="s-name">${esc(asset.name)}</div>
+            <div class="s-num">#${unitNum}</div>
             <div class="s-code">${esc(u.unitCode)}</div>
             <div class="s-meta">${esc(asset.category)}</div>
             <div class="s-cond" style="color:${condColor}">${u.condition.toUpperCase()}</div>
@@ -95,11 +97,12 @@ export async function printUnitLabels(asset, units) {
     }
     .s-inner { display: flex; align-items: center; gap: 2mm; width: 100%; }
     .s-left  { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1.5px; }
-    .s-right { width: 20mm; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
-    .s-qr    { width: 19mm; height: 19mm; }
+    .s-right { width: 22mm; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
+    .s-qr    { width: 21mm; height: 21mm; }
     .s-temple { font-size: 5pt; color: #ea580c; font-weight: bold; text-transform: uppercase; letter-spacing: 0.2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .s-name   { font-size: 10pt; font-weight: 900; color: #111; line-height: 1.2; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
-    .s-code   { font-size: 8pt; font-family: 'Courier New', monospace; font-weight: bold; color: #ea580c; letter-spacing: 0.3px; }
+    .s-name   { font-size: 9pt; font-weight: 700; color: #111; line-height: 1.2; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; }
+    .s-num    { font-size: 15pt; font-weight: 900; color: #111; line-height: 1.1; letter-spacing: -0.3px; }
+    .s-code   { font-size: 11pt; font-family: 'Courier New', monospace; font-weight: bold; color: #ea580c; letter-spacing: 0.2px; }
     .s-meta   { font-size: 6pt; color: #777; }
     .s-cond   { font-size: 5.5pt; font-weight: bold; letter-spacing: 0.3px; }
   </style>
