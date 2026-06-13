@@ -13,6 +13,7 @@ import {
 } from '../../api/assetTransaction.api.js';
 import { getApprovers } from '../../api/user.api.js';
 import { getSettings } from '../../api/settings.api.js';
+import SearchableSelect from '../../components/ui/SearchableSelect.jsx';
 import { PageLoader } from '../../components/ui/Spinner.jsx';
 import Modal from '../../components/ui/Modal.jsx';
 import Badge from '../../components/ui/Badge.jsx';
@@ -157,10 +158,12 @@ const ExtendModal = ({ isGroup, id, currentDue, onClose, onSuccess }) => {
         </div>
         <div>
           <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Approved By (Trustee) <span className="text-red-400">*</span></p>
-          <select value={approvedBy} onChange={(e) => setApprovedBy(e.target.value)} className="input">
-            <option value="">— Select trustee —</option>
-            {approvers.map((u) => <option key={u._id} value={u._id}>{u.name}</option>)}
-          </select>
+          <SearchableSelect
+            value={approvedBy}
+            onChange={setApprovedBy}
+            options={approvers.map((u) => ({ value: u._id, label: u.name }))}
+            placeholder="— Select trustee —"
+          />
         </div>
         <div>
           <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Reason (optional)</p>

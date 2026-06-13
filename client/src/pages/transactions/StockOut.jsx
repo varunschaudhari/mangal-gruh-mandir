@@ -8,6 +8,7 @@ import { FormField, FormRow, FormSection, FormActions } from '../../components/u
 import DatePickerField from '../../components/ui/DatePickerField.jsx';
 import ProductSearchSelect from '../../components/transactions/ProductSearchSelect.jsx';
 import CurrentBalanceDisplay from '../../components/transactions/CurrentBalanceDisplay.jsx';
+import SearchableSelect from '../../components/ui/SearchableSelect.jsx';
 import toast from 'react-hot-toast';
 
 const PURPOSES = [
@@ -72,10 +73,20 @@ const StockOut = () => {
           </FormField>
 
           <FormField label="From Department" required error={errors.fromDepartment?.message}>
-            <select {...register('fromDepartment', { required: 'Department is required' })} className="input">
-              <option value="">Select department…</option>
-              {departments.map((d) => <option key={d._id} value={d._id}>{d.name}</option>)}
-            </select>
+            <Controller
+              name="fromDepartment"
+              control={control}
+              rules={{ required: 'Department is required' }}
+              render={({ field }) => (
+                <SearchableSelect
+                  value={field.value || ''}
+                  onChange={field.onChange}
+                  options={departments.map((d) => ({ value: d._id, label: d.name }))}
+                  placeholder="Select department…"
+                  error={errors.fromDepartment?.message}
+                />
+              )}
+            />
           </FormField>
 
           {selectedProduct && fromDept && (

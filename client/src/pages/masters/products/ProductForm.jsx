@@ -1,10 +1,11 @@
 import { useEffect } from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, Controller } from 'react-hook-form';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getProduct, createProduct, updateProduct } from '../../../api/product.api.js';
 import { getCategories } from '../../../api/category.api.js';
 import { getUnits } from '../../../api/unit.api.js';
+import SearchableSelect from '../../../components/ui/SearchableSelect.jsx';
 import PageHeader from '../../../components/ui/PageHeader.jsx';
 import { FormField, FormRow, FormSection, FormActions } from '../../../components/ui/FormField.jsx';
 import { PageLoader } from '../../../components/ui/Spinner.jsx';
@@ -73,16 +74,36 @@ const ProductForm = () => {
 
           <FormRow>
             <FormField label="Category" required error={errors.category?.message}>
-              <select {...register('category', { required: 'Category is required' })} className="input">
-                <option value="">Select category...</option>
-                {categories.map((c) => <option key={c._id} value={c._id}>{c.name}</option>)}
-              </select>
+              <Controller
+                name="category"
+                control={control}
+                rules={{ required: 'Category is required' }}
+                render={({ field }) => (
+                  <SearchableSelect
+                    value={field.value || ''}
+                    onChange={field.onChange}
+                    options={categories.map((c) => ({ value: c._id, label: c.name }))}
+                    placeholder="Select category…"
+                    error={errors.category?.message}
+                  />
+                )}
+              />
             </FormField>
             <FormField label="Unit" required error={errors.unit?.message}>
-              <select {...register('unit', { required: 'Unit is required' })} className="input">
-                <option value="">Select unit...</option>
-                {units.map((u) => <option key={u._id} value={u._id}>{u.name} ({u.symbol})</option>)}
-              </select>
+              <Controller
+                name="unit"
+                control={control}
+                rules={{ required: 'Unit is required' }}
+                render={({ field }) => (
+                  <SearchableSelect
+                    value={field.value || ''}
+                    onChange={field.onChange}
+                    options={units.map((u) => ({ value: u._id, label: u.name, sub: u.symbol }))}
+                    placeholder="Select unit…"
+                    error={errors.unit?.message}
+                  />
+                )}
+              />
             </FormField>
           </FormRow>
 

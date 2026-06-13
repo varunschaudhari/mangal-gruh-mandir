@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useForm, useFieldArray } from 'react-hook-form';
+import { useForm, useFieldArray, Controller } from 'react-hook-form';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { ArrowLeft, Plus, Trash2, AlertTriangle, CreditCard, BookTemplate, ChevronDown, X, Save, CheckCircle2 } from 'lucide-react';
@@ -7,6 +7,7 @@ import { getSuppliers, getSupplier } from '../../api/supplier.api.js';
 import { createPayment, getSupplierAdvances } from '../../api/supplierPayment.api.js';
 import { getPendingEntries } from '../../api/purchaseEntry.api.js';
 import { getTemplates, createTemplate, markTemplateUsed } from '../../api/paymentTemplate.api.js';
+import SearchableSelect from '../../components/ui/SearchableSelect.jsx';
 import PageHeader from '../../components/ui/PageHeader.jsx';
 import Modal from '../../components/ui/Modal.jsx';
 import toast from 'react-hot-toast';
@@ -309,10 +310,20 @@ export default function NewSupplierPayment() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Supplier *</label>
-              <select {...register('supplier', { required: 'Supplier is required' })} className="input">
-                <option value="">Select supplier…</option>
-                {suppliers.map((s) => <option key={s._id} value={s._id}>{s.name}</option>)}
-              </select>
+              <Controller
+                name="supplier"
+                control={control}
+                rules={{ required: 'Supplier is required' }}
+                render={({ field }) => (
+                  <SearchableSelect
+                    value={field.value || ''}
+                    onChange={field.onChange}
+                    options={suppliers.map((s) => ({ value: s._id, label: s.name }))}
+                    placeholder="Select supplier…"
+                    error={errors.supplier?.message}
+                  />
+                )}
+              />
               {errors.supplier && <p className="mt-1 text-xs text-red-500">{errors.supplier.message}</p>}
             </div>
             <div>

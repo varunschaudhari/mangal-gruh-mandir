@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useFieldArray, useForm } from 'react-hook-form';
+import { useFieldArray, useForm, Controller } from 'react-hook-form';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Heart, User, CalendarDays, IndianRupee, Package, Plus, Trash2, Printer, FileCheck2, UserCheck, Clock } from 'lucide-react';
@@ -9,6 +9,7 @@ import { getSuppliers } from '../../api/supplier.api.js';
 import { getDepartments } from '../../api/department.api.js';
 import api from '../../api/axios.js';
 import { printDonationReceipt } from '../../utils/donationReceipt.js';
+import SearchableSelect from '../../components/ui/SearchableSelect.jsx';
 import PageHeader from '../../components/ui/PageHeader.jsx';
 import { useDebounce } from '../../hooks/useDebounce.js';
 import toast from 'react-hot-toast';
@@ -177,24 +178,40 @@ const NewDonation = () => {
                   </div>
                 </Field>
                 <Field label="Occasion / Purpose">
-                  <select {...register('occasion')} className="input">
-                    <option value="">— General / Unspecified —</option>
-                    {occasions.map((o) => <option key={o._id} value={o._id}>{o.name}</option>)}
-                  </select>
+                  <Controller
+                    name="occasion"
+                    control={control}
+                    render={({ field }) => (
+                      <SearchableSelect
+                        value={field.value || ''}
+                        onChange={field.onChange}
+                        options={occasions.map((o) => ({ value: o._id, label: o.name }))}
+                        placeholder="— General / Unspecified —"
+                      />
+                    )}
+                  />
                 </Field>
               </div>
 
               {donationType === 'named' && (
                 <>
                   <Field label="Donor" hint="Select from list, or leave blank and enter below">
-                    <select {...register('donor')} className="input">
-                      <option value="">— Walk-in / New donor —</option>
-                      {donors.map((d) => (
-                        <option key={d._id} value={d._id}>
-                          {d.name}{d.phone ? ` · ${d.phone}` : ''}{d.panNumber ? ` · PAN: ${d.panNumber}` : ''}
-                        </option>
-                      ))}
-                    </select>
+                    <Controller
+                      name="donor"
+                      control={control}
+                      render={({ field }) => (
+                        <SearchableSelect
+                          value={field.value || ''}
+                          onChange={field.onChange}
+                          options={donors.map((d) => ({
+                            value: d._id,
+                            label: d.name,
+                            sub: [d.phone, d.panNumber ? `PAN: ${d.panNumber}` : null].filter(Boolean).join(' · '),
+                          }))}
+                          placeholder="— Walk-in / New donor —"
+                        />
+                      )}
+                    />
                   </Field>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <Field label="Donor Name (walk-in)">
@@ -313,17 +330,23 @@ const NewDonation = () => {
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                       <div className="col-span-2">
                         <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Item <span className="text-red-400">*</span></label>
-                        <select
-                          {...register(`kindItems.${index}.product`, { required: true })}
-                          className="input text-sm"
-                          onChange={(e) => {
-                            const selected = products.find((p) => p._id === e.target.value);
-                            if (selected?.unit) setValue(`kindItems.${index}.unit`, selected.unit._id || selected.unit);
-                          }}
-                        >
-                          <option value="">— Select item —</option>
-                          {products.map((p) => <option key={p._id} value={p._id}>{p.name} ({p.code})</option>)}
-                        </select>
+                        <Controller
+                          name={`kindItems.${index}.product`}
+                          control={control}
+                          rules={{ required: true }}
+                          render={({ field }) => (
+                            <SearchableSelect
+                              value={field.value || ''}
+                              onChange={(val) => {
+                                field.onChange(val);
+                                const selected = products.find((p) => p._id === val);
+                                if (selected?.unit) setValue(`kindItems.${index}.unit`, selected.unit._id || selected.unit);
+                              }}
+                              options={products.map((p) => ({ value: p._id, label: p.name, sub: p.code }))}
+                              placeholder="— Select item —"
+                            />
+                          )}
+                        />
                       </div>
                       <div>
                         <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Qty <span className="text-red-400">*</span></label>
@@ -340,13 +363,22 @@ const NewDonation = () => {
                     </div>
                     <div>
                       <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">To Department</label>
-                      <select {...register(`kindItems.${index}.department`)} defaultValue={mainStore?._id || ''} className="input">
-                        {depts.map((d) => (
-                          <option key={d._id} value={d._id}>
-                            {d.name}{d._id === mainStore?._id ? ' (Default)' : ''}
-                          </option>
-                        ))}
-                      </select>
+                      <Controller
+                        name={`kindItems.${index}.department`}
+                        control={control}
+                        render={({ field }) => (
+                          <SearchableSelect
+                            value={field.value || ''}
+                            onChange={field.onChange}
+                            options={depts.map((d) => ({
+                              value: d._id,
+                              label: d.name + (d._id === mainStore?._id ? ' (Default)' : ''),
+                            }))}
+                            placeholder="Select department…"
+                            nullable={false}
+                          />
+                        )}
+                      />
                     </div>
                   </div>
                 ))}

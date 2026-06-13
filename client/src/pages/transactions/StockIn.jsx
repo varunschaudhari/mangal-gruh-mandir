@@ -9,6 +9,7 @@ import PageHeader from '../../components/ui/PageHeader.jsx';
 import { FormField, FormRow, FormSection, FormActions } from '../../components/ui/FormField.jsx';
 import DatePickerField from '../../components/ui/DatePickerField.jsx';
 import ProductSearchSelect from '../../components/transactions/ProductSearchSelect.jsx';
+import SearchableSelect from '../../components/ui/SearchableSelect.jsx';
 import { useDebounce } from '../../hooks/useDebounce.js';
 import toast from 'react-hot-toast';
 
@@ -124,20 +125,38 @@ const StockIn = () => {
               </FormField>
             </FormRow>
             <FormField label="To Department" required error={errors.toDepartment?.message}>
-              <select {...register('toDepartment', { required: 'Department is required' })} className="input">
-                <option value="">Select department…</option>
-                {departments.map((d) => <option key={d._id} value={d._id}>{d.name}</option>)}
-              </select>
+              <Controller
+                name="toDepartment"
+                control={control}
+                rules={{ required: 'Department is required' }}
+                render={({ field }) => (
+                  <SearchableSelect
+                    value={field.value || ''}
+                    onChange={field.onChange}
+                    options={departments.map((d) => ({ value: d._id, label: d.name }))}
+                    placeholder="Select department…"
+                    error={errors.toDepartment?.message}
+                  />
+                )}
+              />
             </FormField>
           </FormSection>
 
           {stockInType === 'PURCHASE' && (
             <FormSection title="Purchase Details">
               <FormField label="Supplier">
-                <select {...register('supplier')} className="input">
-                  <option value="">Select supplier…</option>
-                  {suppliers.map((s) => <option key={s._id} value={s._id}>{s.name}</option>)}
-                </select>
+                <Controller
+                  name="supplier"
+                  control={control}
+                  render={({ field }) => (
+                    <SearchableSelect
+                      value={field.value || ''}
+                      onChange={field.onChange}
+                      options={suppliers.map((s) => ({ value: s._id, label: s.name }))}
+                      placeholder="Select supplier…"
+                    />
+                  )}
+                />
               </FormField>
               <FormRow cols={2}>
                 <FormField label="Invoice Number">

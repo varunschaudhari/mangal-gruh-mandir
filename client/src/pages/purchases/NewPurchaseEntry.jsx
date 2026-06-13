@@ -7,6 +7,7 @@ import { getSuppliers, getSupplier } from '../../api/supplier.api.js';
 import { getDepartments } from '../../api/department.api.js';
 import { createPurchaseEntry } from '../../api/purchaseEntry.api.js';
 import ProductSearchSelect from '../../components/transactions/ProductSearchSelect.jsx';
+import SearchableSelect from '../../components/ui/SearchableSelect.jsx';
 import PageHeader from '../../components/ui/PageHeader.jsx';
 import toast from 'react-hot-toast';
 
@@ -126,10 +127,20 @@ export default function NewPurchaseEntry() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Supplier *</label>
-              <select {...register('supplier', { required: 'Required' })} className="input">
-                <option value="">Select supplier…</option>
-                {suppliers.map((s) => <option key={s._id} value={s._id}>{s.name}</option>)}
-              </select>
+              <Controller
+                name="supplier"
+                control={control}
+                rules={{ required: 'Required' }}
+                render={({ field }) => (
+                  <SearchableSelect
+                    value={field.value || ''}
+                    onChange={field.onChange}
+                    options={suppliers.map((s) => ({ value: s._id, label: s.name }))}
+                    placeholder="Select supplier…"
+                    error={errors.supplier?.message}
+                  />
+                )}
+              />
               {errors.supplier && <p className="mt-1 text-xs text-red-500">{errors.supplier.message}</p>}
               {selectedSupplier?.creditDays && (
                 <p className="mt-1 text-xs text-gray-400">Credit: {selectedSupplier.creditDays} days</p>
@@ -138,10 +149,20 @@ export default function NewPurchaseEntry() {
 
             <div>
               <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Department *</label>
-              <select {...register('toDepartment', { required: 'Required' })} className="input">
-                <option value="">Select department…</option>
-                {departments.map((d) => <option key={d._id} value={d._id}>{d.name}</option>)}
-              </select>
+              <Controller
+                name="toDepartment"
+                control={control}
+                rules={{ required: 'Required' }}
+                render={({ field }) => (
+                  <SearchableSelect
+                    value={field.value || ''}
+                    onChange={field.onChange}
+                    options={departments.map((d) => ({ value: d._id, label: d.name }))}
+                    placeholder="Select department…"
+                    error={errors.toDepartment?.message}
+                  />
+                )}
+              />
               {errors.toDepartment && <p className="mt-1 text-xs text-red-500">{errors.toDepartment.message}</p>}
             </div>
 

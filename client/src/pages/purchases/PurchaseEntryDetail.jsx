@@ -3,7 +3,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   ArrowLeft, AlertTriangle, CheckCircle2, Clock, CircleDot,
-  XCircle, Package, CreditCard,
+  XCircle, Package, CreditCard, Pencil,
 } from 'lucide-react';
 import { getPurchaseEntry, voidPurchaseEntry } from '../../api/purchaseEntry.api.js';
 import PageHeader from '../../components/ui/PageHeader.jsx';
@@ -66,6 +66,8 @@ export default function PurchaseEntryDetail() {
 
   const paymentStatus = entry.paymentStatus || 'unpaid';
   const canVoid = can('transactions:create') && !entry.isVoided && paymentStatus !== 'paid';
+  const hasApprovedPayment = (entry.paidSoFar || 0) > 0;
+  const canEdit = can('transactions:create') && !entry.isVoided && !hasApprovedPayment;
 
   return (
     <div className="max-w-4xl space-y-5">
@@ -78,14 +80,38 @@ export default function PurchaseEntryDetail() {
         title={entry.entryNumber || 'Purchase Entry'}
         subtitle={`${entry.supplier?.name || ''} · Invoice: ${entry.invoiceNumber || 'N/A'}`}
         breadcrumbs={[{ label: 'Purchases', to: '/purchases' }, { label: entry.entryNumber || 'Detail' }]}
-        actions={canVoid && (
-          <button
-            onClick={() => setShowVoid(true)}
-            className="btn-danger flex items-center gap-1.5 text-sm">
-            <XCircle className="h-4 w-4" /> Void Entry
-          </button>
-        )}
+        actions={
+          <div className="flex items-center gap-2">
+            {canEdit && (
+              <button
+                onClick={() => navigate(`/purchases/${id}/edit`)}
+                className="btn-secondary flex items-center gap-1.5 text-sm">
+                <Pencil className="h-4 w-4" /> Edit
+              </button>
+            )}
+            {canVoid && (
+              <button
+                onClick={() => setShowVoid(true)}
+                className="btn-danger flex items-center gap-1.5 text-sm">
+                <XCircle className="h-4 w-4" /> Void Entry
+              </button>
+            )}
+          </div>
+        }
       />
+
+      {/* Payment-locked banner */}
+      {!entry.isVoided && hasApprovedPayment && (
+        <div className="rounded-xl border border-blue-200 bg-blue-50 p-4 flex items-start gap-3">
+          <CreditCard className="h-5 w-5 text-blue-500 shrink-0 mt-0.5" />
+          <div>
+            <p className="text-sm font-semibold text-blue-800">Entry locked — approved payment exists</p>
+            <p className="text-xs text-blue-600 mt-0.5">
+              This entry has been partially or fully settled. To correct it, void the linked payment(s) first.
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Void banner */}
       {entry.isVoided && (

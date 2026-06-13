@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { getLedger } from '../../api/stockLedger.api.js';
 import { getDepartments } from '../../api/department.api.js';
 import { getProducts } from '../../api/product.api.js';
+import SearchableSelect from '../../components/ui/SearchableSelect.jsx';
 import PageHeader from '../../components/ui/PageHeader.jsx';
 import Badge from '../../components/ui/Badge.jsx';
 import { PageLoader } from '../../components/ui/Spinner.jsx';
@@ -80,29 +81,21 @@ const StockLedger = () => {
         <div className="flex flex-wrap items-end gap-3">
           <div className="flex-1 min-w-[180px]">
             <label className="label">Product *</label>
-            <select
+            <SearchableSelect
               value={productId}
-              onChange={(e) => { setProductId(e.target.value); setSubmitted(false); }}
-              className="input text-sm"
-              required
-            >
-              <option value="">Select product…</option>
-              {products.map((p) => (
-                <option key={p._id} value={p._id}>{p.name} ({p.code})</option>
-              ))}
-            </select>
+              onChange={(v) => { setProductId(v); setSubmitted(false); }}
+              options={products.map((p) => ({ value: p._id, label: p.name, sub: p.code }))}
+              placeholder="Select product…"
+            />
           </div>
           <div className="flex-1 min-w-[160px]">
             <label className="label">Department *</label>
-            <select
+            <SearchableSelect
               value={departmentId}
-              onChange={(e) => { setDepartmentId(e.target.value); setSubmitted(false); }}
-              className="input text-sm"
-              required
-            >
-              <option value="">Select department…</option>
-              {departments.map((d) => <option key={d._id} value={d._id}>{d.name}</option>)}
-            </select>
+              onChange={(v) => { setDepartmentId(v); setSubmitted(false); }}
+              options={departments.map((d) => ({ value: d._id, label: d.name }))}
+              placeholder="Select department…"
+            />
           </div>
           <div>
             <label className="label">From Date</label>

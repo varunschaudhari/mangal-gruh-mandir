@@ -1,4 +1,4 @@
-import { useFieldArray, useForm } from 'react-hook-form';
+import { useFieldArray, useForm, Controller } from 'react-hook-form';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Package, User, Users, CalendarDays, Shield, Info, Plus, Trash2, Hash, Phone, MapPin, CreditCard } from 'lucide-react';
@@ -7,6 +7,7 @@ import { createBorrowGroup } from '../../api/borrowGroup.api.js';
 import { getSettings } from '../../api/settings.api.js';
 import { getUsers, getApprovers } from '../../api/user.api.js';
 import { useDebounce } from '../../hooks/useDebounce.js';
+import SearchableSelect from '../../components/ui/SearchableSelect.jsx';
 import PageHeader from '../../components/ui/PageHeader.jsx';
 import toast from 'react-hot-toast';
 
@@ -171,16 +172,20 @@ const NewBorrowRequest = () => {
             {/* ── Staff borrower dropdown ── */}
             {!isExternal && (
               <Field label="Staff Member" required error={errors.borrower?.message}>
-                <div className="relative">
-                  <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-300" />
-                  <select
-                    {...register('borrower', { validate: (v) => !isExternal ? (v ? true : 'Select borrower') : true })}
-                    className="input pl-9"
-                  >
-                    <option value="">— Select staff member —</option>
-                    {users.map((u) => <option key={u._id} value={u._id}>{u.name}</option>)}
-                  </select>
-                </div>
+                <Controller
+                  name="borrower"
+                  control={control}
+                  rules={{ validate: (v) => !isExternal ? (v ? true : 'Select borrower') : true }}
+                  render={({ field }) => (
+                    <SearchableSelect
+                      value={field.value || ''}
+                      onChange={field.onChange}
+                      options={users.map((u) => ({ value: u._id, label: u.name }))}
+                      placeholder="— Select staff member —"
+                      error={errors.borrower?.message}
+                    />
+                  )}
+                />
               </Field>
             )}
 
@@ -262,13 +267,20 @@ const NewBorrowRequest = () => {
                 </div>
               </Field>
               <Field label="Approved By (Trustee)" required error={errors.approvedBy?.message} hint="Phone approval already received">
-                <div className="relative">
-                  <Shield className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-300" />
-                  <select {...register('approvedBy', { required: 'Select approver' })} className="input pl-9">
-                    <option value="">— Select trustee —</option>
-                    {approvers.map((u) => <option key={u._id} value={u._id}>{u.name}</option>)}
-                  </select>
-                </div>
+                <Controller
+                  name="approvedBy"
+                  control={control}
+                  rules={{ required: 'Select approver' }}
+                  render={({ field }) => (
+                    <SearchableSelect
+                      value={field.value || ''}
+                      onChange={field.onChange}
+                      options={approvers.map((u) => ({ value: u._id, label: u.name }))}
+                      placeholder="— Select trustee —"
+                      error={errors.approvedBy?.message}
+                    />
+                  )}
+                />
                 {approvers.length === 0 && (
                   <p className="mt-1 text-xs text-amber-600">No approvers configured. Enable "Can Approve Assets" on trustee accounts.</p>
                 )}
@@ -314,13 +326,20 @@ const NewBorrowRequest = () => {
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                     <div className="sm:col-span-2">
                       <Field label="Asset" required error={errors.items?.[index]?.asset?.message}>
-                        <div className="relative">
-                          <Package className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-300" />
-                          <select {...register(`items.${index}.asset`, { required: 'Select asset' })} className="input pl-9">
-                            <option value="">— Select asset —</option>
-                            {assets.map((a) => <option key={a._id} value={a._id}>{a.name} ({a.category})</option>)}
-                          </select>
-                        </div>
+                        <Controller
+                          name={`items.${index}.asset`}
+                          control={control}
+                          rules={{ required: 'Select asset' }}
+                          render={({ field }) => (
+                            <SearchableSelect
+                              value={field.value || ''}
+                              onChange={field.onChange}
+                              options={assets.map((a) => ({ value: a._id, label: a.name, sub: a.category }))}
+                              placeholder="— Select asset —"
+                              error={errors.items?.[index]?.asset?.message}
+                            />
+                          )}
+                        />
                         <AvailabilityHint assetId={watchedAsset} returnDate={expectedReturnDate} />
                       </Field>
                     </div>

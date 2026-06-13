@@ -8,6 +8,7 @@ import { FormField, FormRow, FormSection, FormActions } from '../../components/u
 import DatePickerField from '../../components/ui/DatePickerField.jsx';
 import ProductSearchSelect from '../../components/transactions/ProductSearchSelect.jsx';
 import CurrentBalanceDisplay from '../../components/transactions/CurrentBalanceDisplay.jsx';
+import SearchableSelect from '../../components/ui/SearchableSelect.jsx';
 import toast from 'react-hot-toast';
 
 const Transfer = () => {
@@ -59,16 +60,36 @@ const Transfer = () => {
 
           <FormRow cols={2}>
             <FormField label="From Department" required error={errors.fromDepartment?.message}>
-              <select {...register('fromDepartment', { required: 'Source department is required' })} className="input">
-                <option value="">Select source…</option>
-                {departments.map((d) => <option key={d._id} value={d._id}>{d.name}</option>)}
-              </select>
+              <Controller
+                name="fromDepartment"
+                control={control}
+                rules={{ required: 'Source department is required' }}
+                render={({ field }) => (
+                  <SearchableSelect
+                    value={field.value || ''}
+                    onChange={field.onChange}
+                    options={departments.map((d) => ({ value: d._id, label: d.name }))}
+                    placeholder="Select source…"
+                    error={errors.fromDepartment?.message}
+                  />
+                )}
+              />
             </FormField>
             <FormField label="To Department" required error={errors.toDepartment?.message}>
-              <select {...register('toDepartment', { required: 'Destination department is required' })} className="input">
-                <option value="">Select destination…</option>
-                {departments.map((d) => <option key={d._id} value={d._id}>{d.name}</option>)}
-              </select>
+              <Controller
+                name="toDepartment"
+                control={control}
+                rules={{ required: 'Destination department is required' }}
+                render={({ field }) => (
+                  <SearchableSelect
+                    value={field.value || ''}
+                    onChange={field.onChange}
+                    options={departments.map((d) => ({ value: d._id, label: d.name }))}
+                    placeholder="Select destination…"
+                    error={errors.toDepartment?.message}
+                  />
+                )}
+              />
             </FormField>
           </FormRow>
 

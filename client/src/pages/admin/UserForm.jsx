@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, Controller } from 'react-hook-form';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
@@ -9,6 +9,7 @@ import {
 import { getUser, createUser, updateUser } from '../../api/user.api.js';
 import { getDepartments } from '../../api/department.api.js';
 import { getRoles } from '../../api/role.api.js';
+import SearchableSelect from '../../components/ui/SearchableSelect.jsx';
 import PageHeader from '../../components/ui/PageHeader.jsx';
 import { PageLoader } from '../../components/ui/Spinner.jsx';
 import { ROLE_LABELS } from '../../utils/permissions.js';
@@ -181,12 +182,19 @@ const UserForm = () => {
         {/* ── Role & Access ── */}
         <Section icon={Shield} title="Role & Access" subtitle="Permissions and department assignment" color="text-purple-600" bg="bg-purple-50">
           <Field label="Role" required>
-            <div className="relative">
-              <Shield className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-300" />
-              <select {...register('role')} className="input pl-9">
-                {roles.map((r) => <option key={r.slug} value={r.slug}>{r.name}</option>)}
-              </select>
-            </div>
+            <Controller
+              name="role"
+              control={control}
+              render={({ field }) => (
+                <SearchableSelect
+                  value={field.value || ''}
+                  onChange={field.onChange}
+                  options={roles.map((r) => ({ value: r.slug, label: r.name }))}
+                  placeholder="Select role…"
+                  nullable={false}
+                />
+              )}
+            />
           </Field>
 
           {showDepts && (

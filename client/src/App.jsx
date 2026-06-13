@@ -62,6 +62,7 @@ import InvoiceRegister from './pages/payments/InvoiceRegister.jsx';
 import PurchaseRegister from './pages/purchases/PurchaseRegister.jsx';
 import NewPurchaseEntry from './pages/purchases/NewPurchaseEntry.jsx';
 import PurchaseEntryDetail from './pages/purchases/PurchaseEntryDetail.jsx';
+import PurchaseEntryEdit from './pages/purchases/PurchaseEntryEdit.jsx';
 import MahaprasadCounter from './pages/mahaprasad/MahaprasadCounter.jsx';
 import MahaprasadRedeem from './pages/mahaprasad/MahaprasadRedeem.jsx';
 import MahaprasadHistory from './pages/mahaprasad/MahaprasadHistory.jsx';
@@ -154,9 +155,10 @@ const App = () => (
         <Route path="/payments/:id" element={<SupplierPaymentDetail />} />
 
         {/* Purchases */}
-        <Route path="/purchases"     element={<PurchaseRegister />} />
-        <Route path="/purchases/new" element={<NewPurchaseEntry />} />
-        <Route path="/purchases/:id" element={<PurchaseEntryDetail />} />
+        <Route path="/purchases"          element={<PurchaseRegister />} />
+        <Route path="/purchases/new"      element={<NewPurchaseEntry />} />
+        <Route path="/purchases/:id"      element={<PurchaseEntryDetail />} />
+        <Route path="/purchases/:id/edit" element={<PurchaseEntryEdit />} />
 
         {/* Mahaprasad */}
         <Route path="/mahaprasad"         element={<MahaprasadCounter />} />

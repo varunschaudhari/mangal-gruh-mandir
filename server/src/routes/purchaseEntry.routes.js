@@ -5,6 +5,7 @@ import {
   createPurchaseEntry,
   getPurchaseEntries,
   getPurchaseEntry,
+  updatePurchaseEntry,
   voidPurchaseEntry,
   getPendingEntries,
 } from '../controllers/purchaseEntry.controller.js';
@@ -20,6 +21,7 @@ router.route('/')
   .post(authorize('transactions:create'), createPurchaseEntry);
 
 router.get('/:id', authorize('transactions:read'), getPurchaseEntry);
+router.patch('/:id', authorize('transactions:create'), updatePurchaseEntry);
 router.patch('/:id/void', authorize('transactions:create'), voidPurchaseEntry);
 
 export default router;

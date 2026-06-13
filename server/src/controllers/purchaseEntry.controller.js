@@ -226,6 +226,87 @@ export const getPurchaseEntry = asyncHandler(async (req, res) => {
   }));
 });
 
+// PATCH /purchase-entries/:id
+export const updatePurchaseEntry = asyncHandler(async (req, res) => {
+  const entry = await PurchaseEntry.findById(req.params.id);
+  if (!entry) throw new ApiError(404, 'Purchase entry not found');
+  if (entry.isVoided) throw new ApiError(400, 'Cannot edit a voided entry');
+
+  const approvedPayments = await SupplierPayment.find({
+    status: 'approved',
+    'invoices.purchaseEntryId': entry._id,
+  }).select('_id paymentNumber').lean();
+  if (approvedPayments.length > 0) {
+    throw new ApiError(
+      400,
+      `Cannot edit: ${approvedPayments.length} approved payment(s) reference this entry. The financial record is settled.`
+    );
+  }
+
+  const { supplier, invoiceNumber, invoiceDate, receivedDate, dueDate, notes, items } = req.body;
+
+  if (supplier !== undefined) entry.supplier = supplier;
+  if (invoiceNumber !== undefined) entry.invoiceNumber = invoiceNumber || undefined;
+  if (invoiceDate !== undefined)   entry.invoiceDate   = invoiceDate   || undefined;
+  if (receivedDate !== undefined)  entry.receivedDate  = receivedDate  || entry.receivedDate;
+  if (dueDate !== undefined)       entry.dueDate       = dueDate       || undefined;
+  if (notes !== undefined)         entry.notes         = notes         || undefined;
+
+  // Per-item metadata updates (rate, batchRef, expiryDate) — no qty/product changes
+  if (Array.isArray(items)) {
+    let totalValue = 0;
+    for (let i = 0; i < items.length; i++) {
+      const update    = items[i];
+      const entryItem = entry.items[i];
+      if (!entryItem) continue;
+
+      if (update.rate !== undefined) {
+        const newRate = Number(update.rate) || 0;
+        entryItem.rate       = newRate;
+        entryItem.totalValue = newRate * entryItem.quantity;
+      }
+      if (update.batchRef !== undefined)   entryItem.batchRef   = update.batchRef   || undefined;
+      if (update.expiryDate !== undefined) entryItem.expiryDate = update.expiryDate || undefined;
+
+      totalValue += entryItem.totalValue || 0;
+
+      // Sync metadata to the linked StockTransaction
+      if (entryItem.stockTransactionId) {
+        const txnPatch = {};
+        if (update.rate !== undefined)       { txnPatch.rate = entryItem.rate; txnPatch.totalValue = entryItem.totalValue; }
+        if (update.batchRef !== undefined)   txnPatch.batchRef   = entryItem.batchRef   || null;
+        if (update.expiryDate !== undefined) txnPatch.expiryDate = entryItem.expiryDate || null;
+        if (supplier !== undefined)          txnPatch.supplier   = supplier;
+        if (invoiceNumber !== undefined)     txnPatch.invoiceNumber = invoiceNumber || null;
+        if (invoiceDate !== undefined)       txnPatch.invoiceDate   = invoiceDate   || null;
+        if (dueDate !== undefined)           txnPatch.dueDate       = dueDate       || null;
+        if (Object.keys(txnPatch).length)
+          await StockTransaction.findByIdAndUpdate(entryItem.stockTransactionId, { $set: txnPatch });
+      }
+    }
+    entry.totalValue = totalValue;
+    entry.markModified('items');
+  }
+
+  await entry.save();
+
+  logAction(req, {
+    action: 'purchase.update', entity: 'PurchaseEntry',
+    entityId: entry.entryNumber, entityRef: entry._id,
+    meta: { invoiceNumber: entry.invoiceNumber },
+  });
+
+  const populated = await PurchaseEntry.findById(entry._id)
+    .populate('supplier', 'name phone address bankAccounts creditDays')
+    .populate('toDepartment', 'name code')
+    .populate('items.product', 'name code')
+    .populate('items.unit', 'symbol name')
+    .populate('createdBy', 'name')
+    .lean();
+
+  res.json(new ApiResponse(200, populated, 'Purchase entry updated'));
+});
+
 // PATCH /purchase-entries/:id/void
 export const voidPurchaseEntry = asyncHandler(async (req, res) => {
   const { voidReason } = req.body;
