@@ -28,6 +28,9 @@ import mahaprasadOccasionRoutes from './mahaprasadOccasion.routes.js';
 import auditLogRoutes from './auditLog.routes.js';
 import purchaseEntryRoutes from './purchaseEntry.routes.js';
 import assetUnitRoutes from './assetUnit.routes.js';
+import expenseRoutes from './expense.routes.js';
+import budgetRoutes from './budget.routes.js';
+import pnlRoutes from './pnl.routes.js';
 
 const router = Router();
 
@@ -61,5 +64,8 @@ router.use('/mahaprasad-occasions', mahaprasadOccasionRoutes);
 router.use('/audit-logs',          auditLogRoutes);
 router.use('/purchase-entries',    purchaseEntryRoutes);
 router.use('/asset-units',         assetUnitRoutes);
+router.use('/expenses',            expenseRoutes);
+router.use('/budgets',             budgetRoutes);
+router.use('/pnl',                 pnlRoutes);
 
 export default router;

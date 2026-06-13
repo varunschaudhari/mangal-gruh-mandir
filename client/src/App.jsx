@@ -62,7 +62,12 @@ import InvoiceRegister from './pages/payments/InvoiceRegister.jsx';
 import PurchaseRegister from './pages/purchases/PurchaseRegister.jsx';
 import NewPurchaseEntry from './pages/purchases/NewPurchaseEntry.jsx';
 import PurchaseEntryDetail from './pages/purchases/PurchaseEntryDetail.jsx';
-import PurchaseEntryEdit from './pages/purchases/PurchaseEntryEdit.jsx';
+import PurchaseEntryEdit from './pages/purchases/PurchaseEntryEdit.jsx'
+import ExpenseList from './pages/expenses/ExpenseList.jsx'
+import NewExpense from './pages/expenses/NewExpense.jsx'
+import ExpenseDetail from './pages/expenses/ExpenseDetail.jsx'
+import MonthlyPnL from './pages/reports/MonthlyPnL.jsx'
+import BudgetManager from './pages/expenses/BudgetManager.jsx'
 import MahaprasadCounter from './pages/mahaprasad/MahaprasadCounter.jsx';
 import MahaprasadRedeem from './pages/mahaprasad/MahaprasadRedeem.jsx';
 import MahaprasadHistory from './pages/mahaprasad/MahaprasadHistory.jsx';
@@ -103,6 +108,7 @@ const App = () => (
         <Route path="/reports/festival-cost"     element={<FestivalCostReport />} />
         <Route path="/reports/consumption-trend" element={<ConsumptionTrend />} />
         <Route path="/reports/reorder"           element={<ReorderSuggestions />} />
+        <Route path="/reports/pnl"               element={<MonthlyPnL />} />
 
         {/* Masters */}
         <Route path="/masters/products" element={<ProductList />} />
@@ -153,6 +159,13 @@ const App = () => (
         <Route path="/payments/upcoming"         element={<UpcomingDues />} />
         <Route path="/payments/invoice-register" element={<InvoiceRegister />} />
         <Route path="/payments/:id" element={<SupplierPaymentDetail />} />
+
+        {/* Expenses */}
+        <Route path="/expenses"          element={<ExpenseList />} />
+        <Route path="/expenses/new"      element={<NewExpense />} />
+        <Route path="/expenses/budget"   element={<BudgetManager />} />
+        <Route path="/expenses/:id"      element={<ExpenseDetail />} />
+
 
         {/* Purchases */}
         <Route path="/purchases"          element={<PurchaseRegister />} />

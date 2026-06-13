@@ -42,7 +42,7 @@ const Login = () => {
                 type="email"
                 {...register('email', { required: 'Email is required' })}
                 className="input"
-                placeholder="admin@mandir.local"
+                placeholder="admin@mandir.com"
                 autoComplete="email"
               />
               {errors.email && <p className="mt-1 text-xs text-red-500">{errors.email.message}</p>}

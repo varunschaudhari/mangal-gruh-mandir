@@ -6,7 +6,7 @@ import {
   Trash2, Package, Warehouse, Users, Tag, Ruler, Truck, Shield,
   ChevronDown, ChevronRight, FlameKindling, History, AlertTriangle, BookOpen, CalendarClock,
   X, Armchair, ClipboardList, Settings2, BarChart2, TrendingUp, Heart, CreditCard, Plus,
-  ShoppingCart, BookTemplate, FileText, Utensils, ScanLine, BarChart3,
+  ShoppingCart, BookTemplate, FileText, Utensils, ScanLine, BarChart3, Receipt, PiggyBank,
 } from 'lucide-react';
 import { usePermissions } from '../../hooks/usePermissions.js';
 import { getAssetCounts } from '../../api/assetTransaction.api.js';
@@ -61,6 +61,16 @@ const navConfig = [
     ],
   },
   {
+    label: 'Expenses',
+    icon: Receipt,
+    permission: 'payments:read',
+    children: [
+      { label: 'All Expenses',  to: '/expenses',        icon: Receipt,    permission: 'payments:read'    },
+      { label: 'New Expense',   to: '/expenses/new',    icon: Plus,       permission: 'payments:write'   },
+      { label: 'Set Budgets',   to: '/expenses/budget', icon: PiggyBank,  permission: 'payments:approve' },
+    ],
+  },
+  {
     label: 'Mahaprasad',
     icon: Utensils,
     permission: 'mahaprasad:read',
@@ -105,6 +115,7 @@ const navConfig = [
       { label: 'Festival Cost',     to: '/reports/festival-cost',      icon: FlameKindling, permission: 'reports:read'   },
       { label: 'Consumption Trend', to: '/reports/consumption-trend',  icon: TrendingUp,    permission: 'reports:read'   },
       { label: 'Reorder',           to: '/reports/reorder',            icon: ShoppingCart,  permission: 'reports:read'   },
+      { label: 'Monthly P&L',      to: '/reports/pnl',                icon: TrendingUp,    permission: 'payments:read'  },
     ],
   },
   {

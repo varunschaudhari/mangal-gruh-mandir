@@ -15,6 +15,7 @@ const userSchema = new mongoose.Schema(
     smsAlertsEnabled: { type: Boolean, default: false },
     canApproveAssets:    { type: Boolean, default: false },
     canApprovePayments:  { type: Boolean, default: false },
+    monthlySalary:       { type: Number, default: 0, min: 0 },
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   },
   { timestamps: true }

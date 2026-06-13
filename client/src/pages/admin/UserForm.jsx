@@ -4,7 +4,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   User, Mail, Phone, Lock, Shield, Building2,
-  MessageCircle, MessageSquare, Bell, CheckCircle2, Key, CreditCard,
+  MessageCircle, MessageSquare, Bell, CheckCircle2, Key, CreditCard, IndianRupee,
 } from 'lucide-react';
 import { getUser, createUser, updateUser } from '../../api/user.api.js';
 import { getDepartments } from '../../api/department.api.js';
@@ -70,12 +70,13 @@ const UserForm = () => {
   const navigate = useNavigate();
   const qc = useQueryClient();
 
-  const { register, handleSubmit, reset, watch, setValue, formState: { errors } } = useForm({
+  const { register, handleSubmit, reset, watch, setValue, control, formState: { errors } } = useForm({
     defaultValues: {
       role: 'staff', isActive: true,
       whatsappAlertsEnabled: false, smsAlertsEnabled: false,
       canApproveAssets:    false,
       canApprovePayments:  false,
+      monthlySalary:       0,
     },
   });
 
@@ -211,6 +212,20 @@ const UserForm = () => {
               </div>
             </Field>
           )}
+
+          <Field label="Monthly Salary (₹)" hint="Used for auto-fill when recording salary expenses. Leave 0 if not on payroll.">
+            <div className="relative">
+              <IndianRupee className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-300" />
+              <input
+                type="number"
+                min="0"
+                step="100"
+                {...register('monthlySalary', { min: { value: 0, message: 'Cannot be negative' }, valueAsNumber: true })}
+                className="input pl-9"
+                placeholder="0"
+              />
+            </div>
+          </Field>
 
           <label className="flex items-center gap-2 text-sm cursor-pointer">
             <input type="checkbox" {...register('isActive')} className="h-4 w-4 rounded text-primary-600" />

@@ -32,7 +32,7 @@ export const getUser = asyncHandler(async (req, res) => {
 });
 
 export const createUser = asyncHandler(async (req, res) => {
-  const { name, email, password, phone, role, departments, whatsappAlertsEnabled, smsAlertsEnabled, canApproveAssets, canApprovePayments } = req.body;
+  const { name, email, password, phone, role, departments, whatsappAlertsEnabled, smsAlertsEnabled, canApproveAssets, canApprovePayments, monthlySalary } = req.body;
 
   if (req.user.role !== 'super_admin' && role === 'super_admin') {
     throw new ApiError(403, 'Cannot create super_admin user');
@@ -43,6 +43,7 @@ export const createUser = asyncHandler(async (req, res) => {
   const user = await User.create({
     name, email, password, phone, role, departments,
     whatsappAlertsEnabled, smsAlertsEnabled, canApproveAssets, canApprovePayments,
+    monthlySalary: Number(monthlySalary) || 0,
     createdBy: req.user._id,
   });
 
@@ -56,7 +57,7 @@ export const createUser = asyncHandler(async (req, res) => {
 });
 
 export const updateUser = asyncHandler(async (req, res) => {
-  const { name, phone, role, departments, isActive, whatsappAlertsEnabled, smsAlertsEnabled, canApproveAssets, canApprovePayments } = req.body;
+  const { name, phone, role, departments, isActive, whatsappAlertsEnabled, smsAlertsEnabled, canApproveAssets, canApprovePayments, monthlySalary } = req.body;
 
   const target = await User.findById(req.params.id);
   if (!target) throw new ApiError(404, 'User not found');
@@ -69,7 +70,7 @@ export const updateUser = asyncHandler(async (req, res) => {
   }
 
   const before = { role: target.role, isActive: target.isActive, canApprovePayments: target.canApprovePayments, canApproveAssets: target.canApproveAssets };
-  Object.assign(target, { name, phone, role, departments, isActive, whatsappAlertsEnabled, smsAlertsEnabled, canApproveAssets, canApprovePayments });
+  Object.assign(target, { name, phone, role, departments, isActive, whatsappAlertsEnabled, smsAlertsEnabled, canApproveAssets, canApprovePayments, monthlySalary: Number(monthlySalary) || 0 });
   await target.save({ validateBeforeSave: false });
 
   const populated = await User.findById(target._id).populate('departments', 'name code');

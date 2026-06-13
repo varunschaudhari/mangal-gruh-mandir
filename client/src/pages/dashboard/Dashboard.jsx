@@ -8,15 +8,17 @@ import {
   Package, Truck, Warehouse, AlertTriangle, Users,
   ArrowDownToLine, ArrowUpFromLine, ArrowLeftRight, Trash2, TrendingUp, CalendarClock,
   ShoppingBag, CalendarDays, CreditCard, Clock, IndianRupee, TimerOff,
+  Heart, Receipt, TrendingDown,
 } from 'lucide-react';
 import { getDashboardStats } from '../../api/dashboard.api.js';
 import { getExpiringBatches } from '../../api/stockBatch.api.js';
 import { getPaymentDashboardSummary } from '../../api/supplierPayment.api.js';
+import { getPnL } from '../../api/pnl.api.js';
 import { StatCard } from '../../components/ui/Card.jsx';
 import Badge from '../../components/ui/Badge.jsx';
 import { PageLoader } from '../../components/ui/Spinner.jsx';
 import PageHeader from '../../components/ui/PageHeader.jsx';
-import { fDate } from '../../utils/formatters.js';
+import { fDate, fCurrency } from '../../utils/formatters.js';
 import { useAuth } from '../../context/AuthContext.jsx';
 import { usePermissions } from '../../hooks/usePermissions.js';
 import MahaprasadLiveTile from '../../components/mahaprasad/MahaprasadLiveTile.jsx';
@@ -106,6 +108,14 @@ const Dashboard = () => {
     enabled: can('payments:read'),
   });
 
+  const thisMonth = new Date();
+  const { data: pnlRes } = useQuery({
+    queryKey: ['pnl', thisMonth.getFullYear(), thisMonth.getMonth() + 1],
+    queryFn:  () => getPnL({ year: thisMonth.getFullYear(), month: thisMonth.getMonth() + 1 }),
+    staleTime: 5 * 60 * 1000,
+    enabled: can('payments:read'),
+  });
+
   if (isLoading) return <PageLoader />;
 
   const stats = data?.data?.data;
@@ -113,6 +123,7 @@ const Dashboard = () => {
   const expiringCount      = expiringRes?.data?.data?.length ?? '—';
   const expiring7Items     = (expiring7Res?.data?.data || []).slice(0, 5);
   const paymentSummary     = paymentSummaryRes?.data?.data || {};
+  const pnl                = pnlRes?.data?.data;
 
   return (
     <div className="space-y-6">
@@ -137,6 +148,58 @@ const Dashboard = () => {
 
       {/* ── Mahaprasad Live Tile ── */}
       <MahaprasadLiveTile />
+
+      {/* ── Financial Summary — This Month ── */}
+      {can('payments:read') && pnl && (
+        <div>
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <IndianRupee className="h-4 w-4 text-green-600" />
+              <h2 className="text-sm font-semibold text-gray-700">
+                This Month's Finance
+              </h2>
+            </div>
+            <Link to="/reports/pnl" className="text-xs text-primary-600 hover:underline">View P&L →</Link>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <Link to="/donations" className="rounded-xl border border-green-200 bg-green-50 px-4 py-3 flex items-center gap-3 hover:bg-green-100 transition-colors">
+              <Heart className="h-5 w-5 text-green-600 shrink-0" />
+              <div>
+                <p className="text-xs text-green-700 font-medium">Income</p>
+                <p className="text-xl font-bold text-green-700">{fCurrency(pnl.income.total)}</p>
+                <p className="text-xs text-green-600">{pnl.income.donationCount} donations</p>
+              </div>
+            </Link>
+            <Link to="/expenses" className="rounded-xl border border-orange-200 bg-orange-50 px-4 py-3 flex items-center gap-3 hover:bg-orange-100 transition-colors">
+              <Receipt className="h-5 w-5 text-orange-600 shrink-0" />
+              <div>
+                <p className="text-xs text-orange-700 font-medium">Expenses</p>
+                <p className="text-xl font-bold text-orange-700">{fCurrency(pnl.expenses.total)}</p>
+                {pnl.expenses.pendingCount > 0 && (
+                  <p className="text-xs text-amber-600">{pnl.expenses.pendingCount} pending</p>
+                )}
+              </div>
+            </Link>
+            <Link to="/reports/pnl" className={`rounded-xl border px-4 py-3 flex items-center gap-3 transition-colors ${
+              pnl.net >= 0
+                ? 'border-green-200 bg-green-50 hover:bg-green-100'
+                : 'border-red-200 bg-red-50 hover:bg-red-100'
+            }`}>
+              {pnl.net >= 0
+                ? <TrendingUp  className="h-5 w-5 text-green-600 shrink-0" />
+                : <TrendingDown className="h-5 w-5 text-red-600 shrink-0" />}
+              <div>
+                <p className={`text-xs font-medium ${pnl.net >= 0 ? 'text-green-700' : 'text-red-700'}`}>
+                  {pnl.net >= 0 ? 'Surplus' : 'Deficit'}
+                </p>
+                <p className={`text-xl font-bold ${pnl.net >= 0 ? 'text-green-700' : 'text-red-700'}`}>
+                  {fCurrency(Math.abs(pnl.net))}
+                </p>
+              </div>
+            </Link>
+          </div>
+        </div>
+      )}
 
       {/* ── Asset Status Widget ── */}
       {can('assets:read') && (
