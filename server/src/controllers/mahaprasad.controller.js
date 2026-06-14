@@ -21,12 +21,12 @@ const EMPTY_COUNTS  = Object.fromEntries(DRAWER_DENOMS.map((d) => [String(d), 0]
 
 // How many of each tracked denomination a given note is worth
 const NOTE_TO_DRAWER = {
-  50:   { '50': 1 },
-  100:  { '100': 1 },
-  200:  { '100': 2 },   // ₹200 = 2×₹100
-  500:  { '500': 1 },
-  1000: { '500': 2 },   // ₹1000 = 2×₹500
-  2000: { '500': 4 },   // ₹2000 = 4×₹500
+  10:  { '10': 1 },
+  20:  { '20': 1 },
+  50:  { '50': 1 },
+  100: { '100': 1 },
+  200: { '100': 2 },  // ₹200 = 2×₹100
+  500: { '500': 1 },
 };
 
 // Greedy change breakdown against available counts
@@ -98,7 +98,7 @@ async function generateCouponNumbers(date, qty) {
 export const issueCoupons = asyncHandler(async (req, res) => {
   const {
     quantity = 1, type = 'paid', occasion = '', date, isGroup = false,
-    paymentMode = 'cash', amountReceived = 0, receivedNote = null,
+    paymentMode = 'cash', amountReceived = 0, receivedNotes = [],
   } = req.body;
 
   const qty        = Math.min(Math.max(1, parseInt(quantity) || 1), 200);
@@ -155,41 +155,45 @@ export const issueCoupons = asyncHandler(async (req, res) => {
   let paymentExtra = {};
   if (type === 'paid' && price > 0) {
     const mode = paymentMode === 'upi' ? 'upi' : 'cash';
-    if (mode === 'cash' && receivedNote) {
-      const noteMap = NOTE_TO_DRAWER[Number(receivedNote)];
-      if (noteMap) {
-        try {
-          const dateStr    = datePart(couponDate);
-          const drawer     = await getOrCreateDrawer(dateStr);
-          const totalDue   = price * qty;
-          const received   = Math.max(0, Number(amountReceived) || 0);
-          const change     = received - totalDue;
-          const changeResult = change > 0
-            ? computeChange(change, drawer.counts)
-            : { breakdown: {}, canMakeExact: true, shortBy: 0 };
+    if (mode === 'cash' && Array.isArray(receivedNotes) && receivedNotes.length > 0) {
+      try {
+        const dateStr    = datePart(couponDate);
+        const drawer     = await getOrCreateDrawer(dateStr);
+        const totalDue   = price * qty;
+        const received   = Math.max(0, Number(amountReceived) || 0);
+        const change     = received - totalDue;
+        const changeResult = change > 0
+          ? computeChange(change, drawer.counts)
+          : { breakdown: {}, canMakeExact: true, shortBy: 0 };
 
-          paymentExtra = { receivedNote: Number(receivedNote), changeBreakdown: changeResult.breakdown };
+        paymentExtra = { receivedNotes, changeBreakdown: changeResult.breakdown };
 
-          const inc = {};
-          for (const [d, c] of Object.entries(noteMap)) {
-            inc[`counts.${d}`]         = (inc[`counts.${d}`]         || 0) + c;
-            inc[`receivedCounts.${d}`] = (inc[`receivedCounts.${d}`] || 0) + c;
+        // Build denomination inc from every note the customer handed over
+        const inc = {};
+        for (const note of receivedNotes) {
+          const noteMap = NOTE_TO_DRAWER[Number(note)];
+          if (noteMap) {
+            for (const [d, c] of Object.entries(noteMap)) {
+              inc[`counts.${d}`]         = (inc[`counts.${d}`]         || 0) + c;
+              inc[`receivedCounts.${d}`] = (inc[`receivedCounts.${d}`] || 0) + c;
+            }
           }
-          for (const [d, c] of Object.entries(changeResult.breakdown)) {
-            inc[`counts.${d}`]        = (inc[`counts.${d}`]        || 0) - c;
-            inc[`changeCounts.${d}`]  = (inc[`changeCounts.${d}`]  || 0) + c;
-          }
-
+        }
+        for (const [d, c] of Object.entries(changeResult.breakdown)) {
+          inc[`counts.${d}`]       = (inc[`counts.${d}`]       || 0) - c;
+          inc[`changeCounts.${d}`] = (inc[`changeCounts.${d}`] || 0) + c;
+        }
+        if (Object.keys(inc).length) {
           await MahaprasadCashDrawer.updateOne({ date: dateStr }, { $inc: inc });
+        }
 
-          drawerChange = {
-            breakdown:    changeResult.breakdown,
-            canMakeExact: changeResult.canMakeExact,
-            shortBy:      changeResult.shortBy,
-            total:        change,
-          };
-        } catch { /* drawer update is non-critical */ }
-      }
+        drawerChange = {
+          breakdown:    changeResult.breakdown,
+          canMakeExact: changeResult.canMakeExact,
+          shortBy:      changeResult.shortBy,
+          total:        change,
+        };
+      } catch { /* drawer update is non-critical */ }
     }
   }
 
@@ -874,20 +878,24 @@ export const voidBatch = asyncHandler(async (req, res) => {
     { new: true },
   );
 
-  if (payment && payment.paymentMode === 'cash' && payment.receivedNote) {
-    const noteMap = NOTE_TO_DRAWER[Number(payment.receivedNote)];
-    if (noteMap) {
-      const dateStr = datePart(payment.date.toISOString().split('T')[0]);
-      const inc = {};
-      for (const [d, c] of Object.entries(noteMap)) {
-        inc[`counts.${d}`]         = (inc[`counts.${d}`]         || 0) - c;
-        inc[`receivedCounts.${d}`] = (inc[`receivedCounts.${d}`] || 0) - c;
+  if (payment && payment.paymentMode === 'cash' && payment.receivedNotes?.length) {
+    const dateStr = datePart(payment.date.toISOString().split('T')[0]);
+    const inc = {};
+    for (const note of payment.receivedNotes) {
+      const noteMap = NOTE_TO_DRAWER[Number(note)];
+      if (noteMap) {
+        for (const [d, c] of Object.entries(noteMap)) {
+          inc[`counts.${d}`]         = (inc[`counts.${d}`]         || 0) - c;
+          inc[`receivedCounts.${d}`] = (inc[`receivedCounts.${d}`] || 0) - c;
+        }
       }
-      const breakdown = payment.changeBreakdown || {};
-      for (const [d, c] of Object.entries(breakdown)) {
-        inc[`counts.${d}`]       = (inc[`counts.${d}`]       || 0) + Number(c);
-        inc[`changeCounts.${d}`] = (inc[`changeCounts.${d}`] || 0) - Number(c);
-      }
+    }
+    const breakdown = payment.changeBreakdown || {};
+    for (const [d, c] of Object.entries(breakdown)) {
+      inc[`counts.${d}`]       = (inc[`counts.${d}`]       || 0) + Number(c);
+      inc[`changeCounts.${d}`] = (inc[`changeCounts.${d}`] || 0) - Number(c);
+    }
+    if (Object.keys(inc).length) {
       await MahaprasadCashDrawer.updateOne({ date: dateStr }, { $inc: inc }).catch(() => {});
     }
   }

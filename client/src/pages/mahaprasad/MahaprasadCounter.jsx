@@ -28,8 +28,8 @@ function getDayPrice(dayPricing, date) {
 }
 
 // Keyboard shortcut → note denomination mapping
-const KEY_TO_NOTE = { '1': 100, '2': 200, '5': 500, 'k': 1000, 't': 2000 };
-const NOTE_KEY    = { 100: '1', 200: '2', 500: '5', 1000: 'K', 2000: 'T' };
+const KEY_TO_NOTE = { 'q': 10, 'w': 20, 'h': 50, '1': 100, '2': 200, '5': 500 };
+const NOTE_KEY    = { 10: 'Q', 20: 'W', 50: 'H', 100: '1', 200: '2', 500: '5' };
 
 function playBeep() {
   try {
@@ -45,7 +45,7 @@ function playBeep() {
 }
 
 // Note denominations available for cash payment
-const NOTES = [50, 100, 200, 500, 1000, 2000];
+const NOTES = [10, 20, 50, 100, 200, 500];
 
 function computeChange(amount, counts) {
   const DENOMS = [500, 100, 50, 20, 10, 5, 2, 1];
@@ -136,8 +136,8 @@ export default function MahaprasadCounter() {
   const [qzReady,        setQzReady]        = useState(false);
   const [offlineIssuing, setOfflineIssuing] = useState(false);
   const [paymentMode,    setPaymentMode]    = useState('cash');
-  const [cashReceived,   setCashReceived]   = useState(0);
-  const [receivedNote,   setReceivedNote]   = useState(null);
+  const [receivedNotes,  setReceivedNotes]  = useState([]); // accumulator: list of note tiles clicked
+  const [customCash,     setCustomCash]     = useState(''); // typed override (mutually exclusive with tiles)
   const [autoResetIn,    setAutoResetIn]    = useState(null); // countdown seconds after issue
   const [shortageWarning,  setShortageWarning]  = useState(null);  // { shortBy }
   const [voidConfirm,      setVoidConfirm]      = useState(null);  // batchId string
@@ -200,7 +200,7 @@ export default function MahaprasadCounter() {
         setLastBatch(null);
         setAutoResetIn(null);
         setQty(1); setIsGroup(false);
-        setCashReceived(0); setReceivedNote(null);
+        setReceivedNotes([]); setCustomCash('');
         setTimeout(() => qtyInputRef.current?.focus(), 50);
       }
     }, 1000);
@@ -221,15 +221,20 @@ export default function MahaprasadCounter() {
       // Note shortcuts — only relevant for paid cash
       if (e.key.toLowerCase() === 'e') {
         e.preventDefault();
-        setCashReceived(totalDueRef.current);
-        setReceivedNote(null);
+        setCustomCash(String(totalDueRef.current));
+        setReceivedNotes([]);
+        return;
+      }
+      if (e.key === 'Backspace') {
+        e.preventDefault();
+        setReceivedNotes((prev) => prev.slice(0, -1));
         return;
       }
       const noteFromKey = KEY_TO_NOTE[e.key.toLowerCase()];
-      if (noteFromKey && noteFromKey >= totalDueRef.current) {
+      if (noteFromKey) {
         e.preventDefault();
-        setCashReceived(noteFromKey);
-        setReceivedNote(noteFromKey);
+        setCustomCash('');
+        setReceivedNotes((prev) => [...prev, noteFromKey]);
       }
     };
     document.addEventListener('keydown', onKey);
@@ -249,6 +254,8 @@ export default function MahaprasadCounter() {
   }, [summaryLoading, pricePerPlate]);
 
   const totalDue      = type === 'paid' ? pricePerPlate * qty : 0;
+  const notesTotal    = receivedNotes.reduce((s, n) => s + n, 0);
+  const cashReceived  = customCash !== '' ? (Number(customCash) || 0) : notesTotal;
   const changeDue     = paymentMode === 'cash' && cashReceived > 0 ? cashReceived - totalDue : null;
   totalDueRef.current = totalDue;
 
@@ -260,13 +267,13 @@ export default function MahaprasadCounter() {
   const capPct       = cap > 0 ? Math.round((totalIssued / cap) * 100) : null;
 
   // ── Handlers ────────────────────────────────────────────────────────────────
-  function selectNote(note) {
-    setCashReceived(note);
-    setReceivedNote(note);
+  function addNote(note) {
+    setCustomCash('');
+    setReceivedNotes((prev) => [...prev, note]);
   }
   function clearPayment() {
-    setCashReceived(0);
-    setReceivedNote(null);
+    setReceivedNotes([]);
+    setCustomCash('');
   }
 
   const handlePdfPrint = async (numbers) => {
@@ -345,7 +352,7 @@ export default function MahaprasadCounter() {
       isGroup:        vars.isGroup,
       paymentMode:    vars.paymentMode,
       amountReceived: vars.amountReceived,
-      receivedNote:   vars.receivedNote,
+      receivedNotes:  vars.receivedNotes,
     }),
     onSuccess: async (res, vars) => {
       const { coupons, drawerChange } = res.data.data;
@@ -403,7 +410,7 @@ export default function MahaprasadCounter() {
     if (!isOnline) { handleIssueOffline(); return; }
 
     // Check if drawer can make change before issuing
-    if (paymentMode === 'cash' && receivedNote && changeDue > 0) {
+    if (paymentMode === 'cash' && cashReceived > 0 && changeDue > 0) {
       const { canMakeExact, shortBy } = computeChange(changeDue, drawerCounts);
       if (!canMakeExact) {
         setShortageWarning({ shortBy });
@@ -416,7 +423,7 @@ export default function MahaprasadCounter() {
       occasion:       type === 'free' ? occasionValue : '',
       paymentMode:    type === 'paid' && pricePerPlate > 0 ? paymentMode : undefined,
       amountReceived: type === 'paid' && pricePerPlate > 0 && paymentMode === 'cash' ? cashReceived : undefined,
-      receivedNote:   type === 'paid' && pricePerPlate > 0 && paymentMode === 'cash' ? receivedNote : undefined,
+      receivedNotes:  type === 'paid' && pricePerPlate > 0 && paymentMode === 'cash' && receivedNotes.length > 0 ? receivedNotes : undefined,
     });
   };
 
@@ -434,9 +441,9 @@ export default function MahaprasadCounter() {
   const canIssueOffline = !offlineIssuing && poolCount > 0 && isToday;
   const isPending       = issueMut.isPending || offlineIssuing;
 
-  // Note tiles to show: exact + notes above totalDue (up to 5)
-  const exactIsNote   = NOTES.includes(totalDue);
-  const noteTiles     = NOTES.filter((n) => n > totalDue).slice(0, exactIsNote ? 4 : 5);
+  // All notes always visible in accumulator mode
+  const noteTiles  = NOTES; // [50, 100, 200, 500]
+  const noteCounts = receivedNotes.reduce((acc, n) => ({ ...acc, [n]: (acc[n] || 0) + 1 }), {});
 
   // ── JSX ─────────────────────────────────────────────────────────────────────
   return (
@@ -490,12 +497,14 @@ export default function MahaprasadCounter() {
             {[
               { key: 'Enter ↵', action: 'Issue coupon' },
               { key: 'E',       action: 'Exact payment (no change)' },
+              { key: 'Q',       action: '₹10 note' },
+              { key: 'W',       action: '₹20 note' },
+              { key: 'H',       action: '₹50 note (Half)' },
               { key: '1',       action: '₹100 note' },
               { key: '2',       action: '₹200 note' },
               { key: '5',       action: '₹500 note' },
-              { key: 'K',       action: '₹1000 note' },
-              { key: 'T',       action: '₹2000 note' },
-              { key: 'Esc',     action: 'Cancel auto-reset (keep success card)' },
+              { key: '⌫',       action: 'Remove last note' },
+              { key: 'Esc',     action: 'Cancel auto-reset' },
             ].map(({ key, action }) => (
               <div key={key} className="flex items-center gap-2.5">
                 <kbd className="min-w-[2rem] text-center text-xs font-bold bg-gray-100 border border-gray-300 text-gray-700 rounded px-1.5 py-0.5 font-mono">{key}</kbd>
@@ -768,12 +777,29 @@ export default function MahaprasadCounter() {
                     {/* Note tiles — each shows change inline */}
                     <div>
                       <label className="block text-xs font-semibold text-gray-400 uppercase tracking-widest mb-2">Customer pays with</label>
-                      <div className="grid grid-cols-3 gap-2">
+                      {/* Accumulator strip */}
+                      {receivedNotes.length > 0 && (
+                        <div className="flex items-center gap-1.5 flex-wrap bg-blue-50 border border-blue-200 rounded-xl px-3 py-2">
+                          {receivedNotes.map((n, i) => (
+                            <span key={i} className="flex items-center gap-1">
+                              {i > 0 && <span className="text-blue-300 text-xs">+</span>}
+                              <span className="text-xs font-bold text-blue-800 bg-blue-100 rounded px-1.5 py-0.5">₹{n}</span>
+                            </span>
+                          ))}
+                          <span className="text-blue-600 text-xs font-semibold ml-1">= ₹{fmtMoney(notesTotal)}</span>
+                          <button type="button" onClick={clearPayment}
+                            className="ml-auto text-blue-400 hover:text-blue-700 transition-colors">
+                            <X className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      )}
+
+                      <div className="grid grid-cols-2 gap-2">
                         {/* Exact tile */}
                         <button type="button"
-                          onClick={() => { setCashReceived(totalDue); setReceivedNote(exactIsNote ? totalDue : null); }}
+                          onClick={() => { setCustomCash(String(totalDue)); setReceivedNotes([]); }}
                           className={`relative p-3 rounded-xl border-2 text-center transition-all ${
-                            cashReceived === totalDue ? 'border-green-400 bg-green-50' : 'border-gray-200 hover:border-green-300 hover:bg-green-50/50'
+                            customCash !== '' && Number(customCash) === totalDue ? 'border-green-400 bg-green-50' : 'border-gray-200 hover:border-green-300 hover:bg-green-50/50'
                           }`}>
                           <span className="absolute top-1 right-1 text-[9px] font-bold bg-gray-100 text-gray-400 rounded px-1 leading-4">[E]</span>
                           <p className="text-xs font-semibold text-gray-500">Exact</p>
@@ -781,37 +807,39 @@ export default function MahaprasadCounter() {
                           <p className="text-xs text-green-600 font-medium">No change ✓</p>
                         </button>
 
-                        {/* Note tiles above total */}
+                        {/* Note tiles — each click adds to accumulator */}
                         {noteTiles.map((n) => {
-                          const chg    = n - totalDue;
+                          const count   = noteCounts[n] || 0;
                           const keyHint = NOTE_KEY[n];
                           return (
                             <button key={n} type="button"
-                              onClick={() => selectNote(n)}
+                              onClick={() => addNote(n)}
                               className={`relative p-3 rounded-xl border-2 text-center transition-all ${
-                                receivedNote === n ? 'border-blue-400 bg-blue-50' : 'border-gray-200 hover:border-blue-300 hover:bg-blue-50/50'
+                                count > 0 ? 'border-blue-400 bg-blue-50' : 'border-gray-200 hover:border-blue-300 hover:bg-blue-50/50'
                               }`}>
-                              {keyHint && (
+                              {count > 0 ? (
+                                <span className="absolute top-1 right-1 text-[9px] font-bold bg-blue-600 text-white rounded px-1 leading-4">×{count}</span>
+                              ) : keyHint ? (
                                 <span className="absolute top-1 right-1 text-[9px] font-bold bg-gray-100 text-gray-400 rounded px-1 leading-4">[{keyHint}]</span>
-                              )}
+                              ) : null}
                               <p className="text-xs font-semibold text-gray-500">Note</p>
-                              <p className="text-lg font-black text-gray-900 tabular-nums">₹{n}</p>
-                              <p className="text-xs text-amber-600 font-medium">← ₹{fmtMoney(chg)}</p>
+                              <p className={`text-lg font-black tabular-nums ${count > 0 ? 'text-blue-700' : 'text-gray-900'}`}>₹{n}</p>
+                              <p className="text-xs text-blue-400 font-medium">tap to add</p>
                             </button>
                           );
                         })}
                       </div>
                     </div>
 
-                    {/* Manual override */}
+                    {/* Manual override — clears tile accumulator */}
                     <div className="flex items-center gap-2">
                       <input
-                        type="number" min={0} value={cashReceived || ''}
-                        onChange={(e) => { setCashReceived(Math.max(0, parseInt(e.target.value) || 0)); setReceivedNote(null); }}
+                        type="number" min={0} value={customCash}
+                        onChange={(e) => { setCustomCash(e.target.value); setReceivedNotes([]); }}
                         placeholder="Or type any amount…"
                         className="input text-sm flex-1"
                       />
-                      {cashReceived > 0 && (
+                      {(customCash !== '' || receivedNotes.length > 0) && (
                         <button type="button" onClick={clearPayment}
                           className="text-gray-400 hover:text-gray-600">
                           <X className="h-4 w-4" />
@@ -982,7 +1010,7 @@ export default function MahaprasadCounter() {
                   occasion: type === 'free' ? occasionValue : '',
                   paymentMode: type === 'paid' && pricePerPlate > 0 ? paymentMode : undefined,
                   amountReceived: type === 'paid' && pricePerPlate > 0 ? cashReceived : undefined,
-                  receivedNote:   type === 'paid' && pricePerPlate > 0 && paymentMode === 'cash' ? receivedNote : undefined,
+                  receivedNotes:  type === 'paid' && pricePerPlate > 0 && paymentMode === 'cash' && receivedNotes.length > 0 ? receivedNotes : undefined,
                 });
               }}
               className="btn bg-amber-500 hover:bg-amber-600 text-white px-4 py-2 text-sm font-semibold">

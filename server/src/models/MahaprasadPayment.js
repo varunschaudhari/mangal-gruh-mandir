@@ -11,7 +11,7 @@ const mahaprasadPaymentSchema = new mongoose.Schema({
   changeReturned: { type: Number, default: 0, min: 0 },
   issuedBy:       { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   issuedAt:       { type: Date, default: Date.now },
-  receivedNote:    { type: Number, default: null },
+  receivedNotes:   { type: [Number], default: () => [] }, // array of note denominations received
   changeBreakdown: { type: Object, default: () => ({}) },
   voided:          { type: Boolean, default: false },
   voidedAt:        { type: Date },
