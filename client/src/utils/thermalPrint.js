@@ -25,38 +25,6 @@ export async function getPrinters() {
   return qz.printers.find();
 }
 
-// ── Logo loader ───────────────────────────────────────────────────────────────
-// Fetches /logo.png, scales it to fit a 58mm receipt (max 300px wide),
-// and returns a base64 PNG string for QZ Tray pixel printing.
-// Returns null silently if the logo can't be loaded.
-
-async function fetchLogoBase64(maxWidth = 300) {
-  try {
-    const img = new Image();
-    img.crossOrigin = 'anonymous';
-    await new Promise((resolve, reject) => {
-      img.onload  = resolve;
-      img.onerror = reject;
-      img.src = '/logo.png?' + Date.now(); // cache-bust
-    });
-
-    const scale  = Math.min(1, maxWidth / img.naturalWidth);
-    const canvas = document.createElement('canvas');
-    canvas.width  = Math.round(img.naturalWidth  * scale);
-    canvas.height = Math.round(img.naturalHeight * scale);
-
-    const ctx = canvas.getContext('2d');
-    // White background (thermal paper is white; transparent PNG → black blobs)
-    ctx.fillStyle = '#ffffff';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-
-    return canvas.toDataURL('image/png').split(',')[1];
-  } catch {
-    return null;
-  }
-}
-
 // ── ESC/POS byte helpers ──────────────────────────────────────────────────────
 
 const ESC = 0x1B;
@@ -64,9 +32,9 @@ const GS  = 0x1D;
 const LF  = 0x0A;
 
 const init     = ()    => [ESC, 0x40];
-const align    = (n)   => [ESC, 0x61, n];          // 0=L 1=C 2=R
+const align    = (n)   => [ESC, 0x61, n];   // 0=L 1=C 2=R
 const bold     = (on)  => [ESC, 0x45, on ? 1 : 0];
-const charSize = (n)   => [GS,  0x21, n];          // 0x00=1x 0x11=2x2 0x01=2xH 0x10=2xW
+const charSize = (n)   => [GS,  0x21, n];   // 0x00=1x  0x11=2x2  0x01=2xH  0x10=2xW
 const feedN    = (n)   => [ESC, 0x64, n];
 const partCut  = ()    => [GS,  0x56, 0x41, 4];
 
@@ -84,12 +52,74 @@ function qrEscPos(data, moduleSize = 7) {
   const pL    = len3 & 0xFF;
   const pH    = (len3 >> 8) & 0xFF;
   return [
-    GS, 0x28, 0x6B, 4, 0, 49, 65, 50, 0,          // model 2
-    GS, 0x28, 0x6B, 3, 0, 49, 67, moduleSize,      // module size (dots per cell)
-    GS, 0x28, 0x6B, 3, 0, 49, 69, 49,              // error correction M
-    GS, 0x28, 0x6B, pL, pH, 49, 80, 48, ...bytes,  // store data
-    GS, 0x28, 0x6B, 3, 0, 49, 81, 48,              // print
+    GS, 0x28, 0x6B, 4, 0, 49, 65, 50, 0,
+    GS, 0x28, 0x6B, 3, 0, 49, 67, moduleSize,
+    GS, 0x28, 0x6B, 3, 0, 49, 69, 49,
+    GS, 0x28, 0x6B, pL, pH, 49, 80, 48, ...bytes,
+    GS, 0x28, 0x6B, 3, 0, 49, 81, 48,
   ];
+}
+
+// ── Logo → ESC/POS raster (GS v 0) ───────────────────────────────────────────
+// Loads /logo.png, scales to maxWidth dots, converts to 1-bit raster, and
+// returns the GS v 0 byte sequence. Returns [] if the logo can't be loaded.
+
+async function logoToEscPosBytes(maxWidth = 320) {
+  try {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    await new Promise((resolve, reject) => {
+      img.onload  = resolve;
+      img.onerror = reject;
+      img.src = '/logo.png?' + Date.now();
+    });
+
+    const scale      = Math.min(1, maxWidth / img.naturalWidth);
+    const imgW       = Math.round(img.naturalWidth  * scale);
+    const imgH       = Math.round(img.naturalHeight * scale);
+    // ESC/POS requires width to be a multiple of 8
+    const widthBytes = Math.ceil(imgW / 8);
+    const widthDots  = widthBytes * 8;
+
+    const canvas = document.createElement('canvas');
+    canvas.width  = widthDots;
+    canvas.height = imgH;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(img, 0, 0, imgW, imgH);
+
+    const { data: px } = ctx.getImageData(0, 0, widthDots, imgH);
+
+    // Build raster: dark pixel (gray < 128) → bit 1, light → 0
+    const raster = [];
+    for (let row = 0; row < imgH; row++) {
+      for (let bIdx = 0; bIdx < widthBytes; bIdx++) {
+        let byte = 0;
+        for (let bit = 0; bit < 8; bit++) {
+          const col      = bIdx * 8 + bit;
+          const pxOffset = (row * widthDots + col) * 4;
+          const gray     = 0.299 * px[pxOffset] + 0.587 * px[pxOffset + 1] + 0.114 * px[pxOffset + 2];
+          if (gray < 128) byte |= (0x80 >> bit);
+        }
+        raster.push(byte);
+      }
+    }
+
+    const xL = widthBytes & 0xFF;
+    const xH = (widthBytes >> 8) & 0xFF;
+    const yL = imgH & 0xFF;
+    const yH = (imgH >> 8) & 0xFF;
+
+    return [
+      ...align(1),                               // center the image
+      GS, 0x76, 0x30, 0x00, xL, xH, yL, yH,    // GS v 0 — raster image
+      ...raster,
+      LF,                                         // line feed after logo
+    ];
+  } catch {
+    return [];
+  }
 }
 
 // ── Receipt layout ────────────────────────────────────────────────────────────
@@ -104,12 +134,12 @@ function buildReceiptBytes(coupon, settings) {
   const addr      = settings?.templeAddress || '';
   const phone     = settings?.templePhone   || '';
 
-  // Date with weekday — matches PDF "Mon, 15 Jun 2026"
+  // Date with weekday — matches PDF
   const dateStr = date.toLocaleDateString('en-IN', {
     weekday: 'short', day: '2-digit', month: 'short', year: 'numeric',
   });
 
-  // Type badge label — matches PDF badge exactly
+  // Type badge — matches PDF badge label exactly
   const badgeLabel = isGroup
     ? (isFree ? `GROUP  ${groupSize} PERSONS` : `GROUP  ${groupSize}x  Rs.${coupon.amount}`)
     : (isFree ? 'FREE SEVA' : `Rs.${coupon.amount}  PAID`);
@@ -123,7 +153,7 @@ function buildReceiptBytes(coupon, settings) {
     expiryLine.push(...line(`Valid until: ${expStr}`));
   }
 
-  // Batch ID (first 8 chars uppercase) — matches PDF
+  // Batch ID — first 8 chars uppercase, matches PDF
   const batchStr = coupon.batchId ? `Batch: ${coupon.batchId.substring(0, 8).toUpperCase()}` : '';
 
   const servingText = isGroup ? `Valid for ${groupSize} servings` : 'Valid for one serving';
@@ -134,28 +164,22 @@ function buildReceiptBytes(coupon, settings) {
     ...align(1),
 
     // ── HEADER ──────────────────────────────────────────────────────────────
-    // Temple name (double-height bold)
     ...bold(1), ...charSize(0x01),
     ...line(name),
-    // Subtitle
     ...bold(0), ...charSize(0x00),
     ...line('Mahaprasad Seva Coupon'),
     ...nl(),
 
-    // Type badge — bold, centered, surrounded by markers like PDF badge
+    // Type badge — bold, centered, bracketed like PDF badge
     ...bold(1),
     ...line(`[ ${badgeLabel} ]`),
     ...bold(0),
-
-    // Group sub-label
-    ...(isGroup ? [...line(`GROUP COUPON  \xB7  ${groupSize} PERSONS`)] : []),
+    ...(isGroup ? line(`GROUP COUPON  \xB7  ${groupSize} PERSONS`) : []),
 
     ...dashes(),
 
     // ── COUPON NUMBER ────────────────────────────────────────────────────────
-    // "COUPON NO." micro-label
     ...line('COUPON NO.'),
-    // Coupon number — 2×2 large
     ...bold(1), ...charSize(0x11),
     ...line(coupon.couponNumber),
     ...bold(0), ...charSize(0x00),
@@ -181,9 +205,7 @@ function buildReceiptBytes(coupon, settings) {
     ...dashes(),
 
     // ── FOOTER ───────────────────────────────────────────────────────────────
-    ...bold(1),
-    ...line(`Present at Prasad counter`),
-    ...bold(0),
+    ...bold(1), ...line('Present at Prasad counter'), ...bold(0),
     ...line(servingText),
     ...line('Non-transferable'),
     ...(contactLine ? [...nl(), ...line(contactLine)] : []),
@@ -203,39 +225,22 @@ export async function printThermalCoupon(coupon, settings) {
   }
 
   await ensureConnected();
-
   const config = qz.configs.create(printerName);
 
-  // Load logo and ESC/POS bytes in parallel
-  const [logoBase64, receiptBytes] = await Promise.all([
-    fetchLogoBase64(300),
+  // Build logo ESC/POS raster bytes and receipt bytes in parallel
+  const [logoBytes, receiptBytes] = await Promise.all([
+    logoToEscPosBytes(320),
     Promise.resolve(buildReceiptBytes(coupon, settings)),
   ]);
 
-  // Convert ESC/POS byte array → base64 (works on all QZ Tray 2.x)
+  // Single raw print job: logo (if loaded) + receipt — no type mixing, no QZ Tray confusion
+  const allBytes = [...logoBytes, ...receiptBytes];
   let binary = '';
-  for (const b of receiptBytes) binary += String.fromCharCode(b);
-  const base64data = btoa(binary);
+  for (const b of allBytes) binary += String.fromCharCode(b);
 
-  const printData = [];
-
-  // 1. Logo image — printed via QZ Tray pixel rendering (auto-converts to ESC/POS raster)
-  if (logoBase64) {
-    printData.push({
-      type:   'pixel',
-      format: 'image',
-      flavor: 'base64',
-      data:   logoBase64,
-      options: { language: 'ESCPOS', dotDensity: 'double' },
-    });
-  }
-
-  // 2. Rest of the receipt as raw ESC/POS bytes
-  printData.push({
+  await qz.print(config, [{
     type:   'raw',
     format: 'base64',
-    data:   base64data,
-  });
-
-  await qz.print(config, printData);
+    data:   btoa(binary),
+  }]);
 }
