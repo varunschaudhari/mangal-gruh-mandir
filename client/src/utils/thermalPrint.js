@@ -64,7 +64,7 @@ function qrEscPos(data, moduleSize = 7) {
 // Loads /logo.png, scales to maxWidth dots, converts to 1-bit raster, and
 // returns the GS v 0 byte sequence. Returns [] if the logo can't be loaded.
 
-async function logoToEscPosBytes(maxWidth = 200) {
+async function logoToEscPosBytes(maxWidth = 140) {
   try {
     const img = new Image();
     img.crossOrigin = 'anonymous';
@@ -149,7 +149,6 @@ function buildReceiptBytes(coupon, settings) {
     // Temple name removed — logo + subtitle only
     ...bold(0), ...charSize(0x00),
     ...line('Mahaprasad Seva Coupon'),
-    ...nl(),
 
     // Type badge — bold, centered, bracketed like PDF badge
     ...bold(1),
@@ -161,7 +160,7 @@ function buildReceiptBytes(coupon, settings) {
 
     // ── COUPON NUMBER ────────────────────────────────────────────────────────
     ...line('COUPON NO.'),
-    ...bold(1), ...charSize(0x11),
+    ...bold(1), ...charSize(0x01),
     ...line(coupon.couponNumber),
     ...bold(0), ...charSize(0x00),
 
@@ -174,24 +173,20 @@ function buildReceiptBytes(coupon, settings) {
     ...dashes(),
 
     // ── QR CODE ──────────────────────────────────────────────────────────────
-    ...qrEscPos(coupon.couponNumber, 7),
-    ...nl(),
+    ...qrEscPos(coupon.couponNumber, 6),
     ...line('- SCAN TO VERIFY -'),
-    ...nl(),
 
     ...dashes(),
 
     // ── FOOTER ───────────────────────────────────────────────────────────────
     ...bold(1), ...line('Present at Prasad counter'), ...bold(0),
-    // Serving count — large 2×2, same as coupon number
-    ...line('SERVINGS'),
-    ...bold(1), ...charSize(0x11),
+    ...bold(1), ...charSize(0x01),
     ...line(servingText),
     ...bold(0), ...charSize(0x00),
     ...line('Non-transferable'),
 
     // Feed + partial cut
-    ...feedN(3),
+    ...feedN(1),
     ...partCut(),
   ];
 }
@@ -209,7 +204,7 @@ export async function printThermalCoupon(coupon, settings) {
 
   // Build logo ESC/POS raster bytes and receipt bytes in parallel
   const [logoBytes, receiptBytes] = await Promise.all([
-    logoToEscPosBytes(200),
+    logoToEscPosBytes(),
     Promise.resolve(buildReceiptBytes(coupon, settings)),
   ]);
 
