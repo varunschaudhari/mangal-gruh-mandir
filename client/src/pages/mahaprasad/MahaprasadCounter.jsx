@@ -140,6 +140,7 @@ export default function MahaprasadCounter() {
   const [customCash,     setCustomCash]     = useState(''); // typed override (mutually exclusive with tiles)
   const [autoResetIn,    setAutoResetIn]    = useState(null); // countdown seconds after issue
   const [shortageWarning,  setShortageWarning]  = useState(null);  // { shortBy }
+  const [shakePayment,     setShakePayment]     = useState(false);
   const [voidConfirm,      setVoidConfirm]      = useState(null);  // batchId string
   const [showShortcuts,    setShowShortcuts]    = useState(false);
   const [lastIssuedBatch,  setLastIssuedBatch]  = useState(null);  // persists after auto-reset
@@ -275,6 +276,11 @@ export default function MahaprasadCounter() {
     setReceivedNotes([]);
     setCustomCash('');
   }
+  function triggerShake() {
+    setShakePayment(false);
+    requestAnimationFrame(() => requestAnimationFrame(() => setShakePayment(true)));
+    setTimeout(() => setShakePayment(false), 500);
+  }
 
   const handlePdfPrint = async (numbers) => {
     setPrinting(true);
@@ -409,6 +415,12 @@ export default function MahaprasadCounter() {
   const handleIssue = () => {
     if (!isOnline) { handleIssueOffline(); return; }
 
+    // Block if customer hasn't paid enough
+    if (paymentMode === 'cash' && cashReceived > 0 && changeDue < 0) {
+      triggerShake();
+      return;
+    }
+
     // Check if drawer can make change before issuing
     if (paymentMode === 'cash' && cashReceived > 0 && changeDue > 0) {
       const { canMakeExact, shortBy } = computeChange(changeDue, drawerCounts);
@@ -448,16 +460,12 @@ export default function MahaprasadCounter() {
   // ── JSX ─────────────────────────────────────────────────────────────────────
   return (
     <>
-    <div className="space-y-4 pb-20" onKeyDown={handleKeyDown}>
+    <div className="space-y-2 pb-20" onKeyDown={handleKeyDown}>
 
       {/* ── Header ──────────────────────────────────────────────────────────── */}
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <PageHeader
-          title="Mahaprasad Counter"
-          subtitle="Issue coupons for today's meal"
-          breadcrumbs={[{ label: 'Mahaprasad' }]}
-        />
-        <div className="flex items-center gap-2 mt-1">
+      <div className="flex items-center justify-between gap-2">
+        <h1 className="text-base font-bold text-gray-900 leading-tight">Mahaprasad Counter</h1>
+        <div className="flex items-center gap-1.5">
           <input
             type="date"
             value={date}
@@ -467,22 +475,22 @@ export default function MahaprasadCounter() {
               if (val && val < todayStr()) return;
               setDate(val || todayStr()); setLastBatch(null);
             }}
-            className="input text-sm h-9"
+            className="input text-sm h-8 py-1"
           />
           {!isToday && (
             <button onClick={() => setDate(todayStr())} className="text-xs text-primary-600 hover:underline whitespace-nowrap">Today</button>
           )}
-          <button onClick={() => refetch()} title="Refresh" className="btn btn-ghost border h-9 w-9 flex items-center justify-center">
-            <RefreshCw className="h-4 w-4" />
+          <button onClick={() => refetch()} title="Refresh" className="btn btn-ghost border h-8 w-8 flex items-center justify-center">
+            <RefreshCw className="h-3.5 w-3.5" />
           </button>
           <button onClick={() => setShowShortcuts((v) => !v)} title="Keyboard shortcuts"
-            className={`btn btn-ghost border h-9 w-9 flex items-center justify-center transition-colors ${showShortcuts ? 'bg-gray-100 border-gray-300' : ''}`}>
-            <Keyboard className="h-4 w-4" />
+            className={`btn btn-ghost border h-8 w-8 flex items-center justify-center transition-colors ${showShortcuts ? 'bg-gray-100 border-gray-300' : ''}`}>
+            <Keyboard className="h-3.5 w-3.5" />
           </button>
           {isToday && (
             <button onClick={() => setShowShiftSummary(true)} title="My shift summary"
-              className="btn btn-ghost border h-9 px-3 flex items-center gap-1.5 text-xs font-semibold text-gray-600 hover:bg-gray-50">
-              <UtensilsCrossed className="h-3.5 w-3.5" />
+              className="btn btn-ghost border h-8 px-2.5 flex items-center gap-1 text-xs font-semibold text-gray-600 hover:bg-gray-50">
+              <UtensilsCrossed className="h-3 w-3" />
               My Shift
             </button>
           )}
@@ -518,31 +526,31 @@ export default function MahaprasadCounter() {
 
       {/* ── Offline banner ──────────────────────────────────────────────────── */}
       {!isOnline ? (
-        <div className={`card p-3 border flex items-center gap-2.5 text-sm ${
+        <div className={`card px-3 py-2 border flex items-center gap-2 text-xs ${
           poolCount === 0 ? 'border-red-200 bg-red-50 text-red-800' : 'border-amber-200 bg-amber-50 text-amber-800'
         }`}>
-          <CloudOff className="h-4 w-4 shrink-0" />
+          <CloudOff className="h-3.5 w-3.5 shrink-0" />
           <span className="flex-1">
             <strong>Offline</strong> — {poolCount > 0 ? `${poolCount} coupons available` : 'No coupons! Pre-fetch first'}
             {offlineIssuedCount > 0 && ` · ${offlineIssuedCount} unsynced`}
           </span>
         </div>
       ) : (syncPending > 0 || poolCount <= 10) && (
-        <div className="card p-2.5 border flex flex-wrap items-center gap-3 text-sm">
+        <div className="card px-3 py-1.5 border flex items-center gap-2">
           <span className="text-gray-500 flex items-center gap-1.5 text-xs">
-            <span className={`w-2 h-2 rounded-full ${poolCount > 50 ? 'bg-green-400' : poolCount > 10 ? 'bg-amber-400' : 'bg-red-400'}`} />
+            <span className={`w-1.5 h-1.5 rounded-full ${poolCount > 50 ? 'bg-green-400' : poolCount > 10 ? 'bg-amber-400' : 'bg-red-400'}`} />
             Offline pool: <strong>{poolCount}</strong>
           </span>
-          <div className="flex gap-2 ml-auto">
+          <div className="flex gap-1.5 ml-auto">
             {syncPending > 0 && (
               <button onClick={sync} disabled={isSyncing}
-                className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-blue-600 text-white text-xs font-semibold disabled:opacity-50">
-                <CloudUpload className="h-3.5 w-3.5" /> {isSyncing ? 'Syncing…' : `Sync (${syncPending})`}
+                className="flex items-center gap-1 px-2.5 py-0.5 rounded-lg bg-blue-600 text-white text-xs font-semibold disabled:opacity-50">
+                <CloudUpload className="h-3 w-3" /> {isSyncing ? 'Syncing…' : `Sync (${syncPending})`}
               </button>
             )}
             <button onClick={() => prefetch(200)} disabled={isPrefetching}
-              className="flex items-center gap-1.5 px-3 py-1 rounded-lg border border-gray-200 text-gray-600 text-xs font-medium disabled:opacity-50">
-              <Download className="h-3.5 w-3.5" /> {isPrefetching ? 'Fetching…' : 'Pre-fetch 200'}
+              className="flex items-center gap-1 px-2.5 py-0.5 rounded-lg border border-gray-200 text-gray-600 text-xs font-medium disabled:opacity-50">
+              <Download className="h-3 w-3" /> {isPrefetching ? 'Fetching…' : 'Pre-fetch 200'}
             </button>
           </div>
         </div>
@@ -550,15 +558,15 @@ export default function MahaprasadCounter() {
 
       {/* ── Stats strip ─────────────────────────────────────────────────────── */}
       {!summaryLoading && (
-        <div className="grid grid-cols-4 gap-3">
+        <div className="grid grid-cols-4 gap-2">
           {[
             {
               label: 'Issued',
               value: totalIssued,
-              sub: cap > 0 ? (atCap ? 'Cap reached' : `${capRemaining} left of ${cap}`) : null,
+              sub: cap > 0 ? (atCap ? 'Cap reached' : `${capRemaining} left`) : null,
               color: atCap ? 'text-red-600' : 'text-orange-600',
               extra: capPct != null ? (
-                <div className="mt-1.5 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                <div className="mt-1 h-1 bg-gray-100 rounded-full overflow-hidden">
                   <div className={`h-full rounded-full ${atCap ? 'bg-red-400' : 'bg-orange-400'}`} style={{ width: `${Math.min(100, capPct)}%` }} />
                 </div>
               ) : null,
@@ -568,13 +576,13 @@ export default function MahaprasadCounter() {
             { label: 'Pending',  value: summary.pending  || 0, color: 'text-blue-600'  },
             { label: 'Collected', value: `₹${fmtMoney(summary.collected)}`, color: 'text-green-700' },
           ].map(({ label, value, sub, color, extra, mine }) => (
-            <div key={label} className="card px-4 py-3">
-              <p className="text-xs text-gray-500">{label}</p>
-              <p className={`text-2xl font-black tabular-nums ${color}`}>{value}</p>
-              {sub && <p className="text-xs text-gray-400 mt-0.5">{sub}</p>}
+            <div key={label} className="card px-3 py-2">
+              <p className="text-[11px] text-gray-400 font-medium">{label}</p>
+              <p className={`text-xl font-black tabular-nums leading-tight ${color}`}>{value}</p>
+              {sub && <p className="text-[10px] text-gray-400">{sub}</p>}
               {extra}
               {mine !== undefined && (
-                <p className="text-xs text-primary-500 font-medium mt-0.5">You: {mine}</p>
+                <p className="text-[10px] text-primary-500 font-medium">You: {mine}</p>
               )}
             </div>
           ))}
@@ -755,7 +763,7 @@ export default function MahaprasadCounter() {
                     { val: 'upi',  label: 'UPI',  Icon: Smartphone },
                   ].map(({ val, label, Icon }) => (
                     <button key={val} type="button"
-                      onClick={() => { setPaymentMode(val); clearPayment(); }}
+                      onClick={() => setPaymentMode(val)}
                       className={`flex items-center justify-center gap-2 py-2 rounded-xl border-2 text-sm font-semibold transition-all ${
                         paymentMode === val ? 'border-blue-400 bg-blue-50 text-blue-700' : 'border-gray-200 text-gray-400 hover:border-gray-300'
                       }`}>
@@ -773,7 +781,7 @@ export default function MahaprasadCounter() {
                     </div>
                   </div>
                 ) : (
-                  <>
+                  <div className={shakePayment ? 'animate-shake' : ''}>
                     {/* Note tiles — each shows change inline */}
                     <div>
                       <label className="block text-xs font-semibold text-gray-400 uppercase tracking-widest mb-2">Customer pays with</label>
@@ -783,48 +791,52 @@ export default function MahaprasadCounter() {
                           {receivedNotes.map((n, i) => (
                             <span key={i} className="flex items-center gap-1">
                               {i > 0 && <span className="text-blue-300 text-xs">+</span>}
-                              <span className="text-xs font-bold text-blue-800 bg-blue-100 rounded px-1.5 py-0.5">₹{n}</span>
+                              <button type="button"
+                                onClick={() => setReceivedNotes((prev) => prev.filter((_, j) => j !== i))}
+                                className="flex items-center gap-1 text-xs font-bold text-blue-800 bg-blue-100 hover:bg-red-100 hover:text-red-700 rounded px-1.5 py-0.5 transition-colors group">
+                                ₹{n}
+                                <X className="h-2.5 w-2.5 opacity-40 group-hover:opacity-100" />
+                              </button>
                             </span>
                           ))}
                           <span className="text-blue-600 text-xs font-semibold ml-1">= ₹{fmtMoney(notesTotal)}</span>
-                          <button type="button" onClick={clearPayment}
+                          <button type="button" onClick={clearPayment} title="Clear all"
                             className="ml-auto text-blue-400 hover:text-blue-700 transition-colors">
                             <X className="h-3.5 w-3.5" />
                           </button>
                         </div>
                       )}
 
-                      <div className="grid grid-cols-2 gap-2">
-                        {/* Exact tile */}
+                      {/* 4-col grid: Exact spans 2 cols → row 1 = Exact+₹10+₹20, row 2 = ₹50+₹100+₹200+₹500 */}
+                      <div className="grid grid-cols-4 gap-1.5">
+                        {/* Exact tile — double width */}
                         <button type="button"
                           onClick={() => { setCustomCash(String(totalDue)); setReceivedNotes([]); }}
-                          className={`relative p-3 rounded-xl border-2 text-center transition-all ${
+                          className={`col-span-2 relative py-2 px-2 rounded-lg border-2 text-center transition-all ${
                             customCash !== '' && Number(customCash) === totalDue ? 'border-green-400 bg-green-50' : 'border-gray-200 hover:border-green-300 hover:bg-green-50/50'
                           }`}>
-                          <span className="absolute top-1 right-1 text-[9px] font-bold bg-gray-100 text-gray-400 rounded px-1 leading-4">[E]</span>
-                          <p className="text-xs font-semibold text-gray-500">Exact</p>
-                          <p className="text-lg font-black text-gray-900 tabular-nums">₹{fmtMoney(totalDue)}</p>
-                          <p className="text-xs text-green-600 font-medium">No change ✓</p>
+                          <span className="absolute top-0.5 right-1 text-[8px] font-bold bg-gray-100 text-gray-400 rounded px-1 leading-4">[E]</span>
+                          <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Exact</p>
+                          <p className="text-base font-black text-gray-900 tabular-nums leading-tight">₹{fmtMoney(totalDue)}</p>
                         </button>
 
-                        {/* Note tiles — each click adds to accumulator */}
+                        {/* Note tiles */}
                         {noteTiles.map((n) => {
                           const count   = noteCounts[n] || 0;
                           const keyHint = NOTE_KEY[n];
                           return (
                             <button key={n} type="button"
                               onClick={() => addNote(n)}
-                              className={`relative p-3 rounded-xl border-2 text-center transition-all ${
+                              className={`relative py-2 px-1 rounded-lg border-2 text-center transition-all ${
                                 count > 0 ? 'border-blue-400 bg-blue-50' : 'border-gray-200 hover:border-blue-300 hover:bg-blue-50/50'
                               }`}>
                               {count > 0 ? (
-                                <span className="absolute top-1 right-1 text-[9px] font-bold bg-blue-600 text-white rounded px-1 leading-4">×{count}</span>
+                                <span className="absolute top-0.5 right-0.5 text-[8px] font-bold bg-blue-600 text-white rounded px-1 leading-4">×{count}</span>
                               ) : keyHint ? (
-                                <span className="absolute top-1 right-1 text-[9px] font-bold bg-gray-100 text-gray-400 rounded px-1 leading-4">[{keyHint}]</span>
+                                <span className="absolute top-0.5 right-0.5 text-[8px] font-bold bg-gray-100 text-gray-400 rounded px-1 leading-4">[{keyHint}]</span>
                               ) : null}
-                              <p className="text-xs font-semibold text-gray-500">Note</p>
-                              <p className={`text-lg font-black tabular-nums ${count > 0 ? 'text-blue-700' : 'text-gray-900'}`}>₹{n}</p>
-                              <p className="text-xs text-blue-400 font-medium">tap to add</p>
+                              <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">₹</p>
+                              <p className={`text-sm font-black tabular-nums leading-tight ${count > 0 ? 'text-blue-700' : 'text-gray-900'}`}>{n}</p>
                             </button>
                           );
                         })}
@@ -849,27 +861,27 @@ export default function MahaprasadCounter() {
 
                     {/* Change display */}
                     {cashReceived > 0 && (
-                      <div className={`rounded-xl border-2 px-5 py-4 text-center ${
+                      <div className={`rounded-lg border-2 px-4 py-2.5 flex items-center justify-between ${
                         changeDue > 0  ? 'border-amber-300 bg-amber-50' :
                         changeDue === 0 ? 'border-green-300 bg-green-50' :
-                        'border-red-300 bg-red-50'
+                        shakePayment ? 'border-red-500 bg-red-100 ring-2 ring-red-400' : 'border-red-300 bg-red-50'
                       }`}>
                         {changeDue > 0 ? (
                           <>
-                            <p className="text-xs font-semibold text-amber-600 uppercase tracking-widest mb-1">Return to customer</p>
-                            <p className="text-4xl font-black text-amber-800 tabular-nums">₹{fmtMoney(changeDue)}</p>
+                            <p className="text-xs font-semibold text-amber-600 uppercase tracking-wide">Return to customer</p>
+                            <p className="text-2xl font-black text-amber-800 tabular-nums">₹{fmtMoney(changeDue)}</p>
                           </>
                         ) : changeDue === 0 ? (
-                          <p className="text-lg font-bold text-green-600">✓ Exact — no change</p>
+                          <p className="text-sm font-bold text-green-600 w-full text-center">✓ Exact — no change</p>
                         ) : (
                           <>
-                            <p className="text-xs font-semibold text-red-600 uppercase tracking-widest mb-1">Short by</p>
-                            <p className="text-3xl font-black text-red-700 tabular-nums">₹{fmtMoney(Math.abs(changeDue))}</p>
+                            <p className="text-xs font-semibold text-red-600 uppercase tracking-wide">Short by</p>
+                            <p className="text-2xl font-black text-red-700 tabular-nums">₹{fmtMoney(Math.abs(changeDue))}</p>
                           </>
                         )}
                       </div>
                     )}
-                  </>
+                  </div>
                 )}
               </div>
             ) : type === 'free' ? (
