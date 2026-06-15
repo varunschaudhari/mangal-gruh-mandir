@@ -125,7 +125,6 @@ async function logoToEscPosBytes(maxWidth = 200) {
 // ── Receipt layout ────────────────────────────────────────────────────────────
 
 function buildReceiptBytes(coupon, settings) {
-  const name      = (settings?.templeName || 'MANGAL GRAH MANDIR').toUpperCase();
   const isFree    = coupon.type === 'free';
   const isGroup   = coupon.isGroup && (coupon.groupSize || 1) > 1;
   const groupSize = coupon.groupSize || 1;
