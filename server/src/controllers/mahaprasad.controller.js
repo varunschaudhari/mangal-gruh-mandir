@@ -116,7 +116,7 @@ export const issueCoupons = asyncHandler(async (req, res) => {
   if (cap > 0) {
     const { start, end } = dayBounds(couponDate);
     const [capAgg] = await MahaprasadCoupon.aggregate([
-      { $match: { date: { $gte: start, $lte: end }, status: { $ne: 'reserved' } } },
+      { $match: { date: { $gte: start, $lte: end }, status: { $nin: ['reserved', 'voided'] } } },
       { $group: { _id: null, total: { $sum: { $ifNull: ['$groupSize', 1] } } } },
     ]);
     const currentTotal = capAgg?.total || 0;
@@ -234,7 +234,7 @@ export const getDailySummary = asyncHandler(async (req, res) => {
 
   const [summaryAgg, paidAgg, settings, myAgg, myPayAgg] = await Promise.all([
     MahaprasadCoupon.aggregate([
-      { $match: { date: { $gte: start, $lte: end }, status: { $ne: 'reserved' } } },
+      { $match: { date: { $gte: start, $lte: end }, status: { $nin: ['reserved', 'voided'] } } },
       { $group: {
         _id:      null,
         total:    { $sum: GS },
@@ -243,7 +243,7 @@ export const getDailySummary = asyncHandler(async (req, res) => {
       }},
     ]),
     MahaprasadCoupon.aggregate([
-      { $match: { date: { $gte: start, $lte: end }, type: 'paid', status: { $ne: 'reserved' } } },
+      { $match: { date: { $gte: start, $lte: end }, type: 'paid', status: { $nin: ['reserved', 'voided'] } } },
       { $group: { _id: null, totalAmount: { $sum: '$amount' } } },
     ]),
     Settings.getOrCreate(),
