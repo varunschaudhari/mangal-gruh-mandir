@@ -11,14 +11,9 @@ export const ROLE_PERMISSIONS = {
     'mahaprasad:read', 'mahaprasad:issue', 'mahaprasad:redeem',
   ],
   store_manager: [
-    'users:read',
     'masters:read', 'masters:write',
     'transactions:read', 'transactions:create', 'transactions:delete',
     'reports:read',
-    'assets:read', 'assets:manage',
-    'donations:read', 'donations:write',
-    'payments:read', 'payments:write', 'payments:approve',
-    'mahaprasad:read', 'mahaprasad:issue', 'mahaprasad:redeem',
   ],
   staff: [
     'masters:read',
@@ -36,12 +31,22 @@ export const ROLE_PERMISSIONS = {
     'payments:read',
     'mahaprasad:read',
   ],
+  mahaprasad_counter: ['mahaprasad:read', 'mahaprasad:issue'],
+  mahaprasad_redeem:  ['mahaprasad:redeem'],
+  donation_desk:      ['donations:read', 'donations:write'],
+  accountant:         ['reports:read', 'transactions:read', 'donations:read', 'payments:read'],
+  cashier:            ['payments:read', 'payments:write', 'payments:approve', 'reports:read'],
 };
 
 export const ROLE_LABELS = {
-  super_admin:   'Super Admin',
-  admin:         'Admin',
-  store_manager: 'Store Manager',
-  staff:         'Staff',
-  viewer:        'Viewer',
+  super_admin:        'Super Admin',
+  admin:              'Admin',
+  store_manager:      'Store Manager',
+  staff:              'Staff',
+  viewer:             'Viewer',
+  mahaprasad_counter: 'Mahaprasad Counter',
+  mahaprasad_redeem:  'Mahaprasad Redeem',
+  donation_desk:      'Donation Desk',
+  accountant:         'Accountant',
+  cashier:            'Cashier',
 };

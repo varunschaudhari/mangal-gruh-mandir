@@ -14,6 +14,7 @@
     "seed:expenses": "node src/seeds/expenseTestData.seed.js",
     "migrate:assets": "node src/migrations/addAssetPermissions.js",
     "migrate:mahaprasad": "node src/migrations/addMahaprasadPermissions.js",
+    "migrate:roles": "node src/migrations/syncRoles.js",
     "seed:mahaprasad-occasions": "node src/seeds/mahaprasadOccasions.seed.js",
     "add:supplier": "node src/seeds/addSupplier.js",
     "reset:assets": "node src/seeds/resetAssets.js",
