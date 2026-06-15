@@ -25,6 +25,38 @@ export async function getPrinters() {
   return qz.printers.find();
 }
 
+// ── Logo loader ───────────────────────────────────────────────────────────────
+// Fetches /logo.png, scales it to fit a 58mm receipt (max 300px wide),
+// and returns a base64 PNG string for QZ Tray pixel printing.
+// Returns null silently if the logo can't be loaded.
+
+async function fetchLogoBase64(maxWidth = 300) {
+  try {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    await new Promise((resolve, reject) => {
+      img.onload  = resolve;
+      img.onerror = reject;
+      img.src = '/logo.png?' + Date.now(); // cache-bust
+    });
+
+    const scale  = Math.min(1, maxWidth / img.naturalWidth);
+    const canvas = document.createElement('canvas');
+    canvas.width  = Math.round(img.naturalWidth  * scale);
+    canvas.height = Math.round(img.naturalHeight * scale);
+
+    const ctx = canvas.getContext('2d');
+    // White background (thermal paper is white; transparent PNG → black blobs)
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+    return canvas.toDataURL('image/png').split(',')[1];
+  } catch {
+    return null;
+  }
+}
+
 // ── ESC/POS byte helpers ──────────────────────────────────────────────────────
 
 const ESC = 0x1B;
@@ -68,59 +100,93 @@ function buildReceiptBytes(coupon, settings) {
   const isGroup   = coupon.isGroup && (coupon.groupSize || 1) > 1;
   const groupSize = coupon.groupSize || 1;
   const date      = new Date(coupon.date);
-  const dateStr   = date.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
   const valDays   = settings?.mahaprasadCouponValidityDays ?? 1;
-  const typeStr   = isGroup
-    ? (isFree ? `GROUP COUPON  ${groupSize} PERSONS` : `GROUP  ${groupSize} PERSONS  Rs.${coupon.amount}`)
-    : (isFree ? 'FREE SEVA' : `PAID  Rs.${coupon.amount}`);
+  const addr      = settings?.templeAddress || '';
+  const phone     = settings?.templePhone   || '';
 
-  const expiryBytes = [];
+  // Date with weekday — matches PDF "Mon, 15 Jun 2026"
+  const dateStr = date.toLocaleDateString('en-IN', {
+    weekday: 'short', day: '2-digit', month: 'short', year: 'numeric',
+  });
+
+  // Type badge label — matches PDF badge exactly
+  const badgeLabel = isGroup
+    ? (isFree ? `GROUP  ${groupSize} PERSONS` : `GROUP  ${groupSize}x  Rs.${coupon.amount}`)
+    : (isFree ? 'FREE SEVA' : `Rs.${coupon.amount}  PAID`);
+
+  // Validity expiry
+  const expiryLine = [];
   if (valDays > 0) {
     const exp = new Date(date);
     exp.setDate(exp.getDate() + valDays);
     const expStr = exp.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
-    expiryBytes.push(...line(`Valid until: ${expStr}`));
+    expiryLine.push(...line(`Valid until: ${expStr}`));
   }
+
+  // Batch ID (first 8 chars uppercase) — matches PDF
+  const batchStr = coupon.batchId ? `Batch: ${coupon.batchId.substring(0, 8).toUpperCase()}` : '';
+
+  const servingText = isGroup ? `Valid for ${groupSize} servings` : 'Valid for one serving';
+  const contactLine = [addr, phone ? `Ph: ${phone}` : ''].filter(Boolean).join('  |  ');
 
   return [
     ...init(),
+    ...align(1),
 
-    // Temple name — double-height bold, centered
-    ...align(1), ...bold(1), ...charSize(0x01),
+    // ── HEADER ──────────────────────────────────────────────────────────────
+    // Temple name (double-height bold)
+    ...bold(1), ...charSize(0x01),
     ...line(name),
+    // Subtitle
     ...bold(0), ...charSize(0x00),
     ...line('Mahaprasad Seva Coupon'),
-    ...dashes(),
-
-    // Coupon number — 2×2 (double width + height)
-    ...charSize(0x11), ...bold(1),
-    ...line(coupon.couponNumber),
-    ...bold(0), ...charSize(0x00),
-    ...dashes(),
-
-    // QR code (centered via ESC/POS alignment)
-    ...align(1),
-    ...qrEscPos(coupon.couponNumber, 7),
     ...nl(),
 
-    // Type — double-height bold
-    ...bold(1), ...charSize(0x01),
-    ...line(typeStr),
-    ...bold(0), ...charSize(0x00),
+    // Type badge — bold, centered, surrounded by markers like PDF badge
+    ...bold(1),
+    ...line(`[ ${badgeLabel} ]`),
+    ...bold(0),
 
-    // Occasion (free only)
-    ...(isFree && coupon.occasion ? line(coupon.occasion) : []),
-
-    // Date + validity
-    ...line(dateStr),
-    ...expiryBytes,
+    // Group sub-label
+    ...(isGroup ? [...line(`GROUP COUPON  \xB7  ${groupSize} PERSONS`)] : []),
 
     ...dashes(),
 
-    // Footer
-    ...line('Present at Prasad counter'),
-    ...line(isGroup ? `Valid for ${groupSize} servings` : 'Valid for one serving'),
+    // ── COUPON NUMBER ────────────────────────────────────────────────────────
+    // "COUPON NO." micro-label
+    ...line('COUPON NO.'),
+    // Coupon number — 2×2 large
+    ...bold(1), ...charSize(0x11),
+    ...line(coupon.couponNumber),
+    ...bold(0), ...charSize(0x00),
+
+    ...dashes(),
+
+    // ── DATE + OCCASION ──────────────────────────────────────────────────────
+    ...line(dateStr),
+    ...(isFree && coupon.occasion ? line(coupon.occasion) : []),
+
+    ...dashes(),
+
+    // ── QR CODE ──────────────────────────────────────────────────────────────
+    ...qrEscPos(coupon.couponNumber, 7),
+    ...nl(),
+    ...line('- SCAN TO VERIFY -'),
+    ...nl(),
+
+    // ── VALIDITY + BATCH ─────────────────────────────────────────────────────
+    ...expiryLine,
+    ...(batchStr ? line(batchStr) : []),
+
+    ...dashes(),
+
+    // ── FOOTER ───────────────────────────────────────────────────────────────
+    ...bold(1),
+    ...line(`Present at Prasad counter`),
+    ...bold(0),
+    ...line(servingText),
     ...line('Non-transferable'),
+    ...(contactLine ? [...nl(), ...line(contactLine)] : []),
 
     // Feed + partial cut
     ...feedN(3),
@@ -140,16 +206,36 @@ export async function printThermalCoupon(coupon, settings) {
 
   const config = qz.configs.create(printerName);
 
-  // Convert byte array to base64 — supported across all QZ Tray 2.x versions
-  // (format:'bytes' requires 2.2+; base64 works from 2.0 onwards)
-  const bytes = buildReceiptBytes(coupon, settings);
+  // Load logo and ESC/POS bytes in parallel
+  const [logoBase64, receiptBytes] = await Promise.all([
+    fetchLogoBase64(300),
+    Promise.resolve(buildReceiptBytes(coupon, settings)),
+  ]);
+
+  // Convert ESC/POS byte array → base64 (works on all QZ Tray 2.x)
   let binary = '';
-  for (const b of bytes) binary += String.fromCharCode(b);
+  for (const b of receiptBytes) binary += String.fromCharCode(b);
   const base64data = btoa(binary);
 
-  await qz.print(config, [{
+  const printData = [];
+
+  // 1. Logo image — printed via QZ Tray pixel rendering (auto-converts to ESC/POS raster)
+  if (logoBase64) {
+    printData.push({
+      type:   'pixel',
+      format: 'image',
+      flavor: 'base64',
+      data:   logoBase64,
+      options: { language: 'ESCPOS', dotDensity: 'double' },
+    });
+  }
+
+  // 2. Rest of the receipt as raw ESC/POS bytes
+  printData.push({
     type:   'raw',
     format: 'base64',
     data:   base64data,
-  }]);
+  });
+
+  await qz.print(config, printData);
 }
