@@ -48,7 +48,7 @@ function playBeep() {
 const NOTES = [10, 20, 50, 100, 200, 500];
 
 function computeChange(amount, counts) {
-  const DENOMS = [500, 100, 50, 20, 10, 5, 2, 1];
+  const DENOMS = [500, 200, 100, 50, 20, 10, 5, 2, 1];
   const breakdown = {};
   let remaining = Math.round(amount);
   for (const d of DENOMS) {
