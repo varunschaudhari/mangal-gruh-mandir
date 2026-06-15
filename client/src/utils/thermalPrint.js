@@ -64,7 +64,7 @@ function qrEscPos(data, moduleSize = 7) {
 // Loads /logo.png, scales to maxWidth dots, converts to 1-bit raster, and
 // returns the GS v 0 byte sequence. Returns [] if the logo can't be loaded.
 
-async function logoToEscPosBytes(maxWidth = 320) {
+async function logoToEscPosBytes(maxWidth = 200) {
   try {
     const img = new Image();
     img.crossOrigin = 'anonymous';
@@ -130,10 +130,6 @@ function buildReceiptBytes(coupon, settings) {
   const isGroup   = coupon.isGroup && (coupon.groupSize || 1) > 1;
   const groupSize = coupon.groupSize || 1;
   const date      = new Date(coupon.date);
-  const valDays   = settings?.mahaprasadCouponValidityDays ?? 1;
-  const addr      = settings?.templeAddress || '';
-  const phone     = settings?.templePhone   || '';
-
   // Date with weekday — matches PDF
   const dateStr = date.toLocaleDateString('en-IN', {
     weekday: 'short', day: '2-digit', month: 'short', year: 'numeric',
@@ -144,28 +140,14 @@ function buildReceiptBytes(coupon, settings) {
     ? (isFree ? `GROUP  ${groupSize} PERSONS` : `GROUP  ${groupSize}x  Rs.${coupon.amount}`)
     : (isFree ? 'FREE SEVA' : `Rs.${coupon.amount}  PAID`);
 
-  // Validity expiry
-  const expiryLine = [];
-  if (valDays > 0) {
-    const exp = new Date(date);
-    exp.setDate(exp.getDate() + valDays);
-    const expStr = exp.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
-    expiryLine.push(...line(`Valid until: ${expStr}`));
-  }
-
-  // Batch ID — first 8 chars uppercase, matches PDF
-  const batchStr = coupon.batchId ? `Batch: ${coupon.batchId.substring(0, 8).toUpperCase()}` : '';
-
   const servingText = isGroup ? `Valid for ${groupSize} servings` : 'Valid for one serving';
-  const contactLine = [addr, phone ? `Ph: ${phone}` : ''].filter(Boolean).join('  |  ');
 
   return [
     ...init(),
     ...align(1),
 
     // ── HEADER ──────────────────────────────────────────────────────────────
-    ...bold(1), ...charSize(0x01),
-    ...line(name),
+    // Temple name removed — logo + subtitle only
     ...bold(0), ...charSize(0x00),
     ...line('Mahaprasad Seva Coupon'),
     ...nl(),
@@ -198,17 +180,16 @@ function buildReceiptBytes(coupon, settings) {
     ...line('- SCAN TO VERIFY -'),
     ...nl(),
 
-    // ── VALIDITY + BATCH ─────────────────────────────────────────────────────
-    ...expiryLine,
-    ...(batchStr ? line(batchStr) : []),
-
     ...dashes(),
 
     // ── FOOTER ───────────────────────────────────────────────────────────────
     ...bold(1), ...line('Present at Prasad counter'), ...bold(0),
+    // Serving count — large 2×2, same as coupon number
+    ...line('SERVINGS'),
+    ...bold(1), ...charSize(0x11),
     ...line(servingText),
+    ...bold(0), ...charSize(0x00),
     ...line('Non-transferable'),
-    ...(contactLine ? [...nl(), ...line(contactLine)] : []),
 
     // Feed + partial cut
     ...feedN(3),
@@ -229,7 +210,7 @@ export async function printThermalCoupon(coupon, settings) {
 
   // Build logo ESC/POS raster bytes and receipt bytes in parallel
   const [logoBytes, receiptBytes] = await Promise.all([
-    logoToEscPosBytes(320),
+    logoToEscPosBytes(200),
     Promise.resolve(buildReceiptBytes(coupon, settings)),
   ]);
 
