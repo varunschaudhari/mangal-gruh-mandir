@@ -3,20 +3,22 @@ export const ROLE_PERMISSIONS = {
   admin: [
     'users:read', 'users:write', 'users:delete',
     'masters:read', 'masters:write', 'masters:delete',
-    'transactions:read', 'transactions:create', 'transactions:void',
-    'reports:read', 'reports:export',
+    'transactions:read', 'transactions:create', 'transactions:delete',
+    'reports:read',
     'assets:read', 'assets:write', 'assets:manage',
     'donations:read', 'donations:write',
     'payments:read', 'payments:write', 'payments:approve',
+    'mahaprasad:read', 'mahaprasad:issue', 'mahaprasad:redeem',
   ],
   store_manager: [
     'users:read',
     'masters:read', 'masters:write',
-    'transactions:read', 'transactions:create', 'transactions:void',
-    'reports:read', 'reports:export',
+    'transactions:read', 'transactions:create', 'transactions:delete',
+    'reports:read',
     'assets:read', 'assets:manage',
     'donations:read', 'donations:write',
     'payments:read', 'payments:write', 'payments:approve',
+    'mahaprasad:read', 'mahaprasad:issue', 'mahaprasad:redeem',
   ],
   staff: [
     'masters:read',
@@ -25,12 +27,14 @@ export const ROLE_PERMISSIONS = {
     'assets:read',
     'donations:read',
     'payments:read', 'payments:write',
+    'mahaprasad:read', 'mahaprasad:issue', 'mahaprasad:redeem',
   ],
   viewer: [
     'masters:read',
     'reports:read',
     'donations:read',
     'payments:read',
+    'mahaprasad:read',
   ],
 };
 
