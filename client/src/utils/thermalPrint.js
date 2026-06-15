@@ -213,14 +213,14 @@ export async function printThermalCoupon(coupon, settings) {
     Promise.resolve(buildReceiptBytes(coupon, settings)),
   ]);
 
-  // Single raw print job: logo (if loaded) + receipt — no type mixing, no QZ Tray confusion
+  // Single raw print job: logo (if loaded) + receipt
+  // Using hex format — supported in ALL QZ Tray 2.x versions without enum issues
   const allBytes = [...logoBytes, ...receiptBytes];
-  let binary = '';
-  for (const b of allBytes) binary += String.fromCharCode(b);
+  const hex = allBytes.map(b => b.toString(16).padStart(2, '0')).join('');
 
   await qz.print(config, [{
     type:   'raw',
-    format: 'base64',
-    data:   btoa(binary),
+    format: 'hex',
+    data:   hex,
   }]);
 }
