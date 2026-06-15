@@ -139,9 +139,17 @@ export async function printThermalCoupon(coupon, settings) {
   await ensureConnected();
 
   const config = qz.configs.create(printerName);
+
+  // Convert byte array to base64 — supported across all QZ Tray 2.x versions
+  // (format:'bytes' requires 2.2+; base64 works from 2.0 onwards)
+  const bytes = buildReceiptBytes(coupon, settings);
+  let binary = '';
+  for (const b of bytes) binary += String.fromCharCode(b);
+  const base64data = btoa(binary);
+
   await qz.print(config, [{
     type:   'raw',
-    format: 'bytes',
-    data:   buildReceiptBytes(coupon, settings),
+    format: 'base64',
+    data:   base64data,
   }]);
 }
