@@ -29,6 +29,8 @@ export function flushRoleCache() {
   cacheExpiresAt = 0;
 }
 
+export { getPermissionsForRole };
+
 const authorize = (...requiredPermissions) => async (req, res, next) => {
   try {
     const perms = await getPermissionsForRole(req.user.role);

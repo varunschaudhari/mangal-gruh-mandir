@@ -4,6 +4,7 @@ import ApiError from '../utils/ApiError.js';
 import ApiResponse from '../utils/ApiResponse.js';
 import asyncHandler from '../utils/asyncHandler.js';
 import { logAction, logLoginFailure } from '../services/audit.service.js';
+import { getPermissionsForRole } from '../middleware/authorize.js';
 
 const signToken = (id, role) =>
   jwt.sign({ id, role }, process.env.JWT_SECRET, {
@@ -41,6 +42,7 @@ export const login = asyncHandler(async (req, res) => {
     entityId: user.email, entityRef: user._id,
     meta: { role: user.role },
   });
+  const permissions = await getPermissionsForRole(user.role);
   res.json(
     new ApiResponse(200, {
       accessToken,
@@ -50,6 +52,7 @@ export const login = asyncHandler(async (req, res) => {
         name: user.name,
         email: user.email,
         role: user.role,
+        permissions,
         departments: user.departments,
         canApproveAssets:   user.canApproveAssets,
         canApprovePayments: user.canApprovePayments,
@@ -88,8 +91,13 @@ export const logout = asyncHandler(async (req, res) => {
 });
 
 export const getMe = asyncHandler(async (req, res) => {
-  const user = await User.findById(req.user._id).populate('departments', 'name code');
-  res.json(new ApiResponse(200, user));
+  const [user, permissions] = await Promise.all([
+    User.findById(req.user._id).populate('departments', 'name code'),
+    getPermissionsForRole(req.user.role),
+  ]);
+  const userData = user.toObject();
+  userData.permissions = permissions;
+  res.json(new ApiResponse(200, userData));
 });
 
 export const updateProfile = asyncHandler(async (req, res) => {

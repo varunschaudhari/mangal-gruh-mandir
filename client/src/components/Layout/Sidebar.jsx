@@ -149,7 +149,8 @@ const NavItem = ({ item, can, onNavigate, badges = {} }) => {
   const childActive = item.children?.some((c) => location.pathname.startsWith(c.to));
   const [open, setOpen] = useState(true);
 
-  if (item.permission && !can(item.permission)) return null;
+  // For leaf items check permission directly; groups rely on visibleChildren below
+  if (!item.children && item.permission && !can(item.permission)) return null;
 
   if (item.to) {
     return (
