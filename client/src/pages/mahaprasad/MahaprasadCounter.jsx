@@ -1,16 +1,17 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   UtensilsCrossed, Printer, RefreshCw, IndianRupee,
   Gift, ChevronDown, ChevronUp, Zap, AlertTriangle, Wifi, WifiOff,
   CloudOff, CloudUpload, Download, Banknote, Smartphone, CheckCircle2,
-  Minus, Plus, X, ClipboardList, Keyboard,
+  Minus, Plus, X, ClipboardList, Keyboard, Vault, Loader2,
 } from 'lucide-react';
 import { issueCoupons, getDailySummary, printCoupons, getBatches, getCashDrawer, voidBatch as voidBatchApi } from '../../api/mahaprasad.api.js';
 import CashDrawer from './CashDrawer.jsx';
 import { getOccasions } from '../../api/mahaprasadOccasion.api.js';
 import { getSettings } from '../../api/settings.api.js';
-import { printThermalCoupon, isConnected, connectToQzTray } from '../../utils/thermalPrint.js';
+import { printThermalCoupon, printShiftSummary, isConnected, connectToQzTray } from '../../utils/thermalPrint.js';
+import { useAuth } from '../../context/AuthContext.jsx';
 import * as offlineStore from '../../utils/offlineStore.js';
 import { useOfflineMode } from '../../hooks/useOfflineMode.js';
 import PageHeader from '../../components/ui/PageHeader.jsx';
@@ -121,8 +122,10 @@ function BatchesSection({ date, onPdfPrint, printing, onVoid }) {
 
 // ── Main page ─────────────────────────────────────────────────────────────────
 export default function MahaprasadCounter() {
-  const qc          = useQueryClient();
-  const qtyInputRef = useRef(null);
+  const qc             = useQueryClient();
+  const qtyInputRef    = useRef(null);
+  const cashDrawerRef  = useRef(null);   // imperative handle on CashDrawer
+  const cashDrawerElRef = useRef(null);  // DOM node for scroll-into-view
 
   const [date,           setDate]           = useState(todayStr());
   const [qty,            setQty]            = useState(1);
@@ -146,6 +149,11 @@ export default function MahaprasadCounter() {
   const [lastIssuedBatch,  setLastIssuedBatch]  = useState(null);  // persists after auto-reset
   const [showShiftSummary, setShowShiftSummary] = useState(false);
   const [printQueue,       setPrintQueue]       = useState([]);    // coupons that failed to print, awaiting retry
+  const [floatSkipped,     setFloatSkipped]     = useState(false); // user dismissed the float reminder for this session
+  const [printerStatus,       setPrinterStatus]       = useState(null);  // null | 'checking' | 'ok' | string
+  const [electronPrinterName, setElectronPrinterName] = useState('');
+
+  const { user } = useAuth();
 
   const {
     isOnline, poolCount, offlineIssued: offlineIssuedCount, syncPending,
@@ -183,20 +191,39 @@ export default function MahaprasadCounter() {
     enabled:   isToday,
   });
   const drawerCounts = drawerData?.data?.data?.counts || {};
+  const isFloatSet   = drawerData?.data?.data?.isFloatSet ?? true; // default true to avoid false flash before data loads
   const myCount      = summary.myCount ?? 0;
   const myCash       = summary.myCash  ?? 0;
   const myUpi        = summary.myUpi   ?? 0;
 
+  // Reset float-skipped state when the date changes (new day = new reminder)
+  useEffect(() => { setFloatSkipped(false); }, [date]);
+
   // In Electron, printing is always "ready" (no QZ Tray required)
   useEffect(() => { setQzReady(window.electronAPI?.isElectron || isConnected()); }, []);
 
-  // Restore autoPrint preference from electron-store
+  const checkPrinterStatus = useCallback(async (printerName) => {
+    if (!window.electronAPI?.isElectron || !printerName) return;
+    setPrinterStatus('checking');
+    try {
+      const result = await window.electronAPI.checkPrinterStatus(printerName);
+      setPrinterStatus(result?.ok ? 'ok' : (result?.error || 'Not found'));
+    } catch {
+      setPrinterStatus('Error checking printer');
+    }
+  }, []);
+
+  // Restore autoPrint preference + printer name from electron-store
   useEffect(() => {
     if (!window.electronAPI?.isElectron) return;
     window.electronAPI.getSettings().then((s) => {
       if (s?.autoPrint !== undefined) setAutoPrint(s.autoPrint);
+      if (s?.printerName) {
+        setElectronPrinterName(s.printerName);
+        if (s.autoPrint) checkPrinterStatus(s.printerName);
+      }
     });
-  }, []);
+  }, [checkPrinterStatus]);
 
   // ── Auto-reset countdown after issue ────────────────────────────────────────
   useEffect(() => {
@@ -355,6 +382,8 @@ export default function MahaprasadCounter() {
     setAutoPrint(next);
     if (window.electronAPI?.isElectron) {
       window.electronAPI.saveSettings({ autoPrint: next });
+      if (next && electronPrinterName) checkPrinterStatus(electronPrinterName);
+      else if (!next) setPrinterStatus(null);
     } else if (next && !isConnected()) {
       try { await connectToQzTray(); setQzReady(true); toast.success('QZ Tray connected'); }
       catch { toast.error('QZ Tray not reachable — install & start from qz.io'); }
@@ -482,9 +511,10 @@ export default function MahaprasadCounter() {
 
   useEffect(() => { qtyInputRef.current?.focus(); }, []);
 
-  const canIssue        = !issueMut.isPending && !atCap && !wouldExceed && qty >= 1;
-  const canIssueOffline = !offlineIssuing && poolCount > 0 && isToday;
-  const isPending       = issueMut.isPending || offlineIssuing;
+  const canIssue           = !issueMut.isPending && !atCap && !wouldExceed && qty >= 1;
+  const canIssueOffline    = !offlineIssuing && poolCount > 0 && isToday;
+  const isPending          = issueMut.isPending || offlineIssuing;
+  const thermalPrinterName = window.electronAPI?.isElectron ? electronPrinterName : settings?.mahaprasadPrinterName;
 
   // All notes always visible in accumulator mode
   const noteTiles  = NOTES; // [50, 100, 200, 500]
@@ -586,6 +616,33 @@ export default function MahaprasadCounter() {
               <Download className="h-3 w-3" /> {isPrefetching ? 'Fetching…' : 'Pre-fetch 200'}
             </button>
           </div>
+        </div>
+      )}
+
+      {/* ── Float reminder ──────────────────────────────────────────────────── */}
+      {isToday && drawerData && !isFloatSet && !floatSkipped && (
+        <div className="card border-2 border-amber-300 bg-amber-50 px-5 py-4 flex items-start gap-4">
+          <div className="w-10 h-10 rounded-full bg-amber-200 flex items-center justify-center shrink-0">
+            <Vault className="h-5 w-5 text-amber-700" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="font-bold text-amber-900">Opening float not set</p>
+            <p className="text-sm text-amber-700 mt-0.5">
+              Set the opening cash balance now so the drawer can calculate correct change throughout the day.
+            </p>
+            <button
+              onClick={() => {
+                cashDrawerRef.current?.openFloatForm();
+                setTimeout(() => cashDrawerElRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
+              }}
+              className="mt-3 inline-flex items-center gap-2 text-sm font-bold bg-amber-500 hover:bg-amber-600 text-white px-4 py-2 rounded-lg transition-colors shadow-sm"
+            >
+              <Vault className="h-4 w-4" /> Set Opening Float
+            </button>
+          </div>
+          <button onClick={() => setFloatSkipped(true)} title="Remind me later" className="text-amber-400 hover:text-amber-700 shrink-0 mt-0.5 transition-colors">
+            <X className="h-4 w-4" />
+          </button>
         </div>
       )}
 
@@ -765,9 +822,19 @@ export default function MahaprasadCounter() {
                 Auto-print
               </button>
               {autoPrint && (
-                qzReady
-                  ? <span className="text-xs text-green-600 flex items-center gap-1"><Wifi className="h-3 w-3" /> {window.electronAPI?.isElectron ? 'Printer ready' : 'Connected'}</span>
-                  : !window.electronAPI?.isElectron && <span className="text-xs text-red-500 flex items-center gap-1"><WifiOff className="h-3 w-3" /> QZ Tray offline</span>
+                window.electronAPI?.isElectron ? (
+                  printerStatus === 'checking'
+                    ? <span className="text-xs text-gray-400 flex items-center gap-1"><Loader2 className="h-3 w-3 animate-spin" /> Checking…</span>
+                    : printerStatus === 'ok'
+                    ? <span className="text-xs text-green-600 flex items-center gap-1"><Wifi className="h-3 w-3" /> Printer ready</span>
+                    : printerStatus
+                    ? <span className="text-xs text-red-500 flex items-center gap-1"><WifiOff className="h-3 w-3" /> {printerStatus}</span>
+                    : null
+                ) : (
+                  qzReady
+                    ? <span className="text-xs text-green-600 flex items-center gap-1"><Wifi className="h-3 w-3" /> Connected</span>
+                    : <span className="text-xs text-red-500 flex items-center gap-1"><WifiOff className="h-3 w-3" /> QZ Tray offline</span>
+                )
               )}
             </div>
           </div>
@@ -1030,7 +1097,11 @@ export default function MahaprasadCounter() {
       )}
 
       {/* ── Cash drawer + batches ────────────────────────────────────────────── */}
-      {isToday && <CashDrawer date={date} />}
+      {isToday && (
+        <div ref={cashDrawerElRef}>
+          <CashDrawer ref={cashDrawerRef} date={date} />
+        </div>
+      )}
       <BatchesSection date={date} onPdfPrint={handlePdfPrint} printing={printing} onVoid={(batchId) => setVoidConfirm(batchId)} />
     </div>
 
@@ -1172,7 +1243,28 @@ export default function MahaprasadCounter() {
             </div>
           </div>
 
-          <p className="text-xs text-center text-gray-400">Take a screenshot to share with your supervisor.</p>
+          <p className="text-xs text-center text-gray-400">Take a screenshot or print a slip for your supervisor.</p>
+
+          {thermalPrinterName && (
+            <button
+              onClick={async () => {
+                try {
+                  await printShiftSummary({
+                    dateStr: new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }),
+                    staffName: user?.name || 'Staff',
+                    count: myCount,
+                    cash: myCash,
+                    upi: myUpi,
+                  }, thermalPrinterName);
+                  toast.success('Shift slip printed');
+                } catch (err) {
+                  toast.error(err.message || 'Print failed');
+                }
+              }}
+              className="w-full flex items-center justify-center gap-2 bg-orange-600 hover:bg-orange-700 text-white py-2.5 rounded-xl text-sm font-bold transition-colors">
+              <Printer className="h-4 w-4" /> Print Shift Slip
+            </button>
+          )}
 
           <button onClick={() => setShowShiftSummary(false)}
             className="w-full btn btn-ghost border py-2 text-sm font-semibold">

@@ -29,8 +29,9 @@ app.use(helmet());
 app.use(cors({
   origin: (origin, cb) => {
     const allowed = (process.env.CLIENT_URL || 'http://localhost:3000').split(',').map(s => s.trim());
-    // Also allow same-server (Electron loads from port 5000) and no-origin (Electron IPC)
-    if (!origin || allowed.includes(origin) || origin === 'http://localhost:5000') return cb(null, true);
+    // Allow: configured origins, localhost dev, no-origin (Electron proxy strips Origin header),
+    // and app:// custom scheme (Electron renderer direct requests as fallback)
+    if (!origin || allowed.includes(origin) || origin === 'http://localhost:5000' || origin?.startsWith('app://')) return cb(null, true);
     cb(new Error('Not allowed by CORS'));
   },
   credentials: true,

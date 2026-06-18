@@ -244,6 +244,55 @@ export async function printTestPage(printerName) {
   await qz.print(config, [{ type: 'raw', format: 'hex', data: hex }]);
 }
 
+// ── Shift summary slip ────────────────────────────────────────────────────────
+
+function buildShiftSummaryBytes({ dateStr, staffName, count, cash, upi }) {
+  const total = cash + upi;
+  const now   = new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+  const pad   = 16;
+  const r     = (label, value) => {
+    const l = label.length > pad ? label.slice(0, pad) : label.padEnd(pad);
+    return line(`${l}: ${value}`);
+  };
+
+  return [
+    ...init(), ...align(1),
+    ...bold(1), ...charSize(0x01), ...line('SHIFT SUMMARY'), ...bold(0), ...charSize(0x00),
+    ...dashes(),
+    ...align(0),
+    ...r('Date',    dateStr),
+    ...r('Staff',   staffName),
+    ...r('Printed', now),
+    ...dashes(),
+    ...r('Coupons', String(count)),
+    ...r('Cash',    `Rs.${cash.toLocaleString('en-IN')}`),
+    ...r('UPI',     `Rs.${upi.toLocaleString('en-IN')}`),
+    ...dashes(),
+    ...bold(1), ...r('TOTAL', `Rs.${total.toLocaleString('en-IN')}`), ...bold(0),
+    ...dashes(),
+    ...align(1),
+    ...line('Mangal Grah Mandir'),
+    ...nl(),
+    ...line('Supervisor: ___________________'),
+    ...feedN(3),
+    ...partCut(),
+  ];
+}
+
+export async function printShiftSummary(data, printerName) {
+  const bytes = buildShiftSummaryBytes(data);
+  const hex   = bytes.map(b => b.toString(16).padStart(2, '0')).join('');
+  if (window.electronAPI?.isElectron) {
+    if (!printerName) throw new Error('No printer configured. Open ⚙ Settings to set one.');
+    await window.electronAPI.printRaw(hex, printerName);
+    return;
+  }
+  if (!printerName) throw new Error('Printer name not set.');
+  await ensureConnected();
+  const config = qz.configs.create(printerName);
+  await qz.print(config, [{ type: 'raw', format: 'hex', data: hex }]);
+}
+
 // ── Public print function ─────────────────────────────────────────────────────
 
 export async function printThermalCoupon(coupon, settings) {

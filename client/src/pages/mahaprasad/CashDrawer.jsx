@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, forwardRef, useImperativeHandle } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Vault, ChevronDown, ChevronUp, Edit3, Check, X, BarChart2 } from 'lucide-react';
 import { getCashDrawer, setOpeningFloat, adjustDrawer } from '../../api/mahaprasad.api.js';
@@ -62,10 +62,19 @@ function FloatForm({ date, currentCounts, onClose }) {
 }
 
 // ── Main CashDrawer component ─────────────────────────────────────────────────
-export default function CashDrawer({ date }) {
+const CashDrawer = forwardRef(function CashDrawer({ date }, ref) {
   const qc = useQueryClient();
   const [open,         setOpen]         = useState(true);
   const [showFloat,    setShowFloat]    = useState(false);
+
+  // Allows a parent to programmatically open the float form (e.g. from the
+  // day-start reminder card in MahaprasadCounter).
+  useImperativeHandle(ref, () => ({
+    openFloatForm() {
+      setOpen(true);
+      setShowFloat(true);
+    },
+  }));
   const [showSummary,  setShowSummary]  = useState(false);
 
   const { data, isLoading } = useQuery({
@@ -241,4 +250,6 @@ export default function CashDrawer({ date }) {
       )}
     </div>
   );
-}
+});
+
+export default CashDrawer;

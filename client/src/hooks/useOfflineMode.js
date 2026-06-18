@@ -13,9 +13,12 @@ export function useOfflineMode() {
   const [syncPending,   setSyncPending]   = useState(0);
   const [isSyncing,     setIsSyncing]     = useState(false);
   const [isPrefetching, setIsPrefetching] = useState(false);
+  const [countsLoaded,  setCountsLoaded]  = useState(false); // true after first IndexedDB read
 
-  const todayDateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
-  const syncingRef   = useRef(false);
+  const todayDateStr      = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+  const syncingRef        = useRef(false);
+  const prevOnlineRef     = useRef(null); // null = first mount, then true/false
+  const lastAutoFetchRef  = useRef(0);    // timestamp of last auto-prefetch
 
   const refreshCounts = useCallback(async () => {
     const [pool, pending] = await Promise.all([
@@ -25,6 +28,7 @@ export function useOfflineMode() {
     setPoolCount(pool.available);
     setOfflineIssued(pool.offlineIssued);
     setSyncPending(pending.length);
+    setCountsLoaded(true);
   }, [todayDateStr]);
 
   // Listen to browser online/offline events
@@ -37,12 +41,46 @@ export function useOfflineMode() {
     return () => { window.removeEventListener('online', go); window.removeEventListener('offline', off); };
   }, [refreshCounts]);
 
-  // Auto-sync when coming back online
+  // In Electron, also track the heartbeat — it pings the actual VPS so it's
+  // more reliable than the browser's network-adapter-level online/offline events.
   useEffect(() => {
-    if (isOnline && syncPending > 0 && !syncingRef.current) {
+    if (!window.electronAPI?.isElectron) return;
+    return window.electronAPI.onOnlineStatus(({ online: on }) => setIsOnline(on));
+  }, []);
+
+  // Auto-sync on reconnect — detect offline→online transition, wait 2 s for
+  // the connection to stabilise, then read pending count directly from IndexedDB
+  // (avoids stale-state issues) and sync if there's anything waiting.
+  useEffect(() => {
+    const prev = prevOnlineRef.current;
+    prevOnlineRef.current = isOnline;
+
+    // Only act on the offline→online edge (skip first mount and online→offline)
+    if (prev !== false || !isOnline) return;
+
+    const t = setTimeout(async () => {
+      const pending = await offlineStore.getPendingSync();
+      if (!pending.length || syncingRef.current) return;
+      toast('Back online — syncing…', { icon: '🔄', duration: 2500 });
       sync();
+    }, 2000);
+
+    return () => clearTimeout(t);
+  }, [isOnline, sync]);
+
+  // Auto-prefetch when the offline pool runs low (< 50 coupons remaining).
+  // Waits until counts are loaded from IndexedDB and at least 5 min between
+  // attempts so a repeated failure doesn't spam the VPS.
+  useEffect(() => {
+    if (!isOnline || !countsLoaded || poolCount >= 50 || isPrefetching) return;
+    const now = Date.now();
+    if (now - lastAutoFetchRef.current < 5 * 60 * 1000) return; // 5-min cooldown
+    lastAutoFetchRef.current = now;
+    if (poolCount > 0) {
+      toast(`Offline pool low (${poolCount} left) — refilling…`, { icon: '📦', duration: 3000 });
     }
-  }, [isOnline]); // eslint-disable-line react-hooks/exhaustive-deps
+    prefetch(200);
+  }, [isOnline, countsLoaded, poolCount, isPrefetching, prefetch]);
 
   // Pre-fetch: reserve a block of coupon numbers + cache today's data
   const prefetch = useCallback(async (qty = 200) => {
