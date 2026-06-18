@@ -24,6 +24,7 @@ const AppLayout = () => {
           <Outlet />
         </main>
       </div>
+
     </div>
   );
 };

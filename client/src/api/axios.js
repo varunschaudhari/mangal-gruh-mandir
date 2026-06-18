@@ -1,5 +1,7 @@
 import axios from 'axios';
 
+// In Electron the app runs on app://renderer/ so relative /api works via the
+// protocol handler in main.js (it proxies to the configured VPS URL).
 const api = axios.create({ baseURL: '/api' });
 
 api.interceptors.request.use((config) => {

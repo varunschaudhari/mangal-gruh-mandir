@@ -4,7 +4,7 @@ import { Vault, ChevronDown, ChevronUp, Edit3, Check, X, BarChart2 } from 'lucid
 import { getCashDrawer, setOpeningFloat, adjustDrawer } from '../../api/mahaprasad.api.js';
 import toast from 'react-hot-toast';
 
-const DENOMS = [500, 100, 50, 20, 10, 5, 2, 1];
+const DENOMS = [500, 200, 100, 50, 20, 10, 5, 2, 1];
 
 function fmt(n) { return n.toLocaleString('en-IN'); }
 

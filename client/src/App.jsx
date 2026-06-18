@@ -75,8 +75,11 @@ import MahaprasadReport from './pages/mahaprasad/MahaprasadReport.jsx';
 import MahaprasadOccasionList from './pages/mahaprasad/MahaprasadOccasionList.jsx';
 import OccasionsManager from './pages/admin/OccasionsManager.jsx';
 import AssetUnitList from './pages/assets/AssetUnitList.jsx';
+import ElectronSettings from './components/ElectronSettings.jsx';
 
 const App = () => (
+  <>
+  {window.electronAPI?.isElectron && <ElectronSettings />}
   <Routes>
     <Route path="/login" element={<Login />} />
 
@@ -199,6 +202,7 @@ const App = () => (
       </Route>
     </Route>
   </Routes>
+  </>
 );
 
 export default App;

@@ -1,6 +1,7 @@
 import 'dotenv/config';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { existsSync } from 'fs';
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
@@ -26,7 +27,12 @@ connectDB();
 
 app.use(helmet());
 app.use(cors({
-  origin: process.env.CLIENT_URL || 'http://localhost:3000',
+  origin: (origin, cb) => {
+    const allowed = (process.env.CLIENT_URL || 'http://localhost:3000').split(',').map(s => s.trim());
+    // Also allow same-server (Electron loads from port 5000) and no-origin (Electron IPC)
+    if (!origin || allowed.includes(origin) || origin === 'http://localhost:5000') return cb(null, true);
+    cb(new Error('Not allowed by CORS'));
+  },
   credentials: true,
 }));
 
@@ -71,6 +77,16 @@ app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 app.get('/api/health', (req, res) => res.json({ status: 'ok', env: process.env.NODE_ENV }));
 
 app.use('/api', routes);
+
+// Serve React build for Electron / direct access — only when client/dist exists
+const clientDist = path.join(__dirname, '../../client/dist');
+if (existsSync(clientDist)) {
+  app.use(express.static(clientDist));
+  // SPA fallback — any non-API route returns index.html
+  app.use((req, res) => {
+    res.sendFile(path.join(clientDist, 'index.html'));
+  });
+}
 
 app.use(errorHandler);
 

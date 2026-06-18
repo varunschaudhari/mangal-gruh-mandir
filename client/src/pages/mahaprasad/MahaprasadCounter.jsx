@@ -145,6 +145,7 @@ export default function MahaprasadCounter() {
   const [showShortcuts,    setShowShortcuts]    = useState(false);
   const [lastIssuedBatch,  setLastIssuedBatch]  = useState(null);  // persists after auto-reset
   const [showShiftSummary, setShowShiftSummary] = useState(false);
+  const [printQueue,       setPrintQueue]       = useState([]);    // coupons that failed to print, awaiting retry
 
   const {
     isOnline, poolCount, offlineIssued: offlineIssuedCount, syncPending,
@@ -186,7 +187,16 @@ export default function MahaprasadCounter() {
   const myCash       = summary.myCash  ?? 0;
   const myUpi        = summary.myUpi   ?? 0;
 
-  useEffect(() => { setQzReady(isConnected()); }, []);
+  // In Electron, printing is always "ready" (no QZ Tray required)
+  useEffect(() => { setQzReady(window.electronAPI?.isElectron || isConnected()); }, []);
+
+  // Restore autoPrint preference from electron-store
+  useEffect(() => {
+    if (!window.electronAPI?.isElectron) return;
+    window.electronAPI.getSettings().then((s) => {
+      if (s?.autoPrint !== undefined) setAutoPrint(s.autoPrint);
+    });
+  }, []);
 
   // ── Auto-reset countdown after issue ────────────────────────────────────────
   useEffect(() => {
@@ -343,7 +353,9 @@ export default function MahaprasadCounter() {
   const handleAutoPrintToggle = async () => {
     const next = !autoPrint;
     setAutoPrint(next);
-    if (next && !isConnected()) {
+    if (window.electronAPI?.isElectron) {
+      window.electronAPI.saveSettings({ autoPrint: next });
+    } else if (next && !isConnected()) {
       try { await connectToQzTray(); setQzReady(true); toast.success('QZ Tray connected'); }
       catch { toast.error('QZ Tray not reachable — install & start from qz.io'); }
     }
@@ -387,12 +399,17 @@ export default function MahaprasadCounter() {
       qc.invalidateQueries({ queryKey: ['mahaprasad-cash-drawer', date] });
 
       if (autoPrint) {
-        let allOk = true;
+        const failed = [];
         for (const coupon of coupons) {
           try { await handleThermalPrint(coupon); }
-          catch { allOk = false; break; }
+          catch { failed.push(coupon); }
         }
-        if (allOk) toast.success(vars.isGroup ? `Group (${vars.qty}) issued & printed` : `${coupons.length} coupon${coupons.length > 1 ? 's' : ''} issued & printed`);
+        if (failed.length === 0) {
+          toast.success(vars.isGroup ? `Group (${vars.qty}) issued & printed` : `${coupons.length} coupon${coupons.length > 1 ? 's' : ''} issued & printed`);
+        } else {
+          setPrintQueue((q) => [...q, ...failed]);
+          toast.error(`${coupons.length - failed.length} printed, ${failed.length} queued — fix printer then retry`);
+        }
       } else {
         toast.success(vars.isGroup ? `Group coupon (${vars.qty} persons) issued` : `${coupons.length} coupon${coupons.length > 1 ? 's' : ''} issued`);
       }
@@ -411,6 +428,22 @@ export default function MahaprasadCounter() {
     },
     onError: (e) => toast.error(e.response?.data?.message || 'Failed to void batch'),
   });
+
+  const handleRetryPrintQueue = async () => {
+    const toRetry = [...printQueue];
+    setPrintQueue([]);
+    const stillFailed = [];
+    for (const coupon of toRetry) {
+      try { await handleThermalPrint(coupon); }
+      catch { stillFailed.push(coupon); }
+    }
+    if (stillFailed.length > 0) {
+      setPrintQueue(stillFailed);
+      toast.error(`${stillFailed.length} still failed — check printer`);
+    } else {
+      toast.success('All queued coupons printed');
+    }
+  };
 
   const handleIssue = () => {
     if (!isOnline) { handleIssueOffline(); return; }
@@ -733,8 +766,8 @@ export default function MahaprasadCounter() {
               </button>
               {autoPrint && (
                 qzReady
-                  ? <span className="text-xs text-green-600 flex items-center gap-1"><Wifi className="h-3 w-3" /> Connected</span>
-                  : <span className="text-xs text-red-500 flex items-center gap-1"><WifiOff className="h-3 w-3" /> QZ Tray offline</span>
+                  ? <span className="text-xs text-green-600 flex items-center gap-1"><Wifi className="h-3 w-3" /> {window.electronAPI?.isElectron ? 'Printer ready' : 'Connected'}</span>
+                  : !window.electronAPI?.isElectron && <span className="text-xs text-red-500 flex items-center gap-1"><WifiOff className="h-3 w-3" /> QZ Tray offline</span>
               )}
             </div>
           </div>
@@ -1075,16 +1108,30 @@ export default function MahaprasadCounter() {
       {lastIssuedBatch && (
         <button
           onClick={async () => {
-            if (autoPrint) {
-              for (const c of lastIssuedBatch.coupons) { try { await handleThermalPrint(c); } catch { break; } }
+            if (window.electronAPI?.isElectron || autoPrint) {
+              const failed = [];
+              for (const c of lastIssuedBatch.coupons) {
+                try { await handleThermalPrint(c); }
+                catch { failed.push(c); }
+              }
+              if (failed.length > 0) setPrintQueue((q) => [...q, ...failed]);
             } else {
               handlePdfPrint(lastIssuedBatch.numbers);
             }
           }}
-          title={`Reprint last batch (${lastIssuedBatch.numbers.length} coupon${lastIssuedBatch.numbers.length > 1 ? 's' : ''})`}
+          title={`Reprint last batch · ${lastIssuedBatch.numbers.length} coupon${lastIssuedBatch.numbers.length > 1 ? 's' : ''}`}
           className="shrink-0 flex items-center gap-1.5 text-xs font-semibold text-gray-500 hover:text-gray-800 border border-gray-200 rounded-lg px-3 py-2 hover:bg-gray-50 transition-colors">
           <Printer className="h-3.5 w-3.5" />
           Reprint Last
+        </button>
+      )}
+      {printQueue.length > 0 && (
+        <button
+          onClick={handleRetryPrintQueue}
+          title={`${printQueue.length} coupon${printQueue.length > 1 ? 's' : ''} waiting to print`}
+          className="shrink-0 flex items-center gap-1.5 text-xs font-semibold text-white bg-red-500 hover:bg-red-600 rounded-lg px-3 py-2 transition-colors animate-pulse">
+          <Printer className="h-3.5 w-3.5" />
+          Retry ({printQueue.length})
         </button>
       )}
     </div>

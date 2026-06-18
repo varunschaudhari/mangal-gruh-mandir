@@ -11,7 +11,9 @@ import './index.css';
 // When the app is accessed via a raw IP address the SSL cert doesn't cover that
 // origin, so the SW script fetch throws a SecurityError.  Without a .catch()
 // this becomes an unhandled rejection that crashes the React root (white screen).
-if ('serviceWorker' in navigator) {
+// Skip service worker in Electron — the app:// custom scheme doesn't need it
+// and SW caching would interfere with hot-reloaded renderer assets.
+if ('serviceWorker' in navigator && !window.electronAPI?.isElectron) {
   window.addEventListener('load', () => {
     navigator.serviceWorker
       .register('/sw.js', { scope: '/' })

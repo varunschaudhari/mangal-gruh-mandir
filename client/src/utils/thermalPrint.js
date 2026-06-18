@@ -1,5 +1,25 @@
 import qz from 'qz-tray';
 
+// ── Electron print path ───────────────────────────────────────────────────────
+// When running inside the desktop app, bypass QZ Tray entirely and use the
+// Electron IPC bridge (window.electronAPI) to send raw bytes to the printer.
+
+async function printViaElectron(coupon, settings) {
+  // Printer name comes from local electron-store (configured via ⚙ settings panel)
+  const electronSettings = await window.electronAPI.getSettings();
+  const printerName = electronSettings?.printerName || settings?.mahaprasadPrinterName;
+  if (!printerName) {
+    throw new Error('Printer not set. Open ⚙ Settings (bottom-right gear) and choose a printer.');
+  }
+  const [logoBytes, receiptBytes] = await Promise.all([
+    logoToEscPosBytes(),
+    Promise.resolve(buildReceiptBytes(coupon, settings)),
+  ]);
+  const allBytes = [...logoBytes, ...receiptBytes];
+  const hex = allBytes.map(b => b.toString(16).padStart(2, '0')).join('');
+  await window.electronAPI.printRaw(hex, printerName);
+}
+
 // ── Connection management ─────────────────────────────────────────────────────
 
 let connectPromise = null;
@@ -35,8 +55,9 @@ const init     = ()    => [ESC, 0x40];
 const align    = (n)   => [ESC, 0x61, n];   // 0=L 1=C 2=R
 const bold     = (on)  => [ESC, 0x45, on ? 1 : 0];
 const charSize = (n)   => [GS,  0x21, n];   // 0x00=1x  0x11=2x2  0x01=2xH  0x10=2xW
-const feedN    = (n)   => [ESC, 0x64, n];
-const partCut  = ()    => [GS,  0x56, 0x41, 4];
+const feedN        = (n) => [ESC, 0x64, n];
+const partCut      = ()  => [GS,  0x56, 0x41, 4];
+const cashDrawerKick = () => [ESC, 0x70, 0x00, 0x19, 0xFA]; // ESC p pin2 on=50ms off=500ms
 
 function enc(str) {
   return [...new TextEncoder().encode(str.replace(/₹/g, 'Rs.'))];
@@ -146,54 +167,92 @@ function buildReceiptBytes(coupon, settings) {
     ...align(1),
 
     // ── HEADER ──────────────────────────────────────────────────────────────
-    // Temple name removed — logo + subtitle only
     ...bold(0), ...charSize(0x00),
     ...line('Mahaprasad Seva Coupon'),
-
-    // Type badge — bold, centered, bracketed like PDF badge
     ...bold(1),
     ...line(`[ ${badgeLabel} ]`),
     ...bold(0),
-    ...(isGroup ? line(`GROUP COUPON  \xB7  ${groupSize} PERSONS`) : []),
+    ...(isGroup ? line(`GROUP  \xB7  ${groupSize} PERSONS`) : []),
 
     ...dashes(),
 
     // ── COUPON NUMBER ────────────────────────────────────────────────────────
-    ...line('COUPON NO.'),
     ...bold(1), ...charSize(0x01),
     ...line(coupon.couponNumber),
     ...bold(0), ...charSize(0x00),
 
     ...dashes(),
 
-    // ── DATE + OCCASION ──────────────────────────────────────────────────────
+    // ── DATE + OCCASION + QR (merged — one less dash line) ──────────────────
     ...line(dateStr),
     ...(isFree && coupon.occasion ? line(coupon.occasion) : []),
-
-    ...dashes(),
-
-    // ── QR CODE ──────────────────────────────────────────────────────────────
-    ...qrEscPos(coupon.couponNumber, 6),
+    ...nl(),
+    ...qrEscPos(coupon.couponNumber, 5),
     ...line('- SCAN TO VERIFY -'),
 
     ...dashes(),
 
     // ── FOOTER ───────────────────────────────────────────────────────────────
     ...bold(1), ...line('Present at Prasad counter'), ...bold(0),
-    ...bold(1), ...charSize(0x01),
-    ...line(servingText),
-    ...bold(0), ...charSize(0x00),
+    ...bold(1), ...line(servingText), ...bold(0),
     ...line('Non-transferable'),
 
-    // Feed + partial cut
-    ...feedN(1),
+    // Cut + cash drawer kick for paid coupons
+    ...feedN(0),
+    ...partCut(),
+    ...(coupon.type === 'paid' ? cashDrawerKick() : []),
+  ];
+}
+
+// ── Test page ─────────────────────────────────────────────────────────────────
+
+function buildTestPageBytes(printerName) {
+  const now = new Date().toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' });
+  return [
+    ...init(),
+    ...align(1),
+    ...bold(1), ...charSize(0x11), ...line('TEST PAGE'), ...bold(0), ...charSize(0x00),
+    ...dashes(),
+    ...align(0),
+    ...line(`Printer : ${printerName || 'Unknown'}`),
+    ...line(`Time    : ${now}`),
+    ...dashes(),
+    ...align(1),
+    ...line('Normal  ABCDEFGHIJKLMNOPQRSTUVWXYZ 0123'),
+    ...bold(1), ...line('Bold    ABCDEFGHIJKLMNOPQRSTUVWXYZ'), ...bold(0),
+    ...charSize(0x01), ...line('Double Height'), ...charSize(0x00),
+    ...charSize(0x10), ...line('Double Width'), ...charSize(0x00),
+    ...dashes(),
+    ...bold(1), ...line('Mangal Grah Mandir'), ...bold(0),
+    ...line('Printer is working correctly'),
+    ...feedN(2),
     ...partCut(),
   ];
+}
+
+export async function printTestPage(printerName) {
+  const bytes = buildTestPageBytes(printerName);
+  const hex   = bytes.map(b => b.toString(16).padStart(2, '0')).join('');
+  if (window.electronAPI?.isElectron) {
+    if (!printerName) throw new Error('Select a printer in Settings first.');
+    await window.electronAPI.printRaw(hex, printerName);
+    return;
+  }
+  if (!printerName) throw new Error('Printer name not set.');
+  await ensureConnected();
+  const config = qz.configs.create(printerName);
+  await qz.print(config, [{ type: 'raw', format: 'hex', data: hex }]);
 }
 
 // ── Public print function ─────────────────────────────────────────────────────
 
 export async function printThermalCoupon(coupon, settings) {
+  // Electron: use IPC bridge directly — no QZ Tray needed
+  if (window.electronAPI?.isElectron) {
+    return printViaElectron(coupon, settings);
+  }
+
+  // Web: QZ Tray path
   const printerName = settings?.mahaprasadPrinterName;
   if (!printerName) {
     throw new Error('Thermal printer not set. Go to Settings → Mahaprasad and enter the printer name.');
@@ -202,14 +261,11 @@ export async function printThermalCoupon(coupon, settings) {
   await ensureConnected();
   const config = qz.configs.create(printerName);
 
-  // Build logo ESC/POS raster bytes and receipt bytes in parallel
   const [logoBytes, receiptBytes] = await Promise.all([
     logoToEscPosBytes(),
     Promise.resolve(buildReceiptBytes(coupon, settings)),
   ]);
 
-  // Single raw print job: logo (if loaded) + receipt
-  // Using hex format — supported in ALL QZ Tray 2.x versions without enum issues
   const allBytes = [...logoBytes, ...receiptBytes];
   const hex = allBytes.map(b => b.toString(16).padStart(2, '0')).join('');
 

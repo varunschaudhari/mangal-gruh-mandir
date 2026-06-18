@@ -1,0 +1,19 @@
+{
+  "name": "mgm-mahaprasad-counter",
+  "version": "1.0.0",
+  "description": "Mangal Grah Mandir – Mahaprasad Counter Desktop App",
+  "author": "Mangal Grah Mandir",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dist:win": "electron-builder --win",
+    "pack": "electron-builder --dir"
+  },
+  "dependencies": {
+    "electron-store": "^8.2.0"
+  },
+  "devDependencies": {
+    "electron": "^31.7.0",
+    "electron-builder": "^24.13.3"
+  }
+}
