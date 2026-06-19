@@ -60,7 +60,8 @@ export default function ElectronSettings() {
 
   async function runCheck() {
     setOnline(null);
-    const res = await window.electronAPI.checkOnline();
+    // Test the URL currently in the field, falling back to the saved one.
+    const res = await window.electronAPI.checkOnline(settings.apiUrl?.trim() || undefined);
     setOnline(res.online);
     setLastChecked(Date.now());
   }

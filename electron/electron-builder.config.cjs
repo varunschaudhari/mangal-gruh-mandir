@@ -3,18 +3,25 @@ module.exports = {
   appId: 'com.mangalgruhmandir.counter',
   productName: 'MGM Counter',
 
-  directories: { output: 'dist-electron' },
+  directories: { output: 'dist' },
 
-  // Only bundle the Electron shell — React app loads live from VPS.
-  // New web deployments are instant; new installer only needed when
-  // main.js / preload.js / printer.js changes.
+  // Bundle the Electron shell. The React UI is served locally (offline-first)
+  // by main.js via the app:// protocol, with /api proxied to the VPS — so the
+  // built client/dist must ship inside the app (see extraResources below).
   files: [
     'main.js',
     'preload.js',
     'printer.js',
     'setup.html',
     'package.json',
+    'assets/**',
     'node_modules/**',
+  ],
+
+  // Copy the built React app into the package at resources/client-dist.
+  // main.js resolves this via process.resourcesPath when packaged.
+  extraResources: [
+    { from: '../client/dist', to: 'client-dist' },
   ],
 
   win: {

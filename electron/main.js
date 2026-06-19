@@ -21,7 +21,7 @@ const printer = require('./printer');
 // ── Persistent store ──────────────────────────────────────────────────────────
 const store = new Store({
   defaults: {
-    settings: { apiUrl: 'http://103.168.19.129', printerName: '', autoPrint: false },
+    settings: { apiUrl: 'https://mandir.aumora.io', printerName: '', autoPrint: false },
     windowBounds: { width: 1100, height: 750 },
   },
 });
@@ -38,6 +38,7 @@ function createWindow() {
     minWidth: 800,
     minHeight: 600,
     title: 'MGM Mahaprasad Counter',
+    icon: path.join(__dirname, 'assets/icon.ico'),
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -74,7 +75,11 @@ app.whenReady().then(() => {
   // Using a proxy here (instead of putting the VPS URL in the renderer) means
   // the renderer uses plain relative /api/... paths and has no direct contact
   // with the VPS — no CORS issues, no URL leaking into the bundle.
-  const distDir = path.join(__dirname, '../client/dist');
+  // Dev: client/dist sits next to the electron folder.
+  // Packaged: electron-builder copies it to resources/client-dist (extraResources).
+  const distDir = app.isPackaged
+    ? path.join(process.resourcesPath, 'client-dist')
+    : path.join(__dirname, '../client/dist');
 
   protocol.handle('app', async (request) => {
     const url      = new URL(request.url);
@@ -184,8 +189,9 @@ ipcMain.handle('print-raw', async (_e, hexData, printerName) => {
 });
 
 // On-demand health check (used by settings panel)
-ipcMain.handle('check-online', async () => {
-  const apiUrl = store.get('settings.apiUrl', '').replace(/\/$/, '');
+ipcMain.handle('check-online', async (_e, url) => {
+  // Test the passed-in url (what's typed in Settings) if given; else the saved one.
+  const apiUrl = (url || store.get('settings.apiUrl', '')).replace(/\/$/, '');
   if (!apiUrl) return { online: false, reason: 'not-configured' };
   try {
     await net.fetch(apiUrl + '/api/health', {

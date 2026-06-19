@@ -17,8 +17,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   printRaw:            (hexData, printerName) => ipcRenderer.invoke('print-raw', hexData, printerName),
   checkPrinterStatus:  (printerName)          => ipcRenderer.invoke('check-printer-status', printerName),
 
-  // Network
-  checkOnline: () => ipcRenderer.invoke('check-online'),
+  // Network — pass a url to test it directly; omit to test the saved one
+  checkOnline: (url) => ipcRenderer.invoke('check-online', url),
 
   // Heartbeat events from main process
   onOnlineStatus: (cb) => {
