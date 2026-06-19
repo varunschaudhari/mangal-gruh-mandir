@@ -1,0 +1,611 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Mangal Grah Mandir — Stock Management User Manual</title>
+<style>
+  :root{
+    --saffron:#FF8C00; --saffron-d:#d96f00; --ink:#1f2937; --muted:#6b7280;
+    --line:#e5e7eb; --bg:#ffffff; --soft:#fff7ed; --soft-line:#fed7aa;
+    --green:#15803d; --green-bg:#f0fdf4; --red:#b91c1c; --red-bg:#fef2f2;
+    --blue:#1d4ed8; --blue-bg:#eff6ff;
+  }
+  *{box-sizing:border-box}
+  html{font-size:15px}
+  body{
+    margin:0;color:var(--ink);background:#f3f4f6;
+    font-family:"Segoe UI",Roboto,Helvetica,Arial,sans-serif;line-height:1.6;
+  }
+  .page{max-width:900px;margin:0 auto;background:var(--bg);}
+  /* ---- Cover ---- */
+  .cover{
+    min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    text-align:center;padding:60px 40px;background:linear-gradient(160deg,#fff7ed 0%,#ffffff 60%);
+    border-bottom:6px solid var(--saffron);
+  }
+  .cover .badge{width:96px;height:96px;border-radius:20px;background:var(--saffron);
+    display:flex;align-items:center;justify-content:center;font-size:48px;color:#fff;
+    box-shadow:0 10px 30px rgba(255,140,0,.35);margin-bottom:24px}
+  .cover h1{font-size:2.4rem;margin:.2em 0;color:var(--ink)}
+  .cover h2{font-size:1.2rem;font-weight:500;color:var(--saffron-d);margin:.2em 0 1em}
+  .cover .sub{color:var(--muted);max-width:520px}
+  .cover .meta{margin-top:36px;font-size:.85rem;color:var(--muted)}
+  /* ---- Layout ---- */
+  .content{padding:32px 48px 64px}
+  h2.module{
+    font-size:1.6rem;margin:0 0 4px;padding-top:8px;color:var(--ink);
+    border-bottom:3px solid var(--saffron);padding-bottom:8px;
+  }
+  .module-tag{display:inline-block;font-size:.72rem;font-weight:700;letter-spacing:.05em;
+    text-transform:uppercase;color:#fff;background:var(--saffron);padding:3px 10px;border-radius:999px;margin-bottom:10px}
+  h3{font-size:1.15rem;margin:1.6em 0 .4em;color:var(--ink)}
+  h4{font-size:1rem;margin:1.2em 0 .3em;color:var(--saffron-d)}
+  p{margin:.5em 0}
+  .lead{color:var(--muted)}
+  .who{font-size:.9rem;color:var(--muted);margin:.2em 0 1em}
+  .who b{color:var(--ink)}
+  ol,ul{margin:.4em 0 1em;padding-left:1.4em}
+  ol li,ul li{margin:.25em 0}
+  code,.kbd{background:#f3f4f6;border:1px solid var(--line);border-radius:4px;padding:1px 6px;
+    font-family:Consolas,Menlo,monospace;font-size:.85em}
+  .btnlabel{display:inline-block;background:var(--saffron);color:#fff;border-radius:6px;
+    padding:1px 9px;font-size:.82em;font-weight:600;white-space:nowrap}
+  figure{margin:14px 0 22px;border:1px solid var(--line);border-radius:10px;overflow:hidden;
+    box-shadow:0 1px 4px rgba(0,0,0,.06)}
+  figure img{display:block;width:100%;height:auto}
+  figcaption{font-size:.8rem;color:var(--muted);padding:8px 12px;background:#fafafa;border-top:1px solid var(--line)}
+  .note,.tip,.warn{border-radius:8px;padding:12px 16px;margin:14px 0;font-size:.92rem}
+  .note{background:var(--blue-bg);border-left:4px solid var(--blue)}
+  .tip{background:var(--green-bg);border-left:4px solid var(--green)}
+  .warn{background:var(--red-bg);border-left:4px solid var(--red)}
+  .note b,.tip b,.warn b{display:block;margin-bottom:2px}
+  table{border-collapse:collapse;width:100%;margin:14px 0;font-size:.9rem}
+  th,td{border:1px solid var(--line);padding:8px 10px;text-align:left;vertical-align:top}
+  th{background:var(--soft);color:var(--ink)}
+  /* ---- TOC ---- */
+  .toc{background:var(--soft);border:1px solid var(--soft-line);border-radius:12px;padding:22px 28px;margin:8px 0 8px}
+  .toc h2{margin-top:0;border:0}
+  .toc ol{columns:2;column-gap:40px;padding-left:1.2em}
+  .toc a{color:var(--ink);text-decoration:none}
+  .toc a:hover{color:var(--saffron-d);text-decoration:underline}
+  .section{page-break-before:always}
+  hr{border:0;border-top:1px solid var(--line);margin:40px 0}
+  .pill{display:inline-block;background:#f3f4f6;border:1px solid var(--line);border-radius:999px;
+    padding:1px 10px;font-size:.8rem;margin:2px 4px 2px 0}
+  /* ---- Print ---- */
+  @media print{
+    body{background:#fff}
+    .page{max-width:none;margin:0}
+    .content{padding:0 8mm}
+    .cover{min-height:auto;height:100vh;page-break-after:always}
+    a{color:inherit;text-decoration:none}
+    figure{box-shadow:none;page-break-inside:avoid}
+    h3,h4{page-break-after:avoid}
+    .note,.tip,.warn,table{page-break-inside:avoid}
+    .no-print{display:none}
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- ===================== COVER ===================== -->
+  <section class="cover">
+    <div class="badge">🛕</div>
+    <h1>Mangal Grah Mandir</h1>
+    <h2>Stock Management System — User Manual</h2>
+    <p class="sub">A step-by-step guide to every module: stock, purchases, payments, expenses,
+    donations, mahaprasad coupons, assets, reports and administration.</p>
+    <div class="meta">
+      Amalner &nbsp;•&nbsp; Version 1.0 &nbsp;•&nbsp; For temple staff &amp; trustees<br/>
+      Tip: open this file in any web browser. To make a PDF, press <span class="kbd">Ctrl</span> + <span class="kbd">P</span> → <b>Save as PDF</b>.
+    </div>
+  </section>
+
+  <div class="content">
+
+  <!-- ===================== GETTING STARTED ===================== -->
+  <section id="start">
+    <span class="module-tag">Start Here</span>
+    <h2 class="module">Getting Started</h2>
+    <p class="lead">How to log in, find your way around, and understand what you can and cannot do.</p>
+
+    <h3>1. Logging in</h3>
+    <ol>
+      <li>Open the application (desktop app, or the website link given to you).</li>
+      <li>Enter your <b>Email Address</b> and <b>Password</b>.</li>
+      <li>Click <span class="btnlabel">Login</span>.</li>
+    </ol>
+    <figure><img src="images/00-login.png" alt="Login screen"/>
+      <figcaption>The login screen. Your administrator creates your account and gives you the password.</figcaption></figure>
+    <div class="tip"><b>Forgot or want to change your password?</b>
+      After logging in, click your name in the top-right corner → <b>Change Password</b>. See the <a href="#account">My Account</a> section.</div>
+
+    <h3>2. Finding your way around</h3>
+    <p>Every screen has the same layout:</p>
+    <ul>
+      <li><b>Left sidebar</b> — the main menu. Modules are grouped (Purchases, Stock Movement, Inventory, Payments, Expenses, Mahaprasad, Donations, Assets, Reports, Masters, Admin). Click a group to expand it.</li>
+      <li><b>Top bar</b> — notifications bell and your name/role menu (Profile, Change Password, Logout).</li>
+      <li><b>Main area</b> — the screen you are working on.</li>
+    </ul>
+    <div class="note"><b>You may not see every menu item.</b>
+      The system shows only the modules your <b>role</b> allows. For example, kitchen staff see Mahaprasad and Stock Out, while trustees also see payment approvals. This is normal — see <a href="#roles">Roles &amp; Permissions</a>.</div>
+
+    <h3>3. Things that work the same everywhere</h3>
+    <ul>
+      <li><b>Required fields</b> are marked with a red asterisk <code>*</code>. You cannot save until they are filled.</li>
+      <li><b>Dates</b> default to today. Many forms allow back-dated entries; a few (like donations and mahaprasad) do not allow future dates.</li>
+      <li><b>Money</b> is always in Rupees (₹).</li>
+      <li><b>Export buttons</b> (<span class="btnlabel">Export Excel</span> / <span class="btnlabel">PDF</span> / <span class="btnlabel">WhatsApp</span>) appear on most lists and reports.</li>
+      <li><b>Approval workflow</b> — payments and expenses are first <b>submitted</b>, then a trustee <b>approves</b> them. Until approved they are "Pending".</li>
+    </ul>
+  </section>
+
+  <!-- ===================== TABLE OF CONTENTS ===================== -->
+  <section class="toc" id="toc">
+    <h2>Modules in this manual</h2>
+    <ol>
+      <li><a href="#dashboard">Dashboard</a></li>
+      <li><a href="#purchases">Purchases</a></li>
+      <li><a href="#stock">Stock Movement</a></li>
+      <li><a href="#inventory">Inventory</a></li>
+      <li><a href="#payments">Supplier Payments</a></li>
+      <li><a href="#expenses">Expenses &amp; Budgets</a></li>
+      <li><a href="#mahaprasad">Mahaprasad</a></li>
+      <li><a href="#donations">Donations</a></li>
+      <li><a href="#assets">Assets</a></li>
+      <li><a href="#reports">Reports</a></li>
+      <li><a href="#masters">Masters (setup data)</a></li>
+      <li><a href="#admin">Administration</a></li>
+      <li><a href="#account">My Account</a></li>
+      <li><a href="#roles">Roles &amp; Permissions</a></li>
+    </ol>
+  </section>
+
+  <!-- ===================== 1. DASHBOARD ===================== -->
+  <section class="section" id="dashboard">
+    <span class="module-tag">Module 1</span>
+    <h2 class="module">Dashboard</h2>
+    <p class="lead">Your home screen — a quick health check of the whole temple store.</p>
+    <p class="who"><b>Who uses it:</b> Everyone. <b>What you can do:</b> view only (no data is entered here).</p>
+
+    <figure><img src="images/dashboard.png" alt="Dashboard"/>
+      <figcaption>The dashboard opens automatically after login.</figcaption></figure>
+
+    <h3>What you see</h3>
+    <ul>
+      <li><b>Key numbers</b> — Products, Departments, Suppliers, Active Users, and stock warnings (Low Stock, Out of Stock, Reorder Soon, Expiring within 30 days).</li>
+      <li><b>This Month's Finance</b> — Income, Expenses and Surplus/Deficit, with a <span class="btnlabel">View P&amp;L →</span> link.</li>
+      <li><b>Asset Status</b> — items checked out, overdue, and due this week.</li>
+      <li><b>Payment Status</b> — payments pending approval, outstanding and overdue amounts.</li>
+      <li><b>Expiring Within 7 Days</b>, <b>Today's Activity</b>, a <b>7-Day Stock Movement</b> chart, <b>Top Products</b>, and <b>Recent Transactions</b>.</li>
+    </ul>
+    <div class="tip"><b>Every card is a shortcut.</b> Click any number or card to jump straight to that module. The dashboard refreshes itself every few minutes.</div>
+  </section>
+
+  <!-- ===================== 2. PURCHASES ===================== -->
+  <section class="section" id="purchases">
+    <span class="module-tag">Module 2</span>
+    <h2 class="module">Purchases</h2>
+    <p class="lead">Record goods bought from suppliers. <b>This is how stock comes in.</b></p>
+    <p class="who"><b>Who uses it:</b> Store keeper / store manager. <b>Needs permission:</b> create transactions.</p>
+
+    <div class="note"><b>Important:</b> There is no separate "Stock In" screen. When you save a <b>Purchase Entry</b>, the system automatically adds the items to stock and creates the supplier invoice.</div>
+
+    <h3>2.1 Recording a new purchase</h3>
+    <figure><img src="images/purchases-new.png" alt="New Purchase Entry"/>
+      <figcaption>Purchases → New Purchase Entry</figcaption></figure>
+    <ol>
+      <li>Go to <b>Purchases → New Purchase Entry</b>.</li>
+      <li>Select the <b>Supplier *</b> (the credit term fills the <b>Due Date</b> automatically).</li>
+      <li>Select the <b>Department *</b> that is receiving the goods.</li>
+      <li>Optionally enter the <b>Invoice Number</b> and <b>Invoice Date</b>; set the <b>Received Date *</b> (defaults to today).</li>
+      <li>Under <b>Items Received</b>, for each item choose the <b>Product *</b>, enter <b>Qty *</b>, and optionally <b>Rate (₹)</b>, batch reference and <b>Expiry Date</b>.</li>
+      <li>Click <span class="btnlabel">Add Item</span> to add more rows. The <b>Grand Total</b> updates automatically.</li>
+      <li>Click <span class="btnlabel">Save Purchase Entry</span>.</li>
+    </ol>
+    <div class="tip"><b>Expiry &amp; batches:</b> For perishable items, always fill the Expiry Date — it powers the "Expiring Stock" report and FIFO (first-in-first-out) issuing.</div>
+
+    <h3>2.2 Purchase Register (viewing past purchases)</h3>
+    <figure><img src="images/purchases-register.png" alt="Purchase Register"/>
+      <figcaption>Purchases → Purchase Register</figcaption></figure>
+    <ul>
+      <li>Use the tabs <b>All / Unpaid / Partial / Paid</b> and search by entry or invoice number.</li>
+      <li>Click a row to expand and preview its line items, then <b>View full details →</b>.</li>
+      <li>On the detail screen you can <span class="btnlabel">Edit</span> (only if no payment has been approved yet) or <span class="btnlabel">Void Entry</span> with a reason. Voiding reverses the stock that was added.</li>
+    </ul>
+  </section>
+
+  <!-- ===================== 3. STOCK MOVEMENT ===================== -->
+  <section class="section" id="stock">
+    <span class="module-tag">Module 3</span>
+    <h2 class="module">Stock Movement</h2>
+    <p class="lead">Record stock going out, moving between departments, or being wasted.</p>
+    <p class="who"><b>Who uses it:</b> Store keeper, kitchen staff. <b>Needs permission:</b> create transactions.</p>
+
+    <h3>3.1 Stock Out (issuing stock)</h3>
+    <figure><img src="images/stock-out.png" alt="Stock Out"/>
+      <figcaption>Stock Movement → Stock Out</figcaption></figure>
+    <ol>
+      <li>Set the <b>Date</b> (defaults to today).</li>
+      <li>Choose the <b>Purpose</b>: Consumption (Kitchen), Distribution (Prasadam), Offering / Puja, or Other.</li>
+      <li>Select the <b>Product</b> and the <b>From Department</b>. The <b>Current Balance</b> shows; it turns red and says "(Low stock)" if at or below the minimum.</li>
+      <li>Enter the <b>Quantity</b> (must be more than 0). Optionally fill <b>Issued To</b> and <b>Notes</b>.</li>
+      <li>Click <span class="btnlabel">Record Stock Out</span>. You are taken to Transaction History.</li>
+    </ol>
+
+    <h3>3.2 Transfer (between departments)</h3>
+    <figure><img src="images/stock-transfer.png" alt="Transfer"/>
+      <figcaption>Stock Movement → Transfer</figcaption></figure>
+    <ol>
+      <li>Pick the <b>Product</b>, the <b>From Department</b> (source) and the <b>To Department</b> (destination).</li>
+      <li>The <b>Available in Source</b> quantity is shown. Enter the <b>Quantity</b> to move and click <span class="btnlabel">Record Transfer</span>.</li>
+    </ol>
+
+    <h3>3.3 Wastage (damaged / expired)</h3>
+    <figure><img src="images/stock-wastage.png" alt="Wastage"/>
+      <figcaption>Stock Movement → Wastage</figcaption></figure>
+    <ol>
+      <li>Choose the <b>Reason</b>: Expired, Damaged, Spillage, Pest / Infestation, or Other.</li>
+      <li>Select the <b>Product</b> and <b>From Department</b>, enter the <b>Quantity</b>, describe it in <b>Notes</b>, and click <span class="btnlabel">Record Wastage</span>.</li>
+    </ol>
+
+    <h3>3.4 Transaction History</h3>
+    <figure><img src="images/stock-history.png" alt="Transaction History"/>
+      <figcaption>Stock Movement → History</figcaption></figure>
+    <ul>
+      <li>Filter by Product, Type, Department and date range; <span class="btnlabel">Clear</span> resets the filters.</li>
+      <li>Print a single receipt with the printer icon, or <span class="btnlabel">Export Excel</span>.</li>
+      <li>To cancel a wrong entry, click <span class="btnlabel">Void</span>, type the <b>Reason for Voiding *</b>, and confirm. Voiding restores the stock. (Requires delete permission.)</li>
+    </ul>
+  </section>
+
+  <!-- ===================== 4. INVENTORY ===================== -->
+  <section class="section" id="inventory">
+    <span class="module-tag">Module 4</span>
+    <h2 class="module">Inventory</h2>
+    <p class="lead">See exactly how much of each item you have, and trace every movement.</p>
+    <p class="who"><b>Who uses it:</b> Store keeper, managers. <b>What you can do:</b> view only.</p>
+
+    <h3>4.1 Current Stock</h3>
+    <figure><img src="images/inventory-current.png" alt="Current Stock"/>
+      <figcaption>Inventory → Current Stock</figcaption></figure>
+    <ul>
+      <li>Shows live quantities grouped by department. Search a product, filter by department, or tick <b>Low stock only</b>.</li>
+      <li>Status is <b>Out of Stock</b> (zero), <b>Low Stock</b> (at or below minimum), or <b>OK</b>.</li>
+      <li>Use <span class="btnlabel">Refresh</span> for the latest, or <span class="btnlabel">Export Excel</span>.</li>
+    </ul>
+
+    <h3>4.2 Stock Ledger</h3>
+    <figure><img src="images/inventory-ledger.png" alt="Stock Ledger"/>
+      <figcaption>Inventory → Stock Ledger</figcaption></figure>
+    <ol>
+      <li>Select a <b>Product *</b> and a <b>Department *</b> (both required), optionally a date range.</li>
+      <li>Click <span class="btnlabel">View Ledger</span> to see every In, Out, Transfer and Wastage with a <b>running balance</b>, opening and closing rows.</li>
+    </ol>
+    <div class="tip"><b>Use this to settle disputes.</b> The ledger shows who did what and when, so you can trace any difference between the book and the shelf.</div>
+  </section>
+
+  <!-- ===================== 5. PAYMENTS ===================== -->
+  <section class="section" id="payments">
+    <span class="module-tag">Module 5</span>
+    <h2 class="module">Supplier Payments</h2>
+    <p class="lead">Pay suppliers against their invoices, and have trustees approve those payments.</p>
+    <p class="who"><b>Who uses it:</b> Store manager (records) and trustees (approve). <b>Needs permission:</b> payments — write to record, approve + "Can Approve Payments" flag to approve.</p>
+
+    <h3>5.1 Recording a payment</h3>
+    <figure><img src="images/payments-new.png" alt="Record Payment"/>
+      <figcaption>Payments → Record Payment</figcaption></figure>
+    <ol>
+      <li>Optionally start <b>From Template</b> (a saved supplier + mode combination).</li>
+      <li>Choose the <b>Supplier *</b> and <b>Payment Date *</b>.</li>
+      <li>Pick the <b>Payment Mode *</b> (Cash, UPI, Online, NEFT, RTGS, Cheque). For non-cash modes, fill the <b>Cheque No. *</b> or <b>Reference / UTR No. *</b>.</li>
+      <li>Allocate the payment: click an unpaid invoice to add it, or choose <b>Advance / No Invoice</b>. For each line set how much you are <b>Paying Now (₹) *</b>.</li>
+      <li>Check the <b>Total Payment Amount</b> and click <span class="btnlabel">Submit for Approval</span>.</li>
+      <li>You may then <span class="btnlabel">Save Template</span> for next time, or <span class="btnlabel">Skip</span>.</li>
+    </ol>
+    <div class="warn"><b>Duplicate guard:</b> If a very similar payment already exists, an amber warning lists the matches. Review carefully — only click <span class="btnlabel">Submit Anyway</span> if it is genuinely a separate payment.</div>
+
+    <h3>5.2 Approving payments</h3>
+    <figure><img src="images/payments-all.png" alt="All Payments"/>
+      <figcaption>Payments → All Payments. The red badge shows how many are waiting for approval.</figcaption></figure>
+    <ul>
+      <li>Use the tabs <b>All / Pending / Approved / Rejected</b>.</li>
+      <li><b>Approve:</b> click the green tick → add an optional note → <span class="btnlabel">Approve</span>.</li>
+      <li><b>Reject:</b> click the red cross → type a required <b>Reason *</b> → <span class="btnlabel">Reject</span>.</li>
+      <li><b>Bulk approve:</b> tick several rows → <span class="btnlabel">Approve N Selected</span>.</li>
+      <li><b>Void</b> an approved payment with a reason if it was made in error.</li>
+    </ul>
+    <div class="note"><b>Only trustees can approve.</b> Approve / Reject / Void buttons appear only for users who have the "Can Approve Payments" flag turned on by the administrator.</div>
+
+    <h3>5.3 Other payment screens</h3>
+    <table>
+      <tr><th>Screen</th><th>What it shows</th></tr>
+      <tr><td><b>Invoice Register</b></td><td>Every purchase invoice with its payment status (Unpaid / Partial / Paid). Expand a row for items and payment history.</td></tr>
+      <tr><td><b>Upcoming Dues</b></td><td>Invoices due soon or overdue. Pick "next 7/15/30/60 days" and click <b>Pay Now →</b> on any row.</td></tr>
+      <tr><td><b>Templates</b></td><td>Saved payment setups you can reuse with one click.</td></tr>
+    </table>
+    <figure><img src="images/payments-upcoming.png" alt="Upcoming Dues"/>
+      <figcaption>Payments → Upcoming Dues</figcaption></figure>
+  </section>
+
+  <!-- ===================== 6. EXPENSES ===================== -->
+  <section class="section" id="expenses">
+    <span class="module-tag">Module 6</span>
+    <h2 class="module">Expenses &amp; Budgets</h2>
+    <p class="lead">Record day-to-day expenses (salaries, electricity, repairs) and set monthly budgets.</p>
+    <p class="who"><b>Who uses it:</b> Office staff (record), trustees (approve), admin (budgets). <b>Needs permission:</b> payments — write to record, approve to set budgets.</p>
+
+    <h3>6.1 Recording an expense</h3>
+    <figure><img src="images/expenses-new.png" alt="New Expense"/>
+      <figcaption>Expenses → New Expense</figcaption></figure>
+    <ol>
+      <li>Choose the <b>Category</b> and <b>Expense Date</b>.</li>
+      <li>If the category is <b>Salary</b>, pick the <b>Staff Member</b> — the payee, amount and description fill in automatically.</li>
+      <li>Enter the <b>Description</b>, <b>Amount (₹)</b>, <b>Payee</b>, and <b>Payment Mode</b>. For Cheque add the <b>Cheque Number</b>; for UPI add the <b>UTR / Reference</b>.</li>
+      <li>Optionally <span class="btnlabel">Attach Receipt</span> (photo or PDF, up to 5 MB).</li>
+      <li>Click <span class="btnlabel">Submit for Approval</span>.</li>
+    </ol>
+
+    <h3>6.2 Expense list &amp; budgets</h3>
+    <figure><img src="images/expenses-budget.png" alt="Budget Manager"/>
+      <figcaption>Expenses → Set Budgets</figcaption></figure>
+    <ul>
+      <li><b>All Expenses</b> — filter by date, category and status; <span class="btnlabel">Export PDF</span>. Click an entry number to open its detail.</li>
+      <li><b>Set Budgets</b> — choose the month/year, optionally <b>Copy last month</b>, type the rupee limit per category, then <span class="btnlabel">Save</span>. These limits feed the Monthly P&amp;L report.</li>
+    </ul>
+    <div class="note"><b>Approved only.</b> Budgets and the P&amp;L count only <b>approved</b> expenses — pending ones are not included until a trustee approves them.</div>
+  </section>
+
+  <!-- ===================== 7. MAHAPRASAD ===================== -->
+  <section class="section" id="mahaprasad">
+    <span class="module-tag">Module 7</span>
+    <h2 class="module">Mahaprasad</h2>
+    <p class="lead">Issue prasad coupons at the counter, collect money, and redeem coupons at the serving point.</p>
+    <p class="who"><b>Who uses it:</b> Counter / kitchen staff. <b>Needs permission:</b> mahaprasad — issue and redeem.</p>
+
+    <h3>7.1 Issuing coupons (the counter)</h3>
+    <figure><img src="images/mahaprasad-issue.png" alt="Mahaprasad Counter"/>
+      <figcaption>Mahaprasad → Issue Coupons</figcaption></figure>
+    <ol>
+      <li>At the start of the day, click <span class="btnlabel">Set Opening Float</span> and enter the cash in the drawer (so change is calculated correctly).</li>
+      <li>Set the number of <b>Persons</b> using the − / + buttons or the preset numbers.</li>
+      <li>Choose <b>Paid</b> or <b>Free Seva</b> (for free, you may pick an <b>Occasion</b>).</li>
+      <li>For Paid: choose <b>Cash</b> or <b>UPI</b>. For cash, tap what the customer pays with — the <b>change</b> is shown automatically.</li>
+      <li>Click <span class="btnlabel">Issue Coupon</span> (or just press <span class="kbd">Enter</span>). The coupon prints if a printer is set up.</li>
+    </ol>
+    <div class="tip"><b>Speed tips:</b> Press <span class="kbd">Enter</span> to issue, and use the number keys for quick amounts. <span class="btnlabel">Reprint Last</span> re-prints the previous coupon. <span class="btnlabel">My Shift</span> shows your running total and a slip you can <b>Copy for WhatsApp</b>.</div>
+    <div class="warn"><b>Rules:</b> You cannot issue for a past date. When the day reaches the <b>daily cap</b>, issuing stops. If no price is set for the day, coupons are issued as Free. The counter keeps working even if the internet drops — coupons are stored and synced when you are back online.</div>
+
+    <h3>7.2 Redeeming coupons</h3>
+    <figure><img src="images/mahaprasad-redeem.png" alt="Redeem"/>
+      <figcaption>Mahaprasad → Redeem</figcaption></figure>
+    <ol>
+      <li>Choose <b>Scan QR</b> (redeems automatically when scanned) or <b>Manual Entry</b>.</li>
+      <li>For manual, type the <b>Coupon Number</b> (e.g. <code>MP-20260611-001</code>) and click <span class="btnlabel">Look Up</span>.</li>
+      <li>Check the details, then click <span class="btnlabel">Mark as Redeemed</span>. The screen resets for the next person.</li>
+    </ol>
+    <div class="note">A coupon cannot be redeemed twice. The screen clearly shows if a coupon is <b>Not Found</b>, <b>Expired</b>, or <b>Already Redeemed</b>.</div>
+
+    <h3>7.3 History, Report &amp; Occasions</h3>
+    <table>
+      <tr><th>Screen</th><th>Use</th></tr>
+      <tr><td><b>History</b></td><td>Search/filter every issued coupon, reprint, or export to Excel.</td></tr>
+      <tr><td><b>Report</b></td><td>Daily / Monthly / Staff / Wastage analytics. The Daily tab has <b>Copy for WhatsApp</b> for sharing the day's summary.</td></tr>
+      <tr><td><b>Occasions</b></td><td>Manage the list of preset occasion names used for free coupons.</td></tr>
+    </table>
+    <figure><img src="images/mahaprasad-report.png" alt="Mahaprasad Report"/>
+      <figcaption>Mahaprasad → Report</figcaption></figure>
+  </section>
+
+  <!-- ===================== 8. DONATIONS ===================== -->
+  <section class="section" id="donations">
+    <span class="module-tag">Module 8</span>
+    <h2 class="module">Donations</h2>
+    <p class="lead">Record cash and in-kind donations, print receipts, and issue 80G receipts.</p>
+    <p class="who"><b>Who uses it:</b> Office / donation desk. <b>Needs permission:</b> donations — write.</p>
+
+    <h3>8.1 Recording a donation</h3>
+    <figure><img src="images/donations-new.png" alt="New Donation"/>
+      <figcaption>Donations → New Entry</figcaption></figure>
+    <ol>
+      <li>Choose the <b>Donation Type</b>: <b>Named Donor</b>, <b>Hundi</b> (collection box), or <b>Anonymous</b>.</li>
+      <li>Set the <b>Date *</b> (cannot be in the future) and optional <b>Occasion / Purpose</b>.</li>
+      <li>For a <b>Named Donor</b>, select an existing donor or type the name and phone. If the phone matches a past donor, click <b>Use Details</b>. Add a <b>PAN Number</b> to enable the <b>80G Eligible</b> toggle.</li>
+      <li>For a <b>cash</b> donation, enter the <b>Amount (₹)</b>, <b>Payment Mode</b> and reference.</li>
+      <li>For a <b>kind</b> donation, click <span class="btnlabel">Add Item</span> and enter the item, quantity, estimated value and destination department.</li>
+      <li>Click <span class="btnlabel">Record Donation</span>, then <span class="btnlabel">Print Receipt</span> if needed.</li>
+    </ol>
+    <div class="note">You must enter either a cash amount <b>or</b> at least one kind item. Kind donations can flow straight into stock (default: Main Store).</div>
+
+    <h3>8.2 History &amp; receipts</h3>
+    <figure><img src="images/donations-history.png" alt="Donation History"/>
+      <figcaption>Donations → History</figcaption></figure>
+    <ul>
+      <li>Filter by donor/receipt number, date, and type (Named / Hundi / Anonymous).</li>
+      <li>Click a row for the full detail, where you can <span class="btnlabel">Print</span>, download a <span class="btnlabel">Receipt PDF</span>, or — for eligible named donations — an <span class="btnlabel">80G Receipt</span>.</li>
+      <li>Use <span class="btnlabel">Void</span> with a reason to cancel a wrong entry; <span class="btnlabel">Export</span> to Excel or PDF.</li>
+    </ul>
+  </section>
+
+  <!-- ===================== 9. ASSETS ===================== -->
+  <section class="section" id="assets">
+    <span class="module-tag">Module 9</span>
+    <h2 class="module">Assets</h2>
+    <p class="lead">Track temple items (utensils, mandap, furniture) and manage who has borrowed them.</p>
+    <p class="who"><b>Who uses it:</b> Store keeper, asset in-charge. <b>Needs permission:</b> assets — write to manage assets, manage to handle returns/reminders.</p>
+
+    <h3>9.1 The asset list</h3>
+    <figure><img src="images/assets-list.png" alt="Asset List"/>
+      <figcaption>Assets → Asset List</figcaption></figure>
+    <ul>
+      <li>Shows every asset with code, category, total quantity, fine-per-day and whether it is borrowable.</li>
+      <li>Use <span class="btnlabel">Add Asset</span> to create one: enter the <b>Asset Name</b>, <b>Category</b>, <b>Total Quantity</b>, <b>Fine Per Day (₹)</b>, and tick <b>Available for Borrowing</b>.</li>
+    </ul>
+
+    <h3>9.2 Lending an asset (Borrow Request)</h3>
+    <figure><img src="images/assets-borrow-new.png" alt="New Borrow Request"/>
+      <figcaption>Assets → Borrow Requests → New</figcaption></figure>
+    <ol>
+      <li>Choose the <b>Borrower Type</b>: a <b>Staff Member</b> or an <b>External Person</b> (for external, capture name, phone and ID proof).</li>
+      <li>Set the <b>Expected Return Date</b> (limited to the maximum borrow days set in Settings).</li>
+      <li>Choose the <b>Approved By (Trustee)</b>.</li>
+      <li>Add one or more assets with quantities (availability is shown live), then click <span class="btnlabel">Create Borrow Request</span>.</li>
+    </ol>
+
+    <h3>9.3 Returns &amp; reminders</h3>
+    <figure><img src="images/assets-upcoming.png" alt="Upcoming Returns"/>
+      <figcaption>Assets → Upcoming Returns, grouped by urgency.</figcaption></figure>
+    <ul>
+      <li><b>Upcoming Returns</b> groups borrows into Overdue, Due Today, Due in 3 Days and Upcoming. Click <span class="btnlabel">Return</span> on a card, or <span class="btnlabel">Remind All Overdue</span> to message everyone late.</li>
+      <li>On return, set the <b>Actual Return Date</b> and <b>Condition</b> (Good / Fair / Damaged). If late, a <b>fine</b> is calculated automatically — you can <b>Apply</b> or <b>Waive</b> it with a reason.</li>
+      <li><b>Reports</b> show utilization and fine collection, exportable to Excel/PDF.</li>
+    </ul>
+  </section>
+
+  <!-- ===================== 10. REPORTS ===================== -->
+  <section class="section" id="reports">
+    <span class="module-tag">Module 10</span>
+    <h2 class="module">Reports</h2>
+    <p class="lead">Ready-made reports for daily operations, stock health, suppliers and finance. Most can be exported to PDF/Excel and several can be shared on WhatsApp.</p>
+    <p class="who"><b>Who uses it:</b> Managers and trustees. <b>What you can do:</b> view, export, share.</p>
+
+    <table>
+      <tr><th>Report</th><th>What it tells you</th></tr>
+      <tr><td><b>Daily Movement</b></td><td>All stock in/out/transfer/wastage for a chosen day, with totals.</td></tr>
+      <tr><td><b>Low Stock Alerts</b></td><td>Items below minimum, grouped Out of Stock / Low / Reorder Soon. Share alerts on WhatsApp.</td></tr>
+      <tr><td><b>Expiring Stock</b></td><td>Batches already expired or expiring within 7–90 days.</td></tr>
+      <tr><td><b>Stock Valuation</b></td><td>Value of current stock at last purchase rate, with a grand total.</td></tr>
+      <tr><td><b>Supplier Report</b></td><td>Purchases grouped by supplier for a date range.</td></tr>
+      <tr><td><b>Supplier Aging</b></td><td>Outstanding supplier dues bucketed by how overdue they are.</td></tr>
+      <tr><td><b>Festival Cost</b></td><td>Stock consumed plus payments made over a festival period.</td></tr>
+      <tr><td><b>Consumption Trend</b></td><td>How much of a product is used each month, with an up/down trend.</td></tr>
+      <tr><td><b>Reorder Suggestions</b></td><td>Suggested order quantities based on average consumption vs current stock.</td></tr>
+      <tr><td><b>Monthly P&amp;L</b></td><td>Income vs approved expenses for a month, net surplus/deficit, and budget-vs-actual.</td></tr>
+    </table>
+
+    <figure><img src="images/report-low-stock.png" alt="Low Stock report"/>
+      <figcaption>Reports → Low Stock Alerts</figcaption></figure>
+    <figure><img src="images/report-pnl.png" alt="Monthly P&L"/>
+      <figcaption>Reports → Monthly P&amp;L</figcaption></figure>
+    <p>Each report has filters at the top (date range, department or product) and export buttons. Pick your filters, then export or share.</p>
+  </section>
+
+  <!-- ===================== 11. MASTERS ===================== -->
+  <section class="section" id="masters">
+    <span class="module-tag">Module 11</span>
+    <h2 class="module">Masters (setup data)</h2>
+    <p class="lead">The reference lists everything else depends on: products, departments, suppliers, categories, units and occasions. Set these up first.</p>
+    <p class="who"><b>Who uses it:</b> Administrator / manager. <b>Needs permission:</b> masters — write.</p>
+
+    <h3>11.1 Products</h3>
+    <figure><img src="images/masters-products-new.png" alt="New Product"/>
+      <figcaption>Masters → Products → New</figcaption></figure>
+    <ol>
+      <li>Enter the <b>Product Name</b>, optional <b>Aliases (Hindi/Marathi names)</b>, and choose a <b>Category</b> and <b>Unit</b> (all three are required).</li>
+      <li>Optionally set <b>Min Stock Level</b>, <b>Reorder Point</b> and <b>Standard Rate (₹)</b>, and tick properties like <b>Puja / Ritual Item</b> or <b>Perishable Item</b>.</li>
+      <li>Click <span class="btnlabel">Create Product</span>.</li>
+    </ol>
+    <div class="tip"><b>Set Min Stock Level</b> for important items — this is what drives the Low Stock alerts and the red warnings on the Stock Out screen.</div>
+
+    <h3>11.2 The other master lists</h3>
+    <table>
+      <tr><th>List</th><th>What to fill</th></tr>
+      <tr><td><b>Suppliers</b></td><td>Name (required), type (Vendor/Donor/Both), contact, GSTIN/PAN, credit days, and one or more bank accounts for payments.</td></tr>
+      <tr><td><b>Departments</b></td><td>Name, a short <b>Code</b> (uppercase, up to 5 letters) and a type (Store, Kitchen, Puja, etc.).</td></tr>
+      <tr><td><b>Categories</b></td><td>Name and a short code; optionally a parent category to make a hierarchy.</td></tr>
+      <tr><td><b>Units</b></td><td>Name and symbol (e.g. Kilogram / kg) and a type (Weight, Volume, Count, Other).</td></tr>
+      <tr><td><b>Occasions</b></td><td>Preset occasion names used in Donations and Mahaprasad.</td></tr>
+    </table>
+    <figure><img src="images/masters-suppliers.png" alt="Suppliers"/>
+      <figcaption>Masters → Suppliers</figcaption></figure>
+  </section>
+
+  <!-- ===================== 12. ADMIN ===================== -->
+  <section class="section" id="admin">
+    <span class="module-tag">Module 12</span>
+    <h2 class="module">Administration</h2>
+    <p class="lead">Manage staff accounts, what each role can do, the activity log, and system settings.</p>
+    <p class="who"><b>Who uses it:</b> Administrator / super admin only.</p>
+
+    <h3>12.1 Users</h3>
+    <figure><img src="images/admin-users-new.png" alt="New User"/>
+      <figcaption>Admin → Users → New</figcaption></figure>
+    <ol>
+      <li>Fill the <b>Full Name</b>, <b>Email Address</b>, optional <b>Mobile Number</b>, and a <b>Password</b> (at least 6 characters; only needed when creating).</li>
+      <li>Assign a <b>Role</b>. For non-admin roles, tick the <b>Department Access</b> the user is allowed to work in.</li>
+      <li>Optionally set <b>Monthly Salary</b>, and turn on <b>Can Approve Asset Requests</b> and/or <b>Can Approve Payments</b> for trustees.</li>
+      <li>Click <span class="btnlabel">Create User</span>.</li>
+    </ol>
+    <div class="warn"><b>"Can Approve Payments"</b> is the trustee power. Only turn it on for people authorised to approve money going out.</div>
+
+    <h3>12.2 Roles, Audit Log &amp; Settings</h3>
+    <table>
+      <tr><th>Screen</th><th>Use</th></tr>
+      <tr><td><b>Roles</b></td><td>Create roles and tick exactly which permissions each role has (Users, Masters, Transactions, Reports, Assets, Donations, Payments, Mahaprasad).</td></tr>
+      <tr><td><b>Audit Log</b></td><td>A complete, read-only record of who did what and when. Filter by user, date, entity and action; click a row to see the before/after change.</td></tr>
+      <tr><td><b>Settings</b></td><td>Temple details, WhatsApp &amp; SMS alerts, stock alert rules, 80G registration, asset borrow limits, and Mahaprasad pricing (price per plate by day, daily cap, coupon validity, printer).</td></tr>
+    </table>
+    <figure><img src="images/admin-settings.png" alt="Settings"/>
+      <figcaption>Admin → Settings. Each tab is saved separately with its own Save button.</figcaption></figure>
+    <figure><img src="images/admin-audit-log.png" alt="Audit Log"/>
+      <figcaption>Admin → Audit Log</figcaption></figure>
+  </section>
+
+  <!-- ===================== 13. MY ACCOUNT ===================== -->
+  <section class="section" id="account">
+    <span class="module-tag">Module 13</span>
+    <h2 class="module">My Account</h2>
+    <p class="lead">Your personal profile and password.</p>
+    <p class="who"><b>Who uses it:</b> Everyone.</p>
+    <ul>
+      <li>Click your <b>name in the top-right corner</b> to open the menu.</li>
+      <li><b>Profile</b> — view your details and role.</li>
+      <li><b>Change Password</b> — enter your current password and the new one (at least 6 characters) twice.</li>
+      <li><b>Logout</b> — always log out on shared computers.</li>
+    </ul>
+    <figure><img src="images/change-password.png" alt="Change Password"/>
+      <figcaption>Profile menu → Change Password</figcaption></figure>
+  </section>
+
+  <!-- ===================== ROLES APPENDIX ===================== -->
+  <section class="section" id="roles">
+    <span class="module-tag">Appendix</span>
+    <h2 class="module">Roles &amp; Permissions</h2>
+    <p class="lead">The system controls what each person can see and do through their <b>role</b>. If a menu or button is missing, it is because your role does not include that permission — ask the administrator.</p>
+
+    <h3>How it works</h3>
+    <ul>
+      <li>Each user has <b>one role</b> (e.g. Store Manager, Kitchen Staff, Trustee, Viewer).</li>
+      <li>A role is a set of <b>permissions</b> grouped by area: Masters, Transactions, Reports, Assets, Donations, Payments, Mahaprasad, Users.</li>
+      <li>Each area can allow <b>read</b> (view), <b>write/create</b> (add &amp; edit), <b>delete</b>, <b>approve</b>, or <b>manage</b>.</li>
+      <li>Two special powers are set <b>per user</b>, not per role:
+        <span class="pill">Can Approve Payments</span><span class="pill">Can Approve Asset Requests</span></li>
+      <li>Non-admin users can also be limited to certain <b>departments</b>.</li>
+    </ul>
+
+    <h3>Typical roles (as set up at your temple)</h3>
+    <table>
+      <tr><th>Role</th><th>Typically can…</th></tr>
+      <tr><td><b>Super Admin / Admin</b></td><td>Everything, including users, roles and settings.</td></tr>
+      <tr><td><b>Store Manager</b></td><td>Purchases, stock, inventory, masters, record payments — and approve payments if the flag is on.</td></tr>
+      <tr><td><b>Trustee</b></td><td>View and <b>approve</b> payments/expenses; oversight and reports.</td></tr>
+      <tr><td><b>Kitchen Staff</b></td><td>Mahaprasad counter and redeem, stock out for kitchen.</td></tr>
+      <tr><td><b>Puja Staff</b></td><td>Stock out for puja, view inventory.</td></tr>
+      <tr><td><b>Viewer</b></td><td>Read-only access to dashboards and reports.</td></tr>
+    </table>
+    <figure><img src="images/admin-roles.png" alt="Roles"/>
+      <figcaption>Admin → Roles. Tick exactly which permissions each role has.</figcaption></figure>
+
+    <hr/>
+    <p style="text-align:center;color:var(--muted);font-size:.85rem">
+      Mangal Grah Mandir — Stock Management System &nbsp;•&nbsp; User Manual v1.0<br/>
+      For help, contact your system administrator.
+    </p>
+  </section>
+
+  </div><!-- /content -->
+</div><!-- /page -->
+</body>
+</html>

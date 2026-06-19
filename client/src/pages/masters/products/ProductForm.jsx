@@ -17,7 +17,7 @@ const ProductForm = () => {
   const navigate = useNavigate();
   const qc = useQueryClient();
 
-  const { register, handleSubmit, reset, formState: { errors } } = useForm({
+  const { register, handleSubmit, reset, control, formState: { errors } } = useForm({
     defaultValues: { isActive: true, isPujaItem: false, isPerishable: false, minStockLevel: 0, reorderPoint: 0, standardRate: 0 },
   });
 
