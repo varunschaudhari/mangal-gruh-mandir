@@ -1,31 +1,16 @@
 version: '3.9'
 
 services:
-  mongodb:
-    image: mongo:7
-    container_name: mgm_mongodb
-    restart: unless-stopped
-    environment:
-      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USER}
-      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASS}
-      MONGO_INITDB_DATABASE: mgm_stock
-    volumes:
-      - mongo_data:/data/db
-    networks:
-      - mgm_net
-
   server:
     build:
       context: ./server
       target: production
     container_name: mgm_server
     restart: unless-stopped
+    # MONGO_URI (Atlas connection string) comes from ./server/.env
     env_file: ./server/.env
     environment:
       - NODE_ENV=production
-      - MONGO_URI=mongodb://${MONGO_USER}:${MONGO_PASS}@mongodb:27017/mgm_stock?authSource=mgm_stock
-    depends_on:
-      - mongodb
     networks:
       - mgm_net
 
@@ -63,7 +48,6 @@ services:
       - certbot_conf:/etc/letsencrypt
 
 volumes:
-  mongo_data:
   certbot_www:
   certbot_conf:
 
