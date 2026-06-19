@@ -1,12 +1,24 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { Shield, Download, ChevronDown, ChevronRight, Search, ExternalLink } from 'lucide-react';
+import { Shield, Download, ChevronDown, ChevronRight, Search, ExternalLink, X } from 'lucide-react';
 import { getAuditLogs, exportAuditLogsExcel } from '../../api/auditLog.api.js';
 import { getUsers } from '../../api/user.api.js';
 import PageHeader from '../../components/ui/PageHeader.jsx';
 import { fDateTime } from '../../utils/formatters.js';
 import toast from 'react-hot-toast';
+
+// ── Date shortcut helpers ─────────────────────────────────────────────────────
+
+const isoDate = (d) => d.toISOString().split('T')[0];
+
+const DATE_SHORTCUTS = [
+  { label: 'Today',      get: () => { const t = isoDate(new Date()); return { dateFrom: t, dateTo: t }; } },
+  { label: 'Yesterday',  get: () => { const d = new Date(); d.setDate(d.getDate() - 1); const t = isoDate(d); return { dateFrom: t, dateTo: t }; } },
+  { label: 'This Week',  get: () => { const now = new Date(); const mon = new Date(now); mon.setDate(now.getDate() - ((now.getDay() + 6) % 7)); return { dateFrom: isoDate(mon), dateTo: isoDate(now) }; } },
+  { label: 'This Month', get: () => { const now = new Date(); return { dateFrom: isoDate(new Date(now.getFullYear(), now.getMonth(), 1)), dateTo: isoDate(now) }; } },
+  { label: 'Last Month', get: () => { const now = new Date(); return { dateFrom: isoDate(new Date(now.getFullYear(), now.getMonth() - 1, 1)), dateTo: isoDate(new Date(now.getFullYear(), now.getMonth(), 0)) }; } },
+];
 
 // ── Action metadata ────────────────────────────────────────────────────────────
 
@@ -358,7 +370,8 @@ const AuditLog = () => {
     entity: '', action: '',
     userId: '', search: '',
   });
-  const [exporting, setExporting] = useState(false);
+  const [exporting,       setExporting]       = useState(false);
+  const [activeShortcut,  setActiveShortcut]  = useState('');
 
   const { data, isLoading } = useQuery({
     queryKey: ['audit-logs', filters],
@@ -413,81 +426,147 @@ const AuditLog = () => {
         }
       />
 
-      {/* Filters */}
-      <div className="bg-white border rounded-lg p-4 mb-4 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-        {/* Search */}
-        <div className="relative col-span-2">
-          <Search size={14} className="absolute left-2.5 top-2.5 text-gray-400" />
-          <input
-            type="text"
-            placeholder="Search by entity ID…"
-            value={filters.search}
-            onChange={(e) => set('search', e.target.value)}
-            className="pl-8 w-full border rounded px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500"
-          />
+      {/* ── Filters ──────────────────────────────────────────────────────────── */}
+      <div className="bg-white border rounded-lg p-4 mb-3 space-y-3">
+
+        {/* Row 1: Search | Staff member | Quick date range */}
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
+          <div className="col-span-2">
+            <label className="block text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-1">Search</label>
+            <div className="relative">
+              <Search size={14} className="absolute left-2.5 top-2.5 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Entity ID, user name, action…"
+                value={filters.search}
+                onChange={(e) => set('search', e.target.value)}
+                className="pl-8 w-full border rounded px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              />
+            </div>
+          </div>
+
+          <div className="col-span-2">
+            <label className="block text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-1">Staff Member</label>
+            <select
+              value={filters.userId}
+              onChange={(e) => set('userId', e.target.value)}
+              className="w-full border rounded px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500"
+            >
+              <option value="">All Users</option>
+              {users.map((u) => (
+                <option key={u._id} value={u._id}>{u.name}{u.role ? ` (${u.role})` : ''}</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="col-span-2">
+            <label className="block text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-1">Quick Range</label>
+            <div className="flex flex-wrap gap-1.5">
+              {DATE_SHORTCUTS.map(({ label, get }) => (
+                <button
+                  key={label}
+                  type="button"
+                  onClick={() => {
+                    const { dateFrom, dateTo } = get();
+                    setFilters((f) => ({ ...f, dateFrom, dateTo, page: 1 }));
+                    setActiveShortcut(label);
+                  }}
+                  className={`px-2.5 py-1 rounded-full text-xs font-medium border transition-all ${
+                    activeShortcut === label
+                      ? 'bg-indigo-600 text-white border-indigo-600'
+                      : 'border-gray-200 text-gray-500 hover:border-indigo-300 hover:text-indigo-600'
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
 
-        {/* Date from */}
-        <input
-          type="date" value={filters.dateFrom}
-          onChange={(e) => set('dateFrom', e.target.value)}
-          className="border rounded px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500"
-        />
-
-        {/* Date to */}
-        <input
-          type="date" value={filters.dateTo}
-          onChange={(e) => set('dateTo', e.target.value)}
-          className="border rounded px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500"
-        />
-
-        {/* User filter */}
-        <select
-          value={filters.userId}
-          onChange={(e) => set('userId', e.target.value)}
-          className="border rounded px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500"
-        >
-          <option value="">All Users</option>
-          {users.map((u) => (
-            <option key={u._id} value={u._id}>{u.name}</option>
-          ))}
-        </select>
-
-        {/* Entity filter */}
-        <select
-          value={filters.entity}
-          onChange={(e) => set('entity', e.target.value)}
-          className="border rounded px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500"
-        >
-          {ENTITIES.map((e) => <option key={e} value={e}>{e || 'All Entities'}</option>)}
-        </select>
-
-        {/* Action filter — grouped */}
-        <select
-          value={filters.action}
-          onChange={(e) => set('action', e.target.value)}
-          className="border rounded px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500 col-span-2 lg:col-span-1"
-        >
-          <option value="">All Actions</option>
-          {ACTION_GROUPS.map((g) => (
-            <optgroup key={g.label} label={g.label}>
-              {g.actions.map((a) => (
-                <option key={a} value={a}>{ACTION_LABELS[a] || a}</option>
+        {/* Row 2: Date from | Date to | Entity | Action | Clear */}
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+          <div>
+            <label className="block text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-1">From</label>
+            <input
+              type="date" value={filters.dateFrom}
+              onChange={(e) => { set('dateFrom', e.target.value); setActiveShortcut(''); }}
+              className="w-full border rounded px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500"
+            />
+          </div>
+          <div>
+            <label className="block text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-1">To</label>
+            <input
+              type="date" value={filters.dateTo}
+              onChange={(e) => { set('dateTo', e.target.value); setActiveShortcut(''); }}
+              className="w-full border rounded px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500"
+            />
+          </div>
+          <div>
+            <label className="block text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-1">Entity</label>
+            <select
+              value={filters.entity}
+              onChange={(e) => set('entity', e.target.value)}
+              className="w-full border rounded px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500"
+            >
+              {ENTITIES.map((e) => <option key={e} value={e}>{e || 'All Entities'}</option>)}
+            </select>
+          </div>
+          <div className="col-span-2">
+            <label className="block text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-1">Action</label>
+            <select
+              value={filters.action}
+              onChange={(e) => set('action', e.target.value)}
+              className="w-full border rounded px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500"
+            >
+              <option value="">All Actions</option>
+              {ACTION_GROUPS.map((g) => (
+                <optgroup key={g.label} label={g.label}>
+                  {g.actions.map((a) => (
+                    <option key={a} value={a}>{ACTION_LABELS[a] || a}</option>
+                  ))}
+                </optgroup>
               ))}
-            </optgroup>
-          ))}
-        </select>
-
-        {/* Clear filters */}
-        {Object.entries(filters).some(([k, v]) => !['page', 'limit'].includes(k) && v !== '') && (
-          <button
-            onClick={() => setFilters({ page: 1, limit: 50, dateFrom: '', dateTo: '', entity: '', action: '', userId: '', search: '' })}
-            className="text-xs text-gray-500 hover:text-gray-700 underline col-span-2 lg:col-span-1 text-left"
-          >
-            Clear filters
-          </button>
-        )}
+            </select>
+          </div>
+          <div className="flex items-end pb-0.5">
+            {Object.entries(filters).some(([k, v]) => !['page', 'limit'].includes(k) && v !== '') && (
+              <button
+                onClick={() => { setFilters({ page: 1, limit: 50, dateFrom: '', dateTo: '', entity: '', action: '', userId: '', search: '' }); setActiveShortcut(''); }}
+                className="text-xs text-gray-400 hover:text-gray-700 underline"
+              >
+                Clear all
+              </button>
+            )}
+          </div>
+        </div>
       </div>
+
+      {/* ── Active user-filter summary bar ───────────────────────────────────── */}
+      {filters.userId && (
+        <div className="flex items-center gap-2 px-4 py-2.5 bg-indigo-50 border border-indigo-200 rounded-lg mb-3 text-sm">
+          <span className="font-semibold text-indigo-900">
+            {users.find((u) => u._id === filters.userId)?.name || 'Unknown User'}
+          </span>
+          {(filters.dateFrom || filters.dateTo) && (
+            <span className="text-indigo-600 text-xs">
+              · {filters.dateFrom || '…'} → {filters.dateTo || 'now'}
+            </span>
+          )}
+          {pagination.total !== undefined && (
+            <span className="ml-auto text-xs text-indigo-500 font-medium tabular-nums">
+              {pagination.total} {pagination.total === 1 ? 'entry' : 'entries'}
+            </span>
+          )}
+          <button
+            onClick={() => set('userId', '')}
+            title="Remove user filter"
+            className="text-indigo-400 hover:text-indigo-700 transition-colors ml-1"
+          >
+            <X size={14} />
+          </button>
+        </div>
+      )}
 
       {/* Table */}
       <div className="bg-white border rounded-lg overflow-x-auto">

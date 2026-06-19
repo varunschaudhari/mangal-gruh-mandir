@@ -4,7 +4,7 @@ import {
   UtensilsCrossed, Printer, RefreshCw, IndianRupee,
   Gift, ChevronDown, ChevronUp, Zap, AlertTriangle, Wifi, WifiOff,
   CloudOff, CloudUpload, Download, Banknote, Smartphone, CheckCircle2,
-  Minus, Plus, X, ClipboardList, Keyboard, Vault, Loader2,
+  Minus, Plus, X, ClipboardList, Keyboard, Vault, Loader2, MessageCircle,
 } from 'lucide-react';
 import { issueCoupons, getDailySummary, printCoupons, getBatches, getCashDrawer, voidBatch as voidBatchApi } from '../../api/mahaprasad.api.js';
 import CashDrawer from './CashDrawer.jsx';
@@ -152,6 +152,7 @@ export default function MahaprasadCounter() {
   const [floatSkipped,     setFloatSkipped]     = useState(false); // user dismissed the float reminder for this session
   const [printerStatus,       setPrinterStatus]       = useState(null);  // null | 'checking' | 'ok' | string
   const [electronPrinterName, setElectronPrinterName] = useState('');
+  const [shiftCopied,         setShiftCopied]         = useState(false);
 
   const { user } = useAuth();
 
@@ -160,8 +161,10 @@ export default function MahaprasadCounter() {
     isSyncing, isPrefetching, prefetch, sync, refreshCounts, getOfflineUser, getOfflineSettings,
   } = useOfflineMode();
 
-  const occasionValue = occasionPreset === '__other__' ? occasionCustom : occasionPreset;
-  const isToday       = date === todayStr();
+  const occasionValue   = occasionPreset === '__other__' ? occasionCustom : occasionPreset;
+  const isToday         = date === todayStr();
+  const isTuesdayToday  = new Date().getDay() === 2;  // Tuesday surge day
+  const resetDuration   = isTuesdayToday ? 1 : 3;     // faster auto-reset on high-traffic days
 
   const { data: settingsRes } = useQuery({
     queryKey: ['settings'],
@@ -228,7 +231,7 @@ export default function MahaprasadCounter() {
   // ── Auto-reset countdown after issue ────────────────────────────────────────
   useEffect(() => {
     if (!lastBatch) return;
-    let s = 3;
+    let s = resetDuration;
     setAutoResetIn(s);
     const t = setInterval(() => {
       s -= 1;
@@ -616,6 +619,33 @@ export default function MahaprasadCounter() {
               <Download className="h-3 w-3" /> {isPrefetching ? 'Fetching…' : 'Pre-fetch 200'}
             </button>
           </div>
+        </div>
+      )}
+
+      {/* ── Tuesday surge banner ────────────────────────────────────────────── */}
+      {isTuesdayToday && isToday && (
+        <div className="card px-4 py-3 border-2 border-yellow-300 bg-yellow-50 flex items-center gap-3">
+          <span className="text-xl select-none" aria-hidden>🔔</span>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-bold text-yellow-900 leading-tight">High Traffic Day — Tuesday</p>
+            <p className="text-xs text-yellow-700 mt-0.5">
+              Expected 1500+ devotees · Auto-reset in {resetDuration}s
+              {!cap ? ' · No daily cap set' : atCap ? ' · Cap reached' : ` · ${capRemaining} of ${cap} remaining`}
+            </p>
+          </div>
+          {cap > 0 && (
+            <div className="text-right shrink-0 space-y-1">
+              <p className={`text-sm font-black tabular-nums ${atCap ? 'text-red-600' : 'text-yellow-800'}`}>
+                {totalIssued}/{cap}
+              </p>
+              <div className="w-20 h-1.5 bg-yellow-200 rounded-full overflow-hidden">
+                <div
+                  className={`h-full rounded-full transition-all ${atCap ? 'bg-red-500' : 'bg-yellow-500'}`}
+                  style={{ width: `${Math.min(100, capPct ?? 0)}%` }}
+                />
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -1025,7 +1055,7 @@ export default function MahaprasadCounter() {
               <div className="flex-1 h-1.5 bg-green-200 rounded-full overflow-hidden">
                 <div
                   className="h-full bg-green-500 rounded-full transition-all duration-1000 ease-linear"
-                  style={{ width: `${(autoResetIn / 3) * 100}%` }}
+                  style={{ width: `${(autoResetIn / resetDuration) * 100}%` }}
                 />
               </div>
               <span className="text-xs text-green-600 tabular-nums shrink-0">Resetting in {autoResetIn}s</span>
@@ -1243,7 +1273,36 @@ export default function MahaprasadCounter() {
             </div>
           </div>
 
-          <p className="text-xs text-center text-gray-400">Take a screenshot or print a slip for your supervisor.</p>
+          <p className="text-xs text-center text-gray-400">Share your shift summary with your supervisor.</p>
+
+          <button
+            onClick={async () => {
+              const shortDate = new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+              const text = [
+                `📿 Mangal Grah Mandir — ${shortDate}`,
+                `Staff: ${user?.name || 'Staff'}`,
+                `Coupons: ${myCount} issued`,
+                `Cash: ₹${fmtMoney(myCash)} | UPI: ₹${fmtMoney(myUpi)}`,
+                `Total: ₹${fmtMoney(myCash + myUpi)}`,
+                `— Sent via MGM Counter`,
+              ].join('\n');
+              try {
+                await navigator.clipboard.writeText(text);
+                setShiftCopied(true);
+                toast.success('Copied — paste in any WhatsApp chat');
+                setTimeout(() => setShiftCopied(false), 3000);
+              } catch {
+                toast.error('Could not copy — try manually');
+              }
+            }}
+            className={`w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold transition-colors border-2 ${
+              shiftCopied
+                ? 'bg-green-50 border-green-400 text-green-700'
+                : 'bg-white border-green-300 text-green-700 hover:bg-green-50'
+            }`}>
+            <MessageCircle className="h-4 w-4" />
+            {shiftCopied ? 'Copied!' : 'Copy for WhatsApp'}
+          </button>
 
           {thermalPrinterName && (
             <button

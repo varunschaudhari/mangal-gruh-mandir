@@ -1,11 +1,13 @@
+import { useRef, useState } from 'react';
 import { useForm, Controller } from 'react-hook-form';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { createExpense } from '../../api/expense.api.js';
+import { createExpense, uploadExpenseReceipt } from '../../api/expense.api.js';
 import { getUsers } from '../../api/user.api.js';
 import SearchableSelect from '../../components/ui/SearchableSelect.jsx';
 import PageHeader from '../../components/ui/PageHeader.jsx';
 import { FormField, FormRow } from '../../components/ui/FormField.jsx';
+import { Paperclip, X } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 const CATEGORIES = [
@@ -33,6 +35,10 @@ const monthLabel = () => {
 export default function NewExpense() {
   const navigate = useNavigate();
   const qc = useQueryClient();
+
+  const fileInputRef = useRef(null);
+  const [receiptFile, setReceiptFile] = useState(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const { data: usersRes } = useQuery({
     queryKey: ['users', 'active'],
@@ -63,22 +69,36 @@ export default function NewExpense() {
 
   const mutation = useMutation({
     mutationFn: createExpense,
-    onSuccess: (res) => {
-      toast.success('Expense submitted for approval');
-      qc.invalidateQueries({ queryKey: ['expenses'] });
-      navigate(`/expenses/${res.data.data._id}`);
-    },
     onError: (e) => toast.error(e.response?.data?.message || 'Failed to create expense'),
   });
 
-  const onSubmit = (data) => {
-    mutation.mutate({
-      ...data,
-      amount:          Number(data.amount),
-      referenceNumber: data.referenceNumber || undefined,
-      payee:           data.payee           || undefined,
-      notes:           data.notes           || undefined,
-    });
+  const onSubmit = async (data) => {
+    setIsSubmitting(true);
+    try {
+      const res = await mutation.mutateAsync({
+        ...data,
+        amount:          Number(data.amount),
+        referenceNumber: data.referenceNumber || undefined,
+        payee:           data.payee           || undefined,
+        notes:           data.notes           || undefined,
+      });
+      const id = res.data.data._id;
+      qc.invalidateQueries({ queryKey: ['expenses'] });
+      if (receiptFile) {
+        try {
+          await uploadExpenseReceipt(id, receiptFile);
+          toast.success('Expense submitted with receipt');
+        } catch {
+          toast.success('Expense submitted for approval');
+          toast.error('Receipt upload failed — you can attach it from the detail page');
+        }
+      } else {
+        toast.success('Expense submitted for approval');
+      }
+      navigate(`/expenses/${id}`);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -202,9 +222,40 @@ export default function NewExpense() {
           />
         </FormField>
 
+        <FormField label="Receipt / Bill" hint="Optional · JPG, PNG or PDF · Max 5 MB">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".jpg,.jpeg,.png,.pdf"
+            className="hidden"
+            onChange={(e) => setReceiptFile(e.target.files?.[0] ?? null)}
+          />
+          {receiptFile ? (
+            <div className="flex items-center gap-2 px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm">
+              <Paperclip className="h-4 w-4 text-gray-400 shrink-0" />
+              <span className="flex-1 truncate text-gray-700">{receiptFile.name}</span>
+              <button
+                type="button"
+                onClick={() => { setReceiptFile(null); if (fileInputRef.current) fileInputRef.current.value = ''; }}
+                className="text-gray-400 hover:text-red-500 transition-colors"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className="btn-secondary flex items-center gap-2 text-sm w-fit"
+            >
+              <Paperclip className="h-4 w-4" /> Attach Receipt
+            </button>
+          )}
+        </FormField>
+
         <div className="flex items-center gap-3 pt-2">
-          <button type="submit" disabled={mutation.isPending} className="btn-primary">
-            {mutation.isPending ? 'Submitting…' : 'Submit for Approval'}
+          <button type="submit" disabled={isSubmitting} className="btn-primary">
+            {isSubmitting ? (receiptFile ? 'Uploading…' : 'Submitting…') : 'Submit for Approval'}
           </button>
           <button type="button" onClick={() => navigate('/expenses')} className="btn-secondary">
             Cancel

@@ -72,6 +72,7 @@ function DailyTab() {
   const [params,     setParams]    = useState(def);
   const [active,     setActive]    = useState('');
   const [waLoading,  setWaLoading] = useState(false);
+  const [waCopied,   setWaCopied]  = useState(false);
 
   const { data, isLoading, refetch, isFetching } = useQuery({
     queryKey: ['mahaprasad-report', params],
@@ -95,10 +96,13 @@ function DailyTab() {
     const shareDate = from === to ? from : isoDate(new Date());
     setWaLoading(true);
     try {
-      const res = await getMahaprasadWhatsApp(shareDate);
+      const res  = await getMahaprasadWhatsApp(shareDate);
       const text = res?.data?.data?.text;
       if (!text) throw new Error('No data');
-      window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank', 'noopener');
+      await navigator.clipboard.writeText(text);
+      setWaCopied(true);
+      toast.success('Copied — paste in any WhatsApp chat');
+      setTimeout(() => setWaCopied(false), 3000);
     } catch {
       toast.error('Failed to generate WhatsApp summary');
     } finally {
@@ -113,9 +117,13 @@ function DailyTab() {
           <RefreshCw className={`h-4 w-4 ${isFetching ? 'animate-spin' : ''}`} /> Refresh
         </button>
         <button onClick={handleWhatsApp} disabled={waLoading}
-          className="btn btn-ghost border text-sm flex items-center gap-1.5 text-green-700 border-green-200 hover:bg-green-50 disabled:opacity-50">
+          className={`btn btn-ghost border text-sm flex items-center gap-1.5 disabled:opacity-50 transition-colors ${
+            waCopied
+              ? 'text-green-700 border-green-400 bg-green-50'
+              : 'text-green-700 border-green-200 hover:bg-green-50'
+          }`}>
           <MessageCircle className="h-4 w-4" />
-          {waLoading ? 'Loading…' : from === to ? 'WhatsApp' : "Today's WhatsApp"}
+          {waLoading ? 'Loading…' : waCopied ? 'Copied!' : from === to ? 'Copy for WhatsApp' : "Copy Today's Summary"}
         </button>
         {rows.length > 0 && (
           <button onClick={handleExport} className="btn btn-ghost border text-sm flex items-center gap-1.5">
