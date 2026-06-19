@@ -1,6 +1,6 @@
 # Deployment Guide — Mangal Grah Mandir
 
-Deploy target: a fresh Linux VM with domain **aumora.io**, MongoDB on **Atlas** (managed cloud),
+Deploy target: a fresh Linux VM with domain **mandir.aumora.io**, MongoDB on **Atlas** (managed cloud),
 app served by **Docker Compose** (server + client + nginx + certbot/Let's Encrypt SSL).
 
 ---
@@ -10,7 +10,7 @@ app served by **Docker Compose** (server + client + nginx + certbot/Let's Encryp
 | Item | Notes |
 |---|---|
 | A Linux VM | Ubuntu 22.04/24.04 LTS, 2 vCPU / 4 GB RAM. Note its **public IP**. |
-| Domain `aumora.io` | Access to its DNS settings to add an A record. |
+| Domain `mandir.aumora.io` | Access to its DNS settings to add an A record. |
 | MongoDB Atlas account | A cluster created (M0 free is fine to start). |
 | Atlas connection string | With a **strong** db password (rotate the one shared in chat). |
 | An email address | For Let's Encrypt cert registration/expiry notices. |
@@ -32,17 +32,18 @@ Open firewall ports **22, 80, 443** only (e.g. via your cloud provider's securit
 
 ## 2. DNS — point the domain at the VM
 
-In your DNS provider for `aumora.io`, add an **A record**:
+In your DNS provider for `mandir.aumora.io`, add an **A record**:
 
 ```
-aumora.io        A   <VM_PUBLIC_IP>
-www.aumora.io    A   <VM_PUBLIC_IP>   (optional)
+mandir.aumora.io    A   <VM_PUBLIC_IP>
 ```
+
+> Use a plain **A record** on the subdomain — no CNAME, no www variant needed.
 
 Wait until it resolves before requesting SSL:
 
 ```bash
-dig +short aumora.io      # must return <VM_PUBLIC_IP>
+dig +short mandir.aumora.io      # must return <VM_PUBLIC_IP>
 ```
 
 > SSL issuance WILL fail if DNS isn't live yet.
@@ -77,7 +78,7 @@ cp server/.env.example server/.env
 **Edit `.env`** (used only by the SSL bootstrap script):
 
 ```ini
-DOMAIN=aumora.io
+DOMAIN=mandir.aumora.io
 CERTBOT_EMAIL=you@example.com
 ```
 
@@ -90,7 +91,7 @@ MONGO_URI=mongodb+srv://mgm_app:<password>@cluster0.3bw4jwf.mongodb.net/mgm_stoc
 JWT_SECRET=<long-random-string>          # generate: openssl rand -base64 48
 JWT_EXPIRES_IN=1d
 JWT_REFRESH_EXPIRES_IN=7d
-CLIENT_URL=https://aumora.io
+CLIENT_URL=https://mandir.aumora.io
 SEED_ADMIN_EMAIL=admin@mandir.com
 SEED_ADMIN_PASSWORD=<strong-password>    # change after first login
 SEED_ADMIN_NAME=Super Admin
@@ -126,8 +127,8 @@ This first write creates the `mgm_stock` database on Atlas. Then log in once at 
 ```bash
 chmod +x init-letsencrypt.sh
 # uses DOMAIN + CERTBOT_EMAIL from .env; or pass inline:
-DOMAIN=aumora.io EMAIL=you@example.com STAGING=1 ./init-letsencrypt.sh   # test run first
-DOMAIN=aumora.io EMAIL=you@example.com ./init-letsencrypt.sh             # real cert
+DOMAIN=mandir.aumora.io EMAIL=you@example.com STAGING=1 ./init-letsencrypt.sh   # test run first
+DOMAIN=mandir.aumora.io EMAIL=you@example.com ./init-letsencrypt.sh             # real cert
 ```
 
 Run with `STAGING=1` first to avoid Let's Encrypt rate limits; once it works, run again
@@ -147,7 +148,7 @@ sudo crontab -e
 
 ## 9. Verify
 
-- `https://aumora.io` loads with a valid padlock.
+- `https://mandir.aumora.io` loads with a valid padlock.
 - Login works; `/api/` calls succeed (`docker compose logs -f server`).
 - `docker compose ps` → `server`, `client`, `nginx` all `Up`.
 
