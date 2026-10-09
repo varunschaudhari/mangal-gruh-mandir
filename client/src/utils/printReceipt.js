@@ -1,3 +1,5 @@
+import { printHtml } from './printHtml.js';
+
 const TYPE_LABELS = {
   STOCK_IN: 'Stock In', STOCK_OUT: 'Stock Out',
   TRANSFER: 'Transfer', WASTAGE: 'Wastage',
@@ -167,7 +169,8 @@ export function printTransactionReceipt(txn) {
 </body>
 </html>`;
 
-  const w = window.open('', '_blank', 'width=620,height=820');
-  w.document.write(html);
-  w.document.close();
+  return printHtml(html, {
+    filename: `Receipt-${txn.transactionNumber || typeLabel}.pdf`,
+    features: 'width=620,height=820',
+  });
 }

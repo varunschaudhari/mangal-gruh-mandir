@@ -17,6 +17,7 @@ import Modal from '../../components/ui/Modal.jsx';
 import { PageLoader } from '../../components/ui/Spinner.jsx';
 import { usePermissions } from '../../hooks/usePermissions.js';
 import toast from 'react-hot-toast';
+import { useSetAppBarTitle } from '../../components/Layout/AppBarContext.jsx';
 
 const STATUS_COLORS = { approved: 'blue', checked_out: 'green', partially_returned: 'yellow', returned: 'gray', overdue: 'red', cancelled: 'gray' };
 const STATUS_LABELS = { approved: 'Approved', checked_out: 'Checked Out', partially_returned: 'Partially Returned', returned: 'Returned', overdue: 'Overdue', cancelled: 'Cancelled' };
@@ -134,6 +135,7 @@ const CancelModal = ({ groupId, onClose, onSuccess }) => {
 
 // ── Main page ─────────────────────────────────────────────────────────────────
 const BorrowGroupDetail = () => {
+  useSetAppBarTitle('Borrow Group');
   const { id }   = useParams();
   const navigate = useNavigate();
   const { can }  = usePermissions();

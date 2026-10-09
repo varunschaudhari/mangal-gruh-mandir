@@ -1,148 +1,9 @@
 import { useState } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
-import {
-  LayoutDashboard, ArrowUpFromLine, ArrowLeftRight,
-  Trash2, Package, Warehouse, Users, Tag, Ruler, Truck, Shield,
-  ChevronDown, ChevronRight, FlameKindling, History, AlertTriangle, BookOpen, CalendarClock,
-  X, Armchair, ClipboardList, Settings2, BarChart2, TrendingUp, Heart, CreditCard, Plus,
-  ShoppingCart, BookTemplate, FileText, Utensils, ScanLine, BarChart3, Receipt, PiggyBank,
-} from 'lucide-react';
+import { ChevronDown, ChevronRight } from 'lucide-react';
 import { usePermissions } from '../../hooks/usePermissions.js';
-import { getAssetCounts } from '../../api/assetTransaction.api.js';
-import { getPaymentCounts } from '../../api/supplierPayment.api.js';
-
-const navConfig = [
-  {
-    label: 'Dashboard',
-    to: '/dashboard',
-    icon: LayoutDashboard,
-    permission: null,
-  },
-  {
-    label: 'Purchases',
-    icon: ShoppingCart,
-    permission: 'transactions:read',
-    children: [
-      { label: 'Purchase Register',  to: '/purchases',     icon: FileText, permission: 'transactions:read'   },
-      { label: 'New Purchase Entry', to: '/purchases/new', icon: Plus,     permission: 'transactions:create' },
-    ],
-  },
-  {
-    label: 'Stock Movement',
-    icon: ArrowLeftRight,
-    permission: 'transactions:read',
-    children: [
-      { label: 'Stock Out', to: '/transactions/stock-out', icon: ArrowUpFromLine, permission: 'transactions:create' },
-      { label: 'Transfer',  to: '/transactions/transfer',  icon: ArrowLeftRight,  permission: 'transactions:create' },
-      { label: 'Wastage',   to: '/transactions/wastage',   icon: Trash2,          permission: 'transactions:create' },
-      { label: 'History',   to: '/transactions/history',   icon: History,         permission: 'transactions:read'   },
-    ],
-  },
-  {
-    label: 'Inventory',
-    icon: Package,
-    permission: 'masters:read',
-    children: [
-      { label: 'Current Stock', to: '/inventory/current', icon: Package,  permission: 'masters:read'       },
-      { label: 'Stock Ledger',  to: '/inventory/ledger',  icon: BookOpen, permission: 'transactions:read'  },
-    ],
-  },
-  {
-    label: 'Payments',
-    icon: CreditCard,
-    permission: 'payments:read',
-    children: [
-      { label: 'All Payments',      to: '/payments',                   icon: CreditCard,    permission: 'payments:read'  },
-      { label: 'Record Payment',    to: '/payments/new',               icon: Plus,          permission: 'payments:write' },
-      { label: 'Invoice Register',  to: '/payments/invoice-register',  icon: FileText,      permission: 'payments:read'  },
-      { label: 'Upcoming Dues',     to: '/payments/upcoming',          icon: CalendarClock, permission: 'payments:read'  },
-      { label: 'Templates',         to: '/payments/templates',         icon: BookTemplate,  permission: 'payments:write' },
-    ],
-  },
-  {
-    label: 'Expenses',
-    icon: Receipt,
-    permission: 'payments:read',
-    children: [
-      { label: 'All Expenses',  to: '/expenses',        icon: Receipt,    permission: 'payments:read'    },
-      { label: 'New Expense',   to: '/expenses/new',    icon: Plus,       permission: 'payments:write'   },
-      { label: 'Set Budgets',   to: '/expenses/budget', icon: PiggyBank,  permission: 'payments:approve' },
-    ],
-  },
-  {
-    label: 'Mahaprasad',
-    icon: Utensils,
-    permission: 'mahaprasad:read',
-    children: [
-      { label: 'Issue Coupons', to: '/mahaprasad',          icon: Utensils,  permission: 'mahaprasad:issue'  },
-      { label: 'Redeem',        to: '/mahaprasad/redeem',  icon: ScanLine,  permission: 'mahaprasad:redeem' },
-      { label: 'History',       to: '/mahaprasad/history', icon: History,   permission: 'mahaprasad:read'   },
-      { label: 'Report',        to: '/mahaprasad/report',  icon: BarChart3, permission: 'mahaprasad:read'   },
-    ],
-  },
-  {
-    label: 'Donations',
-    icon: Heart,
-    permission: 'donations:read',
-    children: [
-      { label: 'History',   to: '/donations',     icon: History, permission: 'donations:read'  },
-      { label: 'New Entry', to: '/donations/new', icon: Heart,   permission: 'donations:write' },
-    ],
-  },
-  {
-    label: 'Assets',
-    icon: Armchair,
-    permission: 'assets:read',
-    children: [
-      { label: 'Asset List',       to: '/assets',          icon: Armchair,      permission: 'assets:write' },
-      { label: 'Borrow Requests',  to: '/assets/borrows',  icon: ClipboardList, permission: 'assets:read'  },
-      { label: 'Upcoming Returns', to: '/assets/upcoming', icon: CalendarClock, permission: 'assets:read'  },
-      { label: 'Reports',          to: '/assets/reports',  icon: BarChart2,     permission: 'assets:read'  },
-    ],
-  },
-  {
-    label: 'Reports',
-    icon: FlameKindling,
-    permission: 'reports:read',
-    children: [
-      { label: 'Daily Movement',    to: '/reports/daily',              icon: FlameKindling, permission: 'reports:read'   },
-      { label: 'Low Stock Alerts',  to: '/reports/low-stock',          icon: AlertTriangle, permission: 'reports:read'   },
-      { label: 'Expiring Stock',    to: '/reports/expiring-stock',     icon: CalendarClock, permission: 'reports:read'   },
-      { label: 'Stock Valuation',   to: '/reports/valuation',          icon: TrendingUp,    permission: 'reports:read'   },
-      { label: 'Supplier Report',   to: '/reports/suppliers',          icon: Truck,         permission: 'reports:read'   },
-      { label: 'Supplier Aging',    to: '/reports/supplier-aging',     icon: AlertTriangle, permission: 'payments:read'  },
-      { label: 'Festival Cost',     to: '/reports/festival-cost',      icon: FlameKindling, permission: 'reports:read'   },
-      { label: 'Consumption Trend', to: '/reports/consumption-trend',  icon: TrendingUp,    permission: 'reports:read'   },
-      { label: 'Reorder',           to: '/reports/reorder',            icon: ShoppingCart,  permission: 'reports:read'   },
-      { label: 'Monthly P&L',      to: '/reports/pnl',                icon: TrendingUp,    permission: 'payments:read'  },
-    ],
-  },
-  {
-    label: 'Masters',
-    icon: Tag,
-    permission: 'masters:read',
-    children: [
-      { label: 'Products',    to: '/masters/products',    icon: Package,   permission: 'masters:read'  },
-      { label: 'Departments', to: '/masters/departments', icon: Warehouse, permission: 'masters:read'  },
-      { label: 'Suppliers',   to: '/masters/suppliers',   icon: Truck,     permission: 'masters:read'  },
-      { label: 'Categories',  to: '/masters/categories',  icon: Tag,       permission: 'masters:read'  },
-      { label: 'Units',       to: '/masters/units',       icon: Ruler,     permission: 'masters:read'  },
-      { label: 'Occasions',   to: '/admin/occasions',     icon: Heart,     permission: 'masters:read'  },
-    ],
-  },
-  {
-    label: 'Admin',
-    icon: Users,
-    permission: 'users:read',
-    children: [
-      { label: 'Users',     to: '/admin/users',      icon: Users,     permission: 'users:read'  },
-      { label: 'Roles',     to: '/admin/roles',      icon: Shield,    permission: 'users:read'  },
-      { label: 'Audit Log', to: '/admin/audit-log',  icon: History,   permission: 'users:read'  },
-      { label: 'Settings',  to: '/settings',         icon: Settings2, permission: 'users:write' },
-    ],
-  },
-];
+import { useNavBadges } from '../../hooks/useNavBadges.js';
+import { navConfig } from './navConfig.js';
 
 const NavItem = ({ item, can, onNavigate, badges = {} }) => {
   const location = useLocation();
@@ -226,42 +87,16 @@ const NavItem = ({ item, can, onNavigate, badges = {} }) => {
   );
 };
 
-const Sidebar = ({ isOpen, onClose }) => {
+// Desktop-only (lg+). Phones and tablets use MobileTabBar + MoreSheet instead.
+const Sidebar = () => {
   const { can } = usePermissions();
-
-  const { data: countsRes } = useQuery({
-    queryKey: ['asset-counts'],
-    queryFn: getAssetCounts,
-    staleTime: 2 * 60 * 1000,
-    refetchInterval: 5 * 60 * 1000,
-    enabled: can('assets:read'),
-  });
-
-  const { data: payCountsRes } = useQuery({
-    queryKey: ['payment-counts'],
-    queryFn: getPaymentCounts,
-    staleTime: 2 * 60 * 1000,
-    refetchInterval: 5 * 60 * 1000,
-    enabled: can('payments:read'),
-  });
-
-  const overdue       = countsRes?.data?.data?.overdue     || 0;
-  const pendingPayments = payCountsRes?.data?.data?.pending || 0;
-  const badges        = {
-    '/assets/borrows': overdue          || null,
-    '/payments':       pendingPayments  || null,
-  };
+  const badges  = useNavBadges();
 
   return (
     <aside
-      className={`
-        fixed inset-y-0 left-0 z-40 flex h-screen w-64 shrink-0 flex-col bg-gray-900
-        transform transition-transform duration-300 ease-in-out
-        lg:static lg:translate-x-0
-        ${isOpen ? 'translate-x-0' : '-translate-x-full'}
-      `}
+      className="hidden lg:flex h-dvh w-64 shrink-0 flex-col bg-gray-900"
     >
-      {/* Logo + close button */}
+      {/* Logo */}
       <div className="flex items-center justify-between border-b border-gray-700 px-4 py-4">
         <div className="flex items-center gap-3">
           <div className="flex h-12 w-12 items-center justify-center rounded-md bg-white p-1">
@@ -276,18 +111,12 @@ const Sidebar = ({ isOpen, onClose }) => {
             <p className="text-xs text-gray-400">Stock Management</p>
           </div>
         </div>
-        <button
-          onClick={onClose}
-          className="lg:hidden rounded-md p-1 text-gray-400 hover:bg-gray-700 hover:text-white"
-        >
-          <X className="h-5 w-5" />
-        </button>
       </div>
 
       {/* Nav */}
       <nav className="flex-1 overflow-y-auto p-3 space-y-1">
         {navConfig.map((item, i) => (
-          <NavItem key={i} item={item} can={can} onNavigate={onClose} badges={badges} />
+          <NavItem key={i} item={item} can={can} badges={badges} />
         ))}
       </nav>
     </aside>

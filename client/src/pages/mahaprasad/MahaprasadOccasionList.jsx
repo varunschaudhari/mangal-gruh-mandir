@@ -30,19 +30,19 @@ const OccasionForm = ({ initial, onSave, onClose, loading }) => {
         <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Notes</label>
         <input value={notes} onChange={(e) => setNotes(e.target.value)} className="input" placeholder="Optional description" />
       </div>
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
           <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Sort Order</label>
-          <input type="number" value={sortOrder} onChange={(e) => setSortOrder(Number(e.target.value))} className="input" />
+          <input type="number" inputMode="numeric" value={sortOrder} onChange={(e) => setSortOrder(Number(e.target.value))} className="input" />
         </div>
         <div className="flex items-end pb-1">
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input type="checkbox" checked={isActive} onChange={(e) => setIsActive(e.target.checked)} className="h-4 w-4 rounded" />
+          <label className="flex items-center gap-2 cursor-pointer max-sm:py-2">
+            <input type="checkbox" checked={isActive} onChange={(e) => setIsActive(e.target.checked)} className="h-4 w-4 max-sm:h-5 max-sm:w-5 rounded" />
             <span className="text-sm text-gray-700">Active</span>
           </label>
         </div>
       </div>
-      <div className="flex justify-end gap-2 pt-2">
+      <div className="flex flex-col-reverse gap-2 pt-2 sm:flex-row sm:justify-end">
         <button onClick={onClose} className="btn-secondary">Cancel</button>
         <button onClick={() => onSave({ name, notes, sortOrder, isActive })} disabled={loading || !name.trim()} className="btn-primary">
           {loading ? 'Saving…' : initial ? 'Update' : 'Create'}
@@ -89,21 +89,26 @@ export default function MahaprasadOccasionList() {
   });
 
   const columns = [
-    col.accessor('name',      { header: 'Occasion Name', cell: (i) => <span className="font-medium text-gray-900">{i.getValue()}</span> }),
-    col.accessor('notes',     { header: 'Notes',         cell: (i) => <span className="text-gray-500 text-sm">{i.getValue() || '—'}</span> }),
+    col.accessor('name',      { header: 'Occasion Name', meta: { mobile: 'title' }, cell: (i) => <span className="font-medium text-gray-900">{i.getValue()}</span> }),
+    col.accessor('notes',     {
+      header: 'Notes', meta: { mobile: 'subtitle' },
+      cell: (i) => <span className="text-gray-500 text-sm">{i.getValue() || '—'}</span>,
+    }),
     col.accessor('sortOrder', { header: 'Order', size: 80 }),
-    col.accessor('isActive',  { header: 'Status', size: 80, cell: (i) => <ActiveBadge isActive={i.getValue()} /> }),
+    col.accessor('isActive',  { header: 'Status', size: 80, meta: { mobile: 'aside' }, cell: (i) => <ActiveBadge isActive={i.getValue()} /> }),
     col.display({
       id: 'actions', header: 'Actions', size: 90,
       cell: ({ row }) => (
         <div className="flex gap-2">
           {can('masters:write') && (
-            <button onClick={() => setEditTarget(row.original)} className="btn-ghost p-1 text-gray-400 hover:text-indigo-600">
+            <button onClick={() => setEditTarget(row.original)} aria-label="Edit occasion"
+              className="btn-ghost p-1 max-md:p-3 text-gray-400 hover:text-indigo-600">
               <Pencil className="h-4 w-4" />
             </button>
           )}
           {can('masters:delete') && (
-            <button onClick={() => setDeleteTarget(row.original)} className="btn-ghost p-1 text-gray-400 hover:text-red-600">
+            <button onClick={() => setDeleteTarget(row.original)} aria-label="Delete occasion"
+              className="btn-ghost p-1 max-md:p-3 text-gray-400 hover:text-red-600">
               <Trash2 className="h-4 w-4" />
             </button>
           )}

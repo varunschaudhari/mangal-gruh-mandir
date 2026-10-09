@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">MGM Mandir</string>
+    <string name="title_activity_main">MGM Mandir</string>
+    <string name="package_name">io.aumora.mandir</string>
+    <string name="custom_url_scheme">io.aumora.mandir</string>
+</resources>

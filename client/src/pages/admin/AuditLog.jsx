@@ -7,6 +7,7 @@ import { getUsers } from '../../api/user.api.js';
 import PageHeader from '../../components/ui/PageHeader.jsx';
 import { fDateTime } from '../../utils/formatters.js';
 import toast from 'react-hot-toast';
+import { saveFile } from '../../utils/fileSaver.js';
 
 // ── Date shortcut helpers ─────────────────────────────────────────────────────
 
@@ -398,10 +399,7 @@ const AuditLog = () => {
         Object.entries(filters).filter(([k, v]) => v !== '' && !['page', 'limit', 'search'].includes(k))
       );
       const res = await exportAuditLogsExcel(params);
-      const url = URL.createObjectURL(new Blob([res.data]));
-      const a   = document.createElement('a');
-      a.href = url; a.download = 'audit-log.xlsx'; a.click();
-      URL.revokeObjectURL(url);
+      await saveFile(new Blob([res.data]), 'audit-log.xlsx');
     } catch {
       toast.error('Export failed');
     } finally {

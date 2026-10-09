@@ -12,6 +12,7 @@ import Badge from '../../components/ui/Badge.jsx';
 import Modal from '../../components/ui/Modal.jsx';
 import { usePermissions } from '../../hooks/usePermissions.js';
 import toast from 'react-hot-toast';
+import { saveFile } from '../../utils/fileSaver.js';
 
 const TYPE_COLORS = { named: 'green', hundi: 'blue', anonymous: 'gray' };
 const TYPE_LABELS = { named: 'Named', hundi: 'Hundi', anonymous: 'Anonymous' };
@@ -55,10 +56,7 @@ const DonationList = () => {
       const res = format === 'excel'
         ? await exportDonationsExcel(params)
         : await exportDonationsPDF(params);
-      const url = URL.createObjectURL(res.data);
-      const a   = document.createElement('a');
-      a.href = url; a.download = `donations-${new Date().toISOString().split('T')[0]}.${format === 'excel' ? 'xlsx' : 'pdf'}`; a.click();
-      URL.revokeObjectURL(url);
+      await saveFile(res.data, `donations-${new Date().toISOString().split('T')[0]}.${format === 'excel' ? 'xlsx' : 'pdf'}`);
     } catch { toast.error('Export failed'); }
     finally { setExporting(null); }
   };

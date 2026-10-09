@@ -25,13 +25,19 @@ app.set('trust proxy', 1);
 
 connectDB();
 
-app.use(helmet());
+// Mobile apps (Capacitor) load the UI from their own origin, so uploaded files
+// (e.g. expense receipts) must be loadable cross-origin.
+app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
+
+// Origins used by the Capacitor Android (https://localhost) and iOS (capacitor://localhost) apps.
+const MOBILE_APP_ORIGINS = ['https://localhost', 'capacitor://localhost'];
+
 app.use(cors({
   origin: (origin, cb) => {
     const allowed = (process.env.CLIENT_URL || 'http://localhost:3000').split(',').map(s => s.trim());
     // Allow: configured origins, localhost dev, no-origin (Electron proxy strips Origin header),
-    // and app:// custom scheme (Electron renderer direct requests as fallback)
-    if (!origin || allowed.includes(origin) || origin === 'http://localhost:5000' || origin?.startsWith('app://')) return cb(null, true);
+    // app:// custom scheme (Electron renderer direct requests as fallback), and the mobile apps
+    if (!origin || allowed.includes(origin) || origin === 'http://localhost:5000' || origin?.startsWith('app://') || MOBILE_APP_ORIGINS.includes(origin)) return cb(null, true);
     cb(new Error('Not allowed by CORS'));
   },
   credentials: true,

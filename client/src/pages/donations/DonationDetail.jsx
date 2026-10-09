@@ -10,6 +10,8 @@ import Badge from '../../components/ui/Badge.jsx';
 import Modal from '../../components/ui/Modal.jsx';
 import { usePermissions } from '../../hooks/usePermissions.js';
 import toast from 'react-hot-toast';
+import { saveFile } from '../../utils/fileSaver.js';
+import { useSetAppBarTitle } from '../../components/Layout/AppBarContext.jsx';
 
 const fmt = (d) => d ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
 const TYPE_COLORS = { named: 'green', hundi: 'blue', anonymous: 'gray' };
@@ -24,6 +26,7 @@ const Row = ({ label, children }) => (
 );
 
 const DonationDetail = () => {
+  useSetAppBarTitle('Donation');
   const { id }   = useParams();
   const navigate = useNavigate();
   const { can }  = usePermissions();
@@ -54,10 +57,7 @@ const DonationDetail = () => {
     setDownloading80G(true);
     try {
       const res = await download80GReceipt(id);
-      const url = URL.createObjectURL(res.data);
-      const a   = document.createElement('a');
-      a.href = url; a.download = `80G-${donationNumber}.pdf`; a.click();
-      URL.revokeObjectURL(url);
+      await saveFile(res.data, `80G-${donationNumber}.pdf`);
     } catch { toast.error('Failed to generate 80G receipt'); }
     finally { setDownloading80G(false); }
   };
@@ -66,10 +66,7 @@ const DonationDetail = () => {
     setDownloadingPdf(true);
     try {
       const res = await downloadDonationReceipt(id);
-      const url = URL.createObjectURL(res.data);
-      const a   = document.createElement('a');
-      a.href = url; a.download = `RECEIPT-${donationNumber}.pdf`; a.click();
-      URL.revokeObjectURL(url);
+      await saveFile(res.data, `RECEIPT-${donationNumber}.pdf`);
     } catch { toast.error('Failed to generate receipt'); }
     finally { setDownloadingPdf(false); }
   };

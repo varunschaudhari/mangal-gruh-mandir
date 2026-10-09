@@ -10,12 +10,15 @@ import toast from 'react-hot-toast';
 import DataTable from '../../components/ui/DataTable.jsx';
 import Badge from '../../components/ui/Badge.jsx';
 import { PageLoader } from '../../components/ui/Spinner.jsx';
+import { saveFile } from '../../utils/fileSaver.js';
+import { useSetAppBarTitle } from '../../components/Layout/AppBarContext.jsx';
 
 const fmt = (d) => d ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
 const TYPE_COLORS = { named: 'green', hundi: 'blue', anonymous: 'gray' };
 const col = createColumnHelper();
 
 const DonorDetail = () => {
+  useSetAppBarTitle('Donor');
   const { id }        = useParams();
   const navigate      = useNavigate();
   const [dlStatement, setDlStatement] = useState(false);
@@ -38,10 +41,7 @@ const DonorDetail = () => {
     setDlStatement(true);
     try {
       const res = await downloadDonorStatement(id);
-      const url = URL.createObjectURL(res.data);
-      const a   = document.createElement('a');
-      a.href = url; a.download = `Donor-Statement-${donor?.name || id}.pdf`; a.click();
-      URL.revokeObjectURL(url);
+      await saveFile(res.data, `Donor-Statement-${donor?.name || id}.pdf`);
     } catch { toast.error('Failed to generate statement'); }
     finally { setDlStatement(false); }
   };

@@ -1,13 +1,14 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import {
   ShoppingCart, ChevronDown, ChevronRight, Search,
-  AlertTriangle, CheckCircle2, Clock, CircleDot, Plus,
+  AlertTriangle, CheckCircle2, Clock, CircleDot, Plus, SlidersHorizontal,
 } from 'lucide-react';
 import { getPurchaseEntries } from '../../api/purchaseEntry.api.js';
 import { getSuppliers } from '../../api/supplier.api.js';
 import PageHeader from '../../components/ui/PageHeader.jsx';
+import MobileCard from '../../components/ui/MobileCard.jsx';
 import { fDate, fCurrency } from '../../utils/formatters.js';
 import { usePermissions } from '../../hooks/usePermissions.js';
 
@@ -120,14 +121,46 @@ function EntryRow({ entry }) {
   );
 }
 
+// Phones: one card per entry; tapping it opens the full entry.
+function EntryCard({ entry, onOpen }) {
+  const overdue = entry.isOverdue && entry.paymentStatus !== 'paid';
+  return (
+    <MobileCard
+      onClick={onOpen}
+      title={<span className="font-mono">{entry.entryNumber || '—'}</span>}
+      subtitle={
+        <>
+          <span className="text-gray-600">{entry.supplier?.name || '—'}</span>
+          {entry.invoiceNumber && <span className="font-mono"> · Inv {entry.invoiceNumber}</span>}
+        </>
+      }
+      aside={<StatusBadge status={entry.paymentStatus} isOverdue={entry.isOverdue} />}
+      fields={[
+        { label: 'Invoice date', value: fDate(entry.invoiceDate) },
+        { label: 'Items', value: entry.items?.length || 0 },
+        { label: 'Total', value: <span className="font-semibold text-gray-900">{fCurrency(entry.totalValue)}</span> },
+        {
+          label: entry.remaining > 0 ? 'Remaining' : 'Paid',
+          value: entry.remaining > 0
+            ? <span className="font-semibold text-red-600">{fCurrency(entry.remaining)}</span>
+            : fCurrency(entry.paidSoFar),
+        },
+        overdue && { label: 'Due', value: <span className="font-medium text-orange-600">{fDate(entry.dueDate)} · Overdue</span>, full: true },
+      ]}
+    />
+  );
+}
+
 export default function PurchaseRegister() {
   const { can } = usePermissions();
+  const navigate = useNavigate();
   const [activeTab,   setActiveTab]   = useState('');
   const [search,      setSearch]      = useState('');
   const [suppFilter,  setSuppFilter]  = useState('');
   const [from,        setFrom]        = useState('');
   const [to,          setTo]          = useState('');
   const [page,        setPage]        = useState(1);
+  const [showFilters, setShowFilters] = useState(false);
 
   const { data: res, isLoading } = useQuery({
     queryKey: ['purchase-entries', { status: activeTab, search, supplier: suppFilter, from, to, page }],
@@ -151,8 +184,10 @@ export default function PurchaseRegister() {
     if (e.isOverdue && e.paymentStatus !== 'paid') stats.overdueValue += e.remaining || 0;
   }
 
+  const activeFilterCount = [suppFilter, from, to].filter(Boolean).length;
+
   return (
-    <div className="space-y-5">
+    <div className="space-y-4 sm:space-y-5">
       <PageHeader
         title="Purchase Register"
         subtitle="All purchase entries with payment status"
@@ -160,7 +195,9 @@ export default function PurchaseRegister() {
         actions={
           can('transactions:create') && (
             <Link to="/purchases/new" className="btn-primary flex items-center gap-1.5 text-sm">
-              <Plus className="h-4 w-4" /> New Purchase Entry
+              <Plus className="h-4 w-4" />
+              <span className="sm:hidden">New Entry</span>
+              <span className="hidden sm:inline">New Purchase Entry</span>
             </Link>
           )
         }
@@ -168,17 +205,17 @@ export default function PurchaseRegister() {
 
       {/* Summary cards */}
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-        <div className="card p-4">
+        <div className="card p-3 sm:p-4">
           <p className="text-xs text-gray-400 uppercase tracking-wide">Total (shown)</p>
-          <p className="text-lg font-bold text-gray-900 mt-1">{fCurrency(stats.totalValue)}</p>
+          <p className="text-base sm:text-lg font-bold text-gray-900 mt-1">{fCurrency(stats.totalValue)}</p>
         </div>
-        <div className="card p-4">
+        <div className="card p-3 sm:p-4">
           <p className="text-xs text-gray-400 uppercase tracking-wide">Outstanding</p>
-          <p className="text-lg font-bold text-red-600 mt-1">{fCurrency(stats.unpaidValue)}</p>
+          <p className="text-base sm:text-lg font-bold text-red-600 mt-1">{fCurrency(stats.unpaidValue)}</p>
         </div>
-        <div className="card p-4 col-span-2 sm:col-span-1">
+        <div className="card p-3 sm:p-4 col-span-2 sm:col-span-1">
           <p className="text-xs text-gray-400 uppercase tracking-wide">Overdue</p>
-          <p className="text-lg font-bold text-orange-600 mt-1">{fCurrency(stats.overdueValue)}</p>
+          <p className="text-base sm:text-lg font-bold text-orange-600 mt-1">{fCurrency(stats.overdueValue)}</p>
         </div>
       </div>
 
@@ -188,7 +225,7 @@ export default function PurchaseRegister() {
           <button
             key={tab.value}
             onClick={() => { setActiveTab(tab.value); setPage(1); }}
-            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+            className={`flex-1 sm:flex-none px-2 sm:px-4 py-2.5 sm:py-2 text-sm font-medium border-b-2 transition-colors ${
               activeTab === tab.value
                 ? 'border-primary-500 text-primary-600'
                 : 'border-transparent text-gray-500 hover:text-gray-700'
@@ -198,64 +235,118 @@ export default function PurchaseRegister() {
         ))}
       </div>
 
-      {/* Filters */}
+      {/* Filters — phones keep search visible and fold the rest behind a toggle */}
       <div className="card p-3 flex flex-wrap gap-3">
-        <div className="flex items-center gap-2 flex-1 min-w-48 max-w-xs">
-          <Search className="h-4 w-4 text-gray-400 shrink-0" />
-          <input
-            value={search}
-            onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-            placeholder="Search entry # or invoice #…"
-            className="input text-sm flex-1" />
+        <div className="flex items-center gap-2 flex-1 min-w-0 sm:min-w-48 sm:max-w-xs">
+          <Search className="h-4 w-4 text-gray-400 shrink-0 hidden sm:block" />
+          <div className="relative flex-1 min-w-0">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400 sm:hidden" />
+            <input
+              value={search}
+              onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+              type="search"
+              enterKeyHint="search"
+              placeholder="Search entry # or invoice #…"
+              className="input text-sm flex-1 pl-9 sm:pl-3" />
+          </div>
+          <button
+            type="button"
+            onClick={() => setShowFilters((v) => !v)}
+            aria-expanded={showFilters}
+            className={`btn-secondary relative shrink-0 px-3 sm:hidden ${showFilters ? 'bg-gray-100' : ''}`}>
+            <SlidersHorizontal className="h-4 w-4" />
+            <span className="sr-only">Filters</span>
+            {activeFilterCount > 0 && (
+              <span className="absolute -right-1.5 -top-1.5 flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-primary-600 px-1 text-[11px] font-semibold text-white">
+                {activeFilterCount}
+              </span>
+            )}
+          </button>
         </div>
-        <select
-          value={suppFilter}
-          onChange={(e) => { setSuppFilter(e.target.value); setPage(1); }}
-          className="input text-sm w-48">
-          <option value="">All suppliers</option>
-          {suppliers.map((s) => <option key={s._id} value={s._id}>{s.name}</option>)}
-        </select>
-        <input value={from} onChange={(e) => { setFrom(e.target.value); setPage(1); }} type="date" className="input text-sm w-36" title="From date" />
-        <input value={to}   onChange={(e) => { setTo(e.target.value); setPage(1); }}   type="date" className="input text-sm w-36" title="To date" />
+        <div className={`${showFilters ? 'grid' : 'hidden'} w-full grid-cols-2 gap-3 sm:contents`}>
+          <select
+            value={suppFilter}
+            onChange={(e) => { setSuppFilter(e.target.value); setPage(1); }}
+            className="input text-sm col-span-2 sm:w-48">
+            <option value="">All suppliers</option>
+            {suppliers.map((s) => <option key={s._id} value={s._id}>{s.name}</option>)}
+          </select>
+          <label className="min-w-0 sm:contents">
+            <span className="mb-1 block text-xs text-gray-500 sm:hidden">From</span>
+            <input value={from} onChange={(e) => { setFrom(e.target.value); setPage(1); }} type="date" className="input text-sm sm:w-36" title="From date" />
+          </label>
+          <label className="min-w-0 sm:contents">
+            <span className="mb-1 block text-xs text-gray-500 sm:hidden">To</span>
+            <input value={to}   onChange={(e) => { setTo(e.target.value); setPage(1); }}   type="date" className="input text-sm sm:w-36" title="To date" />
+          </label>
+          {activeFilterCount > 0 && (
+            <button
+              type="button"
+              onClick={() => { setSuppFilter(''); setFrom(''); setTo(''); setPage(1); }}
+              className="btn-ghost col-span-2 text-sm sm:hidden">
+              Clear filters
+            </button>
+          )}
+        </div>
       </div>
 
-      {/* Table */}
-      <div className="card overflow-hidden">
+      {/* Phones: card list */}
+      <div className="md:hidden">
         {isLoading ? (
           <div className="py-16 text-center text-gray-400 text-sm">Loading…</div>
         ) : entries.length === 0 ? (
-          <div className="py-16 text-center">
+          <div className="card py-12 text-center">
             <ShoppingCart className="h-10 w-10 text-gray-200 mx-auto mb-3" />
             <p className="text-gray-500 text-sm">No purchase entries found</p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b bg-gray-50 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                  <th className="py-3 px-3 w-8"></th>
-                  <th className="py-3 px-3 text-left">Entry / Invoice</th>
-                  <th className="py-3 px-3 text-left">Supplier</th>
-                  <th className="py-3 px-3 text-left">Invoice Date</th>
-                  <th className="py-3 px-3 text-center">Items</th>
-                  <th className="py-3 px-3 text-right">Total</th>
-                  <th className="py-3 px-3 text-right">Paid</th>
-                  <th className="py-3 px-3 text-right">Remaining</th>
-                  <th className="py-3 px-3 text-left">Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {entries.map((entry) => (
-                  <EntryRow key={entry._id} entry={entry} />
-                ))}
-              </tbody>
-            </table>
+          <div className="space-y-2.5">
+            {entries.map((entry) => (
+              <EntryCard key={entry._id} entry={entry} onOpen={() => navigate(`/purchases/${entry._id}`)} />
+            ))}
           </div>
         )}
+      </div>
+
+      {/* Table */}
+      <div className={`card overflow-hidden ${pagination.totalPages > 1 ? '' : 'hidden md:block'}`}>
+        <div className="hidden md:block">
+          {isLoading ? (
+            <div className="py-16 text-center text-gray-400 text-sm">Loading…</div>
+          ) : entries.length === 0 ? (
+            <div className="py-16 text-center">
+              <ShoppingCart className="h-10 w-10 text-gray-200 mx-auto mb-3" />
+              <p className="text-gray-500 text-sm">No purchase entries found</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b bg-gray-50 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                    <th className="py-3 px-3 w-8"></th>
+                    <th className="py-3 px-3 text-left">Entry / Invoice</th>
+                    <th className="py-3 px-3 text-left">Supplier</th>
+                    <th className="py-3 px-3 text-left">Invoice Date</th>
+                    <th className="py-3 px-3 text-center">Items</th>
+                    <th className="py-3 px-3 text-right">Total</th>
+                    <th className="py-3 px-3 text-right">Paid</th>
+                    <th className="py-3 px-3 text-right">Remaining</th>
+                    <th className="py-3 px-3 text-left">Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {entries.map((entry) => (
+                    <EntryRow key={entry._id} entry={entry} />
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
 
         {/* Pagination */}
         {pagination.totalPages > 1 && (
-          <div className="flex items-center justify-between px-4 py-3 border-t">
+          <div className="flex items-center justify-between gap-3 px-4 py-3 md:border-t">
             <p className="text-xs text-gray-500">
               {pagination.total} entries · Page {pagination.page} of {pagination.totalPages}
             </p>

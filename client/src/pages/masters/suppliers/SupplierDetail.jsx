@@ -7,6 +7,7 @@ import { getSupplierOutstanding, getSupplierInvoices, getSupplierLedger } from '
 import { PageLoader } from '../../../components/ui/Spinner.jsx';
 import Badge from '../../../components/ui/Badge.jsx';
 import { usePermissions } from '../../../hooks/usePermissions.js';
+import { useSetAppBarTitle } from '../../../components/Layout/AppBarContext.jsx';
 
 const fmt     = (d)  => d ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
 const fmtAmt  = (n)  => n != null ? `₹${Number(n).toLocaleString('en-IN')}` : '—';
@@ -18,6 +19,7 @@ const STATUS_LABELS = { unpaid: 'Unpaid', partially_paid: 'Partial', paid: 'Paid
 const PM_LABELS     = { cash: 'Cash', upi: 'UPI', neft: 'NEFT', rtgs: 'RTGS', cheque: 'Cheque' };
 
 export default function SupplierDetail() {
+  useSetAppBarTitle('Supplier');
   const { id }   = useParams();
   const navigate = useNavigate();
   const { can }  = usePermissions();

@@ -5,6 +5,7 @@ import { ArrowLeft, AlertTriangle, User, Package, CheckCircle2, XCircle, Clock }
 import { getAssetTransactions } from '../../api/assetTransaction.api.js';
 import DataTable from '../../components/ui/DataTable.jsx';
 import Badge from '../../components/ui/Badge.jsx';
+import { useSetAppBarTitle } from '../../components/Layout/AppBarContext.jsx';
 
 const STATUS_COLORS = { approved: 'blue', checked_out: 'green', returned: 'gray', overdue: 'red', cancelled: 'gray' };
 const STATUS_LABELS = { approved: 'Approved', checked_out: 'Checked Out', returned: 'Returned', overdue: 'Overdue', cancelled: 'Cancelled' };
@@ -13,6 +14,7 @@ const col = createColumnHelper();
 const fmt = (d) => d ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
 
 const BorrowerHistory = () => {
+  useSetAppBarTitle('Borrower History');
   const { userId }   = useParams();
   const navigate     = useNavigate();
   const [sp]         = useSearchParams();

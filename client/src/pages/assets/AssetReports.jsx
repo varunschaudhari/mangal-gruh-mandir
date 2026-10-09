@@ -8,6 +8,7 @@ import DataTable from '../../components/ui/DataTable.jsx';
 import PageHeader from '../../components/ui/PageHeader.jsx';
 import Badge from '../../components/ui/Badge.jsx';
 import toast from 'react-hot-toast';
+import { saveFile } from '../../utils/fileSaver.js';
 
 const col = createColumnHelper();
 
@@ -16,12 +17,7 @@ function fDate(d) {
   return new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
-function downloadBlob(blob, filename) {
-  const url = URL.createObjectURL(blob);
-  const a   = document.createElement('a');
-  a.href    = url; a.download = filename; a.click();
-  URL.revokeObjectURL(url);
-}
+const downloadBlob = (blob, filename) => saveFile(blob, filename);
 
 // ── Stat card ───────────────────────────────────────────────────────────────
 const Stat = ({ icon: Icon, label, value, color, bg, border }) => (

@@ -1,3 +1,5 @@
+import { saveFile } from './fileSaver.js';
+
 /**
  * Export an array of row objects to an .xlsx file.
  * Dynamically imports `xlsx` to avoid bundling/resolution issues at build time.
@@ -23,5 +25,10 @@ export async function exportToExcel(rows, filename, sheet = 'Sheet1') {
 
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, sheet);
-  XLSX.writeFile(wb, `${filename}.xlsx`);
+  // XLSX.writeFile can't save inside the mobile apps' WebView, so go through saveFile.
+  const data = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+  await saveFile(
+    new Blob([data], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }),
+    `${filename}.xlsx`,
+  );
 }

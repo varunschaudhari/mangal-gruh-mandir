@@ -1,5 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
-import { ChevronDown, Search, X } from 'lucide-react';
+import { ChevronDown, Search, X, Check } from 'lucide-react';
+import Sheet from './Sheet.jsx';
+import { useIsMobile } from '../../hooks/useMediaQuery.js';
 
 /**
  * SearchableSelect — drop-in replacement for native <select> on large lists.
@@ -13,6 +15,9 @@ import { ChevronDown, Search, X } from 'lucide-react';
  *   error       — truthy to show red border
  *   disabled
  *   className
+ *
+ * On phones the list opens as a bottom sheet with large rows instead of a dropdown,
+ * so it isn't squeezed between the field and the on-screen keyboard.
  */
 export default function SearchableSelect({
   value = '',
@@ -28,6 +33,7 @@ export default function SearchableSelect({
   const [search, setSearch] = useState('');
   const containerRef = useRef(null);
   const inputRef     = useRef(null);
+  const isMobile     = useIsMobile();
 
   const selected = options.find((o) => String(o.value) === String(value));
 
@@ -43,8 +49,9 @@ export default function SearchableSelect({
       )
     : list;
 
-  // Close on outside click
+  // Close on outside click (desktop dropdown only — the phone sheet closes itself)
   useEffect(() => {
+    if (isMobile) return undefined;
     const handler = (e) => {
       if (containerRef.current && !containerRef.current.contains(e.target)) {
         setOpen(false);
@@ -53,7 +60,7 @@ export default function SearchableSelect({
     };
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
-  }, []);
+  }, [isMobile]);
 
   // Close on Escape
   useEffect(() => {
@@ -64,16 +71,19 @@ export default function SearchableSelect({
     return () => document.removeEventListener('keydown', handler);
   }, [open]);
 
-  // Focus search when opened
+  // Focus search when opened. On phones only for long lists — focusing pops the keyboard
+  // over half the screen, which is in the way when there are only a few options to tap.
   useEffect(() => {
-    if (open) setTimeout(() => inputRef.current?.focus(), 40);
-  }, [open]);
+    if (open && (!isMobile || options.length > 8)) setTimeout(() => inputRef.current?.focus(), 40);
+  }, [open, isMobile, options.length]);
 
   const handleSelect = (val) => {
     onChange(val);
     setOpen(false);
     setSearch('');
   };
+
+  const close = () => { setOpen(false); setSearch(''); };
 
   const borderCls = error ? 'border-red-400 focus:border-red-400' : '';
   const disabledCls = disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer';
@@ -93,8 +103,52 @@ export default function SearchableSelect({
         <ChevronDown className={`h-4 w-4 text-gray-400 shrink-0 transition-transform ${open ? 'rotate-180' : ''}`} />
       </button>
 
-      {/* Dropdown */}
-      {open && (
+      {/* Phone: bottom sheet */}
+      {isMobile && (
+        <Sheet open={open} onClose={close} title={placeholder.replace(/^[\s—–-]+|[\s—–-]+$/g, '')} full={options.length > 8} bodyClassName="!px-0 !pt-0">
+          <div className="sticky top-0 z-10 border-b border-gray-100 bg-white px-4 py-2.5">
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+              <input
+                ref={inputRef}
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search…"
+                className="input pl-9"
+                enterKeyHint="search"
+              />
+            </div>
+          </div>
+          {filtered.length === 0 ? (
+            <p className="px-4 py-8 text-center text-sm text-gray-400">No results</p>
+          ) : (
+            <div className="divide-y divide-gray-50">
+              {filtered.map((opt) => {
+                const isActive = String(opt.value) === String(value);
+                return (
+                  <button
+                    key={String(opt.value) || '__null__'}
+                    type="button"
+                    onClick={() => handleSelect(opt.value)}
+                    className={`flex w-full items-center gap-3 px-4 py-3 text-left active:bg-orange-50 ${isActive ? 'bg-orange-50' : ''}`}
+                  >
+                    <span className="min-w-0 flex-1">
+                      <span className={`block truncate text-[15px] ${opt._null ? 'italic text-gray-400' : isActive ? 'font-medium text-orange-700' : 'text-gray-800'}`}>
+                        {opt.label}
+                      </span>
+                      {opt.sub && <span className="block truncate text-xs text-gray-400">{opt.sub}</span>}
+                    </span>
+                    {isActive && <Check className="h-5 w-5 shrink-0 text-orange-600" />}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </Sheet>
+      )}
+
+      {/* Desktop: dropdown */}
+      {open && !isMobile && (
         <div className="absolute z-50 mt-1 w-full min-w-[200px] bg-white border border-gray-200 rounded-lg shadow-lg overflow-hidden">
           {/* Search input */}
           <div className="p-2 border-b border-gray-100">

@@ -10,6 +10,8 @@ import { FileText, Sheet, MessageCircle, Copy, Check } from 'lucide-react';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import toast from 'react-hot-toast';
+import { shareText } from '../../utils/fileSaver.js';
+import { useIsMobile } from '../../hooks/useMediaQuery.js';
 
 const TYPE_LABELS = {
   STOCK_IN: 'Stock In', STOCK_OUT: 'Stock Out',
@@ -30,6 +32,7 @@ const StatBox = ({ label, count, qty, color }) => (
 );
 
 const DailyMovement = () => {
+  const isMobile = useIsMobile();
   const [date, setDate] = useState(new Date());
   const [deptId, setDeptId] = useState('');
   const [submitted, setSubmitted] = useState(false);
@@ -83,8 +86,7 @@ const DailyMovement = () => {
   };
 
   const handleWhatsAppOpen = () => {
-    const encoded = encodeURIComponent(whatsappText);
-    window.open(`https://wa.me/?text=${encoded}`, '_blank');
+    shareText(whatsappText);
   };
 
   return (
@@ -107,6 +109,8 @@ const DailyMovement = () => {
               maxDate={new Date()}
               className="input text-sm"
               required
+              withPortal={isMobile}
+              customInput={<input inputMode={isMobile ? 'none' : 'text'} />}
             />
           </div>
           <div className="flex-1 min-w-[160px] max-w-xs">

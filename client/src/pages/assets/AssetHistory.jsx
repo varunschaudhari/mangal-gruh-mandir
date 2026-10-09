@@ -10,6 +10,7 @@ import AssetLabelModal from '../../components/assets/AssetLabelModal.jsx';
 import DataTable from '../../components/ui/DataTable.jsx';
 import Badge from '../../components/ui/Badge.jsx';
 import { PageLoader } from '../../components/ui/Spinner.jsx';
+import { useSetAppBarTitle } from '../../components/Layout/AppBarContext.jsx';
 
 const STATUS_COLORS = { approved: 'blue', checked_out: 'green', returned: 'gray', overdue: 'red', cancelled: 'gray' };
 const STATUS_LABELS = { approved: 'Approved', checked_out: 'Checked Out', returned: 'Returned', overdue: 'Overdue', cancelled: 'Cancelled' };
@@ -18,6 +19,7 @@ const col = createColumnHelper();
 const fmt = (d) => d ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
 
 const AssetHistory = () => {
+  useSetAppBarTitle('Asset History');
   const { id }   = useParams();
   const navigate = useNavigate();
   const [showLabels, setShowLabels] = useState(false);

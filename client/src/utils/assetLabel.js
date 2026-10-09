@@ -1,4 +1,6 @@
 import QRCode from 'qrcode/lib/browser.js';
+import { printHtml } from './printHtml.js';
+import { isNative } from './platform.js';
 
 const fmt = (d) => d
   ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
@@ -11,7 +13,9 @@ function esc(str) {
 
 const CONDITION_COLORS = { good: '#16a34a', fair: '#d97706', damaged: '#dc2626', lost: '#6b7280' };
 
+// Browsers only — the mobile apps render labels to a PDF instead (see printHtml.js).
 function openPrintWindow(title) {
+  if (isNative) return null;
   const win = window.open('', '_blank');
   if (!win) {
     alert('Pop-up blocked. Please allow pop-ups for this site and try again.');
@@ -28,7 +32,7 @@ function openPrintWindow(title) {
 export async function printUnitLabels(asset, units) {
   // Open window synchronously — must happen before any await or browser blocks it
   const win = openPrintWindow(`Asset Labels — ${asset.name}`);
-  if (!win) return;
+  if (!win && !isNative) return;
 
   const qrMap = {};
   for (const u of units) {
@@ -113,17 +117,14 @@ export async function printUnitLabels(asset, units) {
 </body>
 </html>`;
 
-  win.document.open();
-  win.document.write(html);
-  win.document.close();
-  win.focus();
+  return printHtml(html, { win, filename: `Asset-Labels-${asset.name}.pdf` });
 }
 
 // ── Asset-level summary labels (2-col A4) ─────────────────────────────────────
 export async function printAssetLabels(assets) {
   // Open window synchronously — must happen before any await or browser blocks it
   const win = openPrintWindow('Asset Labels — Mangal Grah Mandir');
-  if (!win) return;
+  if (!win && !isNative) return;
 
   const qrMap = {};
   for (const asset of assets) {
@@ -185,8 +186,5 @@ export async function printAssetLabels(assets) {
 </body>
 </html>`;
 
-  win.document.open();
-  win.document.write(html);
-  win.document.close();
-  win.focus();
+  return printHtml(html, { win, filename: 'Asset-Labels.pdf' });
 }

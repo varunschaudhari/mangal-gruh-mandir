@@ -1,17 +1,22 @@
+import { useState } from 'react';
 import { useForm, Controller, useFieldArray } from 'react-hook-form';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { AlertTriangle } from 'lucide-react';
+import { AlertTriangle, Plus, Trash2 } from 'lucide-react';
 import { getDepartments } from '../../api/department.api.js';
 import { getSuppliers } from '../../api/supplier.api.js';
 import { createBatchTransactions, checkInvoiceDuplicate } from '../../api/stockTransaction.api.js';
 import PageHeader from '../../components/ui/PageHeader.jsx';
-import { FormField, FormRow, FormSection, FormActions } from '../../components/ui/FormField.jsx';
+import { FormField, FormRow, FormSection } from '../../components/ui/FormField.jsx';
 import DatePickerField from '../../components/ui/DatePickerField.jsx';
+import StickyActionBar from '../../components/ui/StickyActionBar.jsx';
 import ProductSearchSelect from '../../components/transactions/ProductSearchSelect.jsx';
 import SearchableSelect from '../../components/ui/SearchableSelect.jsx';
 import { useDebounce } from '../../hooks/useDebounce.js';
+import haptics from '../../utils/haptics.js';
 import toast from 'react-hot-toast';
+
+const fmtTotal = (n) => `₹${n.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 const STOCK_IN_TYPES = [
   { value: 'PURCHASE', label: 'Purchase' },
@@ -48,6 +53,8 @@ const StockIn = () => {
   });
 
   const { fields, append, remove } = useFieldArray({ control, name: 'items' });
+  // Unit symbol per item row (keyed by field id), only for display next to the quantity.
+  const [rowUnits, setRowUnits] = useState({});
 
   const stockInType   = watch('stockInType');
   const items         = watch('items');
@@ -95,13 +102,17 @@ const StockIn = () => {
       })),
     }),
     onSuccess: (res) => {
+      haptics.success();
       const count = res?.data?.data?.length || 1;
       toast.success(`${count} item${count > 1 ? 's' : ''} recorded`);
       qc.invalidateQueries({ queryKey: ['transactions'] });
       qc.invalidateQueries({ queryKey: ['balance'] });
       navigate('/transactions/history');
     },
-    onError: (err) => toast.error(err.response?.data?.message || 'Failed to record'),
+    onError: (err) => {
+      haptics.error();
+      toast.error(err.response?.data?.message || 'Failed to record');
+    },
   });
 
   return (
@@ -111,10 +122,10 @@ const StockIn = () => {
         subtitle="Record incoming stock"
         breadcrumbs={[{ label: 'Transactions' }, { label: 'Stock In' }]}
       />
-      <form onSubmit={handleSubmit((d) => mutation.mutate(d))} className="space-y-6">
+      <form onSubmit={handleSubmit((d) => mutation.mutate(d))} className="space-y-4 sm:space-y-6">
 
         {/* Shared header fields */}
-        <div className="card p-6 space-y-6">
+        <div className="card p-4 sm:p-6 space-y-6">
           <FormSection title="Transaction Details">
             <FormRow cols={2}>
               <DatePickerField name="transactionDate" control={control} label="Date" required />
@@ -160,7 +171,7 @@ const StockIn = () => {
               </FormField>
               <FormRow cols={2}>
                 <FormField label="Invoice Number">
-                  <input {...register('invoiceNumber')} className="input" />
+                  <input {...register('invoiceNumber')} className="input" autoCapitalize="characters" />
                 </FormField>
                 <DatePickerField name="invoiceDate" control={control} label="Invoice Date" />
               </FormRow>
@@ -183,9 +194,7 @@ const StockIn = () => {
             {grandTotal > 0 && (
               <span className="text-sm text-gray-500">
                 Grand Total:{' '}
-                <span className="font-semibold text-gray-900">
-                  ₹{grandTotal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                </span>
+                <span className="font-semibold text-gray-900">{fmtTotal(grandTotal)}</span>
               </span>
             )}
           </div>
@@ -193,24 +202,27 @@ const StockIn = () => {
           {fields.map((field, index) => {
             const item = items[index] || {};
             const rowTotal = (parseFloat(item.quantity) || 0) * (parseFloat(item.rate) || 0);
+            const unitSymbol = rowUnits[field.id];
 
             return (
               <div key={field.id} className="card p-4 space-y-3">
-                <div className="flex items-center justify-between">
+                <div className="flex min-h-[2rem] items-center justify-between">
                   <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Item {index + 1}</span>
                   <div className="flex items-center gap-3">
                     {rowTotal > 0 && (
-                      <span className="text-xs text-gray-500">
-                        ₹{rowTotal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      <span className="text-sm font-semibold text-gray-800 sm:text-xs sm:font-normal sm:text-gray-500">
+                        {fmtTotal(rowTotal)}
                       </span>
                     )}
                     {fields.length > 1 && (
                       <button
                         type="button"
                         onClick={() => remove(index)}
-                        className="text-xs text-red-400 hover:text-red-600 transition-colors"
+                        aria-label={`Remove item ${index + 1}`}
+                        className="-mr-2 rounded-md p-2 text-xs text-red-400 hover:text-red-600 active:bg-red-50 transition-colors sm:mr-0 sm:p-0"
                       >
-                        Remove
+                        <Trash2 className="h-4 w-4 sm:hidden" />
+                        <span className="hidden sm:inline">Remove</span>
                       </button>
                     )}
                   </div>
@@ -225,13 +237,15 @@ const StockIn = () => {
                       <ProductSearchSelect
                         value={f.value}
                         onChange={f.onChange}
+                        onSelect={(prod) => setRowUnits((u) => ({ ...u, [field.id]: prod?.unit?.symbol }))}
                         error={errors.items?.[index]?.product?.message}
                       />
                     )}
                   />
                 </FormField>
 
-                <FormRow cols={2}>
+                {/* Qty + rate stay side by side on phones too: both are short numbers. */}
+                <div className="grid grid-cols-2 gap-3 sm:gap-4">
                   <FormField label="Quantity" required error={errors.items?.[index]?.quantity?.message}>
                     <div className="relative">
                       <input
@@ -241,11 +255,13 @@ const StockIn = () => {
                         })}
                         type="number"
                         step="0.001"
-                        className="input pr-16"
+                        inputMode="decimal"
+                        placeholder="0"
+                        className="input pr-12 sm:pr-16"
                       />
-                      {item.product?.unit?.symbol && (
-                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-gray-400">
-                          {item.product.unit.symbol}
+                      {unitSymbol && (
+                        <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm text-gray-400">
+                          {unitSymbol}
                         </span>
                       )}
                     </div>
@@ -255,10 +271,12 @@ const StockIn = () => {
                       {...register(`items.${index}.rate`, { min: { value: 0, message: 'Cannot be negative' } })}
                       type="number"
                       step="0.01"
+                      inputMode="decimal"
+                      placeholder="0.00"
                       className="input"
                     />
                   </FormField>
-                </FormRow>
+                </div>
 
                 <FormField label="Batch Reference" hint="Optional">
                   <input
@@ -268,11 +286,11 @@ const StockIn = () => {
                   />
                 </FormField>
 
-                <label className="flex items-center gap-2 text-sm cursor-pointer select-none">
+                <label className="flex min-h-[44px] items-center gap-3 text-sm cursor-pointer select-none sm:min-h-0 sm:gap-2">
                   <input
                     type="checkbox"
                     {...register(`items.${index}.hasExpiry`)}
-                    className="h-4 w-4 rounded"
+                    className="h-5 w-5 rounded sm:h-4 sm:w-4"
                   />
                   This batch has an expiry date
                 </label>
@@ -290,13 +308,13 @@ const StockIn = () => {
           <button
             type="button"
             onClick={() => append(defaultItem())}
-            className="w-full border-2 border-dashed border-gray-200 rounded-lg py-3 text-sm text-gray-500 hover:border-primary-400 hover:text-primary-600 transition-colors"
+            className="flex w-full items-center justify-center gap-1.5 border-2 border-dashed border-gray-200 rounded-lg py-3 text-sm font-medium text-gray-500 hover:border-primary-400 hover:text-primary-600 active:bg-gray-50 transition-colors sm:font-normal"
           >
-            + Add another item
+            <Plus className="h-4 w-4" /> Add another item
           </button>
         </div>
 
-        <div className="card p-6">
+        <div className="card p-4 sm:p-6">
           <FormField label="Notes">
             <textarea {...register('notes')} className="input" rows={2} placeholder="Optional remarks…" />
           </FormField>
@@ -316,7 +334,19 @@ const StockIn = () => {
           </div>
         )}
 
-        <FormActions onCancel={() => navigate(-1)} loading={mutation.isPending} submitLabel="Record Stock In" />
+        <StickyActionBar>
+          {/* Phones: running total next to Save, since the item list can be long. */}
+          <div className="flex flex-col justify-center leading-tight sm:hidden">
+            <span className="text-[11px] uppercase tracking-wide text-gray-400">
+              {fields.length} item{fields.length !== 1 ? 's' : ''}
+            </span>
+            <span className="text-base font-bold text-gray-900">{fmtTotal(grandTotal)}</span>
+          </div>
+          <button type="button" onClick={() => navigate(-1)} className="btn-secondary hidden sm:inline-flex">Cancel</button>
+          <button type="submit" disabled={mutation.isPending} className="btn-primary">
+            {mutation.isPending ? 'Saving...' : 'Record Stock In'}
+          </button>
+        </StickyActionBar>
       </form>
     </div>
   );

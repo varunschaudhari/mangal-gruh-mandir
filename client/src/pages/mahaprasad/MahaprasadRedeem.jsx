@@ -10,12 +10,21 @@ import PageHeader from '../../components/ui/PageHeader.jsx';
 import * as offlineStore from '../../utils/offlineStore.js';
 import toast from 'react-hot-toast';
 import redeemFeedback from '../../utils/redeemFeedback.js';
+import { isNative } from '../../utils/platform.js';
+import { scanQrCode } from '../../utils/nativeScanner.js';
+import { useBackHandler } from '../../hooks/useBackHandler.js';
 
 const fmt     = (d) => d ? new Date(d).toLocaleString('en-IN',  { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : '—';
 const todayStr = () => new Date().toISOString().split('T')[0];
 
 // Full coupon number pattern: MP-YYYYMMDD-NNN (or more digits)
 const FULL_COUPON_RE = /^MP-\d{8}-\d{3,}$/;
+
+// html5-qrcode's stop() throws synchronously (not a rejected promise) when the camera never
+// started, e.g. permission denied — which would otherwise crash the page from an effect cleanup.
+const stopScanner = (inst) => {
+  try { return inst.stop().catch(() => {}); } catch { return Promise.resolve(); }
+};
 
 // ── Stats bar with progress ────────────────────────────────────────────────────
 
@@ -85,7 +94,7 @@ function ErrorBanner({ message, type, onRetry }) {
         <p className="text-xs text-gray-600 mt-0.5">{message}</p>
       </div>
       <button onClick={onRetry}
-        className="shrink-0 text-xs text-gray-400 hover:text-gray-700 flex items-center gap-1 whitespace-nowrap">
+        className="shrink-0 text-xs text-gray-400 hover:text-gray-700 flex items-center gap-1 whitespace-nowrap max-sm:-my-2 max-sm:py-2.5 max-sm:text-sm max-sm:text-gray-500">
         <RotateCcw className="h-3.5 w-3.5" /> Try again
       </button>
     </div>
@@ -197,7 +206,7 @@ function CouponCard({ coupon, onRedeem, redeeming, justRedeemed, countdown }) {
         className="w-full py-3.5 rounded-xl bg-green-600 hover:bg-green-700 text-white font-bold text-base flex items-center justify-center gap-2 transition-colors disabled:opacity-60">
         <CheckCircle2 className="h-5 w-5" />
         {redeeming ? 'Redeeming…' : 'Mark as Redeemed'}
-        {!redeeming && <span className="text-xs font-normal opacity-60 ml-1">(Enter ↵)</span>}
+        {!redeeming && !isNative && <span className="hidden sm:inline text-xs font-normal opacity-60 ml-1">(Enter ↵)</span>}
       </button>
     </div>
   );
@@ -214,11 +223,11 @@ function RecentList({ items }) {
         {items.map((c) => (
           <div key={c._id} className="flex items-center gap-2 text-sm">
             <CheckCircle2 className="h-3.5 w-3.5 text-green-500 shrink-0" />
-            <span className="font-mono text-gray-700 flex-1">{c.couponNumber}</span>
-            <span className={`text-xs px-2 py-0.5 rounded-full ${c.type === 'free' ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'}`}>
+            <span className="font-mono text-gray-700 flex-1 min-w-0 truncate">{c.couponNumber}</span>
+            <span className={`shrink-0 text-xs px-2 py-0.5 rounded-full ${c.type === 'free' ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'}`}>
               {c.type === 'free' ? 'Free' : `₹${c.amount}`}
             </span>
-            <span className="text-xs text-gray-400">{fmt(c.redeemedAt)}</span>
+            <span className="shrink-0 text-xs text-gray-400">{fmt(c.redeemedAt)}</span>
           </div>
         ))}
       </div>
@@ -256,6 +265,10 @@ export default function MahaprasadRedeem() {
   const resetRef       = useRef(null);  // always-current reset so countdown closure is never stale
   const wakeLockRef = useRef(null);
   const backStateRef = useRef({ coupon: null, justRedeemed: false });
+
+  // Mobile apps: ML Kit full-screen scanner instead of the in-page html5-qrcode camera.
+  const [nativeScanning, setNativeScanning] = useState(false);
+  const nativeDismissedRef = useRef(false); // user closed the scanner — don't reopen it on their behalf
 
   const [isOnline,     setIsOnline]     = useState(navigator.onLine);
   const [isFullscreen, setIsFullscreen] = useState(!!document.fullscreenElement);
@@ -367,11 +380,33 @@ export default function MahaprasadRedeem() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // redeemMut.mutate is stable and only called after all hooks have run
 
+  const launchNativeScan = useCallback(async () => {
+    nativeDismissedRef.current = false;
+    setNativeScanning(true);
+    try {
+      const text = await scanQrCode();
+      if (text) handleLookup(text, { autoRedeem: true });
+      else nativeDismissedRef.current = true;
+    } catch (e) {
+      nativeDismissedRef.current = true;
+      toast.error(e?.message || 'Scanner not available — use manual entry');
+    } finally {
+      setNativeScanning(false);
+    }
+  }, [handleLookup]);
+
   // ── Camera scanner ───────────────────────────────────────────────────────
   useEffect(() => {
     if (mode !== 'scan') return;
     decodedRef.current = false;
     let active = true;
+
+    if (isNative) {
+      // Open the scanner straight away (and again after each redemption) unless the
+      // user just closed it — then they tap the big scan button when ready.
+      if (!nativeDismissedRef.current) launchNativeScan();
+      return () => { active = false; };
+    }
 
     (async () => {
       try {
@@ -403,7 +438,7 @@ export default function MahaprasadRedeem() {
             if (decodedRef.current) return;
             decodedRef.current = true;
             // Track the stop promise so the next start() can wait for it.
-            stopPromiseRef.current = qrCode.stop().catch(() => {});
+            stopPromiseRef.current = stopScanner(qrCode);
             scannerInst.current = null;
             handleLookup(decoded.trim(), { autoRedeem: true });
           },
@@ -422,10 +457,10 @@ export default function MahaprasadRedeem() {
       const inst = scannerInst.current;
       if (inst) {
         scannerInst.current = null;
-        stopPromiseRef.current = inst.stop().catch(() => {});
+        stopPromiseRef.current = stopScanner(inst);
       }
     };
-  }, [mode, scanKey, handleLookup]);
+  }, [mode, scanKey, handleLookup, launchNativeScan]);
 
   useEffect(() => {
     if (mode === 'manual') inputRef.current?.focus();
@@ -508,7 +543,10 @@ export default function MahaprasadRedeem() {
   // Android hardware back button: clear coupon card if one is showing, otherwise swallow the press
   // Uses a ref so the popstate handler never goes stale without re-registering
   useEffect(() => { backStateRef.current = { coupon, justRedeemed }; }, [coupon, justRedeemed]);
+  // Mobile apps: the native back button clears the coupon card first, then navigates normally.
+  useBackHandler(isNative && Boolean(coupon) && !justRedeemed, reset);
   useEffect(() => {
+    if (isNative) return undefined;
     window.history.pushState(null, '', window.location.pathname);
     const handler = () => {
       window.history.pushState(null, '', window.location.pathname);
@@ -552,18 +590,20 @@ export default function MahaprasadRedeem() {
   // ── Render ────────────────────────────────────────────────────────────────
   return (
     <div className="max-w-md mx-auto space-y-4 pb-6">
-      <div className="relative">
+      {/* Phones: keep the subtitle clear of the fullscreen toggle */}
+      <div className={`relative ${isNative ? '' : 'max-lg:pr-10'}`}>
         <PageHeader
           title="Redeem Coupon"
           subtitle="Scan QR code or type the coupon number"
           breadcrumbs={[{ label: 'Mahaprasad', to: '/mahaprasad' }, { label: 'Redeem' }]}
         />
-        <button
+        {!isNative && <button
           onClick={toggleFullscreen}
           title={isFullscreen ? 'Exit fullscreen' : 'Fullscreen'}
-          className="absolute top-0 right-0 p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors">
+          aria-label={isFullscreen ? 'Exit fullscreen' : 'Fullscreen'}
+          className="absolute top-0 right-0 p-1.5 max-lg:p-2.5 max-lg:-mt-2 max-lg:-mr-2 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors">
           {isFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
-        </button>
+        </button>}
       </div>
 
       {!isOnline && (
@@ -584,7 +624,8 @@ export default function MahaprasadRedeem() {
                 <p className="text-xs font-mono mt-1 text-red-700">{syncConflicts.map((c) => c.couponNumber).join(', ')}</p>
               </div>
             </div>
-            <button onClick={dismissConflicts} className="text-red-400 hover:text-red-600 shrink-0 text-xl leading-none">&times;</button>
+            <button onClick={dismissConflicts} aria-label="Dismiss"
+              className="text-red-400 hover:text-red-600 shrink-0 text-xl leading-none max-sm:-m-2 max-sm:p-2.5">&times;</button>
           </div>
         </div>
       )}
@@ -602,7 +643,7 @@ export default function MahaprasadRedeem() {
               setCoupon(null); setError(''); setJustRedeemed(false); setCountdown(null);
               setManualNum('');
               setMode(key);
-              if (key === 'scan') setScanKey((k) => k + 1);
+              if (key === 'scan') { nativeDismissedRef.current = false; setScanKey((k) => k + 1); }
             }}
             className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-medium transition-all ${
               mode === key ? 'bg-primary-600 text-white shadow-sm' : 'text-gray-500 hover:bg-gray-50'
@@ -615,7 +656,33 @@ export default function MahaprasadRedeem() {
       {/* Input area — hidden once a coupon is loaded */}
       {!coupon && !justRedeemed && (
         <>
-          {mode === 'scan' && (
+          {mode === 'scan' && isNative && (
+            <div className="card overflow-hidden relative">
+              <button
+                onClick={launchNativeScan}
+                disabled={nativeScanning || looking || redeemMut.isPending}
+                className="w-full flex flex-col items-center gap-3 px-6 py-10 active:bg-gray-50"
+              >
+                <span className="flex h-20 w-20 items-center justify-center rounded-3xl bg-primary-600 text-white shadow-lg shadow-primary-600/30">
+                  <ScanLine className="h-10 w-10" />
+                </span>
+                <span className="text-base font-semibold text-gray-800">
+                  {nativeScanning ? 'Scanner open…' : 'Tap to scan coupon'}
+                </span>
+                <span className="text-xs text-gray-400">Point the camera at the QR code on the coupon</span>
+              </button>
+              {(looking || redeemMut.isPending) && (
+                <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
+                  <div className="bg-white rounded-xl px-5 py-4 text-sm font-semibold text-gray-700 flex items-center gap-2.5">
+                    <div className={`h-4 w-4 border-2 border-t-transparent rounded-full animate-spin ${redeemMut.isPending ? 'border-green-500' : 'border-primary-500'}`} />
+                    {redeemMut.isPending ? 'Redeeming…' : 'Looking up coupon…'}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {mode === 'scan' && !isNative && (
             <div className="card overflow-hidden relative">
               <div id="qr-reader" className="w-full" style={{ minHeight: 280 }} />
               {(looking || redeemMut.isPending) && (

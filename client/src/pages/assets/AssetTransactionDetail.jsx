@@ -13,6 +13,8 @@ import { PageLoader } from '../../components/ui/Spinner.jsx';
 import Modal from '../../components/ui/Modal.jsx';
 import { usePermissions } from '../../hooks/usePermissions.js';
 import toast from 'react-hot-toast';
+import { printHtml } from '../../utils/printHtml.js';
+import { useSetAppBarTitle } from '../../components/Layout/AppBarContext.jsx';
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 const fmt     = (d) => d ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
@@ -284,12 +286,12 @@ function printHandoverSlip(txn) {
 </body>
 </html>`;
 
-  const win = window.open('', '_blank', 'width=680,height=800');
-  if (win) { win.document.write(html); win.document.close(); }
+  return printHtml(html, { filename: `Handover-Slip-${transactionNumber || 'asset'}.pdf` });
 }
 
 // ── Main Page ────────────────────────────────────────────────────────────────
 const AssetTransactionDetail = () => {
+  useSetAppBarTitle('Borrow Request');
   const { id }   = useParams();
   const navigate = useNavigate();
   const { can }  = usePermissions();

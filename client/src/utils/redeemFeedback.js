@@ -1,6 +1,9 @@
 // Web Audio API feedback for the redeem counter.
 // No audio files needed — tones are synthesised at runtime.
 // Works offline. Silently no-ops if AudioContext is unavailable.
+// Vibration goes through haptics.js so the native apps get real haptics (incl. iOS).
+
+import haptics from './haptics.js';
 
 let sharedCtx = null;
 
@@ -29,9 +32,6 @@ function note(freq, startAt, duration, vol = 0.35, type = 'sine') {
   osc.stop(startAt + duration + 0.02);
 }
 
-function vibrate(pattern) {
-  try { navigator.vibrate?.(pattern); } catch {}
-}
 
 const redeemFeedback = {
   // Two ascending bell tones — pleasant, cuts through crowd noise
@@ -42,7 +42,7 @@ const redeemFeedback = {
       note(880,  t,        0.7, 0.35, 'sine'); // A5
       note(1318, t + 0.10, 0.5, 0.25, 'sine'); // E6
     }
-    vibrate(80);
+    haptics.success(80);
   },
 
   // Double short beep — "already done"
@@ -53,7 +53,7 @@ const redeemFeedback = {
       note(523, t,        0.08, 0.3, 'square'); // C5
       note(523, t + 0.16, 0.08, 0.3, 'square');
     }
-    vibrate([55, 55, 55]);
+    haptics.warning([55, 55, 55]);
   },
 
   // Single low thud — "nothing here"
@@ -63,7 +63,7 @@ const redeemFeedback = {
       const t = ac.currentTime;
       note(220, t, 0.35, 0.3, 'triangle'); // A3
     }
-    vibrate(130);
+    haptics.error(130);
   },
 
   // Descending two tones — "time's up"
@@ -74,7 +74,7 @@ const redeemFeedback = {
       note(523, t,        0.15, 0.3, 'sine'); // C5
       note(392, t + 0.16, 0.35, 0.3, 'sine'); // G4
     }
-    vibrate([60, 40, 120]);
+    haptics.warning([60, 40, 120]);
   },
 
   // Sawtooth buzz — generic error
@@ -84,7 +84,7 @@ const redeemFeedback = {
       const t = ac.currentTime;
       note(330, t, 0.4, 0.25, 'sawtooth');
     }
-    vibrate(200);
+    haptics.error(200);
   },
 };
 

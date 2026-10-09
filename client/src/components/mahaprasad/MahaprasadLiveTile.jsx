@@ -76,36 +76,36 @@ export default function MahaprasadLiveTile() {
   return (
     <div className="card p-4 space-y-3">
       {/* ── Header ── */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Utensils className="h-4 w-4 text-orange-500" />
-          <h2 className="text-sm font-semibold text-gray-700">Mahaprasad Today</h2>
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2 min-w-0">
+          <Utensils className="h-4 w-4 shrink-0 text-orange-500" />
+          <h2 className="text-sm font-semibold text-gray-700 truncate">Mahaprasad Today</h2>
           {/* live pulse dot */}
-          <span className="relative flex h-2 w-2 ml-0.5">
+          <span className="relative flex h-2 w-2 ml-0.5 shrink-0">
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
             <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500" />
           </span>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 shrink-0">
           <span className="text-xs text-gray-400 tabular-nums">{agoLabel(msAgo)}</span>
-          <Link to="/mahaprasad/counter" className="text-xs text-primary-600 hover:underline">Counter →</Link>
+          <Link to="/mahaprasad" className="text-xs text-primary-600 hover:underline max-sm:-my-2 max-sm:py-2.5 max-sm:text-sm">Counter →</Link>
         </div>
       </div>
 
       {/* ── Big numbers ── */}
       <div className="grid grid-cols-3 gap-2">
         <Link to="/mahaprasad/history"
-          className="rounded-lg bg-blue-50 border border-blue-100 px-2 py-2.5 text-center hover:bg-blue-100 transition-colors">
-          <p className="text-2xl font-black text-blue-700 tabular-nums">{total.toLocaleString('en-IN')}</p>
+          className="min-w-0 rounded-lg bg-blue-50 border border-blue-100 px-2 py-2.5 text-center hover:bg-blue-100 active:bg-blue-100 transition-colors">
+          <p className="text-2xl max-sm:text-xl font-black text-blue-700 tabular-nums truncate">{total.toLocaleString('en-IN')}</p>
           <p className="text-xs text-blue-600 font-medium mt-0.5">Issued</p>
         </Link>
         <Link to="/mahaprasad/redeem"
-          className="rounded-lg bg-green-50 border border-green-100 px-2 py-2.5 text-center hover:bg-green-100 transition-colors">
-          <p className="text-2xl font-black text-green-700 tabular-nums">{redeemed.toLocaleString('en-IN')}</p>
+          className="min-w-0 rounded-lg bg-green-50 border border-green-100 px-2 py-2.5 text-center hover:bg-green-100 active:bg-green-100 transition-colors">
+          <p className="text-2xl max-sm:text-xl font-black text-green-700 tabular-nums truncate">{redeemed.toLocaleString('en-IN')}</p>
           <p className="text-xs text-green-600 font-medium mt-0.5">Redeemed</p>
         </Link>
-        <div className="rounded-lg bg-amber-50 border border-amber-100 px-2 py-2.5 text-center">
-          <p className="text-2xl font-black text-amber-700 tabular-nums">{pending.toLocaleString('en-IN')}</p>
+        <div className="min-w-0 rounded-lg bg-amber-50 border border-amber-100 px-2 py-2.5 text-center">
+          <p className="text-2xl max-sm:text-xl font-black text-amber-700 tabular-nums truncate">{pending.toLocaleString('en-IN')}</p>
           <p className="text-xs text-amber-600 font-medium mt-0.5">Pending</p>
         </div>
       </div>

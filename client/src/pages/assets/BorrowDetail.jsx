@@ -19,6 +19,8 @@ import Modal from '../../components/ui/Modal.jsx';
 import Badge from '../../components/ui/Badge.jsx';
 import { usePermissions } from '../../hooks/usePermissions.js';
 import toast from 'react-hot-toast';
+import { printHtml } from '../../utils/printHtml.js';
+import { useSetAppBarTitle } from '../../components/Layout/AppBarContext.jsx';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 const STATUS_COLORS = {
@@ -75,8 +77,7 @@ function printHandoverSlip(txn) {
   <div class="sig-box"><div class="sig-line"></div><div class="sig-name">${createdBy?.name||'Help Desk'}</div><div style="font-size:10px;color:#777">Issued By</div></div></div>
   <div class="footer">Printed on ${p(new Date())} · Mangal Grah Mandir Asset Management</div>
   <script>window.onload=()=>{window.print()}<\/script></body></html>`;
-  const win = window.open('', '_blank', 'width=680,height=800');
-  if (win) { win.document.write(html); win.document.close(); }
+  return printHtml(html, { filename: `Handover-Slip-${transactionNumber || 'asset'}.pdf` });
 }
 
 // ── Modals ────────────────────────────────────────────────────────────────────
@@ -462,6 +463,7 @@ const CondPill = ({ value }) => value
 
 // ── Main page ─────────────────────────────────────────────────────────────────
 const BorrowDetail = () => {
+  useSetAppBarTitle('Borrow Request');
   const { groupId, txnId } = useParams();
   const navigate  = useNavigate();
   const { can }   = usePermissions();

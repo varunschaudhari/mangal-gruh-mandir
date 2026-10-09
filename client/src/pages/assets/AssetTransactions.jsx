@@ -18,6 +18,7 @@ import Modal from '../../components/ui/Modal.jsx';
 import { usePermissions } from '../../hooks/usePermissions.js';
 import { useDebounce } from '../../hooks/useDebounce.js';
 import toast from 'react-hot-toast';
+import { saveFile } from '../../utils/fileSaver.js';
 
 const STATUS_COLORS = { approved: 'blue', checked_out: 'green', returned: 'gray', overdue: 'red', cancelled: 'gray' };
 const STATUS_LABELS = { approved: 'Approved', checked_out: 'Checked Out', returned: 'Returned', overdue: 'Overdue', cancelled: 'Cancelled' };
@@ -25,11 +26,7 @@ const col = createColumnHelper();
 
 const fmt = (d) => d ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
 
-function downloadBlob(blob, filename) {
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a'); a.href = url; a.download = filename; a.click();
-  URL.revokeObjectURL(url);
-}
+const downloadBlob = (blob, filename) => saveFile(blob, filename);
 
 // ── Checkout Modal ──────────────────────────────────────────────────────────
 const CheckoutModal = ({ txn, onClose, onSuccess }) => {

@@ -1,18 +1,21 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getTransactions, voidTransaction } from '../../api/stockTransaction.api.js';
 import { getDepartments } from '../../api/department.api.js';
 import { getProducts } from '../../api/product.api.js';
 import PageHeader from '../../components/ui/PageHeader.jsx';
 import Badge from '../../components/ui/Badge.jsx';
+import Modal from '../../components/ui/Modal.jsx';
+import MobileCard from '../../components/ui/MobileCard.jsx';
 import { PageLoader } from '../../components/ui/Spinner.jsx';
 import { fDate } from '../../utils/formatters.js';
 import { printTransactionReceipt } from '../../utils/printReceipt.js';
 import { usePermissions } from '../../hooks/usePermissions.js';
+import { useIsMobile } from '../../hooks/useMediaQuery.js';
 import toast from 'react-hot-toast';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
-import { Printer, Download } from 'lucide-react';
+import { Printer, Download, X, SlidersHorizontal } from 'lucide-react';
 import { exportToExcel } from '../../utils/exportToExcel.js';
 
 const TYPE_LABELS = {
@@ -32,6 +35,7 @@ const TYPES = ['STOCK_IN', 'STOCK_OUT', 'TRANSFER', 'WASTAGE'];
 const TransactionHistory = () => {
   const qc = useQueryClient();
   const { can } = usePermissions();
+  const isMobile = useIsMobile();
 
   const [filters, setFilters] = useState({
     transactionType: '', department: '', product: '', startDate: null, endDate: null,
@@ -42,6 +46,18 @@ const TransactionHistory = () => {
   const [selectedProductName, setSelectedProductName] = useState('');
   const [voidTarget, setVoidTarget] = useState(null);
   const [voidReason, setVoidReason] = useState('');
+  const [showFilters, setShowFilters] = useState(false);
+  const productBoxRef = useRef(null);
+
+  // Close the product dropdown on any tap/click outside it.
+  useEffect(() => {
+    if (!showProductDropdown) return undefined;
+    const handler = (e) => {
+      if (productBoxRef.current && !productBoxRef.current.contains(e.target)) setShowProductDropdown(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [showProductDropdown]);
 
   const { data: deptsRes } = useQuery({ queryKey: ['departments'], queryFn: () => getDepartments() });
   const departments = deptsRes?.data?.data || [];
@@ -114,7 +130,12 @@ const TransactionHistory = () => {
     setProductSearch('');
   };
 
+  const closeVoid = () => { setVoidTarget(null); setVoidReason(''); };
+
   const hasFilters = filters.transactionType || filters.department || filters.product || filters.startDate || filters.endDate;
+  // The product search stays visible on phones; this counts what's folded away.
+  const hiddenFilterCount = [filters.transactionType, filters.department, filters.startDate, filters.endDate].filter(Boolean).length;
+  const hasPages = pagination && pagination.totalPages > 1;
 
   return (
     <div>
@@ -130,38 +151,45 @@ const TransactionHistory = () => {
         }
       />
 
-      {/* ── Filters ── */}
-      <div className="card p-4 mb-4 flex flex-wrap items-end gap-3">
+      {/* ── Filters ── phones: product search + a toggle for the rest */}
+      <div className="card p-3 sm:p-4 mb-4 flex flex-wrap items-end gap-3">
 
-        {/* Product search */}
-        <div className="relative">
-          <label className="label">Product</label>
-          <input
-            type="text"
-            value={selectedProductName || productSearch}
-            onChange={(e) => {
-              if (filters.product) clearProductFilter();
-              setProductSearch(e.target.value);
-              setShowProductDropdown(true);
-            }}
-            onFocus={() => setShowProductDropdown(true)}
-            placeholder="Search product…"
-            className="input text-sm w-48"
-          />
-          {filters.product && (
-            <button onClick={clearProductFilter} className="absolute right-2 top-8 text-gray-400 hover:text-gray-600 text-xs">✕</button>
-          )}
-          {showProductDropdown && !filters.product && (
-            <>
-              <div className="fixed inset-0 z-10" onClick={() => setShowProductDropdown(false)} />
-              <div className="absolute z-20 top-full mt-1 w-64 bg-white border border-gray-200 rounded-lg shadow-lg max-h-52 overflow-y-auto">
+        <div className="flex w-full items-end gap-2 sm:w-auto">
+          {/* Product search */}
+          <div ref={productBoxRef} className="relative min-w-0 flex-1 sm:flex-none">
+            <label className="label hidden sm:block">Product</label>
+            <div className="relative">
+              <input
+                type="text"
+                value={selectedProductName || productSearch}
+                onChange={(e) => {
+                  if (filters.product) clearProductFilter();
+                  setProductSearch(e.target.value);
+                  setShowProductDropdown(true);
+                }}
+                onFocus={() => setShowProductDropdown(true)}
+                placeholder="Search product…"
+                enterKeyHint="search"
+                className={`input text-sm sm:w-48 ${filters.product ? 'pr-10' : ''}`}
+              />
+              {filters.product && (
+                <button
+                  onClick={clearProductFilter}
+                  aria-label="Clear product filter"
+                  className="absolute inset-y-0 right-0 flex items-center px-3 text-gray-400 hover:text-gray-600">
+                  <X className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
+                </button>
+              )}
+            </div>
+            {showProductDropdown && !filters.product && (
+              <div className="absolute left-0 z-20 top-full mt-1 w-full sm:w-64 bg-white border border-gray-200 rounded-lg shadow-lg max-h-64 sm:max-h-52 overflow-y-auto overscroll-contain">
                 {filteredProducts.length === 0 ? (
                   <div className="p-3 text-sm text-gray-400">No products found</div>
                 ) : (
                   filteredProducts.map((p) => (
                     <button
                       key={p._id}
-                      className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 flex items-center gap-2"
+                      className="w-full text-left px-3 py-3 sm:py-2 text-sm hover:bg-gray-50 active:bg-gray-100 flex items-center gap-2"
                       onClick={() => {
                         setFilter('product', p._id);
                         setSelectedProductName(p.name);
@@ -175,158 +203,221 @@ const TransactionHistory = () => {
                   ))
                 )}
               </div>
-            </>
+            )}
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setShowFilters((v) => !v)}
+            aria-expanded={showFilters}
+            className={`btn-secondary relative shrink-0 px-3 sm:hidden ${showFilters ? 'bg-gray-100' : ''}`}>
+            <SlidersHorizontal className="h-4 w-4" />
+            <span className="sr-only">Filters</span>
+            {hiddenFilterCount > 0 && (
+              <span className="absolute -right-1.5 -top-1.5 flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-primary-600 px-1 text-[11px] font-semibold text-white">
+                {hiddenFilterCount}
+              </span>
+            )}
+          </button>
+        </div>
+
+        <div className={`${showFilters ? 'grid' : 'hidden'} w-full grid-cols-2 gap-3 sm:contents`}>
+          {/* Type */}
+          <div className="col-span-2">
+            <label className="label">Type</label>
+            <select value={filters.transactionType} onChange={(e) => setFilter('transactionType', e.target.value)} className="input text-sm">
+              <option value="">All Types</option>
+              {TYPES.map((t) => <option key={t} value={t}>{TYPE_LABELS[t]}</option>)}
+            </select>
+          </div>
+
+          {/* Department */}
+          <div className="col-span-2">
+            <label className="label">Department</label>
+            <select value={filters.department} onChange={(e) => setFilter('department', e.target.value)} className="input text-sm">
+              <option value="">All Departments</option>
+              {departments.map((d) => <option key={d._id} value={d._id}>{d.name}</option>)}
+            </select>
+          </div>
+
+          {/* Date range */}
+          <div className="min-w-0 sm:min-w-[auto]">
+            <label className="label">From Date</label>
+            <DatePicker
+              selected={filters.startDate}
+              onChange={(d) => setFilter('startDate', d)}
+              dateFormat="dd/MM/yyyy"
+              placeholderText="Start date"
+              className="input text-sm"
+              maxDate={filters.endDate || new Date()}
+              withPortal={isMobile}
+            />
+          </div>
+          <div className="min-w-0 sm:min-w-[auto]">
+            <label className="label">To Date</label>
+            <DatePicker
+              selected={filters.endDate}
+              onChange={(d) => setFilter('endDate', d)}
+              dateFormat="dd/MM/yyyy"
+              placeholderText="End date"
+              className="input text-sm"
+              maxDate={new Date()}
+              minDate={filters.startDate}
+              withPortal={isMobile}
+            />
+          </div>
+
+          {hasFilters && (
+            <button
+              onClick={() => {
+                setFilters({ transactionType: '', department: '', product: '', startDate: null, endDate: null });
+                setSelectedProductName('');
+                setProductSearch('');
+                setPage(1);
+              }}
+              className="btn btn-ghost text-sm col-span-2"
+            >
+              Clear<span className="sm:hidden">&nbsp;all filters</span>
+            </button>
           )}
         </div>
+      </div>
 
-        {/* Type */}
-        <div>
-          <label className="label">Type</label>
-          <select value={filters.transactionType} onChange={(e) => setFilter('transactionType', e.target.value)} className="input text-sm">
-            <option value="">All Types</option>
-            {TYPES.map((t) => <option key={t} value={t}>{TYPE_LABELS[t]}</option>)}
-          </select>
-        </div>
-
-        {/* Department */}
-        <div>
-          <label className="label">Department</label>
-          <select value={filters.department} onChange={(e) => setFilter('department', e.target.value)} className="input text-sm">
-            <option value="">All Departments</option>
-            {departments.map((d) => <option key={d._id} value={d._id}>{d.name}</option>)}
-          </select>
-        </div>
-
-        {/* Date range */}
-        <div>
-          <label className="label">From Date</label>
-          <DatePicker
-            selected={filters.startDate}
-            onChange={(d) => setFilter('startDate', d)}
-            dateFormat="dd/MM/yyyy"
-            placeholderText="Start date"
-            className="input text-sm"
-            maxDate={filters.endDate || new Date()}
-          />
-        </div>
-        <div>
-          <label className="label">To Date</label>
-          <DatePicker
-            selected={filters.endDate}
-            onChange={(d) => setFilter('endDate', d)}
-            dateFormat="dd/MM/yyyy"
-            placeholderText="End date"
-            className="input text-sm"
-            maxDate={new Date()}
-            minDate={filters.startDate}
-          />
-        </div>
-
-        {hasFilters && (
-          <button
-            onClick={() => {
-              setFilters({ transactionType: '', department: '', product: '', startDate: null, endDate: null });
-              setSelectedProductName('');
-              setProductSearch('');
-              setPage(1);
-            }}
-            className="btn btn-ghost text-sm"
-          >
-            Clear
-          </button>
+      {/* ── Phones: card list ── */}
+      <div className="md:hidden">
+        {isLoading ? (
+          <PageLoader />
+        ) : txns.length === 0 ? (
+          <div className="card p-8 text-center text-gray-500">No transactions found.</div>
+        ) : (
+          <div className="space-y-2.5">
+            {txns.map((t) => (
+              <MobileCard
+                key={t._id}
+                className={t.isVoided ? 'opacity-60' : ''}
+                title={t.product?.name}
+                subtitle={<><span className="font-mono">{t.transactionNumber}</span> · {fDate(t.transactionDate)}</>}
+                aside={<Badge variant={TYPE_VARIANTS[t.transactionType]} size="sm">{TYPE_LABELS[t.transactionType]}</Badge>}
+                fields={[
+                  { label: 'Qty', value: <span className="font-semibold text-gray-900">{t.quantity} <span className="text-xs font-normal text-gray-400">{t.unit?.symbol}</span></span> },
+                  { label: 'By', value: t.createdBy?.name },
+                  { label: 'From', value: t.fromDepartment?.name },
+                  { label: 'To', value: t.toDepartment?.name },
+                ]}
+                footer={
+                  <>
+                    {t.isVoided && <Badge variant="danger" size="sm" className="mr-auto">Voided</Badge>}
+                    <button
+                      onClick={() => printTransactionReceipt(t)}
+                      className="btn-ghost p-2 text-gray-500"
+                      aria-label="Print receipt"
+                    >
+                      <Printer className="h-4 w-4" />
+                    </button>
+                    {can('transactions:delete') && !t.isVoided && (
+                      <button onClick={() => setVoidTarget(t)} className="btn-ghost px-3 py-2 text-sm text-red-600">
+                        Void
+                      </button>
+                    )}
+                  </>
+                }
+              />
+            ))}
+          </div>
         )}
       </div>
 
       {/* ── Table ── */}
-      <div className="card overflow-hidden">
-        {isLoading ? (
-          <PageLoader />
-        ) : txns.length === 0 ? (
-          <div className="p-8 text-center text-gray-500">No transactions found.</div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full">
-              <thead>
-                <tr className="border-b border-gray-200 bg-gray-50">
-                  <th className="table-th">TXN #</th>
-                  <th className="table-th">Date</th>
-                  <th className="table-th">Type</th>
-                  <th className="table-th">Product</th>
-                  <th className="table-th">From</th>
-                  <th className="table-th">To</th>
-                  <th className="table-th text-right">Qty</th>
-                  <th className="table-th">By</th>
-                  <th className="table-th">Status</th>
-                  <th className="table-th" />
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {txns.map((t) => (
-                  <tr key={t._id} className={`hover:bg-gray-50 ${t.isVoided ? 'opacity-50' : ''}`}>
-                    <td className="table-td font-mono text-xs">{t.transactionNumber}</td>
-                    <td className="table-td text-sm">{fDate(t.transactionDate)}</td>
-                    <td className="table-td">
-                      <Badge variant={TYPE_VARIANTS[t.transactionType]} size="sm">{TYPE_LABELS[t.transactionType]}</Badge>
-                    </td>
-                    <td className="table-td">
-                      <div className="text-sm font-medium">{t.product?.name}</div>
-                      <div className="text-xs text-gray-400">{t.product?.code}</div>
-                    </td>
-                    <td className="table-td text-sm">{t.fromDepartment?.name || '—'}</td>
-                    <td className="table-td text-sm">{t.toDepartment?.name || '—'}</td>
-                    <td className="table-td text-right text-sm font-medium">
-                      {t.quantity} <span className="text-gray-400 text-xs">{t.unit?.symbol}</span>
-                    </td>
-                    <td className="table-td text-sm">{t.createdBy?.name}</td>
-                    <td className="table-td">
-                      {t.isVoided
-                        ? <Badge variant="danger"  size="sm">Voided</Badge>
-                        : <Badge variant="success" size="sm">Active</Badge>
-                      }
-                    </td>
-                    <td className="table-td">
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={() => printTransactionReceipt(t)}
-                          className="p-1 text-gray-400 hover:text-primary-600 rounded"
-                          title="Print receipt"
-                        >
-                          <Printer className="h-4 w-4" />
-                        </button>
-                        {can('transactions:delete') && !t.isVoided && (
-                          <button
-                            onClick={() => setVoidTarget(t)}
-                            className="text-xs text-red-600 hover:underline"
-                          >
-                            Void
-                          </button>
-                        )}
-                      </div>
-                    </td>
+      <div className={`card overflow-hidden ${hasPages ? 'mt-3 md:mt-0' : 'hidden md:block'}`}>
+        <div className="hidden md:block">
+          {isLoading ? (
+            <PageLoader />
+          ) : txns.length === 0 ? (
+            <div className="p-8 text-center text-gray-500">No transactions found.</div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="min-w-full">
+                <thead>
+                  <tr className="border-b border-gray-200 bg-gray-50">
+                    <th className="table-th">TXN #</th>
+                    <th className="table-th">Date</th>
+                    <th className="table-th">Type</th>
+                    <th className="table-th">Product</th>
+                    <th className="table-th">From</th>
+                    <th className="table-th">To</th>
+                    <th className="table-th text-right">Qty</th>
+                    <th className="table-th">By</th>
+                    <th className="table-th">Status</th>
+                    <th className="table-th" />
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {txns.map((t) => (
+                    <tr key={t._id} className={`hover:bg-gray-50 ${t.isVoided ? 'opacity-50' : ''}`}>
+                      <td className="table-td font-mono text-xs">{t.transactionNumber}</td>
+                      <td className="table-td text-sm">{fDate(t.transactionDate)}</td>
+                      <td className="table-td">
+                        <Badge variant={TYPE_VARIANTS[t.transactionType]} size="sm">{TYPE_LABELS[t.transactionType]}</Badge>
+                      </td>
+                      <td className="table-td">
+                        <div className="text-sm font-medium">{t.product?.name}</div>
+                        <div className="text-xs text-gray-400">{t.product?.code}</div>
+                      </td>
+                      <td className="table-td text-sm">{t.fromDepartment?.name || '—'}</td>
+                      <td className="table-td text-sm">{t.toDepartment?.name || '—'}</td>
+                      <td className="table-td text-right text-sm font-medium">
+                        {t.quantity} <span className="text-gray-400 text-xs">{t.unit?.symbol}</span>
+                      </td>
+                      <td className="table-td text-sm">{t.createdBy?.name}</td>
+                      <td className="table-td">
+                        {t.isVoided
+                          ? <Badge variant="danger"  size="sm">Voided</Badge>
+                          : <Badge variant="success" size="sm">Active</Badge>
+                        }
+                      </td>
+                      <td className="table-td">
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => printTransactionReceipt(t)}
+                            className="p-1 text-gray-400 hover:text-primary-600 rounded"
+                            title="Print receipt"
+                          >
+                            <Printer className="h-4 w-4" />
+                          </button>
+                          {can('transactions:delete') && !t.isVoided && (
+                            <button
+                              onClick={() => setVoidTarget(t)}
+                              className="text-xs text-red-600 hover:underline"
+                            >
+                              Void
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
 
-        {pagination && pagination.totalPages > 1 && (
-          <div className="flex items-center justify-between border-t px-4 py-3 text-sm text-gray-600">
+        {hasPages && (
+          <div className="flex items-center justify-between md:border-t px-4 py-2 md:py-3 text-sm text-gray-600">
             <span>{pagination.total} transactions</span>
-            <div className="flex gap-2">
-              <button disabled={page <= 1} onClick={() => setPage((p) => p - 1)} className="btn btn-ghost disabled:opacity-40">Prev</button>
+            <div className="flex items-center gap-1 md:gap-2">
+              <button disabled={page <= 1} onClick={() => setPage((p) => p - 1)} className="btn btn-ghost min-h-[40px] disabled:opacity-40">Prev</button>
               <span className="px-2 py-1">{page} / {pagination.totalPages}</span>
-              <button disabled={page >= pagination.totalPages} onClick={() => setPage((p) => p + 1)} className="btn btn-ghost disabled:opacity-40">Next</button>
+              <button disabled={page >= pagination.totalPages} onClick={() => setPage((p) => p + 1)} className="btn btn-ghost min-h-[40px] disabled:opacity-40">Next</button>
             </div>
           </div>
         )}
       </div>
 
-      {/* ── Void modal ── */}
-      {voidTarget && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-          <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-md mx-4">
-            <h3 className="text-lg font-semibold text-gray-900 mb-1">Void Transaction</h3>
+      {/* ── Void sheet ── */}
+      <Modal open={!!voidTarget} onClose={closeVoid} title="Void Transaction" size="md">
+        {voidTarget && (
+          <>
             <p className="text-sm text-gray-500 mb-4">
               Voiding <span className="font-mono font-medium">{voidTarget.transactionNumber}</span> will reverse its effect on stock balance.
             </p>
@@ -338,8 +429,8 @@ const TransactionHistory = () => {
               rows={2}
               placeholder="Enter reason…"
             />
-            <div className="flex gap-2 justify-end">
-              <button onClick={() => { setVoidTarget(null); setVoidReason(''); }} className="btn btn-ghost">Cancel</button>
+            <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+              <button onClick={closeVoid} className="btn btn-ghost">Cancel</button>
               <button
                 onClick={() => voidMutation.mutate({ id: voidTarget._id, reason: voidReason })}
                 disabled={!voidReason.trim() || voidMutation.isPending}
@@ -348,9 +439,9 @@ const TransactionHistory = () => {
                 {voidMutation.isPending ? 'Voiding…' : 'Confirm Void'}
               </button>
             </div>
-          </div>
-        </div>
-      )}
+          </>
+        )}
+      </Modal>
     </div>
   );
 };

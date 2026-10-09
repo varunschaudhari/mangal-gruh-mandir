@@ -2,14 +2,17 @@ import { useEffect, useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
   History, RefreshCw, Printer, Search,
-  FileSpreadsheet, CheckCircle2, Clock, IndianRupee, Gift,
+  FileSpreadsheet, CheckCircle2, Clock, IndianRupee, Gift, Share2,
 } from 'lucide-react';
 import { getCoupons, printCoupons } from '../../api/mahaprasad.api.js';
 import PageHeader from '../../components/ui/PageHeader.jsx';
 import Badge from '../../components/ui/Badge.jsx';
+import MobileCard from '../../components/ui/MobileCard.jsx';
 import { PageLoader } from '../../components/ui/Spinner.jsx';
 import { exportToExcel } from '../../utils/exportToExcel.js';
 import toast from 'react-hot-toast';
+import { openFile } from '../../utils/fileSaver.js';
+import { isNative } from '../../utils/platform.js';
 
 const fmt   = (d) => d ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
 const fmtTs = (d) => d ? new Date(d).toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : '—';
@@ -89,9 +92,7 @@ export default function MahaprasadHistory() {
     setPrinting(true);
     try {
       const r = await printCoupons([coupon.couponNumber]);
-      const url = URL.createObjectURL(r.data);
-      window.open(url, '_blank');
-      setTimeout(() => URL.revokeObjectURL(url), 60000);
+      await openFile(r.data, `Coupon-${coupon.couponNumber}.pdf`);
     } catch { toast.error('Failed to generate PDF'); }
     finally   { setPrinting(false); }
   };
@@ -124,29 +125,31 @@ export default function MahaprasadHistory() {
         actions={
           <div className="flex items-center gap-2">
             <button onClick={handleExport} disabled={coupons.length === 0}
-              className="btn btn-ghost border text-sm flex items-center gap-1.5 disabled:opacity-40">
+              className="btn btn-ghost border text-sm flex items-center gap-1.5 disabled:opacity-40 max-sm:py-2.5">
               <FileSpreadsheet className="h-4 w-4" /> Export
             </button>
             <button onClick={() => refetch()} disabled={isFetching}
-              className="btn btn-ghost border text-sm flex items-center gap-1.5">
+              className="btn btn-ghost border text-sm flex items-center gap-1.5 max-sm:py-2.5">
               <RefreshCw className={`h-4 w-4 ${isFetching ? 'animate-spin' : ''}`} /> Refresh
             </button>
           </div>
         }
       />
 
-      {/* Filters */}
-      <div className="card p-4 space-y-3">
-        <div className="flex flex-wrap items-center gap-3">
+      {/* Filters — phones: search and date full width, the two selects side by side */}
+      <div className="card p-3 sm:p-4 space-y-3">
+        <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center sm:gap-3">
           {/* Coupon number search */}
-          <div className="relative">
+          <div className="relative col-span-2">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
             <input
               type="text"
               value={searchInput}
               onChange={(e) => setSearchInput(e.target.value.toUpperCase())}
               placeholder="Search MP-YYYYMMDD-NNN"
-              className="input pl-8 text-sm font-mono w-52"
+              autoCapitalize="characters"
+              autoComplete="off"
+              className="input pl-8 text-sm font-mono w-full sm:w-52"
             />
           </div>
 
@@ -155,22 +158,23 @@ export default function MahaprasadHistory() {
             value={date}
             onChange={(e) => { setDate(e.target.value); setPage(1); }}
             disabled={!!search}
-            className="input text-sm disabled:opacity-40"
+            aria-label="Date"
+            className="input text-sm disabled:opacity-40 col-span-2 sm:w-auto"
           />
 
-          <select value={status} onChange={(e) => { setStatus(e.target.value); setPage(1); }} className="input text-sm">
+          <select value={status} onChange={(e) => { setStatus(e.target.value); setPage(1); }} aria-label="Status" className="input text-sm min-w-0 sm:w-auto">
             <option value="">All Status</option>
             <option value="issued">Issued (Pending)</option>
             <option value="redeemed">Redeemed</option>
           </select>
 
-          <select value={type} onChange={(e) => { setType(e.target.value); setPage(1); }} className="input text-sm">
+          <select value={type} onChange={(e) => { setType(e.target.value); setPage(1); }} aria-label="Type" className="input text-sm min-w-0 sm:w-auto">
             <option value="">All Types</option>
             <option value="paid">Paid</option>
             <option value="free">Free</option>
           </select>
 
-          <span className="text-xs text-gray-400 ml-auto">{total} total</span>
+          <span className="hidden sm:inline text-xs text-gray-400 ml-auto">{total} total</span>
         </div>
 
         {/* Summary pills — only when data loaded */}
@@ -184,10 +188,13 @@ export default function MahaprasadHistory() {
               <SumPill icon={IndianRupee} label="Collected" value={`₹${summary.collected.toLocaleString('en-IN')}`} color="green" />
             )}
             {pages > 1 && (
-              <span className="text-xs text-gray-400 ml-auto">Showing page {page} of {pages}</span>
+              <span className="hidden sm:inline text-xs text-gray-400 ml-auto">Showing page {page} of {pages}</span>
             )}
           </div>
         )}
+        <p className="sm:hidden text-xs text-gray-400">
+          {total} total{pages > 1 ? ` · page ${page} of ${pages}` : ''}
+        </p>
       </div>
 
       {isLoading ? <PageLoader /> : coupons.length === 0 ? (
@@ -197,8 +204,42 @@ export default function MahaprasadHistory() {
           <p className="text-sm text-gray-400 mt-1">Try changing the date or filters</p>
         </div>
       ) : (
-        <div className="card overflow-hidden">
-          <div className="overflow-x-auto">
+        <>
+        {/* Phones: one card per coupon */}
+        <div className="space-y-2.5 md:hidden">
+          {coupons.map((c) => (
+            <MobileCard
+              key={c._id}
+              className={c.status === 'redeemed' ? 'border-green-100' : ''}
+              title={<span className="font-mono font-semibold text-sm">{c.couponNumber}</span>}
+              subtitle={`${fmt(c.date)}${c.issuedBy?.name ? ` · ${c.issuedBy.name}` : ''}`}
+              aside={
+                <>
+                  <Badge variant={STATUS_V[c.status]} size="sm">
+                    {c.status === 'redeemed' ? 'Redeemed' : 'Pending'}
+                  </Badge>
+                  <button onClick={() => handleReprint(c)} disabled={printing}
+                    aria-label={isNative ? 'Share or print PDF' : 'Reprint'}
+                    className="-my-1.5 -mr-1.5 p-2.5 rounded-lg text-gray-400 active:bg-gray-100 disabled:opacity-40">
+                    {isNative ? <Share2 className="h-[18px] w-[18px]" /> : <Printer className="h-[18px] w-[18px]" />}
+                  </button>
+                </>
+              }
+              fields={[
+                { label: 'Type', value: c.type === 'free' ? `Free${c.occasion ? ` · ${c.occasion}` : ''}` : 'Paid' },
+                { label: 'Amount', value: c.type === 'paid' ? `₹${c.amount}` : '—' },
+                c.status === 'redeemed' && {
+                  label: 'Redeemed',
+                  full: true,
+                  value: `${fmtTs(c.redeemedAt)}${c.redeemedBy?.name ? ` · ${c.redeemedBy.name}` : ''}`,
+                },
+              ]}
+            />
+          ))}
+        </div>
+
+        <div className={`card overflow-hidden ${pages > 1 ? '' : 'max-md:hidden'}`}>
+          <div className="hidden md:block overflow-x-auto">
             <table className="min-w-full">
               <thead>
                 <tr className="bg-gray-50 border-b">
@@ -258,17 +299,18 @@ export default function MahaprasadHistory() {
 
           {/* Pagination */}
           {pages > 1 && (
-            <div className="px-4 py-3 border-t flex items-center justify-between text-xs text-gray-500">
+            <div className="px-4 py-3 md:border-t flex items-center justify-between gap-3 text-xs text-gray-500">
               <span>Page {page} of {pages} &nbsp;·&nbsp; {total} coupons</span>
               <div className="flex gap-2">
                 <button disabled={page <= 1} onClick={() => setPage(page - 1)}
-                  className="btn-secondary text-xs px-2 py-1 disabled:opacity-40">Prev</button>
+                  className="btn-secondary text-xs px-2 py-1 max-sm:px-4 disabled:opacity-40">Prev</button>
                 <button disabled={page >= pages} onClick={() => setPage(page + 1)}
-                  className="btn-secondary text-xs px-2 py-1 disabled:opacity-40">Next</button>
+                  className="btn-secondary text-xs px-2 py-1 max-sm:px-4 disabled:opacity-40">Next</button>
               </div>
             </div>
           )}
         </div>
+        </>
       )}
     </div>
   );

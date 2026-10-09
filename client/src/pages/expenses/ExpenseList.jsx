@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { Plus, Clock, CheckCircle2, XCircle, Banknote, FileDown } from 'lucide-react';
 import { getExpenses } from '../../api/expense.api.js';
@@ -8,7 +8,11 @@ import PageHeader from '../../components/ui/PageHeader.jsx';
 import SearchableSelect from '../../components/ui/SearchableSelect.jsx';
 import { fDate, fCurrency } from '../../utils/formatters.js';
 import { usePermissions } from '../../hooks/usePermissions.js';
+import { useIsMobile } from '../../hooks/useMediaQuery.js';
+import MobileCard from '../../components/ui/MobileCard.jsx';
 import toast from 'react-hot-toast';
+import { saveFile } from '../../utils/fileSaver.js';
+import haptics from '../../utils/haptics.js';
 
 const CATEGORY_LABELS = {
   electricity: 'Electricity', water: 'Water', salary: 'Salary',
@@ -44,19 +48,31 @@ function StatusBadge({ status }) {
   );
 }
 
+// YYYY-MM-DD in local time. toISOString() is UTC, which in India (UTC+5:30) turns
+// local midnight on the 1st into the previous month's last day.
+const localIso = (d) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
 const thisMonthFrom = () => {
   const d = new Date();
-  return new Date(d.getFullYear(), d.getMonth(), 1).toISOString().split('T')[0];
+  return localIso(new Date(d.getFullYear(), d.getMonth(), 1));
 };
-const today = () => new Date().toISOString().split('T')[0];
+const today = () => localIso(new Date());
+
+// Phone status filter: horizontally scrollable chips instead of a dropdown.
+const STATUS_CHIPS = [{ value: '', label: 'All' }, ...STATUS_OPTIONS.map((o) => ({ ...o, label: STATUS_BADGES[o.value].label }))];
 
 export default function ExpenseList() {
   const { can } = usePermissions();
+  const navigate = useNavigate();
+  const isMobile = useIsMobile();
+  const [searchParams] = useSearchParams();
 
   const [from,        setFrom]       = useState(thisMonthFrom());
   const [to,          setTo]         = useState(today());
   const [category,    setCategory]   = useState('');
-  const [status,      setStatus]     = useState('');
+  // P&L / dashboard link here with ?status=pending_approval
+  const [status,      setStatus]     = useState(searchParams.get('status') || '');
   const [exporting,   setExporting]  = useState(false);
 
   const exportPdf = async () => {
@@ -68,12 +84,7 @@ export default function ExpenseList() {
       if (category) params.set('category', category);
       if (status)   params.set('status',   status);
       const res  = await api.get(`/expenses/export/pdf?${params}`, { responseType: 'blob' });
-      const url  = URL.createObjectURL(new Blob([res.data], { type: 'application/pdf' }));
-      const link = document.createElement('a');
-      link.href  = url;
-      link.download = `Expenses-${from || 'all'}-to-${to || 'all'}.pdf`;
-      link.click();
-      URL.revokeObjectURL(url);
+      await saveFile(new Blob([res.data], { type: 'application/pdf' }), `Expenses-${from || 'all'}-to-${to || 'all'}.pdf`);
     } catch {
       toast.error('Export failed');
     } finally {
@@ -100,9 +111,10 @@ export default function ExpenseList() {
             <button
               onClick={exportPdf}
               disabled={exporting}
-              className="btn-secondary flex items-center gap-1.5 text-sm">
+              className="btn-secondary flex items-center gap-1.5 text-sm px-3 sm:px-4"
+              aria-label="Export PDF">
               <FileDown className="h-4 w-4" />
-              {exporting ? 'Exporting…' : 'Export PDF'}
+              <span className={exporting ? '' : 'hidden sm:inline'}>{exporting ? 'Exporting…' : 'Export PDF'}</span>
             </button>
             {can('payments:write') && (
               <Link to="/expenses/new" className="btn-primary flex items-center gap-2">
@@ -115,22 +127,40 @@ export default function ExpenseList() {
 
       {/* Summary cards */}
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-        <div className="card p-4 text-center">
+        <div className="card p-3 sm:p-4 text-center">
           <p className="text-xs text-gray-400 uppercase tracking-wide mb-1">Approved</p>
-          <p className="text-xl font-bold text-green-600">{fCurrency(approvedSum)}</p>
+          <p className="text-lg sm:text-xl font-bold text-green-600">{fCurrency(approvedSum)}</p>
         </div>
-        <div className="card p-4 text-center">
+        <div className="card p-3 sm:p-4 text-center">
           <p className="text-xs text-gray-400 uppercase tracking-wide mb-1">Pending</p>
-          <p className="text-xl font-bold text-yellow-600">{fCurrency(pendingSum)}</p>
+          <p className="text-lg sm:text-xl font-bold text-yellow-600">{fCurrency(pendingSum)}</p>
         </div>
-        <div className="card p-4 text-center col-span-2 sm:col-span-1">
-          <p className="text-xs text-gray-400 uppercase tracking-wide mb-1">Entries</p>
-          <p className="text-xl font-bold text-gray-900">{expenses.length}</p>
+        {/* Phones: a slim one-line row so the count doesn't take a whole tile row */}
+        <div className="card px-4 py-2.5 sm:p-4 col-span-2 sm:col-span-1 flex items-center justify-between sm:block sm:text-center">
+          <p className="text-xs text-gray-400 uppercase tracking-wide sm:mb-1">Entries</p>
+          <p className="text-base sm:text-xl font-bold text-gray-900">{expenses.length}</p>
+        </div>
+      </div>
+
+      {/* Phones: status chips */}
+      <div className="-mx-4 overflow-x-auto px-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden md:hidden">
+        <div className="flex w-max gap-1.5">
+          {STATUS_CHIPS.map((c) => (
+            <button
+              key={c.value}
+              onClick={() => { haptics.select(); setStatus(c.value); }}
+              className={`whitespace-nowrap rounded-full border px-3.5 py-2 text-sm font-medium transition-colors ${
+                status === c.value ? 'border-primary-600 bg-primary-600 text-white' : 'border-gray-200 bg-white text-gray-600'
+              }`}
+            >
+              {c.label}
+            </button>
+          ))}
         </div>
       </div>
 
       {/* Filters */}
-      <div className="card p-4 grid grid-cols-2 sm:grid-cols-4 gap-3">
+      <div className="card p-3 sm:p-4 grid grid-cols-2 sm:grid-cols-4 gap-3">
         <div>
           <label className="block text-xs font-semibold text-gray-500 mb-1">From</label>
           <input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className="input text-sm" />
@@ -139,7 +169,7 @@ export default function ExpenseList() {
           <label className="block text-xs font-semibold text-gray-500 mb-1">To</label>
           <input type="date" value={to} onChange={(e) => setTo(e.target.value)} className="input text-sm" />
         </div>
-        <div>
+        <div className="col-span-2 sm:col-span-1">
           <label className="block text-xs font-semibold text-gray-500 mb-1">Category</label>
           <SearchableSelect
             value={category}
@@ -148,7 +178,7 @@ export default function ExpenseList() {
             placeholder="All categories"
           />
         </div>
-        <div>
+        <div className="hidden md:block">
           <label className="block text-xs font-semibold text-gray-500 mb-1">Status</label>
           <SearchableSelect
             value={status}
@@ -159,7 +189,42 @@ export default function ExpenseList() {
         </div>
       </div>
 
-      {/* Table */}
+      {isMobile ? (
+        isLoading ? (
+          <div className="card py-12 text-center text-gray-400">Loading…</div>
+        ) : expenses.length === 0 ? (
+          <div className="card py-12 text-center">
+            <Banknote className="h-8 w-8 text-gray-300 mx-auto mb-2" />
+            <p className="text-sm text-gray-400">No expenses found for the selected filters.</p>
+          </div>
+        ) : (
+          <div className="space-y-2.5">
+            {expenses.map((e) => (
+              <MobileCard
+                key={e._id}
+                onClick={() => navigate(`/expenses/${e._id}`)}
+                title={e.description}
+                subtitle={<><span className="font-mono">{e.expenseNumber}</span> · {fDate(e.expenseDate)}</>}
+                aside={
+                  <div className="text-right">
+                    <p className="whitespace-nowrap text-base font-bold text-gray-900">{fCurrency(e.amount)}</p>
+                    <div className="mt-1"><StatusBadge status={e.status} /></div>
+                  </div>
+                }
+                fields={[
+                  { label: 'Category', value: CATEGORY_LABELS[e.category] || e.category },
+                  { label: 'Payee', value: e.payee },
+                  { label: 'Mode', value: PM_LABELS[e.paymentMode] || e.paymentMode },
+                ]}
+              />
+            ))}
+            <div className="flex items-center justify-between rounded-xl border border-orange-100 bg-orange-50 px-4 py-3">
+              <span className="text-sm font-semibold text-gray-700">Approved Total</span>
+              <span className="text-base font-bold text-gray-900">{fCurrency(approvedSum)}</span>
+            </div>
+          </div>
+        )
+      ) : (
       <div className="card overflow-hidden">
         {isLoading ? (
           <div className="py-12 text-center text-gray-400">Loading…</div>
@@ -212,6 +277,7 @@ export default function ExpenseList() {
           </div>
         )}
       </div>
+      )}
     </div>
   );
 }

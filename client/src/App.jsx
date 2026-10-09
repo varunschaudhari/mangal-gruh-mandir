@@ -67,6 +67,7 @@ import ExpenseList from './pages/expenses/ExpenseList.jsx'
 import NewExpense from './pages/expenses/NewExpense.jsx'
 import ExpenseDetail from './pages/expenses/ExpenseDetail.jsx'
 import MonthlyPnL from './pages/reports/MonthlyPnL.jsx'
+import ReportsHub from './pages/reports/ReportsHub.jsx'
 import BudgetManager from './pages/expenses/BudgetManager.jsx'
 import MahaprasadCounter from './pages/mahaprasad/MahaprasadCounter.jsx';
 import MahaprasadRedeem from './pages/mahaprasad/MahaprasadRedeem.jsx';
@@ -102,6 +103,7 @@ const App = () => (
         <Route path="/inventory/ledger" element={<StockLedger />} />
 
         {/* Reports */}
+        <Route path="/reports"                   element={<ReportsHub />} />
         <Route path="/reports/daily" element={<DailyMovement />} />
         <Route path="/reports/low-stock" element={<LowStockAlerts />} />
         <Route path="/reports/expiring-stock" element={<ExpiringStock />} />

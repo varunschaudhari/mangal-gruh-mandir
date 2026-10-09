@@ -6,9 +6,15 @@ import { createExpense, uploadExpenseReceipt } from '../../api/expense.api.js';
 import { getUsers } from '../../api/user.api.js';
 import SearchableSelect from '../../components/ui/SearchableSelect.jsx';
 import PageHeader from '../../components/ui/PageHeader.jsx';
+import StickyActionBar from '../../components/ui/StickyActionBar.jsx';
 import { FormField, FormRow } from '../../components/ui/FormField.jsx';
-import { Paperclip, X } from 'lucide-react';
+import { Paperclip, X, Camera } from 'lucide-react';
 import toast from 'react-hot-toast';
+import haptics from '../../utils/haptics.js';
+
+// Server accepts .jpg/.png/.pdf only; exact types keep HEIC/WebP out of the picker. No `capture`,
+// so phones show the OS chooser with both camera and gallery/files.
+const RECEIPT_ACCEPT = 'image/jpeg,image/png,application/pdf,.jpg,.jpeg,.png,.pdf';
 
 const CATEGORIES = [
   { value: 'electricity',   label: 'Electricity' },
@@ -108,7 +114,7 @@ export default function NewExpense() {
         breadcrumbs={[{ label: 'Expenses', to: '/expenses' }, { label: 'New' }]}
       />
 
-      <form onSubmit={handleSubmit(onSubmit)} className="card p-6 space-y-4">
+      <form onSubmit={handleSubmit(onSubmit)} className="card p-4 sm:p-6 space-y-4">
 
         <FormRow>
           <FormField label="Category" required error={errors.category?.message}>
@@ -167,6 +173,7 @@ export default function NewExpense() {
           <FormField label="Amount (₹)" required error={errors.amount?.message}>
             <input
               type="number"
+              inputMode="decimal"
               step="0.01"
               min="0.01"
               {...register('amount', { required: 'Amount is required', min: { value: 0.01, message: 'Must be > 0' } })}
@@ -191,13 +198,36 @@ export default function NewExpense() {
               control={control}
               rules={{ required: 'Payment mode is required' }}
               render={({ field }) => (
-                <SearchableSelect
-                  value={field.value}
-                  onChange={field.onChange}
-                  options={PM_OPTIONS}
-                  placeholder="Select mode…"
-                  nullable={false}
-                />
+                <>
+                  <div className="hidden sm:block">
+                    <SearchableSelect
+                      value={field.value}
+                      onChange={field.onChange}
+                      options={PM_OPTIONS}
+                      placeholder="Select mode…"
+                      nullable={false}
+                    />
+                  </div>
+                  {/* Phones: three options fit as a one-tap segmented control */}
+                  <div className="grid grid-cols-3 gap-2 sm:hidden" role="radiogroup" aria-label="Payment mode">
+                    {PM_OPTIONS.map((o) => (
+                      <button
+                        key={o.value}
+                        type="button"
+                        role="radio"
+                        aria-checked={field.value === o.value}
+                        onClick={() => { haptics.select(); field.onChange(o.value); }}
+                        className={`min-h-[44px] rounded-lg border px-2 text-sm font-medium transition-colors ${
+                          field.value === o.value
+                            ? 'border-primary-500 bg-primary-50 text-primary-700'
+                            : 'border-gray-300 bg-white text-gray-700'
+                        }`}
+                      >
+                        {o.value === 'upi' ? 'UPI' : o.label}
+                      </button>
+                    ))}
+                  </div>
+                </>
               )}
             />
           </FormField>
@@ -226,7 +256,7 @@ export default function NewExpense() {
           <input
             ref={fileInputRef}
             type="file"
-            accept=".jpg,.jpeg,.png,.pdf"
+            accept={RECEIPT_ACCEPT}
             className="hidden"
             onChange={(e) => setReceiptFile(e.target.files?.[0] ?? null)}
           />
@@ -237,7 +267,8 @@ export default function NewExpense() {
               <button
                 type="button"
                 onClick={() => { setReceiptFile(null); if (fileInputRef.current) fileInputRef.current.value = ''; }}
-                className="text-gray-400 hover:text-red-500 transition-colors"
+                className="-m-2 p-2 sm:m-0 sm:p-0 text-gray-400 hover:text-red-500 transition-colors"
+                aria-label="Remove receipt"
               >
                 <X className="h-4 w-4" />
               </button>
@@ -246,21 +277,23 @@ export default function NewExpense() {
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
-              className="btn-secondary flex items-center gap-2 text-sm w-fit"
+              className="btn-secondary flex items-center gap-2 text-sm w-full sm:w-fit"
             >
-              <Paperclip className="h-4 w-4" /> Attach Receipt
+              <Camera className="h-4 w-4 sm:hidden" />
+              <Paperclip className="hidden h-4 w-4 sm:block" /> Attach Receipt
             </button>
           )}
         </FormField>
 
-        <div className="flex items-center gap-3 pt-2">
+        {/* Pinned to the bottom on phones (Submit on the right); unchanged left-aligned row from sm up */}
+        <StickyActionBar className="flex-row-reverse sm:flex-row sm:items-center sm:!justify-start sm:gap-3 sm:pt-2">
           <button type="submit" disabled={isSubmitting} className="btn-primary">
             {isSubmitting ? (receiptFile ? 'Uploading…' : 'Submitting…') : 'Submit for Approval'}
           </button>
-          <button type="button" onClick={() => navigate('/expenses')} className="btn-secondary">
+          <button type="button" onClick={() => navigate('/expenses')} className="btn-secondary max-sm:!flex-none max-sm:px-5">
             Cancel
           </button>
-        </div>
+        </StickyActionBar>
       </form>
     </div>
   );

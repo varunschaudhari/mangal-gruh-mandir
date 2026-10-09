@@ -10,6 +10,7 @@ import { PageLoader } from '../../components/ui/Spinner.jsx';
 import { fDate } from '../../utils/formatters.js';
 import { exportToExcel } from '../../utils/exportToExcel.js';
 import toast from 'react-hot-toast';
+import { shareText } from '../../utils/fileSaver.js';
 
 const DAY_OPTIONS = [7, 14, 30, 60, 90];
 
@@ -142,7 +143,7 @@ const ExpiringStock = () => {
                 {copied ? <Check className="h-3 w-3 text-green-600" /> : <Copy className="h-3 w-3" />}
                 {copied ? 'Copied!' : 'Copy'}
               </button>
-              <button onClick={() => window.open(`https://wa.me/?text=${encodeURIComponent(waText)}`, '_blank')}
+              <button onClick={() => shareText(waText)}
                 className="btn text-xs bg-green-500 text-white hover:bg-green-600 flex items-center gap-1 px-3 py-1.5 rounded-md">
                 <MessageCircle className="h-3 w-3" /> Open WhatsApp
               </button>

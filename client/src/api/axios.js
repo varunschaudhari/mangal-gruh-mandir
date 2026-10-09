@@ -1,8 +1,10 @@
 import axios from 'axios';
+import { serverUrl } from '../utils/platform.js';
 
 // In Electron the app runs on app://renderer/ so relative /api works via the
 // protocol handler in main.js (it proxies to the configured VPS URL).
-const api = axios.create({ baseURL: '/api' });
+// In the Capacitor apps serverUrl() prefixes the real server origin.
+const api = axios.create({ baseURL: serverUrl('/api') });
 
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('accessToken');
@@ -40,7 +42,7 @@ api.interceptors.response.use(
         const refreshToken = localStorage.getItem('refreshToken');
         if (!refreshToken) throw new Error('No refresh token');
 
-        const { data } = await axios.post('/api/auth/refresh', { refreshToken });
+        const { data } = await axios.post(serverUrl('/api/auth/refresh'), { refreshToken });
         const newToken = data.data.accessToken;
         localStorage.setItem('accessToken', newToken);
         processQueue(null, newToken);

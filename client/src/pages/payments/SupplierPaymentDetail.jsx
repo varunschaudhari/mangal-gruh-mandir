@@ -7,8 +7,13 @@ import EntityAuditTrail from '../../components/ui/EntityAuditTrail.jsx';
 import { PageLoader } from '../../components/ui/Spinner.jsx';
 import Badge from '../../components/ui/Badge.jsx';
 import Modal from '../../components/ui/Modal.jsx';
+import StickyActionBar from '../../components/ui/StickyActionBar.jsx';
+import { useSetAppBarTitle } from '../../components/Layout/AppBarContext.jsx';
 import { usePermissions } from '../../hooks/usePermissions.js';
+import { useMediaQuery } from '../../hooks/useMediaQuery.js';
 import toast from 'react-hot-toast';
+import { saveFile } from '../../utils/fileSaver.js';
+import haptics from '../../utils/haptics.js';
 
 const fmt    = (d)  => d ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
 const fmtTs  = (d)  => d ? new Date(d).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—';
@@ -19,8 +24,8 @@ const PM_LABELS     = { cash: 'Cash', upi: 'UPI / Online', neft: 'NEFT', rtgs: '
 
 const Row = ({ label, children }) => (
   <div className="flex items-start justify-between gap-4 py-2.5 border-b border-gray-50 last:border-0">
-    <span className="text-xs text-gray-400 shrink-0 w-36">{label}</span>
-    <span className="text-sm text-gray-800 text-right font-medium">{children}</span>
+    <span className="text-xs text-gray-400 shrink-0 w-28 sm:w-36">{label}</span>
+    <span className="min-w-0 break-words text-sm text-gray-800 text-right font-medium">{children}</span>
   </div>
 );
 
@@ -140,6 +145,9 @@ export default function SupplierPaymentDetail() {
   const navigate = useNavigate();
   const qc       = useQueryClient();
   const { can, user } = usePermissions();
+  // Below lg the app bar has the back arrow; rendering the link only on desktop keeps the
+  // desktop DOM (and its space-y spacing) exactly as before.
+  const isDesktop = useMediaQuery('(min-width: 1024px)');
 
   const [approveModal, setApproveModal]     = useState(false);
   const [approvalNote, setApprovalNote]     = useState('');
@@ -156,9 +164,13 @@ export default function SupplierPaymentDetail() {
 
   const { data, isLoading } = useQuery({ queryKey: ['payment', id], queryFn: () => getPayment(id) });
 
+  // No PageHeader here, so name the mobile app bar ourselves.
+  useSetAppBarTitle(data?.data?.data?.paymentNumber || 'Payment');
+
   const approveMut = useMutation({
     mutationFn: (note) => approvePayment(id, note ? { approvalNote: note } : undefined),
     onSuccess:  () => {
+      haptics.success();
       toast.success('Payment approved');
       qc.invalidateQueries({ queryKey: ['payment', id] });
       qc.invalidateQueries({ queryKey: ['payments'] });
@@ -206,10 +218,7 @@ export default function SupplierPaymentDetail() {
     setDownloading(true);
     try {
       const res = await downloadVoucher(id);
-      const url = URL.createObjectURL(res.data);
-      const a   = document.createElement('a');
-      a.href = url; a.download = `VOUCHER-${payment.paymentNumber}.pdf`; a.click();
-      URL.revokeObjectURL(url);
+      await saveFile(res.data, `VOUCHER-${payment.paymentNumber}.pdf`);
     } catch { toast.error('Failed to download voucher'); }
     finally   { setDownloading(false); }
   };
@@ -224,21 +233,38 @@ export default function SupplierPaymentDetail() {
   const isRejected  = payment.status === 'rejected';
   const isSubmitter = user?._id === payment.createdBy?._id || user?.id === payment.createdBy?._id;
 
+  const openApprove  = () => { setApprovalNote(''); setApproveModal(true); };
+  const openReject   = () => { setRejectModal(true); setRejectReason(''); };
+  const openVoid     = () => { setVoidReason(''); setVoidModal(true); };
+  const openResubmit = () => {
+    setRsDate(new Date(payment.paymentDate).toISOString().split('T')[0]);
+    setRsMode(payment.paymentMode);
+    setRsRef(payment.referenceNumber || '');
+    setRsNotes(payment.notes || '');
+    setResubmitModal(true);
+  };
+
+  const showApproveBar  = canApprove && isPending;
+  const showResubmitBar = isRejected && isSubmitter;
+
   return (
     <div className="max-w-3xl space-y-4">
-      <button onClick={() => navigate('/payments')}
-        className="inline-flex items-center gap-1.5 text-sm text-gray-400 hover:text-gray-700 transition-colors">
-        <ArrowLeft className="h-4 w-4" /> Payments
-      </button>
+      {isDesktop && (
+        <button onClick={() => navigate('/payments')}
+          className="inline-flex items-center gap-1.5 text-sm text-gray-400 hover:text-gray-700 transition-colors">
+          <ArrowLeft className="h-4 w-4" /> Payments
+        </button>
+      )}
 
       {/* Header */}
       <div className="flex items-start justify-between gap-4 flex-wrap">
-        <div>
+        <div className="min-w-0">
           <div className="flex items-center gap-2.5 mb-1">
             <Badge variant={STATUS_COLORS[payment.status]}>{STATUS_LABELS[payment.status]}</Badge>
-            <span className="font-mono text-xs text-gray-400">{payment.paymentNumber}</span>
+            {/* Below lg the voucher number is already the app bar title */}
+            <span className="hidden lg:inline font-mono text-xs text-gray-400">{payment.paymentNumber}</span>
           </div>
-          <h1 className="text-xl font-bold text-gray-900">
+          <h1 className="text-lg sm:text-xl font-bold text-gray-900 break-words">
             Payment to{' '}
             <Link to={`/masters/suppliers/${payment.supplier?._id}`} className="hover:text-primary-600 transition-colors">
               {payment.supplier?.name || '—'}
@@ -246,7 +272,8 @@ export default function SupplierPaymentDetail() {
           </h1>
           <p className="text-sm text-gray-400 mt-0.5">{fmt(payment.paymentDate)}</p>
         </div>
-        <div className="flex gap-2 flex-wrap">
+        {/* Phones get these in the pinned action bar below */}
+        <div className="hidden sm:flex gap-2 flex-wrap">
           {isApproved && (
             <>
               <button onClick={handleDownloadVoucher} disabled={downloading}
@@ -255,34 +282,28 @@ export default function SupplierPaymentDetail() {
                 {downloading ? 'Generating…' : 'Voucher PDF'}
               </button>
               {canApprove && (
-                <button onClick={() => { setVoidReason(''); setVoidModal(true); }}
+                <button onClick={openVoid}
                   className="btn-secondary flex items-center gap-2 text-sm text-red-500 hover:text-red-600 border-red-200 hover:border-red-300">
                   <Ban className="h-4 w-4" /> Void
                 </button>
               )}
             </>
           )}
-          {isRejected && isSubmitter && (
+          {showResubmitBar && (
             <button
-              onClick={() => {
-                setRsDate(new Date(payment.paymentDate).toISOString().split('T')[0]);
-                setRsMode(payment.paymentMode);
-                setRsRef(payment.referenceNumber || '');
-                setRsNotes(payment.notes || '');
-                setResubmitModal(true);
-              }}
+              onClick={openResubmit}
               className="btn-secondary flex items-center gap-2 text-sm border-amber-300 text-amber-700 hover:border-amber-400">
               <RotateCcw className="h-4 w-4" /> Edit &amp; Resubmit
             </button>
           )}
-          {canApprove && isPending && (
+          {showApproveBar && (
             <>
               <button
-                onClick={() => { setApprovalNote(''); setApproveModal(true); }}
+                onClick={openApprove}
                 className="btn-primary flex items-center gap-2 text-sm bg-green-600 hover:bg-green-700">
                 <CheckCircle2 className="h-4 w-4" /> Approve
               </button>
-              <button onClick={() => { setRejectModal(true); setRejectReason(''); }}
+              <button onClick={openReject}
                 className="btn-danger flex items-center gap-2 text-sm">
                 <XCircle className="h-4 w-4" /> Reject
               </button>
@@ -292,7 +313,7 @@ export default function SupplierPaymentDetail() {
       </div>
 
       {/* Amount strip */}
-      <div className="bg-white rounded-xl border border-gray-100 px-6 py-4 text-center">
+      <div className="bg-white rounded-xl border border-gray-100 px-4 sm:px-6 py-4 text-center">
         <p className="text-3xl font-black text-primary-600">{fmtAmt(payment.totalAmount)}</p>
         <p className="text-sm text-gray-400 mt-0.5">{PM_LABELS[payment.paymentMode] || payment.paymentMode}</p>
       </div>
@@ -341,7 +362,23 @@ export default function SupplierPaymentDetail() {
           <div className="px-4 py-3 border-b bg-orange-50">
             <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Invoice Allocation</p>
           </div>
-          <table className="min-w-full">
+          {/* Phones: one line per invoice instead of a 4-column table */}
+          <div className="divide-y divide-gray-50 md:hidden">
+            {payment.invoices.map((inv, i) => (
+              <div key={i} className="flex items-start justify-between gap-3 px-4 py-3">
+                <div className="min-w-0">
+                  <p className="font-mono text-sm text-gray-800 break-all">{inv.invoiceNumber || 'Advance'}</p>
+                  <p className="text-xs text-gray-400">{fmt(inv.invoiceDate)} · of {fmtAmt(inv.invoiceTotal)}</p>
+                </div>
+                <p className="shrink-0 text-sm font-semibold text-primary-600">{fmtAmt(inv.paidAmount)}</p>
+              </div>
+            ))}
+            <div className="flex items-center justify-between bg-gray-50 px-4 py-3 text-sm font-bold">
+              <span>Total</span>
+              <span className="text-primary-700">{fmtAmt(payment.totalAmount)}</span>
+            </div>
+          </div>
+          <table className="hidden md:table min-w-full">
             <thead>
               <tr className="bg-gray-50">
                 {['Invoice No.', 'Invoice Date', 'Invoice Total', 'Amount Paid'].map((h) => (
@@ -370,8 +407,44 @@ export default function SupplierPaymentDetail() {
       {/* Activity timeline */}
       <ActivityTimeline payment={payment} />
 
+      {/* Phones: voiding is rare and destructive, so it stays out of the pinned bar */}
+      {isApproved && canApprove && (
+        <button onClick={openVoid} className="btn-secondary w-full border-red-200 text-red-600 sm:hidden">
+          <Ban className="h-4 w-4" /> Void Payment
+        </button>
+      )}
+
       {/* Audit trail */}
       {payment?._id && <EntityAuditTrail entityRef={payment._id} title="Payment History" />}
+
+      {/* Phones: primary actions pinned in thumb reach (Approve on the right) */}
+      {(showApproveBar || showResubmitBar || isApproved) && (
+        <div className="sm:hidden">
+          <StickyActionBar>
+            {showApproveBar && (
+              <>
+                <button onClick={openReject} className="btn-secondary border-red-200 text-red-600">
+                  <XCircle className="h-4 w-4" /> Reject
+                </button>
+                <button onClick={openApprove} className="btn-primary bg-green-600 hover:bg-green-700">
+                  <CheckCircle2 className="h-4 w-4" /> Approve
+                </button>
+              </>
+            )}
+            {showResubmitBar && (
+              <button onClick={openResubmit} className="btn-secondary border-amber-300 text-amber-700">
+                <RotateCcw className="h-4 w-4" /> Edit &amp; Resubmit
+              </button>
+            )}
+            {isApproved && (
+              <button onClick={handleDownloadVoucher} disabled={downloading} className="btn-secondary">
+                <Download className="h-4 w-4" />
+                {downloading ? 'Generating…' : 'Voucher PDF'}
+              </button>
+            )}
+          </StickyActionBar>
+        </div>
+      )}
 
       {/* Void modal */}
       <Modal open={voidModal} onClose={() => setVoidModal(false)} title="Void Payment" size="sm">
@@ -385,7 +458,7 @@ export default function SupplierPaymentDetail() {
             <textarea value={voidReason} onChange={(e) => setVoidReason(e.target.value)}
               rows={3} className="input" placeholder="e.g. Entered in error, duplicate payment…" />
           </div>
-          <div className="flex justify-end gap-2">
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
             <button onClick={() => setVoidModal(false)} className="btn-secondary">Cancel</button>
             <button
               onClick={() => voidMut.mutate()}
@@ -417,7 +490,7 @@ export default function SupplierPaymentDetail() {
               placeholder="e.g. Cross-checked with bank statement…"
             />
           </div>
-          <div className="flex justify-end gap-2">
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
             <button onClick={() => setApproveModal(false)} className="btn-secondary">Cancel</button>
             <button
               onClick={() => approveMut.mutate(approvalNote)}
@@ -439,7 +512,7 @@ export default function SupplierPaymentDetail() {
             <textarea value={rejectReason} onChange={(e) => setRejectReason(e.target.value)}
               rows={3} className="input" placeholder="e.g. Invoice mismatch, duplicate entry…" />
           </div>
-          <div className="flex justify-end gap-2">
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
             <button onClick={() => setRejectModal(false)} className="btn-secondary">Cancel</button>
             <button
               onClick={() => rejectMut.mutate()}
@@ -486,7 +559,7 @@ export default function SupplierPaymentDetail() {
             <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Notes</label>
             <textarea value={rsNotes} onChange={(e) => setRsNotes(e.target.value)} rows={2} className="input" placeholder="Optional remarks…" />
           </div>
-          <div className="flex justify-end gap-2">
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
             <button onClick={() => setResubmitModal(false)} className="btn-secondary">Cancel</button>
             <button
               onClick={() => resubmitMut.mutate()}

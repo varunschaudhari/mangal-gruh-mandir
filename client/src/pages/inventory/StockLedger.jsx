@@ -8,6 +8,7 @@ import PageHeader from '../../components/ui/PageHeader.jsx';
 import Badge from '../../components/ui/Badge.jsx';
 import { PageLoader } from '../../components/ui/Spinner.jsx';
 import { fDate } from '../../utils/formatters.js';
+import { useIsMobile } from '../../hooks/useMediaQuery.js';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 
@@ -35,6 +36,7 @@ const StockLedger = () => {
   const [startDate, setStartDate] = useState(null);
   const [endDate, setEndDate] = useState(null);
   const [submitted, setSubmitted] = useState(false);
+  const isMobile = useIsMobile();
 
   const { data: deptsRes } = useQuery({ queryKey: ['departments'], queryFn: () => getDepartments() });
   const { data: prodsRes } = useQuery({
@@ -77,9 +79,10 @@ const StockLedger = () => {
       />
 
       {/* Filter form */}
-      <form onSubmit={handleView} className="card p-4 mb-4">
-        <div className="flex flex-wrap items-end gap-3">
-          <div className="flex-1 min-w-[180px]">
+      {/* Phones: product and department full width, the two dates side by side */}
+      <form onSubmit={handleView} className="card p-3 sm:p-4 mb-4">
+        <div className="grid grid-cols-2 items-end gap-3 sm:flex sm:flex-wrap">
+          <div className="col-span-2 min-w-0 sm:flex-1 sm:min-w-[180px]">
             <label className="label">Product *</label>
             <SearchableSelect
               value={productId}
@@ -88,7 +91,7 @@ const StockLedger = () => {
               placeholder="Select product…"
             />
           </div>
-          <div className="flex-1 min-w-[160px]">
+          <div className="col-span-2 min-w-0 sm:flex-1 sm:min-w-[160px]">
             <label className="label">Department *</label>
             <SearchableSelect
               value={departmentId}
@@ -97,7 +100,7 @@ const StockLedger = () => {
               placeholder="Select department…"
             />
           </div>
-          <div>
+          <div className="min-w-0 sm:min-w-[auto]">
             <label className="label">From Date</label>
             <DatePicker
               selected={startDate}
@@ -107,9 +110,10 @@ const StockLedger = () => {
               className="input text-sm"
               maxDate={endDate || new Date()}
               isClearable
+              withPortal={isMobile}
             />
           </div>
-          <div>
+          <div className="min-w-0 sm:min-w-[auto]">
             <label className="label">To Date</label>
             <DatePicker
               selected={endDate}
@@ -120,9 +124,10 @@ const StockLedger = () => {
               maxDate={new Date()}
               minDate={startDate}
               isClearable
+              withPortal={isMobile}
             />
           </div>
-          <button type="submit" disabled={!productId || !departmentId} className="btn btn-primary">
+          <button type="submit" disabled={!productId || !departmentId} className="btn btn-primary col-span-2">
             View Ledger
           </button>
         </div>
@@ -133,8 +138,30 @@ const StockLedger = () => {
 
       {submitted && !isLoading && ledger && (
         <>
+          {/* Phones: one summary card */}
+          <div className="card mb-4 p-4 sm:hidden">
+            <p className="text-[15px] font-semibold text-gray-900 break-words">{ledger.product?.name}</p>
+            <p className="text-xs text-gray-400">
+              <span className="font-mono">{ledger.product?.code}</span> · {ledger.department?.name}
+            </p>
+            <div className="mt-3 grid grid-cols-3 gap-2 border-t border-gray-100 pt-3">
+              <div className="min-w-0">
+                <p className="text-[11px] uppercase tracking-wide text-gray-400">Opening</p>
+                <p className="text-base font-bold text-gray-900">{ledger.openingBalance} <span className="text-xs font-normal text-gray-400">{unitSymbol}</span></p>
+              </div>
+              <div className="min-w-0">
+                <p className="text-[11px] uppercase tracking-wide text-gray-400">Closing</p>
+                <p className="text-base font-bold text-primary-700">{ledger.closingBalance} <span className="text-xs font-normal text-gray-400">{unitSymbol}</span></p>
+              </div>
+              <div className="min-w-0">
+                <p className="text-[11px] uppercase tracking-wide text-gray-400">Entries</p>
+                <p className="text-base font-bold text-gray-900">{rows.length}</p>
+              </div>
+            </div>
+          </div>
+
           {/* Summary bar */}
-          <div className="flex flex-wrap gap-3 mb-4">
+          <div className="hidden sm:flex flex-wrap gap-3 mb-4">
             <div className="card px-4 py-3 flex items-center gap-2 text-sm">
               <span className="text-gray-500">Product:</span>
               <span className="font-semibold">{ledger.product?.name}</span>
@@ -163,7 +190,52 @@ const StockLedger = () => {
             </div>
           ) : (
             <div className="card overflow-hidden">
-              <div className="overflow-x-auto">
+              {/* Phones: one row per movement — type & date, in/out on the right, running balance below */}
+              <ul className="divide-y divide-gray-100 md:hidden">
+                {startDate && (
+                  <li className="flex items-center justify-between gap-3 bg-blue-50 px-4 py-2.5 text-sm">
+                    <span className="text-gray-600">Opening · {fDate(startDate)}</span>
+                    <span className="font-bold text-blue-700">{ledger.openingBalance} <span className="text-xs font-normal text-gray-400">{unitSymbol}</span></span>
+                  </li>
+                )}
+                {rows.map((row) => {
+                  const ref = [
+                    row.fromDepartment && `From ${row.fromDepartment.name}`,
+                    row.toDepartment && `To ${row.toDepartment.name}`,
+                    row.invoiceNumber && `Inv ${row.invoiceNumber}`,
+                    row.supplier?.name,
+                    row.donorName && `Donor: ${row.donorName}`,
+                    row.notes,
+                  ].filter(Boolean).join(' · ');
+                  return (
+                    <li key={row._id} className="px-4 py-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+                          <Badge variant={TYPE_VARIANTS[row.transactionType]} size="sm">{TYPE_LABELS[row.transactionType]}</Badge>
+                          <span className="text-sm text-gray-700">{fDate(row.transactionDate)}</span>
+                        </div>
+                        <span className={`shrink-0 text-base font-semibold ${row.inQty > 0 ? 'text-green-700' : 'text-red-600'}`}>
+                          {row.inQty > 0 ? `+${row.inQty}` : row.outQty > 0 ? `-${row.outQty}` : '0'}
+                        </span>
+                      </div>
+                      {ref && <p className="mt-1 text-xs text-gray-500 break-words">{ref}</p>}
+                      <div className="mt-1 flex items-center justify-between gap-3 text-xs text-gray-400">
+                        <span className="min-w-0 truncate">
+                          <span className="font-mono">{row.transactionNumber}</span>
+                          {row.createdBy?.name && ` · ${row.createdBy.name}`}
+                        </span>
+                        <span className="shrink-0">Bal <span className="font-semibold text-gray-800">{row.balance}</span> {unitSymbol}</span>
+                      </div>
+                    </li>
+                  );
+                })}
+                <li className="flex items-center justify-between gap-3 border-t-2 border-primary-200 bg-primary-50 px-4 py-3 text-sm font-medium">
+                  <span className="text-gray-600">Closing Balance</span>
+                  <span className="text-base font-bold text-primary-700">{ledger.closingBalance} <span className="text-xs font-normal text-gray-400">{unitSymbol}</span></span>
+                </li>
+              </ul>
+
+              <div className="hidden md:block overflow-x-auto">
                 <table className="min-w-full">
                   <thead>
                     <tr className="border-b border-gray-200 bg-gray-50">
@@ -239,7 +311,7 @@ const StockLedger = () => {
       )}
 
       {!submitted && (
-        <div className="card p-12 text-center text-gray-400">
+        <div className="card px-6 py-10 sm:p-12 text-center text-gray-400">
           Select a product and department above to view the ledger.
         </div>
       )}

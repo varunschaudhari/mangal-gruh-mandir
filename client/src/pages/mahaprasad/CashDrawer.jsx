@@ -28,31 +28,32 @@ function FloatForm({ date, currentCounts, onClose }) {
   const total = DENOMS.reduce((s, d) => s + d * (Number(counts[String(d)]) || 0), 0);
 
   return (
-    <div className="border border-blue-200 bg-blue-50 rounded-xl p-4 space-y-3">
+    <div className="border border-blue-200 bg-blue-50 rounded-xl p-3 sm:p-4 space-y-3">
       <p className="text-xs font-semibold text-blue-700 uppercase tracking-wide">Set Opening Float</p>
-      <div className="grid grid-cols-2 gap-2">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
         {DENOMS.map((d) => (
           <div key={d} className="flex items-center gap-2">
-            <span className="text-xs font-semibold text-gray-600 w-10 text-right">₹{d}</span>
+            <span className="text-xs max-sm:text-sm font-semibold text-gray-600 w-10 max-sm:w-12 text-right">₹{d}</span>
             <span className="text-gray-400 text-xs">×</span>
             <input
-              type="number" min={0} max={999}
+              type="number" inputMode="numeric" min={0} max={999}
               value={counts[String(d)]}
               onChange={(e) => setCounts((c) => ({ ...c, [String(d)]: Math.max(0, parseInt(e.target.value) || 0) }))}
-              className="input text-sm text-center w-16 py-1"
+              aria-label={`₹${d} notes`}
+              className="input text-sm text-center w-16 max-sm:w-20 py-1"
             />
-            <span className="text-xs text-gray-400 w-14">= ₹{fmt(d * (Number(counts[String(d)]) || 0))}</span>
+            <span className="text-xs text-gray-400 w-14 max-sm:w-auto max-sm:ml-auto max-sm:text-sm tabular-nums">= ₹{fmt(d * (Number(counts[String(d)]) || 0))}</span>
           </div>
         ))}
       </div>
-      <div className="flex items-center justify-between pt-1 border-t border-blue-200">
+      <div className="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-blue-200">
         <span className="text-sm font-bold text-blue-800">Total: ₹{fmt(total)}</span>
-        <div className="flex gap-2">
-          <button onClick={onClose} className="btn btn-ghost border text-sm px-3 py-1.5 flex items-center gap-1">
+        <div className="flex gap-2 max-sm:w-full max-sm:[&>*]:flex-1">
+          <button onClick={onClose} className="btn btn-ghost border text-sm px-3 py-1.5 max-sm:py-2.5 flex items-center gap-1">
             <X className="h-3.5 w-3.5" /> Cancel
           </button>
           <button onClick={() => mut.mutate()} disabled={mut.isPending}
-            className="btn bg-blue-600 hover:bg-blue-700 text-white text-sm px-4 py-1.5 flex items-center gap-1.5 disabled:opacity-50">
+            className="btn bg-blue-600 hover:bg-blue-700 text-white text-sm px-4 py-1.5 max-sm:py-2.5 flex items-center gap-1.5 disabled:opacity-50">
             <Check className="h-3.5 w-3.5" /> Save Float
           </button>
         </div>
@@ -64,7 +65,9 @@ function FloatForm({ date, currentCounts, onClose }) {
 // ── Main CashDrawer component ─────────────────────────────────────────────────
 const CashDrawer = forwardRef(function CashDrawer({ date }, ref) {
   const qc = useQueryClient();
-  const [open,         setOpen]         = useState(true);
+  // Starts collapsed on phones (the header still shows the drawer total) so the issue
+  // form isn't buried under nine denomination rows.
+  const [open,         setOpen]         = useState(() => !window.matchMedia?.('(max-width: 767px)').matches);
   const [showFloat,    setShowFloat]    = useState(false);
 
   // Allows a parent to programmatically open the float form (e.g. from the
@@ -108,8 +111,8 @@ const CashDrawer = forwardRef(function CashDrawer({ date }, ref) {
     <div className="card overflow-hidden">
       {/* Header */}
       <button type="button" onClick={() => setOpen((v) => !v)}
-        className="w-full flex items-center justify-between px-5 py-3 text-sm font-semibold text-gray-700 hover:bg-gray-50 transition-colors">
-        <span className="flex items-center gap-2">
+        className="w-full flex items-center justify-between gap-2 px-4 sm:px-5 py-3 max-sm:min-h-[48px] text-sm font-semibold text-gray-700 hover:bg-gray-50 transition-colors">
+        <span className="flex flex-wrap items-center gap-x-2 gap-y-1 min-w-0">
           <Vault className="h-4 w-4 text-green-600" />
           Cash Drawer
           {!drawer?.isFloatSet && (
@@ -118,7 +121,7 @@ const CashDrawer = forwardRef(function CashDrawer({ date }, ref) {
             </span>
           )}
         </span>
-        <span className="flex items-center gap-3">
+        <span className="flex items-center gap-3 shrink-0">
           <span className={`text-base font-black ${total > 0 ? 'text-green-700' : 'text-gray-400'}`}>
             ₹{fmt(total)}
           </span>
@@ -127,13 +130,13 @@ const CashDrawer = forwardRef(function CashDrawer({ date }, ref) {
       </button>
 
       {open && (
-        <div className="px-5 pb-4 space-y-3">
+        <div className="px-4 sm:px-5 pb-4 space-y-3">
           {/* Float form or set-float button */}
           {showFloat ? (
             <FloatForm date={date} currentCounts={counts} onClose={() => setShowFloat(false)} />
           ) : (
             <button onClick={() => setShowFloat(true)}
-              className="flex items-center gap-1.5 text-xs text-blue-600 hover:text-blue-700 font-medium">
+              className="flex items-center gap-1.5 text-xs text-blue-600 hover:text-blue-700 font-medium max-sm:py-2 max-sm:text-sm">
               <Edit3 className="h-3 w-3" />
               {drawer?.isFloatSet ? 'Reset opening float' : 'Set opening float'}
             </button>
@@ -145,14 +148,15 @@ const CashDrawer = forwardRef(function CashDrawer({ date }, ref) {
               const count   = counts[String(d)] || 0;
               const subtotal = d * count;
               return (
-                <div key={d} className="flex items-center gap-3 py-2">
+                <div key={d} className="flex items-center gap-3 py-2 max-sm:py-1.5">
                   <span className="w-12 text-right text-sm font-semibold text-gray-700">₹{d}</span>
                   <span className="text-gray-400 text-xs">×</span>
                   <div className="flex items-center gap-1">
                     <button
                       onClick={() => adjustMut.mutate({ denomination: d, delta: -1 })}
                       disabled={count === 0 || adjustMut.isPending}
-                      className="w-6 h-6 rounded border border-gray-200 text-gray-500 hover:border-red-300 hover:text-red-600 hover:bg-red-50 transition-colors disabled:opacity-30 text-sm font-bold flex items-center justify-center">
+                      aria-label={`One less ₹${d} note`}
+                      className="w-6 h-6 max-sm:w-10 max-sm:h-10 max-sm:rounded-lg max-sm:text-base rounded border border-gray-200 text-gray-500 hover:border-red-300 hover:text-red-600 hover:bg-red-50 transition-colors disabled:opacity-30 text-sm font-bold flex items-center justify-center">
                       −
                     </button>
                     <span className={`w-8 text-center text-sm font-bold tabular-nums ${count === 0 ? 'text-gray-300' : 'text-gray-800'}`}>
@@ -161,7 +165,8 @@ const CashDrawer = forwardRef(function CashDrawer({ date }, ref) {
                     <button
                       onClick={() => adjustMut.mutate({ denomination: d, delta: 1 })}
                       disabled={adjustMut.isPending}
-                      className="w-6 h-6 rounded border border-gray-200 text-gray-500 hover:border-green-300 hover:text-green-600 hover:bg-green-50 transition-colors text-sm font-bold flex items-center justify-center">
+                      aria-label={`One more ₹${d} note`}
+                      className="w-6 h-6 max-sm:w-10 max-sm:h-10 max-sm:rounded-lg max-sm:text-base rounded border border-gray-200 text-gray-500 hover:border-green-300 hover:text-green-600 hover:bg-green-50 transition-colors text-sm font-bold flex items-center justify-center">
                       +
                     </button>
                   </div>
@@ -181,7 +186,7 @@ const CashDrawer = forwardRef(function CashDrawer({ date }, ref) {
 
           {/* Day Summary toggle */}
           <button type="button" onClick={() => setShowSummary((v) => !v)}
-            className="w-full flex items-center justify-between pt-1 text-xs font-semibold text-blue-600 hover:text-blue-700">
+            className="w-full flex items-center justify-between pt-1 max-sm:py-2.5 text-xs max-sm:text-sm font-semibold text-blue-600 hover:text-blue-700">
             <span className="flex items-center gap-1.5">
               <BarChart2 className="h-3.5 w-3.5" />
               Day Summary
@@ -195,11 +200,12 @@ const CashDrawer = forwardRef(function CashDrawer({ date }, ref) {
               {/* Denomination breakdown table */}
               <div className="rounded-lg border border-gray-100 overflow-hidden text-xs">
                 {/* Header */}
+                {/* Phones get short headings so the five columns fit */}
                 <div className="grid grid-cols-[3rem_1fr_1fr_1fr_1fr] gap-0 bg-gray-50 px-3 py-1.5 text-gray-500 font-semibold uppercase tracking-wide">
                   <span></span>
-                  <span className="text-right">Opening</span>
-                  <span className="text-right text-green-700">+ Received</span>
-                  <span className="text-right text-red-600">− Change</span>
+                  <span className="text-right"><span className="sm:hidden">Open</span><span className="hidden sm:inline">Opening</span></span>
+                  <span className="text-right text-green-700"><span className="sm:hidden">+ In</span><span className="hidden sm:inline">+ Received</span></span>
+                  <span className="text-right text-red-600"><span className="sm:hidden">− Out</span><span className="hidden sm:inline">− Change</span></span>
                   <span className="text-right text-blue-700">Net</span>
                 </div>
                 {DENOMS.map((d) => {
@@ -231,17 +237,17 @@ const CashDrawer = forwardRef(function CashDrawer({ date }, ref) {
 
               {/* Collection totals */}
               <div className="grid grid-cols-3 gap-2">
-                <div className="rounded-lg bg-green-50 border border-green-100 px-3 py-2 text-center">
+                <div className="rounded-lg bg-green-50 border border-green-100 px-3 max-sm:px-1.5 py-2 text-center min-w-0">
                   <p className="text-[10px] text-green-600 font-semibold uppercase tracking-wide mb-0.5">Cash</p>
-                  <p className="text-base font-black text-green-800 tabular-nums">₹{fmt(cashTotal)}</p>
+                  <p className="text-base max-sm:text-sm font-black text-green-800 tabular-nums truncate">₹{fmt(cashTotal)}</p>
                 </div>
-                <div className="rounded-lg bg-blue-50 border border-blue-100 px-3 py-2 text-center">
+                <div className="rounded-lg bg-blue-50 border border-blue-100 px-3 max-sm:px-1.5 py-2 text-center min-w-0">
                   <p className="text-[10px] text-blue-600 font-semibold uppercase tracking-wide mb-0.5">UPI</p>
-                  <p className="text-base font-black text-blue-800 tabular-nums">₹{fmt(upiTotal)}</p>
+                  <p className="text-base max-sm:text-sm font-black text-blue-800 tabular-nums truncate">₹{fmt(upiTotal)}</p>
                 </div>
-                <div className="rounded-lg bg-gray-50 border border-gray-200 px-3 py-2 text-center">
+                <div className="rounded-lg bg-gray-50 border border-gray-200 px-3 max-sm:px-1.5 py-2 text-center min-w-0">
                   <p className="text-[10px] text-gray-500 font-semibold uppercase tracking-wide mb-0.5">Total</p>
-                  <p className="text-base font-black text-gray-800 tabular-nums">₹{fmt(cashTotal + upiTotal)}</p>
+                  <p className="text-base max-sm:text-sm font-black text-gray-800 tabular-nums truncate">₹{fmt(cashTotal + upiTotal)}</p>
                 </div>
               </div>
             </div>

@@ -7,8 +7,11 @@ import { getPurchaseEntry, updatePurchaseEntry } from '../../api/purchaseEntry.a
 import { getSuppliers } from '../../api/supplier.api.js';
 import SearchableSelect from '../../components/ui/SearchableSelect.jsx';
 import PageHeader from '../../components/ui/PageHeader.jsx';
+import StickyActionBar from '../../components/ui/StickyActionBar.jsx';
+import { useSetAppBarTitle } from '../../components/Layout/AppBarContext.jsx';
 import { PageLoader } from '../../components/ui/Spinner.jsx';
 import { fCurrency } from '../../utils/formatters.js';
+import haptics from '../../utils/haptics.js';
 import toast from 'react-hot-toast';
 
 const toDateStr = (d) => d ? new Date(d).toISOString().split('T')[0] : '';
@@ -17,6 +20,8 @@ export default function PurchaseEntryEdit() {
   const { id }   = useParams();
   const navigate = useNavigate();
   const qc       = useQueryClient();
+  // The loading / locked states below render without a PageHeader.
+  useSetAppBarTitle('Edit Purchase Entry');
 
   const { data: res, isLoading } = useQuery({
     queryKey: ['purchase-entry', id],
@@ -75,12 +80,16 @@ export default function PurchaseEntryEdit() {
       })),
     }),
     onSuccess: () => {
+      haptics.success();
       toast.success('Purchase entry updated');
       qc.invalidateQueries({ queryKey: ['purchase-entry', id] });
       qc.invalidateQueries({ queryKey: ['purchase-entries'] });
       navigate(`/purchases/${id}`);
     },
-    onError: (e) => toast.error(e.response?.data?.message || 'Failed to update'),
+    onError: (e) => {
+      haptics.error();
+      toast.error(e.response?.data?.message || 'Failed to update');
+    },
   });
 
   const grandTotal = (watchedItems || []).reduce((sum, item, idx) => {
@@ -98,169 +107,204 @@ export default function PurchaseEntryEdit() {
   );
 
   return (
-    <div className="max-w-4xl space-y-4">
-      <button onClick={() => navigate(`/purchases/${id}`)}
-        className="inline-flex items-center gap-1.5 text-sm text-gray-400 hover:text-gray-700 transition-colors">
-        <ArrowLeft className="h-4 w-4" /> {entry.entryNumber}
-      </button>
+    <div className="max-w-4xl">
+      {/* Below lg the app bar already has a back arrow. Kept outside the spaced stack so
+          the hidden link doesn't leave a gap above the page on phones. */}
+      <div className="hidden lg:block mb-4">
+        <button onClick={() => navigate(`/purchases/${id}`)}
+          className="inline-flex items-center gap-1.5 text-sm text-gray-400 hover:text-gray-700 transition-colors">
+          <ArrowLeft className="h-4 w-4" /> {entry.entryNumber}
+        </button>
+      </div>
 
-      <PageHeader
-        title="Edit Purchase Entry"
-        subtitle={`${entry.entryNumber} · Stock quantities and products cannot be changed`}
-        breadcrumbs={[{ label: 'Purchases', to: '/purchases' }, { label: entry.entryNumber, to: `/purchases/${id}` }, { label: 'Edit' }]}
-      />
+      <div className="space-y-4">
+        <PageHeader
+          title="Edit Purchase Entry"
+          subtitle={`${entry.entryNumber} · Stock quantities and products cannot be changed`}
+          breadcrumbs={[{ label: 'Purchases', to: '/purchases' }, { label: entry.entryNumber, to: `/purchases/${id}` }, { label: 'Edit' }]}
+        />
 
-      <form onSubmit={handleSubmit((d) => mutation.mutate(d))} className="space-y-4">
+        <form onSubmit={handleSubmit((d) => mutation.mutate(d))} className="space-y-4">
 
-        {/* Header metadata */}
-        <div className="card p-5 space-y-4">
-          <h3 className="text-sm font-semibold text-gray-700">Invoice Details</h3>
+          {/* Header metadata */}
+          <div className="card p-4 sm:p-5 space-y-4">
+            <h3 className="text-sm font-semibold text-gray-700">Invoice Details</h3>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Supplier *</label>
-              <Controller
-                name="supplier"
-                control={control}
-                rules={{ required: 'Required' }}
-                render={({ field }) => (
-                  <SearchableSelect
-                    value={field.value || ''}
-                    onChange={field.onChange}
-                    options={suppliers.map((s) => ({ value: s._id, label: s.name }))}
-                    placeholder="Select supplier…"
-                    error={errors.supplier?.message}
-                  />
-                )}
-              />
-              {errors.supplier && <p className="mt-1 text-xs text-red-500">{errors.supplier.message}</p>}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Supplier *</label>
+                <Controller
+                  name="supplier"
+                  control={control}
+                  rules={{ required: 'Required' }}
+                  render={({ field }) => (
+                    <SearchableSelect
+                      value={field.value || ''}
+                      onChange={field.onChange}
+                      options={suppliers.map((s) => ({ value: s._id, label: s.name }))}
+                      placeholder="Select supplier…"
+                      error={errors.supplier?.message}
+                    />
+                  )}
+                />
+                {errors.supplier && <p className="mt-1 text-xs text-red-500">{errors.supplier.message}</p>}
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Department (read-only)</label>
+                <div className="input bg-gray-50 text-gray-500 cursor-not-allowed">{entry.toDepartment?.name || '—'}</div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Invoice Number</label>
+                <input {...register('invoiceNumber')} className="input font-mono" placeholder="e.g. INV-2025-001" />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Invoice Date</label>
+                <input {...register('invoiceDate')} type="date" className="input" />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Received Date</label>
+                <input {...register('receivedDate')} type="date" className="input" />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Due Date</label>
+                <input {...register('dueDate')} type="date" className="input" />
+              </div>
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Department (read-only)</label>
-              <div className="input bg-gray-50 text-gray-500 cursor-not-allowed">{entry.toDepartment?.name || '—'}</div>
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Invoice Number</label>
-              <input {...register('invoiceNumber')} className="input font-mono" placeholder="e.g. INV-2025-001" />
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Invoice Date</label>
-              <input {...register('invoiceDate')} type="date" className="input" />
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Received Date</label>
-              <input {...register('receivedDate')} type="date" className="input" />
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Due Date</label>
-              <input {...register('dueDate')} type="date" className="input" />
+              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Notes</label>
+              <textarea {...register('notes')} rows={2} className="input" placeholder="Optional notes" />
             </div>
           </div>
 
-          <div>
-            <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Notes</label>
-            <textarea {...register('notes')} rows={2} className="input" placeholder="Optional notes" />
-          </div>
-        </div>
+          {/* Items — product & qty read-only, rate/batch/expiry editable */}
+          <div className="card p-4 sm:p-5 space-y-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <Package className="h-4 w-4 text-gray-400" />
+              <h3 className="text-sm font-semibold text-gray-700">Items Received</h3>
+              <span className="text-xs text-gray-400 bg-gray-100 rounded-full px-2 py-0.5">qty &amp; product locked</span>
+            </div>
 
-        {/* Items — product & qty read-only, rate/batch/expiry editable */}
-        <div className="card p-5 space-y-3">
-          <div className="flex items-center gap-2">
-            <Package className="h-4 w-4 text-gray-400" />
-            <h3 className="text-sm font-semibold text-gray-700">Items Received</h3>
-            <span className="text-xs text-gray-400 bg-gray-100 rounded-full px-2 py-0.5">qty &amp; product locked</span>
-          </div>
+            {/* Column headers */}
+            <div className="hidden sm:grid sm:grid-cols-12 gap-2 px-1 text-xs font-semibold text-gray-400 uppercase tracking-wide">
+              <div className="col-span-4">Product</div>
+              <div className="col-span-2 text-right">Qty</div>
+              <div className="col-span-2">Rate (₹)</div>
+              <div className="col-span-2 text-right">Total</div>
+              <div className="col-span-2">Batch Ref</div>
+            </div>
 
-          {/* Column headers */}
-          <div className="hidden sm:grid sm:grid-cols-12 gap-2 px-1 text-xs font-semibold text-gray-400 uppercase tracking-wide">
-            <div className="col-span-4">Product</div>
-            <div className="col-span-2 text-right">Qty</div>
-            <div className="col-span-2">Rate (₹)</div>
-            <div className="col-span-2 text-right">Total</div>
-            <div className="col-span-2">Batch Ref</div>
-          </div>
+            {fields.map((field, idx) => {
+              const original = entry.items?.[idx];
+              const qty      = original?.quantity || 0;
+              const rate     = Number(watchedItems?.[idx]?.rate) || 0;
+              const total    = rate * qty;
 
-          {fields.map((field, idx) => {
-            const original = entry.items?.[idx];
-            const qty      = original?.quantity || 0;
-            const rate     = Number(watchedItems?.[idx]?.rate) || 0;
-            const total    = rate * qty;
-
-            return (
-              <div key={field.id} className="bg-orange-50 rounded-lg p-3 border border-orange-100 space-y-2">
-                <div className="grid grid-cols-12 gap-2 items-start">
-                  {/* Product (read-only) */}
-                  <div className="col-span-12 sm:col-span-4">
-                    <label className="block text-xs text-gray-400 mb-1 sm:hidden">Product</label>
-                    <div className="input bg-white text-gray-600 cursor-not-allowed text-sm">
-                      {original?.product?.name || '—'}
-                      <span className="ml-1.5 text-xs text-gray-400 font-mono">{original?.product?.code}</span>
+              // Phones: a card with the locked product/qty as its header, then the editable
+              // rate · batch · expiry and the line amount. From `sm` up: the 12-column row.
+              return (
+                <div key={field.id} className="bg-orange-50 rounded-lg p-3 border border-orange-100 space-y-3 sm:space-y-2">
+                  {/* Phone card header (read-only product + qty) */}
+                  <div className="flex items-start justify-between gap-3 sm:hidden">
+                    <div className="min-w-0">
+                      <p className="text-[15px] font-medium text-gray-900 break-words">{original?.product?.name || '—'}</p>
+                      <p className="text-xs text-gray-400 font-mono">{original?.product?.code}</p>
+                    </div>
+                    <div className="shrink-0 text-right">
+                      <p className="text-[11px] uppercase tracking-wide text-gray-400">Qty</p>
+                      <p className="text-sm font-semibold text-gray-700">
+                        {qty} <span className="text-xs font-normal text-gray-400">{original?.unit?.symbol}</span>
+                      </p>
                     </div>
                   </div>
 
-                  {/* Qty (read-only) */}
-                  <div className="col-span-4 sm:col-span-2 flex items-end sm:justify-end pb-1">
-                    <span className="text-sm font-semibold text-gray-700">
-                      {qty} <span className="text-xs text-gray-400">{original?.unit?.symbol}</span>
+                  <div className="grid grid-cols-12 gap-x-3 gap-y-3 sm:gap-2 items-start">
+                    {/* Product (read-only) */}
+                    <div className="hidden sm:block sm:col-span-4">
+                      <div className="input bg-white text-gray-600 cursor-not-allowed text-sm">
+                        {original?.product?.name || '—'}
+                        <span className="ml-1.5 text-xs text-gray-400 font-mono">{original?.product?.code}</span>
+                      </div>
+                    </div>
+
+                    {/* Qty (read-only) */}
+                    <div className="hidden sm:flex sm:col-span-2 items-end sm:justify-end pb-1">
+                      <span className="text-sm font-semibold text-gray-700">
+                        {qty} <span className="text-xs text-gray-400">{original?.unit?.symbol}</span>
+                      </span>
+                    </div>
+
+                    {/* Rate (editable) */}
+                    <div className="col-span-6 sm:col-span-2">
+                      <label className="block text-xs text-gray-500 mb-1 sm:hidden">Rate (₹)</label>
+                      <input
+                        {...register(`items.${idx}.rate`, { valueAsNumber: true, min: 0 })}
+                        type="number" step="0.01" min="0" inputMode="decimal"
+                        placeholder="0.00"
+                        className="input text-sm" />
+                    </div>
+
+                    {/* Total (computed) — phones show it at the bottom of the card */}
+                    <div className="hidden sm:flex sm:col-span-2 items-end pb-1 sm:justify-end">
+                      <span className="text-sm font-semibold text-gray-800">{total > 0 ? fCurrency(total) : '—'}</span>
+                    </div>
+
+                    {/* Batch Ref */}
+                    <div className="col-span-6 sm:col-span-2">
+                      <label className="block text-xs text-gray-500 mb-1 sm:hidden">Batch Ref</label>
+                      <input
+                        {...register(`items.${idx}.batchRef`)}
+                        className="input text-xs font-mono"
+                        autoCapitalize="characters"
+                        placeholder="Optional" />
+                    </div>
+                  </div>
+
+                  {/* Expiry date row */}
+                  <div className="grid grid-cols-12 gap-2 items-end">
+                    <div className="col-span-12 sm:col-span-5">
+                      <label className="block text-xs text-gray-500 sm:text-gray-400 mb-1">Expiry Date</label>
+                      <input {...register(`items.${idx}.expiryDate`)} type="date" className="input text-sm" />
+                    </div>
+                  </div>
+
+                  {/* Phone: line amount */}
+                  <div className="flex items-baseline justify-between border-t border-orange-100 pt-2 sm:hidden">
+                    <span className="text-xs text-gray-500">
+                      {rate > 0 ? `${qty} × ${fCurrency(rate)}` : 'Amount'}
                     </span>
-                  </div>
-
-                  {/* Rate (editable) */}
-                  <div className="col-span-4 sm:col-span-2">
-                    <label className="block text-xs text-gray-400 mb-1 sm:hidden">Rate (₹)</label>
-                    <input
-                      {...register(`items.${idx}.rate`, { valueAsNumber: true, min: 0 })}
-                      type="number" step="0.01" min="0"
-                      placeholder="0.00"
-                      className="input text-sm" />
-                  </div>
-
-                  {/* Total (computed) */}
-                  <div className="col-span-4 sm:col-span-2 flex items-end pb-1 sm:justify-end">
-                    <span className="text-sm font-semibold text-gray-800">{total > 0 ? fCurrency(total) : '—'}</span>
-                  </div>
-
-                  {/* Batch Ref */}
-                  <div className="col-span-12 sm:col-span-2">
-                    <label className="block text-xs text-gray-400 mb-1 sm:hidden">Batch Ref</label>
-                    <input
-                      {...register(`items.${idx}.batchRef`)}
-                      className="input text-xs font-mono"
-                      placeholder="Optional" />
+                    <span className="text-base font-semibold text-gray-900">{total > 0 ? fCurrency(total) : '—'}</span>
                   </div>
                 </div>
+              );
+            })}
 
-                {/* Expiry date row */}
-                <div className="grid grid-cols-12 gap-2 items-end">
-                  <div className="col-span-12 sm:col-span-5">
-                    <label className="block text-xs text-gray-400 mb-1">Expiry Date</label>
-                    <input {...register(`items.${idx}.expiryDate`)} type="date" className="input text-sm" />
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-
-          <div className="flex items-center justify-between pt-3 border-t border-dashed">
-            <span className="text-sm font-semibold text-gray-700">Grand Total</span>
-            <span className="text-xl font-bold text-gray-900">{fCurrency(grandTotal)}</span>
+            <div className="flex items-center justify-between pt-3 border-t border-dashed">
+              <span className="text-sm font-semibold text-gray-700">Grand Total</span>
+              <span className="text-xl font-bold text-gray-900">{fCurrency(grandTotal)}</span>
+            </div>
           </div>
-        </div>
 
-        <div className="flex items-center gap-3">
-          <button type="submit" disabled={mutation.isPending} className="btn-primary">
-            {mutation.isPending ? 'Saving…' : 'Save Changes'}
-          </button>
-          <button type="button" onClick={() => navigate(`/purchases/${id}`)} className="btn-secondary">
-            Cancel
-          </button>
-        </div>
-      </form>
+          <StickyActionBar>
+            {/* Phones: running total beside Save */}
+            <div className="flex flex-col justify-center leading-tight sm:hidden">
+              <span className="text-[11px] uppercase tracking-wide text-gray-400">Total</span>
+              <span className="text-base font-bold text-gray-900">{fCurrency(grandTotal)}</span>
+            </div>
+            <button type="button" onClick={() => navigate(`/purchases/${id}`)} className="btn-secondary hidden sm:inline-flex">
+              Cancel
+            </button>
+            <button type="submit" disabled={mutation.isPending} className="btn-primary">
+              {mutation.isPending ? 'Saving…' : 'Save Changes'}
+            </button>
+          </StickyActionBar>
+        </form>
+      </div>
     </div>
   );
 }

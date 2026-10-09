@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useForm, useFieldArray, Controller } from 'react-hook-form';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { ArrowLeft, Plus, Trash2, AlertTriangle, CreditCard, BookTemplate, ChevronDown, X, Save, CheckCircle2 } from 'lucide-react';
 import { getSuppliers, getSupplier } from '../../api/supplier.api.js';
@@ -10,6 +10,8 @@ import { getTemplates, createTemplate, markTemplateUsed } from '../../api/paymen
 import SearchableSelect from '../../components/ui/SearchableSelect.jsx';
 import PageHeader from '../../components/ui/PageHeader.jsx';
 import Modal from '../../components/ui/Modal.jsx';
+import StickyActionBar from '../../components/ui/StickyActionBar.jsx';
+import { useMediaQuery } from '../../hooks/useMediaQuery.js';
 import toast from 'react-hot-toast';
 
 const fmt    = (d)  => d ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
@@ -29,6 +31,9 @@ export default function NewSupplierPayment() {
   const qc             = useQueryClient();
   const [searchParams] = useSearchParams();
   const preSupplier    = searchParams.get('supplier');
+  // Below lg the app bar has the back arrow; rendering the link only on desktop keeps the
+  // desktop DOM (and its space-y spacing) exactly as before.
+  const isDesktop      = useMediaQuery('(min-width: 1024px)');
 
   // Duplicate warning state
   const [duplicateWarning, setDuplicateWarning] = useState(null); // { duplicates: [...] }
@@ -198,7 +203,7 @@ export default function NewSupplierPayment() {
   if (showSaveTemplateModal) {
     return (
       <div className="max-w-3xl space-y-4">
-        <div className="card p-8 text-center space-y-4">
+        <div className="card p-6 sm:p-8 text-center space-y-4">
           <CheckCircle2 className="h-12 w-12 text-green-500 mx-auto" />
           <h2 className="text-lg font-bold text-gray-800">Payment Submitted!</h2>
           <p className="text-sm text-gray-500">Save this payment config as a template for quick reuse?</p>
@@ -209,9 +214,10 @@ export default function NewSupplierPayment() {
               placeholder="Template name (e.g. Monthly Electricity)"
               className="input w-full"
               autoFocus
+              enterKeyHint="done"
               onKeyDown={(e) => e.key === 'Enter' && handleSaveTemplate()}
             />
-            <div className="flex gap-2 justify-center">
+            <div className="flex flex-col gap-2 sm:flex-row sm:justify-center">
               <button onClick={handleSaveTemplate} disabled={savingTemplate}
                 className="btn-primary flex items-center gap-1.5 text-sm">
                 <Save className="h-4 w-4" />
@@ -230,10 +236,12 @@ export default function NewSupplierPayment() {
 
   return (
     <div className="max-w-3xl space-y-4">
-      <button onClick={() => navigate('/payments')}
-        className="inline-flex items-center gap-1.5 text-sm text-gray-400 hover:text-gray-700 transition-colors">
-        <ArrowLeft className="h-4 w-4" /> Payments
-      </button>
+      {isDesktop && (
+        <button onClick={() => navigate('/payments')}
+          className="inline-flex items-center gap-1.5 text-sm text-gray-400 hover:text-gray-700 transition-colors">
+          <ArrowLeft className="h-4 w-4" /> Payments
+        </button>
+      )}
 
       <PageHeader
         title="Record Payment"
@@ -265,19 +273,19 @@ export default function NewSupplierPayment() {
                 cover{duplicateWarning.duplicates.length === 1 ? 's' : ''} one or more of the same invoice numbers.
               </p>
             </div>
-            <button onClick={() => setDuplicateWarning(null)} className="text-amber-400 hover:text-amber-600">
+            <button onClick={() => setDuplicateWarning(null)} className="-m-2 p-2 text-amber-400 hover:text-amber-600" aria-label="Dismiss">
               <X className="h-4 w-4" />
             </button>
           </div>
           <div className="divide-y divide-amber-200 rounded-lg border border-amber-200 bg-white overflow-hidden">
             {duplicateWarning.duplicates.map((d, i) => (
-              <div key={i} className="flex items-center justify-between px-3 py-2 text-xs">
-                <div>
+              <div key={i} className="flex flex-col gap-1 px-3 py-2 text-xs sm:flex-row sm:items-center sm:justify-between sm:gap-0">
+                <div className="min-w-0">
                   <span className="font-mono font-semibold text-gray-700">{d.paymentNumber}</span>
                   <span className="ml-2 text-gray-400">by {d.createdBy || 'Unknown'}</span>
-                  <span className="ml-2 text-amber-600">· Invoices: {d.matchedInvoices.join(', ')}</span>
+                  <span className="ml-2 text-amber-600 break-words">· Invoices: {d.matchedInvoices.join(', ')}</span>
                 </div>
-                <div className="text-right shrink-0 ml-3">
+                <div className="shrink-0 sm:ml-3 sm:text-right">
                   <span className="font-semibold text-gray-700">{fmtAmt(d.totalAmount)}</span>
                   <span className={`ml-2 px-1.5 py-0.5 rounded-full text-[10px] font-bold ${d.status === 'approved' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
                     {STATUS_LABELS[d.status] || d.status}
@@ -295,7 +303,7 @@ export default function NewSupplierPayment() {
               Submit Anyway
             </button>
             <button type="button" onClick={() => setDuplicateWarning(null)}
-              className="text-xs text-gray-400 hover:text-gray-600">
+              className="px-3 py-2 sm:p-0 text-xs text-gray-400 hover:text-gray-600">
               Cancel
             </button>
           </div>
@@ -305,7 +313,7 @@ export default function NewSupplierPayment() {
       <form onSubmit={handleSubmit((d) => doSubmit(d))} className="space-y-4">
 
         {/* Supplier + Date */}
-        <div className="card p-5 space-y-4">
+        <div className="card p-4 sm:p-5 space-y-4">
           <h3 className="text-sm font-semibold text-gray-700">Payment Details</h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
@@ -344,7 +352,7 @@ export default function NewSupplierPayment() {
                       className={`flex items-start gap-3 p-3 rounded-xl border-2 cursor-pointer transition-all ${isSelected ? 'border-primary-400 bg-orange-50' : 'border-gray-100 hover:border-gray-300'}`}>
                       <input type="radio" value={acc._id} {...register('selectedBankAccountId')}
                         className="mt-0.5 h-4 w-4 text-primary-600" />
-                      <div>
+                      <div className="min-w-0 break-words">
                         <p className="text-sm font-semibold text-gray-800">
                           {acc.label || acc.bankName || 'Account'}
                           {acc.isDefault && <span className="ml-1.5 text-xs text-primary-600">(Default)</span>}
@@ -393,11 +401,11 @@ export default function NewSupplierPayment() {
 
         {/* Invoice allocation */}
         {supplierId && (
-          <div className="card p-5 space-y-4">
-            <div className="flex items-center justify-between">
+          <div className="card p-4 sm:p-5 space-y-4">
+            <div className="flex items-center justify-between gap-2">
               <h3 className="text-sm font-semibold text-gray-700">Invoice Allocation</h3>
               <button type="button" onClick={addAdvance}
-                className="btn-secondary text-xs flex items-center gap-1">
+                className="btn-secondary text-xs flex items-center gap-1 px-3 sm:px-4">
                 <Plus className="h-3.5 w-3.5" /> Advance / No Invoice
               </button>
             </div>
@@ -412,16 +420,16 @@ export default function NewSupplierPayment() {
                     const alreadyAdded = invFields.some((f) => f.purchaseEntryId && f.purchaseEntryId === (inv._id?.toString?.() || inv._id));
                     return (
                       <div key={i}
-                        className={`flex items-center justify-between px-3 py-2.5 ${alreadyAdded ? 'opacity-40' : 'hover:bg-gray-50 cursor-pointer'}`}
+                        className={`flex items-center justify-between gap-3 px-3 py-2.5 ${alreadyAdded ? 'opacity-40' : 'hover:bg-gray-50 active:bg-gray-100 cursor-pointer'}`}
                         onClick={() => !alreadyAdded && addInvoice(inv)}>
-                        <div>
+                        <div className="min-w-0">
                           <p className="text-sm font-medium text-gray-900">{inv.entryNumber || inv.invoiceNumber || 'No Invoice No.'}</p>
                           <p className="text-xs text-gray-400">
                             {inv.invoiceNumber && inv.entryNumber && <span className="font-mono">Inv: {inv.invoiceNumber} · </span>}
                             {fmt(inv.invoiceDate)}{inv.isOverdue ? ' · Overdue' : ''}
                           </p>
                         </div>
-                        <div className="text-right">
+                        <div className="shrink-0 text-right">
                           <p className="text-sm font-semibold text-gray-800">{fmtAmt(inv.invoiceTotal)}</p>
                           <p className="text-xs text-red-600">Remaining: {fmtAmt(inv.remaining)}</p>
                         </div>
@@ -436,28 +444,36 @@ export default function NewSupplierPayment() {
               <div className="space-y-2">
                 <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Payment Allocation</p>
                 {invFields.map((field, idx) => (
-                  <div key={field.id} className="grid grid-cols-12 gap-2 items-end p-3 rounded-lg bg-orange-50 border border-orange-100">
+                  <div key={field.id} className="grid grid-cols-2 sm:grid-cols-12 gap-2 items-end p-3 rounded-lg bg-orange-50 border border-orange-100">
                     <input type="hidden" {...register(`invoices.${idx}.purchaseEntryId`)} />
-                    <div className="col-span-3">
+                    {/* Phones: 2×2 fields with the remove button on a header row */}
+                    <div className="col-span-2 -mt-1 flex items-center justify-between sm:hidden">
+                      <span className="text-xs font-semibold text-gray-500">#{idx + 1}</span>
+                      <button type="button" onClick={() => removeInv(idx)}
+                        className="-mr-1 p-2 rounded hover:bg-red-50 text-red-400" aria-label="Remove invoice">
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                    <div className="col-span-1 sm:col-span-3">
                       <label className="block text-xs text-gray-500 mb-1">Invoice No.</label>
                       <input {...register(`invoices.${idx}.invoiceNumber`)} className="input text-sm font-mono" placeholder="INV-001" />
                     </div>
-                    <div className="col-span-2">
+                    <div className="col-span-1 sm:col-span-2">
                       <label className="block text-xs text-gray-500 mb-1">Invoice Date</label>
                       <input {...register(`invoices.${idx}.invoiceDate`)} type="date" className="input text-sm" />
                     </div>
-                    <div className="col-span-3">
+                    <div className="col-span-1 sm:col-span-3">
                       <label className="block text-xs text-gray-500 mb-1">Invoice Total (₹)</label>
-                      <input {...register(`invoices.${idx}.invoiceTotal`, { valueAsNumber: true })} type="number" step="0.01" min={0} className="input text-sm" />
+                      <input {...register(`invoices.${idx}.invoiceTotal`, { valueAsNumber: true })} type="number" inputMode="decimal" step="0.01" min={0} className="input text-sm" />
                     </div>
-                    <div className="col-span-3">
+                    <div className="col-span-1 sm:col-span-3">
                       <label className="block text-xs text-gray-500 mb-1">Paying Now (₹) *</label>
                       <input {...register(`invoices.${idx}.paidAmount`, { required: true, valueAsNumber: true, min: 0.01 })}
-                        type="number" step="0.01" min={0.01} className="input text-sm font-semibold" />
+                        type="number" inputMode="decimal" step="0.01" min={0.01} className="input text-sm font-semibold" />
                     </div>
-                    <div className="col-span-1 flex justify-end">
+                    <div className="hidden sm:flex col-span-1 justify-end">
                       <button type="button" onClick={() => removeInv(idx)}
-                        className="p-1.5 rounded hover:bg-red-50 text-red-400">
+                        className="p-1.5 rounded hover:bg-red-50 text-red-400" aria-label="Remove invoice">
                         <Trash2 className="h-4 w-4" />
                       </button>
                     </div>
@@ -477,7 +493,7 @@ export default function NewSupplierPayment() {
 
         {/* Advance reconciliation */}
         {supplierId && availableAdvance > 0 && invFields.length > 0 && (
-          <div className="card p-5 space-y-3">
+          <div className="card p-4 sm:p-5 space-y-3">
             <div className="flex items-center justify-between">
               <div>
                 <h3 className="text-sm font-semibold text-gray-700">Apply Advance Credit</h3>
@@ -492,6 +508,7 @@ export default function NewSupplierPayment() {
                 <label className="block text-xs font-medium text-gray-500 mb-1">Advance to apply (₹)</label>
                 <input
                   type="number"
+                  inputMode="decimal"
                   step="0.01"
                   min={0}
                   max={Math.min(availableAdvance, invoiceTotal)}
@@ -511,14 +528,14 @@ export default function NewSupplierPayment() {
                 <button
                   type="button"
                   onClick={() => setAdvanceApplied(0)}
-                  className="mt-5 text-xs text-gray-400 hover:text-gray-600"
+                  className="mt-5 px-2 py-2 sm:p-0 text-xs text-gray-400 hover:text-gray-600"
                 >
                   Clear
                 </button>
               )}
             </div>
             {advanceApplied > 0 && (
-              <div className="flex items-center gap-4 rounded-lg bg-green-50 border border-green-200 px-4 py-2.5 text-sm">
+              <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-4 rounded-lg bg-green-50 border border-green-200 px-4 py-2.5 text-sm">
                 <div className="flex-1">
                   <span className="text-gray-500">Invoice total:</span>
                   <span className="ml-2 font-semibold text-gray-800">{fmtAmt(invoiceTotal)}</span>
@@ -537,7 +554,7 @@ export default function NewSupplierPayment() {
         )}
 
         {/* Total amount */}
-        <div className="card p-5">
+        <div className="card p-4 sm:p-5">
           <div>
             <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
               {advanceApplied > 0 ? 'Cash to Pay (₹) *' : 'Total Payment Amount (₹) *'}
@@ -548,7 +565,7 @@ export default function NewSupplierPayment() {
                 valueAsNumber: true,
                 min: { value: 0, message: 'Cannot be negative' },
               })}
-              type="number" step="0.01" min={0}
+              type="number" inputMode="decimal" step="0.01" min={0}
               className="input text-lg font-semibold max-w-xs"
               readOnly={invFields.length > 0}
               placeholder="0.00"
@@ -565,12 +582,13 @@ export default function NewSupplierPayment() {
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
+        {/* Pinned to the bottom on phones (Submit on the right); unchanged left-aligned row from sm up */}
+        <StickyActionBar className="flex-row-reverse sm:flex-row sm:items-center sm:!justify-start sm:gap-3">
           <button type="submit" disabled={mutation.isPending} className="btn-primary">
             {mutation.isPending ? 'Submitting…' : 'Submit for Approval'}
           </button>
-          <button type="button" onClick={() => navigate('/payments')} className="btn-secondary">Cancel</button>
-        </div>
+          <button type="button" onClick={() => navigate('/payments')} className="btn-secondary max-sm:!flex-none max-sm:px-5">Cancel</button>
+        </StickyActionBar>
       </form>
 
       {/* Template picker modal */}
@@ -596,7 +614,8 @@ export default function NewSupplierPayment() {
           ))}
         </div>
         <div className="mt-4 pt-3 border-t flex justify-between items-center">
-          <a href="/payments/templates" className="text-xs text-primary-600 hover:underline">Manage templates →</a>
+          {/* Client-side link: a full page load is slow inside the mobile apps */}
+          <Link to="/payments/templates" className="py-2 text-xs text-primary-600 hover:underline">Manage templates →</Link>
           <button onClick={() => setShowTemplateModal(false)} className="btn-secondary text-sm">Close</button>
         </div>
       </Modal>

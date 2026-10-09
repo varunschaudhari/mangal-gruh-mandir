@@ -9,10 +9,78 @@ import {
 import { useState } from 'react';
 import { ChevronUp, ChevronDown, ChevronsUpDown, ChevronLeft, ChevronRight } from 'lucide-react';
 import { PageLoader } from './Spinner.jsx';
+import { useIsMobile } from '../../hooks/useMediaQuery.js';
+import MobileCard from './MobileCard.jsx';
+
+// ── Phone layout: each row becomes a card ────────────────────────────────────
+// Columns can steer placement with `meta: { mobile: 'title' | 'subtitle' | 'aside' | 'hidden' }`.
+// Without hints: a name/title/number column is the title, a status column sits top-right,
+// an `actions` column becomes the card footer and the rest are label/value pairs.
+const headerText = (column) => {
+  const h = column.columnDef.header;
+  return typeof h === 'string' ? h : '';
+};
+
+const mobileRole = (column, titleId) => {
+  const hint = column.columnDef.meta?.mobile;
+  if (hint) return hint;
+  if (column.id === 'actions') return 'actions';
+  if (column.id === titleId) return 'title';
+  if (/(^|[._])(status|isActive)$/i.test(column.id)) return 'aside';
+  return 'field';
+};
+
+const pickTitleId = (columns) => {
+  const hinted = columns.find((c) => c.columnDef.meta?.mobile === 'title');
+  if (hinted) return hinted.id;
+  const named = columns.find((c) => /(^|[._])(name|title|.*Number)$/i.test(c.id) && c.columnDef.meta?.mobile !== 'hidden');
+  return (named || columns.find((c) => c.id !== 'actions'))?.id;
+};
+
+const MOBILE_PAGE = 20;
+
+const MobileCards = ({ table, onRowClick }) => {
+  const [visible, setVisible] = useState(MOBILE_PAGE);
+  const rows = table.getPrePaginationRowModel().rows;
+  const titleId = pickTitleId(table.getVisibleLeafColumns());
+
+  if (rows.length === 0) {
+    return <div className="card px-4 py-12 text-center text-sm text-gray-400">No records found</div>;
+  }
+
+  return (
+    <div className="space-y-2.5">
+      {rows.slice(0, visible).map((row) => {
+        const cells = row.getVisibleCells();
+        const by = (role) => cells.filter((c) => mobileRole(c.column, titleId) === role);
+        const render = (cell) => flexRender(cell.column.columnDef.cell, cell.getContext());
+        const [title] = by('title');
+        const actions = by('actions');
+        return (
+          <MobileCard
+            key={row.id}
+            onClick={onRowClick ? () => onRowClick(row.original) : undefined}
+            title={title && render(title)}
+            subtitle={by('subtitle').length > 0 && by('subtitle').map((c) => <div key={c.id}>{render(c)}</div>)}
+            aside={by('aside').length > 0 && by('aside').map((c) => <div key={c.id}>{render(c)}</div>)}
+            fields={by('field').map((c) => ({ label: headerText(c.column) || c.id, value: render(c) ?? '—' }))}
+            footer={actions.length > 0 && actions.map((c) => <div key={c.id}>{render(c)}</div>)}
+          />
+        );
+      })}
+      {rows.length > visible && (
+        <button onClick={() => setVisible((v) => v + MOBILE_PAGE)} className="btn-secondary w-full">
+          Show more ({rows.length - visible} remaining)
+        </button>
+      )}
+    </div>
+  );
+};
 
 const DataTable = ({ columns, data, loading, globalFilter, onGlobalFilterChange, pageSize = 15, onRowClick }) => {
   const [sorting, setSorting] = useState([]);
   const [pagination, setPagination] = useState({ pageIndex: 0, pageSize });
+  const isMobile = useIsMobile();
 
   const table = useReactTable({
     data: data || [],
@@ -28,6 +96,7 @@ const DataTable = ({ columns, data, loading, globalFilter, onGlobalFilterChange,
   });
 
   if (loading) return <PageLoader />;
+  if (isMobile) return <MobileCards table={table} onRowClick={onRowClick} />;
 
   const SortIcon = ({ column }) => {
     if (!column.getCanSort()) return null;

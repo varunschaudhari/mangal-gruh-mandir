@@ -145,8 +145,8 @@ const NewDonation = () => {
               <Heart className="h-5 w-5 text-orange-600" />
               <p className="text-sm font-semibold text-gray-800">Donation Type</p>
             </div>
-            <div className="p-5 bg-white">
-              <div className="flex gap-3">
+            <div className="p-4 sm:p-5 bg-white">
+              <div className="flex flex-col gap-2 sm:flex-row sm:gap-3">
                 {[
                   ['named',     'Named Donor',  'Known donor — generates receipt'],
                   ['hundi',     'Hundi',         'Daily box collection, no receipt'],

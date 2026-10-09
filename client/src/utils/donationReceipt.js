@@ -1,3 +1,5 @@
+import { printHtml } from './printHtml.js';
+
 export function printDonationReceipt(donation) {
   const {
     donationNumber, donationType, date, donor, donorName, donorPhone,
@@ -114,6 +116,5 @@ ${pan ? `<div class="tax-note">
 <script>window.onload = () => { window.print(); }<\/script>
 </body></html>`;
 
-  const win = window.open('', '_blank', 'width=680,height=800');
-  if (win) { win.document.write(html); win.document.close(); }
+  return printHtml(html, { filename: `Donation-${donationNumber || 'receipt'}.pdf` });
 }

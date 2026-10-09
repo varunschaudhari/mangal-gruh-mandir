@@ -8,19 +8,19 @@ import {
   Package, Truck, Warehouse, AlertTriangle, Users,
   ArrowDownToLine, ArrowUpFromLine, ArrowLeftRight, Trash2, TrendingUp, CalendarClock,
   ShoppingBag, CalendarDays, CreditCard, Clock, IndianRupee, TimerOff,
-  Heart, Receipt, TrendingDown,
+  Heart, Receipt, TrendingDown, ChevronRight, CheckCircle2, Bell,
 } from 'lucide-react';
 import { getDashboardStats } from '../../api/dashboard.api.js';
 import { getExpiringBatches } from '../../api/stockBatch.api.js';
 import { getPaymentDashboardSummary } from '../../api/supplierPayment.api.js';
 import { getPnL } from '../../api/pnl.api.js';
-import { StatCard } from '../../components/ui/Card.jsx';
 import Badge from '../../components/ui/Badge.jsx';
 import { PageLoader } from '../../components/ui/Spinner.jsx';
 import PageHeader from '../../components/ui/PageHeader.jsx';
 import { fDate, fCurrency } from '../../utils/formatters.js';
 import { useAuth } from '../../context/AuthContext.jsx';
 import { usePermissions } from '../../hooks/usePermissions.js';
+import { useIsMobile } from '../../hooks/useMediaQuery.js';
 import MahaprasadLiveTile from '../../components/mahaprasad/MahaprasadLiveTile.jsx';
 
 const TYPE_LABELS = {
@@ -29,6 +29,10 @@ const TYPE_LABELS = {
 };
 const TYPE_VARIANTS = {
   STOCK_IN: 'success', STOCK_OUT: 'warning', TRANSFER: 'info', WASTAGE: 'danger',
+};
+// <Badge> colour names for the same types (it has no success/warning/info/danger variants).
+const TYPE_BADGES = {
+  STOCK_IN: 'green', STOCK_OUT: 'orange', TRANSFER: 'blue', WASTAGE: 'red',
 };
 const TYPE_ICONS = {
   STOCK_IN: ArrowDownToLine, STOCK_OUT: ArrowUpFromLine,
@@ -42,6 +46,32 @@ const TYPE_ROUTES = {
   WASTAGE:   '/transactions/history',
 };
 
+// Whole rupees: two decimals don't fit half a phone screen.
+const fRupees = (n) => (n != null ? `₹${Math.round(n).toLocaleString('en-IN')}` : '—');
+
+// Phones show the short amount, sm and up keep the full one.
+const Amount = ({ value }) => (
+  <>
+    <span className="sm:hidden">{fRupees(value)}</span>
+    <span className="hidden sm:inline">{fCurrency(value)}</span>
+  </>
+);
+
+// Same look as <StatCard> from sm up; tighter padding and type on phones.
+const KpiTile = ({ label, value, icon: Icon, color, bg, border, to, className = '' }) => (
+  <Link to={to} className={`card p-2.5 sm:p-4 border-l-4 ${border} hover:shadow-md active:bg-gray-50 transition-shadow cursor-pointer ${className}`}>
+    <div className="flex items-center justify-between gap-2">
+      <div className="min-w-0">
+        <p className="text-xs text-gray-500 truncate">{label}</p>
+        <p className="mt-0.5 text-lg leading-6 sm:text-2xl font-bold text-gray-800">{value ?? '—'}</p>
+      </div>
+      <div className={`rounded-full p-1.5 sm:p-3 shrink-0 ${bg}`}>
+        <Icon className={`h-4 w-4 sm:h-5 sm:w-5 ${color}`} />
+      </div>
+    </div>
+  </Link>
+);
+
 const TodayCard = ({ type, count }) => {
   const Icon = TYPE_ICONS[type] || Package;
   const variants = {
@@ -52,7 +82,7 @@ const TodayCard = ({ type, count }) => {
   };
   const cls = variants[TYPE_VARIANTS[type]] || '';
   return (
-    <Link to={TYPE_ROUTES[type]} className={`rounded-lg px-4 py-3 flex items-center gap-3 transition-colors ${cls}`}>
+    <Link to={TYPE_ROUTES[type]} className={`rounded-lg px-3 py-2.5 sm:px-4 sm:py-3 flex items-center gap-3 transition-colors ${cls}`}>
       <Icon className="h-5 w-5 shrink-0" />
       <div>
         <p className="text-xs font-medium opacity-75">{TYPE_LABELS[type]}</p>
@@ -78,9 +108,51 @@ const CustomTooltip = ({ active, payload, label }) => {
   );
 };
 
+const TONES = {
+  yellow: 'bg-yellow-100 text-yellow-800',
+  amber:  'bg-amber-100 text-amber-800',
+  red:    'bg-red-100 text-red-700',
+  orange: 'bg-orange-100 text-orange-700',
+};
+
+// Phone-only "inbox" at the top: the things a trustee should act on, each one tap away.
+const AttentionList = ({ items }) => (
+  <div>
+    <div className="flex items-center gap-2 mb-2">
+      <Bell className="h-4 w-4 text-primary-600" />
+      <h2 className="text-sm font-semibold text-gray-700">Needs attention</h2>
+    </div>
+    <div className="card divide-y divide-gray-100 overflow-hidden">
+      {items.length === 0 ? (
+        <div className="flex items-center gap-3 px-4 py-3">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-green-100">
+            <CheckCircle2 className="h-5 w-5 text-green-600" />
+          </span>
+          <div>
+            <p className="text-sm font-semibold text-gray-800">All caught up</p>
+            <p className="text-xs text-gray-500">No approvals, overdue bills or stock alerts</p>
+          </div>
+        </div>
+      ) : items.map((it) => (
+        <Link key={it.key} to={it.to} className="flex items-center gap-3 px-4 py-3 active:bg-gray-50">
+          <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-base font-bold tabular-nums ${TONES[it.tone]}`}>
+            {it.count > 99 ? '99+' : it.count}
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-semibold text-gray-800">{it.title}</p>
+            {it.sub && <p className="truncate text-xs text-gray-500">{it.sub}</p>}
+          </div>
+          <ChevronRight className="h-4 w-4 shrink-0 text-gray-300" />
+        </Link>
+      ))}
+    </div>
+  </div>
+);
+
 const Dashboard = () => {
   const { user } = useAuth();
   const { can } = usePermissions();
+  const isMobile = useIsMobile();
 
   const { data, isLoading } = useQuery({
     queryKey: ['dashboard'],
@@ -125,33 +197,89 @@ const Dashboard = () => {
   const paymentSummary     = paymentSummaryRes?.data?.data || {};
   const pnl                = pnlRes?.data?.data;
 
+  // ── Phone "needs attention" list ──────────────────────────────────────────
+  const attention = [];
+  const approveVerb = can('payments:approve') ? 'to approve' : 'awaiting approval';
+  if (can('payments:read')) {
+    if (paymentSummary.pendingCount > 0) {
+      attention.push({
+        key: 'payments', to: '/payments?status=pending_approval', tone: 'yellow', count: paymentSummary.pendingCount,
+        title: `Supplier payment${paymentSummary.pendingCount > 1 ? 's' : ''} ${approveVerb}`, sub: 'Review vouchers',
+      });
+    }
+    if (pnl?.expenses?.pendingCount > 0) {
+      attention.push({
+        key: 'expenses', to: '/expenses?status=pending_approval', tone: 'amber', count: pnl.expenses.pendingCount,
+        title: `Expense${pnl.expenses.pendingCount > 1 ? 's' : ''} ${approveVerb}`, sub: `${fRupees(pnl.expenses.pendingAmount)} this month`,
+      });
+    }
+    if (paymentSummary.overdueCount > 0) {
+      attention.push({
+        key: 'overdue', to: '/payments/upcoming', tone: 'red', count: paymentSummary.overdueCount,
+        title: `Overdue supplier invoice${paymentSummary.overdueCount > 1 ? 's' : ''}`, sub: `${fRupees(paymentSummary.overdueAmount)} past due date`,
+      });
+    }
+  }
+  const stockAlerts = (counts.outOfStockItems || 0) + (counts.lowStockItems || 0);
+  if (can('masters:read') && stockAlerts > 0) {
+    attention.push({
+      key: 'stock', to: '/reports/low-stock', tone: 'orange', count: stockAlerts,
+      title: 'Items low or out of stock',
+      sub: [
+        counts.outOfStockItems > 0 && `${counts.outOfStockItems} out of stock`,
+        counts.lowStockItems > 0 && `${counts.lowStockItems} low`,
+        counts.reorderItems > 0 && `${counts.reorderItems} to reorder`,
+      ].filter(Boolean).join(' · '),
+    });
+  }
+  const showAttention = can('payments:read') || can('masters:read');
+
+  const todayLabel = new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' });
+
+  // Below lg the sections stack in a flex column and `order-*` puts a trustee's priorities
+  // first (approvals & dues, stock, Mahaprasad, finance). From lg up it is a plain block
+  // with space-y-6, so order is ignored and the desktop layout is unchanged.
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col gap-4 lg:block lg:space-y-6">
       <PageHeader
         title={`Welcome back, ${user?.name?.split(' ')[0]}`}
-        subtitle="Mangal Grah Mandir, Amalner — Stock Management"
+        subtitle={
+          <>
+            <span className="lg:hidden">{todayLabel}</span>
+            <span className="hidden lg:inline">Mangal Grah Mandir, Amalner — Stock Management</span>
+          </>
+        }
       />
+
+      {showAttention && (
+        <div className="order-1 lg:hidden">
+          <AttentionList items={attention} />
+        </div>
+      )}
 
       {/* ── KPI Cards ── */}
       {can('masters:read') && (
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 xl:grid-cols-8">
-        <StatCard label="Products"      value={counts.productCount    ?? '—'} icon={Package}       color="text-primary-600" bg="bg-primary-50"  border="border-l-primary-500" to="/masters/products"         />
-        <StatCard label="Departments"   value={counts.deptCount       ?? '—'} icon={Warehouse}     color="text-blue-600"    bg="bg-blue-50"     border="border-l-blue-500"    to="/masters/departments"      />
-        <StatCard label="Suppliers"     value={counts.supplierCount   ?? '—'} icon={Truck}         color="text-green-600"   bg="bg-green-50"    border="border-l-green-500"   to="/masters/suppliers"        />
-        <StatCard label="Active Users"  value={counts.userCount       ?? '—'} icon={Users}         color="text-purple-600"  bg="bg-purple-50"   border="border-l-purple-500"  to="/admin/users"              />
-        <StatCard label="Low Stock"     value={counts.lowStockItems   ?? '—'} icon={AlertTriangle} color="text-amber-600"   bg="bg-amber-50"    border="border-l-amber-500"   to="/reports/low-stock"        />
-        <StatCard label="Out of Stock"  value={counts.outOfStockItems ?? '—'} icon={AlertTriangle} color="text-red-600"     bg="bg-red-50"      border="border-l-red-500"     to="/reports/low-stock"        />
-        <StatCard label="Reorder Soon"  value={counts.reorderItems    ?? '—'} icon={AlertTriangle} color="text-yellow-600"  bg="bg-yellow-50"   border="border-l-yellow-500"  to="/reports/low-stock"        />
-        <StatCard label="Expiring (30d)" value={expiringCount}               icon={CalendarClock} color="text-orange-600"  bg="bg-orange-50"   border="border-l-orange-500"  to="/reports/expiring-stock"   />
+      <div className="order-6 grid grid-cols-2 gap-2.5 sm:gap-3 sm:grid-cols-4 xl:grid-cols-8">
+        <KpiTile label="Products"      value={counts.productCount    ?? '—'} icon={Package}       color="text-primary-600" bg="bg-primary-50"  border="border-l-primary-500" to="/masters/products"         />
+        <KpiTile label="Departments"   value={counts.deptCount       ?? '—'} icon={Warehouse}     color="text-blue-600"    bg="bg-blue-50"     border="border-l-blue-500"    to="/masters/departments"      />
+        <KpiTile label="Suppliers"     value={counts.supplierCount   ?? '—'} icon={Truck}         color="text-green-600"   bg="bg-green-50"    border="border-l-green-500"   to="/masters/suppliers"        />
+        <KpiTile label="Active Users"  value={counts.userCount       ?? '—'} icon={Users}         color="text-purple-600"  bg="bg-purple-50"   border="border-l-purple-500"  to="/admin/users"              />
+        {/* Stock alerts lead the grid on phones */}
+        <KpiTile label="Low Stock"     value={counts.lowStockItems   ?? '—'} icon={AlertTriangle} color="text-amber-600"   bg="bg-amber-50"    border="border-l-amber-500"   to="/reports/low-stock"        className="order-first lg:order-none" />
+        <KpiTile label="Out of Stock"  value={counts.outOfStockItems ?? '—'} icon={AlertTriangle} color="text-red-600"     bg="bg-red-50"      border="border-l-red-500"     to="/reports/low-stock"        className="order-first lg:order-none" />
+        <KpiTile label="Reorder Soon"  value={counts.reorderItems    ?? '—'} icon={AlertTriangle} color="text-yellow-600"  bg="bg-yellow-50"   border="border-l-yellow-500"  to="/reports/low-stock"        className="order-first lg:order-none" />
+        <KpiTile label="Expiring (30d)" value={expiringCount}               icon={CalendarClock} color="text-orange-600"  bg="bg-orange-50"   border="border-l-orange-500"  to="/reports/expiring-stock"   className="order-first lg:order-none" />
       </div>
       )}
 
-      {/* ── Mahaprasad Live Tile ── */}
-      <MahaprasadLiveTile />
+      {/* ── Mahaprasad Live Tile ── (wrapper collapses when the tile renders nothing) */}
+      <div className="order-2 empty:hidden">
+        <MahaprasadLiveTile />
+      </div>
 
       {/* ── Financial Summary — This Month ── */}
       {can('payments:read') && pnl && (
-        <div>
+        <div className="order-3">
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
               <IndianRupee className="h-4 w-4 text-green-600" />
@@ -159,28 +287,28 @@ const Dashboard = () => {
                 This Month's Finance
               </h2>
             </div>
-            <Link to="/reports/pnl" className="text-xs text-primary-600 hover:underline">View P&L →</Link>
+            <Link to="/reports/pnl" className="-my-2 py-2 text-xs text-primary-600 hover:underline">View P&L →</Link>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <Link to="/donations" className="rounded-xl border border-green-200 bg-green-50 px-4 py-3 flex items-center gap-3 hover:bg-green-100 transition-colors">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 sm:gap-3">
+            <Link to="/donations" className="rounded-xl border border-green-200 bg-green-50 px-3 py-2.5 sm:px-4 sm:py-3 flex items-center gap-2.5 sm:gap-3 hover:bg-green-100 transition-colors">
               <Heart className="h-5 w-5 text-green-600 shrink-0" />
-              <div>
+              <div className="min-w-0">
                 <p className="text-xs text-green-700 font-medium">Income</p>
-                <p className="text-xl font-bold text-green-700">{fCurrency(pnl.income.total)}</p>
+                <p className="text-lg sm:text-xl font-bold text-green-700"><Amount value={pnl.income.total} /></p>
                 <p className="text-xs text-green-600">{pnl.income.donationCount} donations</p>
               </div>
             </Link>
-            <Link to="/expenses" className="rounded-xl border border-orange-200 bg-orange-50 px-4 py-3 flex items-center gap-3 hover:bg-orange-100 transition-colors">
+            <Link to="/expenses" className="rounded-xl border border-orange-200 bg-orange-50 px-3 py-2.5 sm:px-4 sm:py-3 flex items-center gap-2.5 sm:gap-3 hover:bg-orange-100 transition-colors">
               <Receipt className="h-5 w-5 text-orange-600 shrink-0" />
-              <div>
+              <div className="min-w-0">
                 <p className="text-xs text-orange-700 font-medium">Expenses</p>
-                <p className="text-xl font-bold text-orange-700">{fCurrency(pnl.expenses.total)}</p>
+                <p className="text-lg sm:text-xl font-bold text-orange-700"><Amount value={pnl.expenses.total} /></p>
                 {pnl.expenses.pendingCount > 0 && (
                   <p className="text-xs text-amber-600">{pnl.expenses.pendingCount} pending</p>
                 )}
               </div>
             </Link>
-            <Link to="/reports/pnl" className={`rounded-xl border px-4 py-3 flex items-center gap-3 transition-colors ${
+            <Link to="/reports/pnl" className={`col-span-2 sm:col-span-1 rounded-xl border px-3 py-2.5 sm:px-4 sm:py-3 flex items-center gap-2.5 sm:gap-3 transition-colors ${
               pnl.net >= 0
                 ? 'border-green-200 bg-green-50 hover:bg-green-100'
                 : 'border-red-200 bg-red-50 hover:bg-red-100'
@@ -188,12 +316,12 @@ const Dashboard = () => {
               {pnl.net >= 0
                 ? <TrendingUp  className="h-5 w-5 text-green-600 shrink-0" />
                 : <TrendingDown className="h-5 w-5 text-red-600 shrink-0" />}
-              <div>
+              <div className="min-w-0">
                 <p className={`text-xs font-medium ${pnl.net >= 0 ? 'text-green-700' : 'text-red-700'}`}>
                   {pnl.net >= 0 ? 'Surplus' : 'Deficit'}
                 </p>
-                <p className={`text-xl font-bold ${pnl.net >= 0 ? 'text-green-700' : 'text-red-700'}`}>
-                  {fCurrency(Math.abs(pnl.net))}
+                <p className={`text-lg sm:text-xl font-bold ${pnl.net >= 0 ? 'text-green-700' : 'text-red-700'}`}>
+                  <Amount value={Math.abs(pnl.net)} />
                 </p>
               </div>
             </Link>
@@ -203,36 +331,37 @@ const Dashboard = () => {
 
       {/* ── Asset Status Widget ── */}
       {can('assets:read') && (
-        <div>
+        <div className="order-8">
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
               <ShoppingBag className="h-4 w-4 text-purple-600" />
               <h2 className="text-sm font-semibold text-gray-700">Asset Status</h2>
             </div>
-            <Link to="/assets/borrows" className="text-xs text-primary-600 hover:underline">View all</Link>
+            <Link to="/assets/borrows" className="-my-2 py-2 text-xs text-primary-600 hover:underline">View all</Link>
           </div>
-          <div className="grid grid-cols-3 gap-3">
+          {/* Phones: icon above the number so three tiles fit one row */}
+          <div className="grid grid-cols-3 gap-2.5 sm:gap-3">
             <Link to="/assets/borrows?status=checked_out"
-              className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 flex items-center gap-3 hover:bg-blue-100 transition-colors">
+              className="rounded-xl border border-blue-200 bg-blue-50 px-3 py-2.5 sm:px-4 sm:py-3 flex flex-col items-start gap-1 sm:flex-row sm:items-center sm:gap-3 hover:bg-blue-100 transition-colors">
               <ShoppingBag className="h-5 w-5 text-blue-600 shrink-0" />
               <div>
-                <p className="text-2xl font-bold text-blue-700">{assetCounts.checkedOut ?? '—'}</p>
+                <p className="text-xl sm:text-2xl font-bold text-blue-700">{assetCounts.checkedOut ?? '—'}</p>
                 <p className="text-xs text-blue-600 font-medium">Checked Out</p>
               </div>
             </Link>
             <Link to="/assets/borrows?status=overdue"
-              className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 flex items-center gap-3 hover:bg-red-100 transition-colors">
+              className="rounded-xl border border-red-200 bg-red-50 px-3 py-2.5 sm:px-4 sm:py-3 flex flex-col items-start gap-1 sm:flex-row sm:items-center sm:gap-3 hover:bg-red-100 transition-colors">
               <AlertTriangle className="h-5 w-5 text-red-600 shrink-0" />
               <div>
-                <p className="text-2xl font-bold text-red-700">{assetCounts.overdue ?? '—'}</p>
+                <p className="text-xl sm:text-2xl font-bold text-red-700">{assetCounts.overdue ?? '—'}</p>
                 <p className="text-xs text-red-600 font-medium">Overdue</p>
               </div>
             </Link>
             <Link to="/assets/borrows"
-              className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 flex items-center gap-3 hover:bg-amber-100 transition-colors">
+              className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 sm:px-4 sm:py-3 flex flex-col items-start gap-1 sm:flex-row sm:items-center sm:gap-3 hover:bg-amber-100 transition-colors">
               <CalendarDays className="h-5 w-5 text-amber-600 shrink-0" />
               <div>
-                <p className="text-2xl font-bold text-amber-700">{assetCounts.dueThisWeek ?? '—'}</p>
+                <p className="text-xl sm:text-2xl font-bold text-amber-700">{assetCounts.dueThisWeek ?? '—'}</p>
                 <p className="text-xs text-amber-600 font-medium">Due This Week</p>
               </div>
             </Link>
@@ -242,48 +371,48 @@ const Dashboard = () => {
 
       {/* ── Payment Status Widget ── */}
       {can('payments:read') && paymentSummaryRes && (
-        <div>
+        <div className="order-4">
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
               <CreditCard className="h-4 w-4 text-indigo-600" />
               <h2 className="text-sm font-semibold text-gray-700">Payment Status</h2>
             </div>
-            <Link to="/payments" className="text-xs text-primary-600 hover:underline">View all</Link>
+            <Link to="/payments" className="-my-2 py-2 text-xs text-primary-600 hover:underline">View all</Link>
           </div>
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3">
             <Link to="/payments?status=pending_approval"
-              className="rounded-xl border border-yellow-200 bg-yellow-50 px-4 py-3 flex items-center gap-3 hover:bg-yellow-100 transition-colors">
+              className="rounded-xl border border-yellow-200 bg-yellow-50 px-3 py-2.5 sm:px-4 sm:py-3 flex items-center gap-2.5 sm:gap-3 hover:bg-yellow-100 transition-colors">
               <Clock className="h-5 w-5 text-yellow-600 shrink-0" />
-              <div>
-                <p className="text-2xl font-bold text-yellow-700">{paymentSummary.pendingCount ?? '—'}</p>
+              <div className="min-w-0">
+                <p className="text-xl sm:text-2xl font-bold text-yellow-700">{paymentSummary.pendingCount ?? '—'}</p>
                 <p className="text-xs text-yellow-600 font-medium">Pending Approval</p>
               </div>
             </Link>
             <Link to="/reports/supplier-aging"
-              className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 flex items-center gap-3 hover:bg-blue-100 transition-colors">
+              className="rounded-xl border border-blue-200 bg-blue-50 px-3 py-2.5 sm:px-4 sm:py-3 flex items-center gap-2.5 sm:gap-3 hover:bg-blue-100 transition-colors">
               <IndianRupee className="h-5 w-5 text-blue-600 shrink-0" />
-              <div>
-                <p className="text-2xl font-bold text-blue-700">
+              <div className="min-w-0">
+                <p className="text-xl sm:text-2xl font-bold text-blue-700">
                   {paymentSummary.totalOutstanding != null ? `₹${Math.round(paymentSummary.totalOutstanding / 1000)}k` : '—'}
                 </p>
                 <p className="text-xs text-blue-600 font-medium">Outstanding</p>
               </div>
             </Link>
             <Link to="/reports/supplier-aging"
-              className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 flex items-center gap-3 hover:bg-red-100 transition-colors">
+              className="rounded-xl border border-red-200 bg-red-50 px-3 py-2.5 sm:px-4 sm:py-3 flex items-center gap-2.5 sm:gap-3 hover:bg-red-100 transition-colors">
               <TimerOff className="h-5 w-5 text-red-600 shrink-0" />
-              <div>
-                <p className="text-2xl font-bold text-red-700">
+              <div className="min-w-0">
+                <p className="text-xl sm:text-2xl font-bold text-red-700">
                   {paymentSummary.overdueAmount != null ? `₹${Math.round(paymentSummary.overdueAmount / 1000)}k` : '—'}
                 </p>
                 <p className="text-xs text-red-600 font-medium">Overdue</p>
               </div>
             </Link>
             <Link to="/reports/supplier-aging"
-              className="rounded-xl border border-orange-200 bg-orange-50 px-4 py-3 flex items-center gap-3 hover:bg-orange-100 transition-colors">
+              className="rounded-xl border border-orange-200 bg-orange-50 px-3 py-2.5 sm:px-4 sm:py-3 flex items-center gap-2.5 sm:gap-3 hover:bg-orange-100 transition-colors">
               <AlertTriangle className="h-5 w-5 text-orange-600 shrink-0" />
-              <div>
-                <p className="text-2xl font-bold text-orange-700">{paymentSummary.overdueCount ?? '—'}</p>
+              <div className="min-w-0">
+                <p className="text-xl sm:text-2xl font-bold text-orange-700">{paymentSummary.overdueCount ?? '—'}</p>
                 <p className="text-xs text-orange-600 font-medium">Overdue Invoices</p>
               </div>
             </Link>
@@ -293,23 +422,23 @@ const Dashboard = () => {
 
       {/* ── Expiring Soon (7 days) ── */}
       {can('reports:read') && expiring7Items.length > 0 && (
-        <div>
+        <div className="order-5">
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
               <CalendarClock className="h-4 w-4 text-orange-600" />
               <h2 className="text-sm font-semibold text-gray-700">Expiring Within 7 Days</h2>
             </div>
-            <Link to="/reports/expiring-stock" className="text-xs text-primary-600 hover:underline">View all</Link>
+            <Link to="/reports/expiring-stock" className="-my-2 py-2 text-xs text-primary-600 hover:underline">View all</Link>
           </div>
           <div className="bg-white rounded-xl border border-orange-100 overflow-hidden">
             {expiring7Items.map((b, i) => {
               const daysLeft = Math.ceil((new Date(b.expiryDate) - new Date()) / 86400000);
               const isExpired = daysLeft < 0;
               return (
-                <div key={b._id} className={`flex items-center justify-between px-4 py-2.5 text-sm ${i !== expiring7Items.length - 1 ? 'border-b border-gray-50' : ''}`}>
-                  <div>
+                <div key={b._id} className={`flex items-center justify-between gap-3 px-4 py-2.5 text-sm ${i !== expiring7Items.length - 1 ? 'border-b border-gray-50' : ''}`}>
+                  <div className="min-w-0">
                     <span className="font-medium text-gray-800">{b.product?.name}</span>
-                    <span className="text-xs text-gray-400 ml-2">{b.department?.name}</span>
+                    <span className="block text-xs text-gray-400 sm:inline sm:ml-2">{b.department?.name}</span>
                   </div>
                   <div className="flex items-center gap-3 text-right shrink-0">
                     <span className="text-xs text-gray-500">{b.remainingQty} {b.product?.unit?.symbol}</span>
@@ -326,9 +455,9 @@ const Dashboard = () => {
 
       {/* ── Today's activity ── */}
       {can('transactions:read') && (
-      <div>
+      <div className="order-7">
         <h2 className="mb-3 text-sm font-semibold text-gray-700">Today's Activity</h2>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-3">
           {['STOCK_IN', 'STOCK_OUT', 'TRANSFER', 'WASTAGE'].map((type) => (
             <TodayCard key={type} type={type} count={today[type] ?? 0} />
           ))}
@@ -338,7 +467,7 @@ const Dashboard = () => {
 
       {/* ── Chart + Top Products ── */}
       {can('transactions:read') && (
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      <div className="order-9 grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Weekly movement chart */}
         <div className="lg:col-span-2 card p-4">
           <div className="flex items-center gap-2 mb-4">
@@ -350,11 +479,14 @@ const Dashboard = () => {
               No transactions in the last 7 days.
             </div>
           ) : (
-            <ResponsiveContainer width="100%" height={220}>
-              <BarChart data={weeklyMovement} barGap={2} barSize={14}>
+            <ResponsiveContainer width="100%" height={isMobile ? 200 : 220}>
+              {/* maxBarSize (not a fixed barSize) so 7 days × 4 series fit a phone */}
+              <BarChart data={weeklyMovement} barGap={isMobile ? 1 : 2} maxBarSize={14}
+                margin={isMobile ? { top: 5, right: 0, bottom: 0, left: -12 } : undefined}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                <XAxis dataKey="label" tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fontSize: 11 }} axisLine={false} tickLine={false} width={35} />
+                <XAxis dataKey="label" tick={{ fontSize: isMobile ? 10 : 11 }} axisLine={false} tickLine={false}
+                  tickFormatter={isMobile ? (v) => String(v).split(' ')[0] : undefined} />
+                <YAxis tick={{ fontSize: isMobile ? 10 : 11 }} axisLine={false} tickLine={false} width={35} allowDecimals={false} />
                 <Tooltip content={<CustomTooltip />} cursor={{ fill: '#f9fafb' }} />
                 <Legend wrapperStyle={{ fontSize: 11, paddingTop: 8 }} />
                 <Bar dataKey="stockIn"  name="Stock In"  fill="#16a34a" radius={[3, 3, 0, 0]} />
@@ -374,7 +506,7 @@ const Dashboard = () => {
           ) : (
             <div className="space-y-2">
               {topProducts.map((p, i) => (
-                <Link key={p._id} to={`/masters/products/${p._id}`} className="flex items-center gap-2 text-sm hover:bg-gray-50 rounded-md px-1 py-0.5 -mx-1">
+                <Link key={p._id} to={`/masters/products/${p._id}`} className="flex items-center gap-2 text-sm hover:bg-gray-50 rounded-md px-1 py-1.5 sm:py-0.5 -mx-1">
                   <span className="w-5 h-5 rounded-full bg-primary-100 text-primary-700 text-xs font-bold flex items-center justify-center shrink-0">{i + 1}</span>
                   <div className="flex-1 min-w-0">
                     <p className="font-medium truncate">{p.name}</p>
@@ -391,10 +523,10 @@ const Dashboard = () => {
 
       {/* ── Recent Transactions ── */}
       {can('transactions:read') && (
-      <div className="card overflow-hidden">
+      <div className="order-10 card overflow-hidden">
         <div className="px-4 py-3 border-b bg-gray-50 flex items-center justify-between">
           <h3 className="text-sm font-semibold text-gray-700">Recent Transactions</h3>
-          <Link to="/transactions/history" className="text-xs text-primary-600 hover:underline">View all</Link>
+          <Link to="/transactions/history" className="-my-2 py-2 text-xs text-primary-600 hover:underline">View all</Link>
         </div>
         {recentTransactions.length === 0 ? (
           <div className="p-6 text-center text-sm text-gray-400">No transactions yet.</div>
@@ -402,14 +534,14 @@ const Dashboard = () => {
           <div className="divide-y divide-gray-50">
             {recentTransactions.map((t) => (
               <div key={t._id} className="flex items-center gap-3 px-4 py-2.5 hover:bg-gray-50">
-                <Badge variant={TYPE_VARIANTS[t.transactionType] || 'default'} size="sm" className="shrink-0 w-20 text-center">
+                <Badge variant={TYPE_BADGES[t.transactionType] || 'gray'} className="shrink-0 w-[4.75rem] sm:w-20 justify-center">
                   {TYPE_LABELS[t.transactionType]}
                 </Badge>
                 <div className="flex-1 min-w-0">
                   <Link to={`/masters/products/${t.product?._id}`} className="text-sm font-medium truncate hover:text-primary-600 hover:underline block">
                     {t.product?.name}
                   </Link>
-                  <p className="text-xs text-gray-400">
+                  <p className="text-xs text-gray-400 truncate">
                     {t.fromDepartment?.name && `${t.fromDepartment.name} → `}
                     {t.toDepartment?.name}
                     {' · '}{t.createdBy?.name}

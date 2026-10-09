@@ -4,8 +4,15 @@ import { BarChart2, RefreshCw, Download, CalendarDays, Users, AlertTriangle, Bar
 import { getReport, getMonthlyReport, getStaffReport, getWastageReport, getMahaprasadWhatsApp } from '../../api/mahaprasad.api.js';
 import toast from 'react-hot-toast';
 import PageHeader from '../../components/ui/PageHeader.jsx';
+import MobileCard from '../../components/ui/MobileCard.jsx';
 import { PageLoader } from '../../components/ui/Spinner.jsx';
 import { exportToExcel } from '../../utils/exportToExcel.js';
+import { shareText } from '../../utils/fileSaver.js';
+import { isNative } from '../../utils/platform.js';
+
+// Header action rows: phones get equal-width, thumb-sized buttons on one line.
+const ACTION_ROW = 'flex flex-wrap justify-end gap-2 max-sm:[&>*]:flex-1';
+const ACTION_BTN = 'btn btn-ghost border text-sm flex items-center gap-1.5 max-sm:px-2 max-sm:py-2.5';
 
 // ── Shared helpers ─────────────────────────────────────────────────────────────
 
@@ -28,27 +35,28 @@ const SHORTCUTS = [
 
 function DateRangeFilter({ from, to, setFrom, setTo, onApply, active, setActive, shortcuts = true }) {
   return (
-    <div className="card p-4 space-y-3">
+    <div className="card p-3 sm:p-4 space-y-3">
       {shortcuts && (
         <div className="flex flex-wrap gap-2">
           {SHORTCUTS.map(({ label, range }) => (
             <button key={label} onClick={() => { const r = range(); setFrom(r.from); setTo(r.to); onApply(r); setActive(label); }}
-              className={`px-3 py-1 rounded-full text-xs font-medium border transition-all ${active === label ? 'bg-primary-600 text-white border-primary-600' : 'border-gray-200 text-gray-500 hover:border-gray-400'}`}>
+              className={`px-3 py-1 max-sm:py-2 rounded-full text-xs font-medium border transition-all ${active === label ? 'bg-primary-600 text-white border-primary-600' : 'border-gray-200 text-gray-500 hover:border-gray-400'}`}>
               {label}
             </button>
           ))}
         </div>
       )}
-      <div className="flex flex-wrap items-end gap-3">
-        <div>
+      {/* Phones: From | To side by side, Generate full width underneath */}
+      <div className="grid grid-cols-2 gap-3 sm:flex sm:flex-wrap sm:items-end">
+        <div className="min-w-0">
           <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">From</label>
           <input type="date" value={from} onChange={(e) => { setFrom(e.target.value); setActive?.(''); }} className="input text-sm" />
         </div>
-        <div>
+        <div className="min-w-0">
           <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">To</label>
           <input type="date" value={to} onChange={(e) => { setTo(e.target.value); setActive?.(''); }} className="input text-sm" />
         </div>
-        <button onClick={() => onApply({ from, to })} className="btn-primary text-sm">Generate</button>
+        <button onClick={() => onApply({ from, to })} className="btn-primary text-sm col-span-2">Generate</button>
       </div>
     </div>
   );
@@ -99,6 +107,8 @@ function DailyTab() {
       const res  = await getMahaprasadWhatsApp(shareDate);
       const text = res?.data?.data?.text;
       if (!text) throw new Error('No data');
+      // Mobile apps: hand the text to the share sheet (WhatsApp is listed there).
+      if (isNative) { await shareText(text); return; }
       await navigator.clipboard.writeText(text);
       setWaCopied(true);
       toast.success('Copied — paste in any WhatsApp chat');
@@ -112,21 +122,30 @@ function DailyTab() {
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-end gap-2">
-        <button onClick={refetch} disabled={isFetching} className="btn btn-ghost border text-sm flex items-center gap-1.5">
+      <div className={ACTION_ROW}>
+        <button onClick={refetch} disabled={isFetching} className={ACTION_BTN}>
           <RefreshCw className={`h-4 w-4 ${isFetching ? 'animate-spin' : ''}`} /> Refresh
         </button>
         <button onClick={handleWhatsApp} disabled={waLoading}
-          className={`btn btn-ghost border text-sm flex items-center gap-1.5 disabled:opacity-50 transition-colors ${
+          className={`${ACTION_BTN} disabled:opacity-50 transition-colors ${
             waCopied
               ? 'text-green-700 border-green-400 bg-green-50'
               : 'text-green-700 border-green-200 hover:bg-green-50'
           }`}>
-          <MessageCircle className="h-4 w-4" />
-          {waLoading ? 'Loading…' : waCopied ? 'Copied!' : from === to ? 'Copy for WhatsApp' : "Copy Today's Summary"}
+          <MessageCircle className="h-4 w-4 shrink-0" />
+          {waLoading ? 'Loading…' : waCopied ? 'Copied!' : (
+            <>
+              <span className="sm:hidden">{isNative ? 'Share' : 'WhatsApp'}</span>
+              <span className="hidden sm:inline">
+                {isNative
+                  ? (from === to ? 'Share Summary' : "Share Today's Summary")
+                  : (from === to ? 'Copy for WhatsApp' : "Copy Today's Summary")}
+              </span>
+            </>
+          )}
         </button>
         {rows.length > 0 && (
-          <button onClick={handleExport} className="btn btn-ghost border text-sm flex items-center gap-1.5">
+          <button onClick={handleExport} className={ACTION_BTN}>
             <Download className="h-4 w-4 text-green-600" /> Excel
           </button>
         )}
@@ -155,10 +174,22 @@ function DailyTab() {
 
       {!isLoading && res.occasionBreakdown?.length > 0 && (
         <div className="card overflow-hidden">
-          <div className="px-5 py-3 border-b bg-purple-50">
+          <div className="px-4 sm:px-5 py-3 border-b bg-purple-50">
             <p className="text-sm font-semibold text-purple-800">Free Coupons by Occasion</p>
           </div>
-          <div className="overflow-x-auto">
+          {/* Phones: compact list */}
+          <div className="divide-y divide-gray-50 md:hidden">
+            {res.occasionBreakdown.map((o) => (
+              <div key={o._id} className="flex items-center justify-between gap-3 px-4 py-2.5 text-sm">
+                <span className="min-w-0 font-medium text-gray-800 break-words">{o._id}</span>
+                <span className="shrink-0 text-right text-xs text-gray-500">
+                  <span className="font-bold text-purple-700 text-sm">{o.count}</span> issued
+                  <span className="block"><span className="text-green-700">{o.redeemed}</span> redeemed · {pct(o.redeemed, o.count)}</span>
+                </span>
+              </div>
+            ))}
+          </div>
+          <div className="hidden md:block overflow-x-auto">
             <table className="min-w-full">
               <thead><tr className="bg-gray-50 border-b">
                 <th className="table-th">Occasion</th>
@@ -182,7 +213,27 @@ function DailyTab() {
       )}
 
       {isLoading ? <PageLoader /> : rows.length === 0 ? <EmptyState /> : (
-        <div className="card overflow-hidden">
+        <>
+        {/* Phones: a card per day (period totals are in the summary tiles above) */}
+        <div className="space-y-2.5 md:hidden">
+          {rows.map((r) => {
+            const pending = r.total - r.redeemed;
+            return (
+              <MobileCard
+                key={r._id}
+                title={fmt(r._id)}
+                aside={<span className="font-semibold text-primary-700">{fmtRs(r.collected)}</span>}
+                fields={[
+                  { label: 'Issued',   value: <span className="font-bold text-gray-800">{r.total}</span> },
+                  { label: 'Redeemed', value: <span className="text-green-700">{r.redeemed} <span className="text-gray-400">({pct(r.redeemed, r.total)})</span></span> },
+                  { label: 'Pending',  value: <span className={pending > 0 ? 'text-yellow-600' : 'text-gray-400'}>{pending}</span> },
+                  { label: 'Paid / Free', value: <><span className="text-blue-700">{r.paid}</span> / <span className="text-purple-700">{r.free}</span></> },
+                ]}
+              />
+            );
+          })}
+        </div>
+        <div className="hidden md:block card overflow-hidden">
           <div className="overflow-x-auto">
             <table className="min-w-full">
               <thead><tr className="bg-gray-50 border-b">
@@ -225,6 +276,7 @@ function DailyTab() {
             </table>
           </div>
         </div>
+        </>
       )}
     </div>
   );
@@ -258,12 +310,12 @@ function MonthlyTab() {
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-end gap-2">
-        <button onClick={refetch} disabled={isFetching} className="btn btn-ghost border text-sm flex items-center gap-1.5">
+      <div className={ACTION_ROW}>
+        <button onClick={refetch} disabled={isFetching} className={ACTION_BTN}>
           <RefreshCw className={`h-4 w-4 ${isFetching ? 'animate-spin' : ''}`} /> Refresh
         </button>
         {rows.length > 0 && (
-          <button onClick={handleExport} className="btn btn-ghost border text-sm flex items-center gap-1.5">
+          <button onClick={handleExport} className={ACTION_BTN}>
             <Download className="h-4 w-4 text-green-600" /> Excel
           </button>
         )}
@@ -290,7 +342,34 @@ function MonthlyTab() {
       )}
 
       {isLoading ? <PageLoader /> : rows.length === 0 ? <EmptyState /> : (
-        <div className="card overflow-hidden">
+        <>
+        <div className="space-y-2.5 md:hidden">
+          {rows.map((r) => {
+            const pending = r.total - r.redeemed;
+            return (
+              <MobileCard
+                key={r._id}
+                title={fmtMonth(r._id)}
+                aside={<span className="font-semibold text-primary-700">{fmtRs(r.collected)}</span>}
+                fields={[
+                  {
+                    label: 'Volume', full: true,
+                    value: (
+                      <div className="mt-1 h-2 bg-gray-100 rounded-full overflow-hidden">
+                        <div className="h-full bg-orange-400 rounded-full" style={{ width: `${Math.round((r.total / maxTotal) * 100)}%` }} />
+                      </div>
+                    ),
+                  },
+                  { label: 'Issued',   value: <span className="font-bold text-gray-800">{r.total}</span> },
+                  { label: 'Redeemed', value: <span className="text-green-700">{r.redeemed} <span className="text-gray-400">({pct(r.redeemed, r.total)})</span></span> },
+                  { label: 'Pending',  value: <span className={pending > 0 ? 'text-yellow-600' : 'text-gray-400'}>{pending}</span> },
+                  { label: 'Paid / Free', value: <><span className="text-blue-700">{r.paid}</span> / <span className="text-purple-700">{r.free}</span></> },
+                ]}
+              />
+            );
+          })}
+        </div>
+        <div className="hidden md:block card overflow-hidden">
           <div className="overflow-x-auto">
             <table className="min-w-full">
               <thead><tr className="bg-gray-50 border-b">
@@ -342,6 +421,7 @@ function MonthlyTab() {
             </table>
           </div>
         </div>
+        </>
       )}
     </div>
   );
@@ -375,12 +455,12 @@ function StaffTab() {
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-end gap-2">
-        <button onClick={refetch} disabled={isFetching} className="btn btn-ghost border text-sm flex items-center gap-1.5">
+      <div className={ACTION_ROW}>
+        <button onClick={refetch} disabled={isFetching} className={ACTION_BTN}>
           <RefreshCw className={`h-4 w-4 ${isFetching ? 'animate-spin' : ''}`} /> Refresh
         </button>
         {rows.length > 0 && (
-          <button onClick={handleExport} className="btn btn-ghost border text-sm flex items-center gap-1.5">
+          <button onClick={handleExport} className={ACTION_BTN}>
             <Download className="h-4 w-4 text-green-600" /> Excel
           </button>
         )}
@@ -390,7 +470,23 @@ function StaffTab() {
         onApply={(r) => setParams(r)} />
 
       {isLoading ? <PageLoader /> : rows.length === 0 ? <EmptyState /> : (
-        <div className="card overflow-hidden">
+        <>
+        <div className="space-y-2.5 md:hidden">
+          {[...rows, { userId: '__totals', name: 'Totals', ...totals }].map((r) => (
+            <MobileCard
+              key={r.userId}
+              className={r.userId === '__totals' ? 'bg-gray-50 border-gray-200' : ''}
+              title={<span className={r.userId === '__totals' ? 'font-bold' : ''}>{r.name}</span>}
+              aside={<span className="font-semibold text-primary-700">{fmtRs(r.collected)}</span>}
+              fields={[
+                { label: 'Issued',    value: <span className="font-bold text-orange-700">{r.issued}</span> },
+                { label: 'Free Seva', value: <span className="text-purple-700">{r.freeSeva}</span> },
+                { label: 'Redeemed',  value: <span className="text-green-700">{r.redeemed}</span> },
+              ]}
+            />
+          ))}
+        </div>
+        <div className="hidden md:block card overflow-hidden">
           <div className="overflow-x-auto">
             <table className="min-w-full">
               <thead><tr className="bg-gray-50 border-b">
@@ -423,6 +519,7 @@ function StaffTab() {
             </table>
           </div>
         </div>
+        </>
       )}
     </div>
   );
@@ -454,26 +551,26 @@ function WastageTab() {
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-end gap-2">
-        <button onClick={refetch} disabled={isFetching} className="btn btn-ghost border text-sm flex items-center gap-1.5">
+      <div className={ACTION_ROW}>
+        <button onClick={refetch} disabled={isFetching} className={ACTION_BTN}>
           <RefreshCw className={`h-4 w-4 ${isFetching ? 'animate-spin' : ''}`} /> Refresh
         </button>
         {rows.length > 0 && (
-          <button onClick={handleExport} className="btn btn-ghost border text-sm flex items-center gap-1.5">
+          <button onClick={handleExport} className={ACTION_BTN}>
             <Download className="h-4 w-4 text-green-600" /> Excel
           </button>
         )}
       </div>
 
       {/* Filter — only from date, upper bound is always (today - validity) */}
-      <div className="card p-4 space-y-2">
+      <div className="card p-3 sm:p-4 space-y-2">
         <div className="flex flex-wrap items-end gap-3">
-          <div>
+          <div className="max-sm:w-full">
             <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">From date (optional)</label>
             <input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className="input text-sm" />
           </div>
-          <button onClick={() => setParams(from ? { from } : {})} className="btn-primary text-sm">Refresh</button>
-          {from && <button onClick={() => { setFrom(''); setParams({}); }} className="btn-secondary text-sm">Clear</button>}
+          <button onClick={() => setParams(from ? { from } : {})} className="btn-primary text-sm max-sm:flex-1">Refresh</button>
+          {from && <button onClick={() => { setFrom(''); setParams({}); }} className="btn-secondary text-sm max-sm:flex-1">Clear</button>}
         </div>
         {validityDays !== undefined && (
           <p className="text-xs text-gray-400">
@@ -515,7 +612,21 @@ function WastageTab() {
               <p className="text-sm text-gray-400 mt-1">All issued coupons have been redeemed.</p>
             </div>
           ) : (
-            <div className="card overflow-hidden">
+            <>
+            <div className="space-y-2.5 md:hidden">
+              {rows.map((r) => (
+                <MobileCard
+                  key={r._id}
+                  title={fmt(r._id)}
+                  aside={<span className="font-semibold text-gray-700">{r.wasted > 0 ? fmtRs(r.wasted) : '—'}</span>}
+                  fields={[
+                    { label: 'Expired', value: <span className="font-bold text-red-700">{r.count}</span> },
+                    { label: 'Paid / Free', value: <><span className="text-orange-700">{r.paid}</span> / <span className="text-purple-700">{r.free}</span></> },
+                  ]}
+                />
+              ))}
+            </div>
+            <div className="hidden md:block card overflow-hidden">
               <div className="overflow-x-auto">
                 <table className="min-w-full">
                   <thead><tr className="bg-gray-50 border-b">
@@ -546,6 +657,7 @@ function WastageTab() {
                 </table>
               </div>
             </div>
+            </>
           )}
         </>
       )}
@@ -573,11 +685,11 @@ export default function MahaprasadReport() {
         breadcrumbs={[{ label: 'Mahaprasad', to: '/mahaprasad' }, { label: 'Report' }]}
       />
 
-      {/* Tab bar */}
-      <div className="card p-1 flex gap-1 flex-wrap">
+      {/* Tab bar — phones: four equal segments with the icon above the label */}
+      <div className="card p-1 grid grid-cols-4 gap-1 sm:flex sm:flex-wrap">
         {TABS.map(({ key, label, icon: Icon }) => (
           <button key={key} onClick={() => setTab(key)}
-            className={`flex items-center gap-2 py-2 px-4 rounded-lg text-sm font-medium transition-all ${
+            className={`flex items-center gap-2 py-2 px-4 rounded-lg text-sm font-medium transition-all max-sm:flex-col max-sm:gap-1 max-sm:px-1 max-sm:text-xs ${
               tab === key ? 'bg-primary-600 text-white shadow-sm' : 'text-gray-500 hover:bg-gray-50'
             }`}>
             <Icon className="h-4 w-4" /> {label}

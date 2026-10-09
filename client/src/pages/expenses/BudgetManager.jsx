@@ -2,8 +2,11 @@ import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Copy, Save, Settings2 } from 'lucide-react';
 import { getBudgets, upsertBudgets, copyPrevBudgets } from '../../api/budget.api.js';
+import { Link } from 'react-router-dom';
 import PageHeader from '../../components/ui/PageHeader.jsx';
+import StickyActionBar from '../../components/ui/StickyActionBar.jsx';
 import { fCurrency } from '../../utils/formatters.js';
+import haptics from '../../utils/haptics.js';
 import toast from 'react-hot-toast';
 
 const CATEGORIES = [
@@ -45,6 +48,7 @@ export default function BudgetManager() {
       return upsertBudgets({ year, month, budgets });
     },
     onSuccess: () => {
+      haptics.success();
       toast.success('Budgets saved');
       qc.invalidateQueries({ queryKey: ['budgets'] });
       qc.invalidateQueries({ queryKey: ['pnl'] });
@@ -87,7 +91,8 @@ export default function BudgetManager() {
             <button onClick={handleCopyPrev} className="btn-secondary flex items-center gap-1.5 text-sm">
               <Copy className="h-3.5 w-3.5" /> Copy last month
             </button>
-            <button onClick={() => saveMut.mutate()} disabled={saveMut.isPending} className="btn-primary flex items-center gap-1.5 text-sm">
+            {/* Phones: Save is pinned at the bottom instead */}
+            <button onClick={() => saveMut.mutate()} disabled={saveMut.isPending} className="btn-primary hidden sm:flex items-center gap-1.5 text-sm">
               <Save className="h-3.5 w-3.5" />
               {saveMut.isPending ? 'Saving…' : 'Save'}
             </button>
@@ -97,12 +102,12 @@ export default function BudgetManager() {
 
       {/* Month/Year picker */}
       <div className="flex items-center gap-3">
-        <select value={month} onChange={(e) => setMonth(Number(e.target.value))} className="input w-36">
+        <select value={month} onChange={(e) => setMonth(Number(e.target.value))} className="input flex-1 sm:flex-none sm:w-36">
           {MONTH_NAMES.slice(1).map((n, i) => (
             <option key={i + 1} value={i + 1}>{n}</option>
           ))}
         </select>
-        <select value={year} onChange={(e) => setYear(Number(e.target.value))} className="input w-24">
+        <select value={year} onChange={(e) => setYear(Number(e.target.value))} className="input w-28 sm:w-24">
           {yearOptions.map((y) => <option key={y} value={y}>{y}</option>)}
         </select>
       </div>
@@ -120,24 +125,26 @@ export default function BudgetManager() {
         ) : (
           <div className="divide-y divide-gray-50">
             {CATEGORIES.map(({ value, label, icon }) => (
-              <div key={value} className="flex items-center justify-between px-4 py-3 hover:bg-gray-50">
-                <div className="flex items-center gap-3 w-48">
+              <label key={value} className="flex items-center justify-between gap-3 px-4 py-3 hover:bg-gray-50">
+                <div className="flex min-w-0 flex-1 items-center gap-3 sm:w-48 sm:flex-none">
                   <span className="text-base">{icon}</span>
                   <span className="text-sm font-medium text-gray-700">{label}</span>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex shrink-0 items-center gap-2">
                   <span className="text-gray-400 text-sm">₹</span>
                   <input
                     type="number"
+                    inputMode="decimal"
+                    enterKeyHint="next"
                     min="0"
                     step="100"
                     value={values[value] ?? ''}
                     onChange={(e) => setValues((prev) => ({ ...prev, [value]: e.target.value }))}
-                    className="input w-36 text-right font-mono"
+                    className="input w-32 sm:w-36 text-right font-mono"
                     placeholder="0"
                   />
                 </div>
-              </div>
+              </label>
             ))}
 
             {/* Total row */}
@@ -151,9 +158,19 @@ export default function BudgetManager() {
 
       <p className="text-xs text-gray-400">
         Budgets are used in the{' '}
-        <a href="/reports/pnl" className="text-primary-600 hover:underline">Monthly P&L report</a>{' '}
+        <Link to="/reports/pnl" className="text-primary-600 hover:underline">Monthly P&L report</Link>{' '}
         to show variance and usage per category. Expenses pending approval are not counted.
       </p>
+
+      {/* Phones: Save pinned at the bottom */}
+      <div className="sm:hidden">
+        <StickyActionBar>
+          <button onClick={() => saveMut.mutate()} disabled={saveMut.isPending} className="btn-primary">
+            <Save className="h-4 w-4" />
+            {saveMut.isPending ? 'Saving…' : `Save budgets · ${fCurrency(total)}`}
+          </button>
+        </StickyActionBar>
+      </div>
     </div>
   );
 }

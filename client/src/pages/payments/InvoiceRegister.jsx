@@ -206,6 +206,102 @@ function InvoiceRow({ inv }) {
   );
 }
 
+// Phone layout: tap a card to expand its line items and payment history.
+function InvoiceCard({ inv }) {
+  const [open, setOpen] = useState(false);
+  const showDue = inv.isOverdue && inv.paymentStatus !== 'paid';
+
+  return (
+    <div className={`card overflow-hidden ${showDue ? 'border-orange-200' : ''}`}>
+      <button type="button" onClick={() => setOpen((o) => !o)} className="block w-full p-3.5 text-left active:bg-gray-50" aria-expanded={open}>
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <p className="font-mono text-sm font-semibold text-gray-800 break-all">
+              {inv.invoiceNumber || <span className="font-sans italic text-gray-400 text-xs">No Invoice #</span>}
+            </p>
+            <p className="mt-0.5 text-[15px] font-medium text-gray-900 break-words">{inv.supplierName || '—'}</p>
+            <p className="mt-0.5 text-xs text-gray-500">
+              {fmt(inv.invoiceDate)} · {inv.itemCount} item{inv.itemCount === 1 ? '' : 's'}
+              {showDue && <> · <span className="whitespace-nowrap font-medium text-orange-600">Due {fmt(inv.dueDate)}</span></>}
+            </p>
+          </div>
+          <div className="flex shrink-0 items-center gap-1">
+            <StatusBadge status={inv.paymentStatus} isOverdue={inv.isOverdue} />
+            <ChevronDown size={16} className={`text-gray-300 transition-transform ${open ? 'rotate-180' : ''}`} />
+          </div>
+        </div>
+        <dl className="mt-2.5 grid grid-cols-3 gap-2 text-sm">
+          <div>
+            <dt className="text-[11px] uppercase tracking-wide text-gray-400">Total</dt>
+            <dd className="font-medium text-gray-800">{fmtAmt(inv.totalValue)}</dd>
+          </div>
+          <div>
+            <dt className="text-[11px] uppercase tracking-wide text-gray-400">Paid</dt>
+            <dd className="text-green-700">{inv.paidSoFar > 0 ? fmtAmt(inv.paidSoFar) : '—'}</dd>
+          </div>
+          <div className="text-right">
+            <dt className="text-[11px] uppercase tracking-wide text-gray-400">Balance</dt>
+            <dd className={`font-semibold ${inv.remaining > 0 ? 'text-red-600' : 'text-gray-400'}`}>{inv.remaining > 0 ? fmtAmt(inv.remaining) : '—'}</dd>
+          </div>
+        </dl>
+      </button>
+
+      {open && (
+        <div className="space-y-4 border-t border-gray-100 bg-gray-50 px-3.5 py-3">
+          <div>
+            <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-gray-500">Invoice Items ({inv.items.length})</p>
+            {inv.items.length === 0 ? (
+              <p className="text-xs italic text-gray-400">No line items</p>
+            ) : (
+              <div className="divide-y divide-gray-200/70 rounded-lg border bg-white">
+                {inv.items.map((item, i) => (
+                  <div key={i} className="flex items-start justify-between gap-3 px-3 py-2 text-xs">
+                    <div className="min-w-0">
+                      <p className="font-medium text-gray-800 break-words">{item.product}</p>
+                      <p className="text-gray-400">
+                        {item.quantity} {item.unit || ''}{item.rate > 0 && ` × ${fmtAmt(item.rate)}`}
+                        {item.expiryDate && ` · Exp ${fmt(item.expiryDate)}`}
+                        {item.batchRef && <span className="font-mono"> · {item.batchRef}</span>}
+                      </p>
+                    </div>
+                    <p className="shrink-0 font-medium text-gray-800">{item.totalValue > 0 ? fmtAmt(item.totalValue) : '—'}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+          <div>
+            <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-gray-500">Payment History</p>
+            {inv.payments.length === 0 ? (
+              <p className="text-xs italic text-gray-400">No payments recorded</p>
+            ) : (
+              <div className="space-y-1.5">
+                {inv.payments.map((p, i) => (
+                  <div key={i} className="flex items-center justify-between rounded border bg-white px-3 py-2 text-xs">
+                    <div>
+                      <div className="font-medium text-gray-700">{p.paymentNumber}</div>
+                      <div className="text-gray-400">{fmt(p.paymentDate)}</div>
+                    </div>
+                    <div className="font-semibold text-green-700">{fmtAmt(p.paidAmount)}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+const STATUS_TAB_CLS = (active) =>
+  `whitespace-nowrap px-3 py-2 sm:py-1.5 text-sm rounded font-medium transition-colors ${
+    active ? 'bg-indigo-600 text-white' : 'text-gray-600 hover:bg-gray-100'
+  }`;
+
+// Raw filter inputs: 16px / 44px tall on phones (no iOS zoom), unchanged from sm up.
+const FILTER_INPUT = 'min-h-[44px] sm:min-h-0 border rounded px-3 py-2 text-base sm:text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500';
+
 export default function InvoiceRegister() {
   const [filters, setFilters] = useState({
     page: 1, limit: 50,
@@ -228,8 +324,10 @@ export default function InvoiceRegister() {
     staleTime: 5 * 60 * 1000,
   });
 
-  const invoices   = data?.data?.invoices    || [];
-  const pagination = data?.data?.pagination  || {};
+  // Body is { data: { invoices, pagination } }; the old `data.data.invoices` read never matched it.
+  const register   = data?.data?.data || data?.data || {};
+  const invoices   = register.invoices    || [];
+  const pagination = register.pagination  || {};
   const suppliers  = suppliersRes?.data?.data?.suppliers || suppliersRes?.data?.data || [];
 
   // Summary counts from current result set
@@ -261,71 +359,90 @@ export default function InvoiceRegister() {
           { label: 'Overdue',        value: overdueCount, sub: 'past due', cls: 'text-orange-600' },
           { label: 'Balance Due',    value: fmtAmt(totalDue), sub: fmtAmt(totalValue) + ' total', cls: 'text-red-700' },
         ].map((c) => (
-          <div key={c.label} className="bg-white border rounded-lg px-4 py-3">
-            <div className={`text-xl font-bold ${c.cls || 'text-gray-800'}`}>{c.value}</div>
+          <div key={c.label} className={`bg-white border rounded-lg px-3 py-2.5 sm:px-4 sm:py-3 ${c.label === 'Balance Due' ? 'col-span-2 md:col-span-1' : ''}`}>
+            <div className={`text-lg sm:text-xl font-bold ${c.cls || 'text-gray-800'}`}>{c.value}</div>
             <div className="text-xs font-medium text-gray-600">{c.label}</div>
             <div className="text-xs text-gray-400">{c.sub}</div>
           </div>
         ))}
       </div>
 
-      {/* Status tabs */}
-      <div className="flex gap-1 mb-4 bg-white border rounded-lg p-1 w-fit">
-        {STATUS_TABS.map((tab) => (
-          <button
-            key={tab.value}
-            onClick={() => set('status', tab.value)}
-            className={`px-3 py-1.5 text-sm rounded font-medium transition-colors ${
-              filters.status === tab.value
-                ? 'bg-indigo-600 text-white'
-                : 'text-gray-600 hover:bg-gray-100'
-            }`}
-          >
-            {tab.label}
-          </button>
-        ))}
+      {/* Status tabs — scroll sideways on narrow phones */}
+      <div className="-mx-4 mb-4 overflow-x-auto px-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:mx-0 sm:px-0">
+        <div className="flex gap-1 bg-white border rounded-lg p-1 w-max">
+          {STATUS_TABS.map((tab) => (
+            <button
+              key={tab.value}
+              onClick={() => set('status', tab.value)}
+              className={STATUS_TAB_CLS(filters.status === tab.value)}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Filters */}
       <div className="bg-white border rounded-lg p-3 mb-4 grid grid-cols-2 md:grid-cols-4 gap-3">
         <div className="relative col-span-2 md:col-span-1">
-          <Search size={13} className="absolute left-2.5 top-2.5 text-gray-400" />
+          <Search size={13} className="absolute left-2.5 top-3.5 sm:top-2.5 text-gray-400" />
           <input
             type="text"
+            inputMode="search"
+            enterKeyHint="search"
             placeholder="Invoice number…"
             value={filters.search}
             onChange={(e) => set('search', e.target.value)}
-            className="pl-8 w-full border rounded px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500"
+            className={`pl-8 w-full ${FILTER_INPUT}`}
           />
         </div>
         <select
           value={filters.supplierId}
           onChange={(e) => set('supplierId', e.target.value)}
-          className="border rounded px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500"
+          className={`col-span-2 md:col-span-1 min-w-0 ${FILTER_INPUT}`}
         >
           <option value="">All Suppliers</option>
           {(Array.isArray(suppliers) ? suppliers : []).map((s) => (
             <option key={s._id} value={s._id}>{s.name}</option>
           ))}
         </select>
+        {/* Date inputs ignore placeholders, so name them on phones */}
+        <div className="col-span-2 -mb-2 grid grid-cols-2 gap-3 text-xs font-medium text-gray-500 md:hidden" aria-hidden="true">
+          <span>From</span><span>To</span>
+        </div>
         <input
           type="date"
           value={filters.from}
           onChange={(e) => set('from', e.target.value)}
-          className="border rounded px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500"
+          className={`min-w-0 ${FILTER_INPUT}`}
           title="Invoice date from"
+          aria-label="Invoice date from"
         />
         <input
           type="date"
           value={filters.to}
           onChange={(e) => set('to', e.target.value)}
-          className="border rounded px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500"
+          className={`min-w-0 ${FILTER_INPUT}`}
           title="Invoice date to"
+          aria-label="Invoice date to"
         />
       </div>
 
+      {/* Phones: expandable cards */}
+      <div className="space-y-2.5 md:hidden">
+        {isLoading ? (
+          <div className="card py-16 text-center text-sm text-gray-400">Loading invoices…</div>
+        ) : invoices.length === 0 ? (
+          <div className="card px-4 py-12 text-center text-sm text-gray-400">
+            No invoices found. Invoices are created when stock is received with a supplier purchase.
+          </div>
+        ) : invoices.map((inv, i) => (
+          <InvoiceCard key={`${inv.supplierId}-${inv.invoiceNumber}-${i}`} inv={inv} />
+        ))}
+      </div>
+
       {/* Table */}
-      <div className="bg-white border rounded-lg overflow-x-auto">
+      <div className="hidden md:block bg-white border rounded-lg overflow-x-auto">
         <table className="w-full text-sm">
           <thead className="bg-gray-50 border-b">
             <tr>
@@ -362,7 +479,7 @@ export default function InvoiceRegister() {
 
       {/* Pagination */}
       {pagination.totalPages > 1 && (
-        <div className="flex items-center justify-between mt-4 text-sm text-gray-600">
+        <div className="flex flex-wrap items-center justify-between gap-2 mt-4 text-sm text-gray-600">
           <span>
             Showing {((filters.page - 1) * filters.limit) + 1}–{Math.min(filters.page * filters.limit, pagination.total)} of {pagination.total} invoices
           </span>
@@ -370,14 +487,14 @@ export default function InvoiceRegister() {
             <button
               disabled={filters.page <= 1}
               onClick={() => set('page', filters.page - 1)}
-              className="px-3 py-1 border rounded disabled:opacity-40 hover:bg-gray-50"
+              className="px-4 py-2 sm:px-3 sm:py-1 border rounded disabled:opacity-40 hover:bg-gray-50"
             >
               Previous
             </button>
             <button
               disabled={filters.page >= pagination.totalPages}
               onClick={() => set('page', filters.page + 1)}
-              className="px-3 py-1 border rounded disabled:opacity-40 hover:bg-gray-50"
+              className="px-4 py-2 sm:px-3 sm:py-1 border rounded disabled:opacity-40 hover:bg-gray-50"
             >
               Next
             </button>

@@ -11,6 +11,7 @@ import { PageLoader } from '../../components/ui/Spinner.jsx';
 import Modal from '../../components/ui/Modal.jsx';
 import { usePermissions } from '../../hooks/usePermissions.js';
 import toast from 'react-hot-toast';
+import { useSetAppBarTitle } from '../../components/Layout/AppBarContext.jsx';
 
 const COND_STYLES = {
   good:    { cls: 'bg-green-100 text-green-700',  label: 'Good',    Icon: CheckCircle2 },
@@ -23,6 +24,7 @@ const col = createColumnHelper();
 const fmt = (d) => d ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
 
 const AssetUnitList = () => {
+  useSetAppBarTitle('Asset Units');
   const { id }     = useParams();
   const navigate   = useNavigate();
   const { can }    = usePermissions();

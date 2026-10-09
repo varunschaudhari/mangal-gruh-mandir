@@ -1,9 +1,10 @@
 import { useQuery } from '@tanstack/react-query';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { AlertTriangle, Clock, CheckCircle2, HelpCircle } from 'lucide-react';
 import { getSupplierAging } from '../../api/supplierPayment.api.js';
 import PageHeader from '../../components/ui/PageHeader.jsx';
 import { PageLoader } from '../../components/ui/Spinner.jsx';
+import MobileCard from '../../components/ui/MobileCard.jsx';
 
 const fmtAmt = (n) =>
   n > 0
@@ -21,10 +22,24 @@ const BUCKETS = [
   { key: 'noDate',   label: 'No Due Date',hint: 'No due date set',   color: 'text-gray-400',   bg: 'bg-gray-50',   icon: HelpCircle },
 ];
 
+// Stacked bar segment colours, same order as BUCKETS.
+const BAR_COLORS = { current: 'bg-green-400', d0_30: 'bg-yellow-400', d31_60: 'bg-orange-400', d60plus: 'bg-red-500', noDate: 'bg-gray-300' };
+
+function AgingBar({ row }) {
+  if (!row.total) return null;
+  return (
+    <div className="flex h-2 overflow-hidden rounded-full bg-gray-100" aria-hidden="true">
+      {BUCKETS.map((b) => row[b.key] > 0 && (
+        <div key={b.key} className={BAR_COLORS[b.key]} style={{ width: `${(row[b.key] / row.total) * 100}%` }} />
+      ))}
+    </div>
+  );
+}
+
 function SummaryCard({ bucket, value }) {
   const Icon = bucket.icon;
   return (
-    <div className={`rounded-xl border border-gray-100 px-4 py-3 flex items-center gap-3 ${bucket.bg}`}>
+    <div className={`rounded-xl border border-gray-100 px-3 sm:px-4 py-3 flex items-center gap-3 last:col-span-2 sm:last:col-span-1 ${bucket.bg}`}>
       <Icon className={`h-5 w-5 shrink-0 ${bucket.color}`} />
       <div>
         <p className="text-xs text-gray-500">{bucket.label}</p>
@@ -35,6 +50,7 @@ function SummaryCard({ bucket, value }) {
 }
 
 export default function SupplierAgingReport() {
+  const navigate = useNavigate();
   const { data, isLoading } = useQuery({
     queryKey: ['supplier-aging'],
     queryFn:  getSupplierAging,
@@ -65,8 +81,8 @@ export default function SupplierAgingReport() {
 
       {/* Total outstanding highlight */}
       {grandTotal.total > 0 && (
-        <div className="bg-white rounded-xl border border-gray-100 px-5 py-3 flex items-center justify-between">
-          <span className="text-sm font-semibold text-gray-600">Total Outstanding (all suppliers)</span>
+        <div className="bg-white rounded-xl border border-gray-100 px-4 sm:px-5 py-3 flex items-center justify-between gap-3">
+          <span className="text-sm font-semibold text-gray-600">Total Outstanding <span className="hidden sm:inline">(all suppliers)</span></span>
           <span className="text-xl font-black text-primary-600">{fmtAmt(grandTotal.total)}</span>
         </div>
       )}
@@ -77,7 +93,31 @@ export default function SupplierAgingReport() {
           No outstanding balances found.
         </div>
       ) : (
-        <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
+        <>
+        {/* Phones: one card per supplier with a stacked aging bar */}
+        <div className="space-y-2.5 md:hidden">
+          {rows.map((row) => {
+            const worst =
+              row.d60plus > 0 ? 'text-red-600' :
+              row.d31_60  > 0 ? 'text-orange-600' :
+              row.d0_30   > 0 ? 'text-yellow-600' : 'text-gray-900';
+            return (
+              <MobileCard
+                key={row._id}
+                onClick={() => navigate(`/masters/suppliers/${row._id}`)}
+                title={row.name}
+                aside={<span className={`text-base font-bold ${worst}`}>{fmtAmt(row.total)}</span>}
+                fields={BUCKETS.filter((b) => row[b.key] > 0).map((b) => ({
+                  label: b.label,
+                  value: <span className={`font-medium ${b.color}`}>{fmtAmt(row[b.key])}</span>,
+                }))}
+                footer={<div className="w-full"><AgingBar row={row} /></div>}
+              />
+            );
+          })}
+        </div>
+
+        <div className="hidden md:block bg-white rounded-xl border border-gray-100 overflow-hidden">
           <div className="overflow-x-auto">
             <table className="min-w-full">
               <thead>
@@ -134,6 +174,7 @@ export default function SupplierAgingReport() {
             </table>
           </div>
         </div>
+        </>
       )}
     </div>
   );

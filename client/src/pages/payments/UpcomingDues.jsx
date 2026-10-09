@@ -4,6 +4,8 @@ import { useQuery } from '@tanstack/react-query';
 import { CalendarClock, AlertTriangle, Clock, CheckCircle2, Plus } from 'lucide-react';
 import { getUpcomingDues } from '../../api/supplierPayment.api.js';
 import PageHeader from '../../components/ui/PageHeader.jsx';
+import MobileCard from '../../components/ui/MobileCard.jsx';
+import haptics from '../../utils/haptics.js';
 
 const DAY_OPTIONS = [7, 15, 30, 60];
 
@@ -69,7 +71,7 @@ const UpcomingDues = () => {
 
       {/* Summary strip */}
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-        <div className="bg-white rounded-xl border border-gray-100 px-4 py-3">
+        <div className="col-span-2 sm:col-span-1 bg-white rounded-xl border border-gray-100 px-4 py-3">
           <p className="text-xs text-gray-400 font-medium">Total Outstanding</p>
           <p className="text-xl font-black text-gray-800 mt-0.5">{fmtAmt(totalOutstanding)}</p>
         </div>
@@ -84,15 +86,15 @@ const UpcomingDues = () => {
       </div>
 
       {/* Day filter */}
-      <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         <CalendarClock className="h-4 w-4 text-gray-400" />
         <span className="text-xs text-gray-500 font-medium">Show next:</span>
         <div className="flex gap-1.5">
           {DAY_OPTIONS.map((d) => (
             <button
               key={d}
-              onClick={() => setDays(d)}
-              className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${days === d ? 'bg-primary-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+              onClick={() => { haptics.select(); setDays(d); }}
+              className={`px-3 py-2 sm:py-1.5 rounded-full text-xs font-semibold transition-colors ${days === d ? 'bg-primary-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
             >
               {d} days
             </button>
@@ -101,8 +103,45 @@ const UpcomingDues = () => {
         <span className="text-xs text-gray-400 ml-1">(+ all overdue)</span>
       </div>
 
+      {/* Phones: one card per invoice */}
+      <div className="space-y-2.5 md:hidden">
+        {isLoading ? (
+          <div className="card py-12 text-center text-sm text-gray-400">Loading…</div>
+        ) : dues.length === 0 ? (
+          <div className="card py-12 text-center">
+            <CheckCircle2 className="h-8 w-8 text-green-400 mx-auto mb-2" />
+            <p className="text-sm font-medium text-gray-500">No dues in the next {days} days</p>
+            <p className="text-xs text-gray-400 mt-1">All invoices are settled or not yet due.</p>
+          </div>
+        ) : dues.map((row, i) => (
+          <MobileCard
+            key={i}
+            className={row.isOverdue ? 'border-red-200' : ''}
+            title={row.supplierName || '—'}
+            subtitle={<><span className="font-mono">{row.invoiceNumber || 'No invoice no.'}</span> · {fmt(row.invoiceDate)}</>}
+            aside={dueBadge(row.daysFromToday)}
+            fields={[
+              { label: 'Outstanding', value: <span className="text-base font-bold text-gray-900">{fmtAmt(row.remaining)}</span> },
+              {
+                label: 'Due Date',
+                value: <span className={`font-medium ${row.isOverdue ? 'text-red-700' : row.daysFromToday <= 7 ? 'text-amber-700' : 'text-gray-700'}`}>{fmt(row.dueDate)}</span>,
+              },
+              { label: 'Invoice Total', value: fmtAmt(row.invoiceTotal) },
+            ]}
+            footer={
+              <button
+                onClick={() => navigate(`/payments/new?supplier=${row.supplierId}`)}
+                className="btn-primary w-full text-sm"
+              >
+                <Plus className="h-4 w-4" /> Pay Now
+              </button>
+            }
+          />
+        ))}
+      </div>
+
       {/* Table */}
-      <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
+      <div className="hidden md:block bg-white rounded-xl border border-gray-100 overflow-hidden">
         {isLoading ? (
           <div className="py-12 text-center text-sm text-gray-400">Loading…</div>
         ) : dues.length === 0 ? (

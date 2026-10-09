@@ -9,6 +9,7 @@ import { PageLoader } from '../../components/ui/Spinner.jsx';
 import { AlertTriangle, PackageX, RefreshCw, ShoppingCart, Download, FileText, MessageCircle, Copy, Check } from 'lucide-react';
 import { exportToExcel } from '../../utils/exportToExcel.js';
 import toast from 'react-hot-toast';
+import { shareText } from '../../utils/fileSaver.js';
 
 const LowStockAlerts = () => {
   const [deptFilter, setDeptFilter] = useState('');
@@ -83,7 +84,8 @@ const LowStockAlerts = () => {
         breadcrumbs={[{ label: 'Reports' }, { label: 'Low Stock Alerts' }]}
         actions={
           <div className="flex gap-2 flex-wrap">
-            <button onClick={() => refetch()} disabled={isFetching} className="btn btn-ghost text-sm flex items-center gap-1">
+            {/* Below lg the page has pull-to-refresh, and four buttons don't fit a phone */}
+            <button onClick={() => refetch()} disabled={isFetching} className="btn btn-ghost text-sm hidden lg:flex items-center gap-1">
               <RefreshCw className={`h-4 w-4 ${isFetching ? 'animate-spin' : ''}`} /> Refresh
             </button>
             {alerts.length > 0 && (
@@ -104,8 +106,8 @@ const LowStockAlerts = () => {
       />
 
       {showWa && waText && (
-        <div className="card p-4 bg-green-50 border border-green-200">
-          <div className="flex items-center justify-between mb-2">
+        <div className="card p-4 bg-green-50 border border-green-200 mb-4 sm:mb-0">
+          <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
             <h4 className="font-semibold text-sm text-green-800 flex items-center gap-1.5">
               <MessageCircle className="h-4 w-4" /> WhatsApp Summary
             </h4>
@@ -114,8 +116,8 @@ const LowStockAlerts = () => {
                 {copied ? <Check className="h-3 w-3 text-green-600" /> : <Copy className="h-3 w-3" />}
                 {copied ? 'Copied!' : 'Copy'}
               </button>
-              <button onClick={() => window.open(`https://wa.me/?text=${encodeURIComponent(waText)}`, '_blank')}
-                className="btn text-xs bg-green-500 text-white hover:bg-green-600 flex items-center gap-1 px-3 py-1.5 rounded-md">
+              <button onClick={() => shareText(waText)}
+                className="btn text-xs bg-green-500 text-white hover:bg-green-600 flex items-center gap-1 px-3 py-2 sm:py-1.5 rounded-md">
                 <MessageCircle className="h-3 w-3" /> Open WhatsApp
               </button>
             </div>
@@ -128,7 +130,7 @@ const LowStockAlerts = () => {
 
       {/* Summary cards */}
       {!isLoading && (
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-4">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 mb-4">
           <div className="card px-4 py-3 border-l-4 border-red-500">
             <p className="text-xs text-gray-500">Out of Stock</p>
             <p className="text-2xl font-bold text-red-600">{outOfStock.length}</p>
@@ -149,13 +151,15 @@ const LowStockAlerts = () => {
       )}
 
       {/* Filters */}
-      <div className="card p-4 mb-4 flex flex-wrap items-center gap-3">
+      <div className="card p-3 sm:p-4 mb-4 flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-2 sm:gap-3">
         <input
           type="text"
+          inputMode="search"
+          enterKeyHint="search"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Search product…"
-          className="input text-sm w-48"
+          className="input text-sm sm:w-48"
         />
         <select value={deptFilter} onChange={(e) => setDeptFilter(e.target.value)} className="input text-sm">
           <option value="">All Departments</option>
@@ -178,11 +182,11 @@ const LowStockAlerts = () => {
       ) : (
         <>
           <div className="space-y-4">
-            <AlertSection title="Out of Stock"  icon={PackageX}      items={outOfStock}  headerClass="bg-red-50 text-red-700 border-red-100"      badgeVariant="danger"  />
-            <AlertSection title="Low Stock"     icon={AlertTriangle} items={lowStock}    headerClass="bg-amber-50 text-amber-700 border-amber-100"  badgeVariant="warning" />
-            <AlertSection title="Reorder Soon"  icon={ShoppingCart}  items={reorderSoon} headerClass="bg-yellow-50 text-yellow-700 border-yellow-100" badgeVariant="info"  />
+            <AlertSection title="Out of Stock"  icon={PackageX}      items={outOfStock}  headerClass="bg-red-50 text-red-700 border-red-100"      badgeVariant="red"    />
+            <AlertSection title="Low Stock"     icon={AlertTriangle} items={lowStock}    headerClass="bg-amber-50 text-amber-700 border-amber-100"  badgeVariant="orange" />
+            <AlertSection title="Reorder Soon"  icon={ShoppingCart}  items={reorderSoon} headerClass="bg-yellow-50 text-yellow-700 border-yellow-100" badgeVariant="yellow" />
           </div>
-          <p className="text-xs text-gray-400 mt-2">
+          <p className="hidden md:block text-xs text-gray-400 mt-2">
             Use the <strong>WhatsApp</strong> button above to send a summary for all alerts, or use the per-row <MessageCircle className="h-3 w-3 inline" /> button to alert about one item.
           </p>
         </>
@@ -201,7 +205,11 @@ const AlertSection = ({ title, icon: Icon, items, headerClass, badgeVariant }) =
         <h3 className="font-semibold text-sm">{title}</h3>
         <Badge variant={badgeVariant} size="sm">{items.length}</Badge>
       </div>
-      <div className="overflow-x-auto">
+      {/* Phones: compact rows instead of a 7-column table */}
+      <div className="divide-y divide-gray-100 md:hidden">
+        {items.map((b) => <AlertRow key={b._id} b={b} compact />)}
+      </div>
+      <div className="hidden md:block overflow-x-auto">
         <table className="min-w-full">
           <thead>
             <tr className="border-b border-gray-100 bg-gray-50">
@@ -224,12 +232,12 @@ const AlertSection = ({ title, icon: Icon, items, headerClass, badgeVariant }) =
 };
 
 const ALERT_CONFIG = {
-  out_of_stock: { label: 'Out of Stock', variant: 'danger',  rowBg: 'bg-red-50'    },
-  low_stock:    { label: 'Low Stock',    variant: 'warning', rowBg: 'bg-amber-50'  },
-  reorder:      { label: 'Reorder Soon', variant: 'info',    rowBg: 'bg-yellow-50' },
+  out_of_stock: { label: 'Out of Stock', variant: 'red',    rowBg: 'bg-red-50'    },
+  low_stock:    { label: 'Low Stock',    variant: 'orange', rowBg: 'bg-amber-50'  },
+  reorder:      { label: 'Reorder Soon', variant: 'yellow', rowBg: 'bg-yellow-50' },
 };
 
-const AlertRow = ({ b }) => {
+const AlertRow = ({ b, compact = false }) => {
   const cfg = ALERT_CONFIG[b.alertLevel] || {};
 
   const sendSingleAlert = () => {
@@ -244,8 +252,41 @@ const AlertRow = ({ b }) => {
       b.product?.reorderPoint  ? `Reorder Point: ${b.product.reorderPoint} ${b.product?.unit?.symbol || ''}` : null,
       `\nPlease arrange to restock.`,
     ].filter(Boolean).join('\n');
-    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
+    shareText(text);
   };
+
+  if (compact) {
+    const unit = b.product?.unit?.symbol || '';
+    return (
+      <div className={`flex items-center gap-3 px-4 py-3 ${cfg.rowBg}`}>
+        <div className="min-w-0 flex-1">
+          <p className="text-[15px] font-medium text-gray-900 break-words">{b.product?.name}</p>
+          <p className="text-xs text-gray-500">
+            <span className="font-mono">{b.product?.code}</span>{b.department?.name && ` · ${b.department.name}`}
+          </p>
+          {(b.product?.minStockLevel || b.product?.reorderPoint) && (
+            <p className="mt-0.5 text-xs text-gray-400">
+              {b.product?.minStockLevel ? `Min ${b.product.minStockLevel}` : ''}
+              {b.product?.minStockLevel && b.product?.reorderPoint ? ' · ' : ''}
+              {b.product?.reorderPoint ? `Reorder at ${b.product.reorderPoint}` : ''}
+              {unit && ` ${unit}`}
+            </p>
+          )}
+        </div>
+        <div className="shrink-0 text-right">
+          <span className="text-lg font-bold">{b.quantity}</span>
+          <span className="ml-1 text-xs text-gray-500">{unit}</span>
+        </div>
+        <button
+          onClick={sendSingleAlert}
+          aria-label={`Send WhatsApp alert for ${b.product?.name}`}
+          className="-mr-2 inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-green-600 active:bg-green-100"
+        >
+          <MessageCircle className="h-5 w-5" />
+        </button>
+      </div>
+    );
+  }
 
   return (
     <tr className={`hover:brightness-95 text-sm ${cfg.rowBg}`}>

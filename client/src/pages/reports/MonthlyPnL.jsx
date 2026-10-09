@@ -11,7 +11,9 @@ import { getPnL, getPnLTrend, exportPnLPdf } from '../../api/pnl.api.js';
 import PageHeader from '../../components/ui/PageHeader.jsx';
 import { PageLoader } from '../../components/ui/Spinner.jsx';
 import { fCurrency } from '../../utils/formatters.js';
+import { useIsMobile } from '../../hooks/useMediaQuery.js';
 import toast from 'react-hot-toast';
+import { saveFile } from '../../utils/fileSaver.js';
 
 const MONTH_NAMES = [
   '', 'January', 'February', 'March', 'April', 'May', 'June',
@@ -39,7 +41,11 @@ function BudgetBar({ actual, budget }) {
   );
 }
 
+const varianceText = (variance) =>
+  variance === null ? '—' : (variance >= 0 ? `-${fCurrency(variance)}` : `+${fCurrency(Math.abs(variance))}`);
+
 export default function MonthlyPnL() {
+  const isMobile = useIsMobile();
   const [year,  setYear]  = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth() + 1);
   const [exporting, setExporting] = useState(false);
@@ -67,10 +73,7 @@ export default function MonthlyPnL() {
     setExporting(true);
     try {
       const res = await exportPnLPdf({ year, month });
-      const url = URL.createObjectURL(new Blob([res.data], { type: 'application/pdf' }));
-      const a   = document.createElement('a');
-      a.href = url; a.download = `PnL-${year}-${String(month).padStart(2, '0')}.pdf`;
-      a.click(); URL.revokeObjectURL(url);
+      await saveFile(new Blob([res.data], { type: 'application/pdf' }), `PnL-${year}-${String(month).padStart(2, '0')}.pdf`);
     } catch {
       toast.error('Failed to export PDF');
     } finally {
@@ -101,12 +104,12 @@ export default function MonthlyPnL() {
 
       {/* Month / Year picker */}
       <div className="flex items-center gap-3">
-        <select value={month} onChange={(e) => setMonth(Number(e.target.value))} className="input w-36">
+        <select value={month} onChange={(e) => setMonth(Number(e.target.value))} className="input flex-1 sm:flex-none sm:w-36">
           {MONTH_NAMES.slice(1).map((n, i) => (
             <option key={i + 1} value={i + 1}>{n}</option>
           ))}
         </select>
-        <select value={year} onChange={(e) => setYear(Number(e.target.value))} className="input w-24">
+        <select value={year} onChange={(e) => setYear(Number(e.target.value))} className="input w-28 sm:w-24">
           {yearOptions.map((y) => <option key={y} value={y}>{y}</option>)}
         </select>
       </div>
@@ -117,28 +120,28 @@ export default function MonthlyPnL() {
           {(() => {
             const surplus = pnl.net >= 0;
             return (
-              <div className={`rounded-xl border-2 px-6 py-4 flex items-center justify-between ${
+              <div className={`rounded-xl border-2 px-4 sm:px-6 py-4 flex items-center justify-between gap-3 ${
                 surplus ? 'bg-green-50 border-green-300' : 'bg-red-50 border-red-300'
               }`}>
                 <div>
                   <p className={`text-xs font-semibold uppercase tracking-wide ${surplus ? 'text-green-700' : 'text-red-700'}`}>
                     {surplus ? 'Surplus' : 'Deficit'} — {MONTH_NAMES[month]} {year}
                   </p>
-                  <p className={`text-3xl font-bold mt-0.5 ${surplus ? 'text-green-700' : 'text-red-700'}`}>
+                  <p className={`text-2xl sm:text-3xl font-bold mt-0.5 ${surplus ? 'text-green-700' : 'text-red-700'}`}>
                     {fCurrency(Math.abs(pnl.net))}
                   </p>
                   <p className="text-xs text-gray-500 mt-1">Total Income − Total Approved Expenses</p>
                 </div>
                 {surplus
-                  ? <TrendingUp  className="h-12 w-12 text-green-400 shrink-0" />
-                  : <TrendingDown className="h-12 w-12 text-red-400 shrink-0" />
+                  ? <TrendingUp  className="h-10 w-10 sm:h-12 sm:w-12 text-green-400 shrink-0" />
+                  : <TrendingDown className="h-10 w-10 sm:h-12 sm:w-12 text-red-400 shrink-0" />
                 }
               </div>
             );
           })()}
 
           {/* ── Income + Expense summary cards ── */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
             <div className="card p-4 border-l-4 border-l-green-500">
               <div className="flex items-center gap-2 mb-2">
                 <Heart className="h-4 w-4 text-green-600" />
@@ -196,13 +199,49 @@ export default function MonthlyPnL() {
 
           {/* ── Category breakdown ── */}
           <div className="card overflow-hidden">
-            <div className="px-4 py-3 border-b bg-gray-50 flex items-center justify-between">
+            <div className="px-4 py-3 border-b bg-gray-50 flex items-center justify-between gap-2">
               <h3 className="text-sm font-semibold text-gray-700">Expense Breakdown by Category</h3>
-              <Link to="/expenses/budget" className="text-xs text-primary-600 hover:underline flex items-center gap-1">
+              <Link to="/expenses/budget" className="-my-2 py-2 shrink-0 text-xs text-primary-600 hover:underline flex items-center gap-1">
                 <Settings2 className="h-3 w-3" /> Edit budgets
               </Link>
             </div>
-            <div className="divide-y divide-gray-50">
+            {/* Phones: each category stacks actual, usage bar and budget/variance */}
+            <div className="divide-y divide-gray-50 md:hidden">
+              {pnl.expenses.byCategory.map((row) => {
+                const variance = row.budget > 0 ? row.budget - row.actual : null;
+                const varColor = variance === null ? 'text-gray-400' : (variance >= 0 ? 'text-green-600' : 'text-red-600');
+                return (
+                  <div key={row.category} className="space-y-1.5 px-4 py-3">
+                    <div className="flex items-baseline justify-between gap-3">
+                      <span className="text-sm font-medium text-gray-700">{row.label}</span>
+                      <span className="text-sm font-semibold text-gray-800">{row.actual > 0 ? fCurrency(row.actual) : '—'}</span>
+                    </div>
+                    <BudgetBar actual={row.actual} budget={row.budget} />
+                    {row.budget > 0 && (
+                      <div className="flex justify-between text-xs">
+                        <span className="text-gray-500">Budget {fCurrency(row.budget)}</span>
+                        <span className={`font-medium ${varColor}`}>{varianceText(variance)}</span>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+              <div className="space-y-1 bg-orange-50 px-4 py-3">
+                <div className="flex items-baseline justify-between text-sm font-semibold">
+                  <span className="text-orange-700">Total</span>
+                  <span className="text-orange-700">{fCurrency(pnl.expenses.total)}</span>
+                </div>
+                {pnl.expenses.budgetTotal > 0 && (
+                  <div className="flex justify-between text-xs font-semibold">
+                    <span className="text-gray-600">Budget {fCurrency(pnl.expenses.budgetTotal)}</span>
+                    <span className={pnl.expenses.budgetTotal - pnl.expenses.total >= 0 ? 'text-green-600' : 'text-red-600'}>
+                      {varianceText(pnl.expenses.budgetTotal - pnl.expenses.total)}
+                    </span>
+                  </div>
+                )}
+              </div>
+            </div>
+            <div className="hidden md:block divide-y divide-gray-50">
               <div className="grid grid-cols-12 px-4 py-2 text-xs font-semibold text-gray-400 uppercase tracking-wide">
                 <span className="col-span-3">Category</span>
                 <span className="col-span-2 text-right">Budget</span>
@@ -270,11 +309,12 @@ export default function MonthlyPnL() {
             <TrendingUp className="h-4 w-4 text-primary-600" />
             <h3 className="text-sm font-semibold text-gray-700">{year} Monthly Trend — Income vs Expenses</h3>
           </div>
-          <ResponsiveContainer width="100%" height={220}>
-            <BarChart data={trend} barGap={2} barSize={16}>
+          {/* maxBarSize (not a fixed barSize) lets 12 months of bars fit a phone */}
+          <ResponsiveContainer width="100%" height={isMobile ? 200 : 220}>
+            <BarChart data={trend} barGap={2} maxBarSize={16} margin={isMobile ? { top: 5, right: 0, bottom: 0, left: -8 } : undefined}>
               <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-              <XAxis dataKey="name" tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
-              <YAxis tick={{ fontSize: 11 }} axisLine={false} tickLine={false} width={60}
+              <XAxis dataKey="name" tick={{ fontSize: isMobile ? 10 : 11 }} axisLine={false} tickLine={false} interval={isMobile ? 'preserveStartEnd' : undefined} />
+              <YAxis tick={{ fontSize: isMobile ? 10 : 11 }} axisLine={false} tickLine={false} width={isMobile ? 44 : 60}
                 tickFormatter={(v) => v >= 1000 ? `₹${Math.round(v / 1000)}k` : `₹${v}`} />
               <Tooltip formatter={(v) => fCurrency(v)} cursor={{ fill: '#f9fafb' }} />
               <Legend wrapperStyle={{ fontSize: 11, paddingTop: 8 }} />

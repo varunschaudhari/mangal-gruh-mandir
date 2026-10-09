@@ -2,10 +2,12 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
 
-export default defineConfig({
+// `vite build --mode mobile` produces the bundle for the Capacitor apps (see MOBILE.md).
+// Native apps ship their assets inside the APK/IPA, so the PWA service worker is skipped.
+export default defineConfig(({ mode }) => ({
   plugins: [
     react(),
-    VitePWA({
+    mode !== 'mobile' && VitePWA({
       registerType: 'autoUpdate',
       injectRegister: null,   // we register manually in main.jsx so we can catch SSL errors
       includeAssets: ['apple-touch-icon.png', 'pwa-192x192.png', 'pwa-512x512.png'],
@@ -55,7 +57,7 @@ export default defineConfig({
         ],
       },
     }),
-  ],
+  ].filter(Boolean),
   server: {
     port: 3000,
     proxy: {
@@ -69,4 +71,4 @@ export default defineConfig({
       },
     },
   },
-});
+}));

@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, CheckCircle2, XCircle, Eye, Download, FileDown, Ban } from 'lucide-react';
+import { Plus, CheckCircle2, XCircle, Eye, Download, FileDown, Ban, CreditCard } from 'lucide-react';
 import {
   getPayments, approvePayment, rejectPayment,
   bulkApprovePayments, exportPayments, voidPayment,
@@ -9,8 +9,12 @@ import {
 import PageHeader from '../../components/ui/PageHeader.jsx';
 import Badge from '../../components/ui/Badge.jsx';
 import Modal from '../../components/ui/Modal.jsx';
+import StickyActionBar from '../../components/ui/StickyActionBar.jsx';
 import { usePermissions } from '../../hooks/usePermissions.js';
+import { useIsMobile } from '../../hooks/useMediaQuery.js';
 import toast from 'react-hot-toast';
+import { saveFile } from '../../utils/fileSaver.js';
+import haptics from '../../utils/haptics.js';
 
 const fmt    = (d)  => d ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
 const fmtAmt = (n)  => `₹${Number(n || 0).toLocaleString('en-IN')}`;
@@ -25,12 +29,61 @@ const FILTER_TABS = [
   { label: 'Rejected', value: 'rejected' },
 ];
 
+// Phone layout: one card per voucher, amount + status up top, Approve / Reject in thumb reach.
+function PaymentCard({ p, showCheckbox, isSelected, onToggle, showApprove, onApprove, onReject, onOpen }) {
+  return (
+    <div
+      onClick={onOpen}
+      className={`card cursor-pointer p-3.5 active:bg-gray-50 ${isSelected ? 'border-green-300 bg-green-50' : ''}`}
+    >
+      <div className="flex items-start gap-3">
+        {showCheckbox && (
+          <label onClick={(e) => e.stopPropagation()} className="-m-2 shrink-0 p-2">
+            <input
+              type="checkbox"
+              checked={isSelected}
+              onChange={onToggle}
+              className="h-5 w-5 rounded border-gray-300 text-green-600"
+              aria-label={`Select ${p.paymentNumber}`}
+            />
+          </label>
+        )}
+        <div className="min-w-0 flex-1">
+          <p className="break-words text-[15px] font-medium text-gray-900">{p.supplier?.name || '—'}</p>
+          <p className="mt-0.5 text-xs text-gray-500">
+            <span className="font-mono">{p.paymentNumber}</span>
+            {' · '}{fmt(p.paymentDate)}
+            {' · '}{PM_LABELS[p.paymentMode] || p.paymentMode}
+          </p>
+        </div>
+        <div className="shrink-0 text-right">
+          <p className="text-base font-bold text-gray-900">{fmtAmt(p.totalAmount)}</p>
+          <Badge variant={STATUS_COLORS[p.status]} className="mt-1">{STATUS_LABELS[p.status]}</Badge>
+        </div>
+      </div>
+      {showApprove && (
+        <div className="mt-3 grid grid-cols-2 gap-2 border-t border-gray-100 pt-3" onClick={(e) => e.stopPropagation()}>
+          <button onClick={onReject} className="btn-secondary border-red-200 text-red-600">
+            <XCircle className="h-4 w-4" /> Reject
+          </button>
+          <button onClick={onApprove} className="btn-primary bg-green-600 hover:bg-green-700">
+            <CheckCircle2 className="h-4 w-4" /> Approve
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function SupplierPayments() {
   const navigate = useNavigate();
   const qc       = useQueryClient();
   const { can, user } = usePermissions();
+  const isMobile = useIsMobile();
+  const [searchParams] = useSearchParams();
 
-  const [statusFilter, setStatusFilter] = useState('');
+  // Dashboard tiles deep-link here with ?status=pending_approval
+  const [statusFilter, setStatusFilter] = useState(searchParams.get('status') || '');
 
   // Approve modal — { id, paymentNumber } for single | null when closed
   const [approveModal, setApproveModal] = useState(null);
@@ -74,6 +127,7 @@ export default function SupplierPayments() {
   const approveMut = useMutation({
     mutationFn: ({ id, note }) => approvePayment(id, note ? { approvalNote: note } : undefined),
     onSuccess: () => {
+      haptics.success();
       toast.success('Payment approved');
       qc.invalidateQueries({ queryKey: ['payments'] });
       setApproveModal(null);
@@ -107,6 +161,7 @@ export default function SupplierPayments() {
   const bulkMut = useMutation({
     mutationFn: ({ ids, note }) => bulkApprovePayments({ ids, approvalNote: note || undefined }),
     onSuccess: (res) => {
+      haptics.success();
       const count = res?.data?.data?.approved || selected.size;
       toast.success(`${count} payment(s) approved`);
       qc.invalidateQueries({ queryKey: ['payments'] });
@@ -152,13 +207,7 @@ export default function SupplierPayments() {
         to:     exportTo   || undefined,
         status: statusFilter || undefined,
       });
-      const url = URL.createObjectURL(res.data);
-      const a   = document.createElement('a');
-      const from = exportFrom ? exportFrom : 'all';
-      a.href = url;
-      a.download = `payments-${from}.xlsx`;
-      a.click();
-      URL.revokeObjectURL(url);
+      await saveFile(res.data, `payments-${exportFrom || 'all'}.xlsx`);
       setExportModal(false);
     } catch {
       toast.error('Export failed');
@@ -179,8 +228,9 @@ export default function SupplierPayments() {
           <div className="flex items-center gap-2">
             <button
               onClick={() => setExportModal(true)}
-              className="btn-secondary flex items-center gap-2 text-sm">
-              <FileDown className="h-4 w-4" /> Export
+              className="btn-secondary flex items-center gap-2 text-sm px-3 sm:px-4"
+              aria-label="Export">
+              <FileDown className="h-4 w-4" /> <span className="hidden sm:inline">Export</span>
             </button>
             {can('payments:write') && (
               <button onClick={() => navigate('/payments/new')} className="btn-primary flex items-center gap-2 text-sm">
@@ -192,20 +242,23 @@ export default function SupplierPayments() {
       />
 
       {/* Filter tabs + bulk action bar */}
-      <div className="flex items-center justify-between gap-4 flex-wrap">
-        <div className="flex gap-1 bg-white rounded-xl border border-gray-100 p-1 w-fit">
-          {FILTER_TABS.map((f) => (
-            <button key={f.value} onClick={() => handleTabChange(f.value)}
-              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${statusFilter === f.value ? 'bg-primary-50 text-primary-700' : 'text-gray-500 hover:text-gray-700'}`}>
-              {f.label}
-              {f.value === 'pending_approval' && pendingCount > 0 && (
-                <span className="ml-1.5 bg-yellow-100 text-yellow-700 rounded-full px-1.5 py-0.5 text-xs">{pendingCount}</span>
-              )}
-            </button>
-          ))}
+      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:gap-4">
+        {/* Scrolls sideways on narrow phones instead of overflowing the page */}
+        <div className="-mx-4 overflow-x-auto px-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:mx-0 sm:px-0">
+          <div className="flex w-max gap-1 rounded-xl border border-gray-100 bg-white p-1">
+            {FILTER_TABS.map((f) => (
+              <button key={f.value} onClick={() => { haptics.select(); handleTabChange(f.value); }}
+                className={`whitespace-nowrap px-3 py-2 sm:py-1.5 rounded-lg text-sm font-medium transition-colors ${statusFilter === f.value ? 'bg-primary-50 text-primary-700' : 'text-gray-500 hover:text-gray-700'}`}>
+                {f.label}
+                {f.value === 'pending_approval' && pendingCount > 0 && (
+                  <span className="ml-1.5 bg-yellow-100 text-yellow-700 rounded-full px-1.5 py-0.5 text-xs">{pendingCount}</span>
+                )}
+              </button>
+            ))}
+          </div>
         </div>
 
-        {canApprove && selected.size > 0 && (
+        {canApprove && selected.size > 0 && !isMobile && (
           <button
             onClick={() => { setBulkNote(''); setBulkModal(true); }}
             className="btn-primary flex items-center gap-2 text-sm bg-green-600 hover:bg-green-700">
@@ -215,6 +268,43 @@ export default function SupplierPayments() {
         )}
       </div>
 
+      {isMobile ? (
+        isLoading ? (
+          <div className="card p-8 text-center text-gray-400 text-sm">Loading…</div>
+        ) : payments.length === 0 ? (
+          <div className="card px-4 py-12 text-center">
+            <CreditCard className="mx-auto mb-2 h-8 w-8 text-gray-300" />
+            <p className="text-sm text-gray-400">No payments found</p>
+          </div>
+        ) : (
+          <div className="space-y-2.5">
+            {canApprove && pendingPayments.length > 1 && (
+              <div className="flex items-center justify-between px-1 text-xs text-gray-500">
+                <span>{pendingPayments.length} awaiting approval</span>
+                <button onClick={toggleAll} className="-my-2 py-2 font-semibold text-primary-600">
+                  {allPendingSelected ? 'Clear selection' : 'Select all pending'}
+                </button>
+              </div>
+            )}
+            {payments.map((p) => {
+              const isPending = p.status === 'pending_approval';
+              return (
+                <PaymentCard
+                  key={p._id}
+                  p={p}
+                  showCheckbox={canApprove && isPending}
+                  isSelected={selected.has(p._id)}
+                  onToggle={() => { haptics.select(); toggleOne(p._id); }}
+                  showApprove={canApprove && isPending}
+                  onApprove={() => { setApprovalNote(''); setApproveModal({ id: p._id, paymentNumber: p.paymentNumber, amount: p.totalAmount }); }}
+                  onReject={() => { setRejectReason(''); setRejectModal({ id: p._id, paymentNumber: p.paymentNumber }); }}
+                  onOpen={() => navigate(`/payments/${p._id}`)}
+                />
+              );
+            })}
+          </div>
+        )
+      ) : (
       <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
         {isLoading ? (
           <div className="p-8 text-center text-gray-400 text-sm">Loading…</div>
@@ -314,12 +404,26 @@ export default function SupplierPayments() {
           </div>
         )}
       </div>
+      )}
+
+      {/* Phones: pinned bulk-approve bar while vouchers are selected */}
+      {canApprove && selected.size > 0 && isMobile && (
+        <StickyActionBar>
+          <button onClick={() => setSelected(new Set())} className="btn-secondary">Clear</button>
+          <button
+            onClick={() => { setBulkNote(''); setBulkModal(true); }}
+            className="btn-primary bg-green-600 hover:bg-green-700">
+            <CheckCircle2 className="h-4 w-4" /> Approve {selected.size}
+          </button>
+        </StickyActionBar>
+      )}
 
       {/* ── Approve modal (single) ── */}
       <Modal open={!!approveModal} onClose={() => setApproveModal(null)} title="Approve Payment" size="sm">
         <div className="space-y-4">
           <p className="text-sm text-gray-600">
-            Approve <strong>{approveModal?.paymentNumber}</strong>?
+            Approve <strong>{approveModal?.paymentNumber}</strong>
+            {approveModal?.amount != null && <> of <strong>{fmtAmt(approveModal.amount)}</strong></>}?
           </p>
           <div>
             <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
@@ -333,7 +437,7 @@ export default function SupplierPayments() {
               placeholder="e.g. Cross-checked with bank statement…"
             />
           </div>
-          <div className="flex justify-end gap-2">
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
             <button onClick={() => setApproveModal(null)} className="btn-secondary">Cancel</button>
             <button
               onClick={() => approveMut.mutate({ id: approveModal.id, note: approvalNote })}
@@ -355,7 +459,7 @@ export default function SupplierPayments() {
             <textarea value={rejectReason} onChange={(e) => setRejectReason(e.target.value)}
               rows={3} className="input" placeholder="e.g. Invoice mismatch, duplicate entry…" />
           </div>
-          <div className="flex justify-end gap-2">
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
             <button onClick={() => setRejectModal(null)} className="btn-secondary">Cancel</button>
             <button
               onClick={() => rejectMut.mutate({ id: rejectModal.id, reason: rejectReason })}
@@ -385,7 +489,7 @@ export default function SupplierPayments() {
               placeholder="e.g. Verified against March bank statement…"
             />
           </div>
-          <div className="flex justify-end gap-2">
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
             <button onClick={() => setBulkModal(false)} className="btn-secondary">Cancel</button>
             <button
               onClick={() => bulkMut.mutate({ ids: [...selected], note: bulkNote })}
@@ -409,7 +513,7 @@ export default function SupplierPayments() {
             <textarea value={voidReason} onChange={(e) => setVoidReason(e.target.value)}
               rows={3} className="input" placeholder="e.g. Entered in error, duplicate payment…" />
           </div>
-          <div className="flex justify-end gap-2">
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
             <button onClick={() => setVoidModal(null)} className="btn-secondary">Cancel</button>
             <button
               onClick={() => voidMut.mutate({ id: voidModal.id, reason: voidReason })}
@@ -441,7 +545,7 @@ export default function SupplierPayments() {
               Active filter <strong className="text-gray-600">{STATUS_LABELS[statusFilter] || statusFilter}</strong> will be applied to the export.
             </p>
           )}
-          <div className="flex justify-end gap-2">
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
             <button onClick={() => setExportModal(false)} className="btn-secondary">Cancel</button>
             <button
               onClick={handleExport}

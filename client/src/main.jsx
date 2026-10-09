@@ -7,6 +7,8 @@ import App from './App.jsx';
 import { AuthProvider } from './context/AuthContext.jsx';
 import ErrorBoundary from './components/ErrorBoundary.jsx';
 import './index.css';
+import { isNative, isElectron } from './utils/platform.js';
+import { initNativeShell, hideSplash } from './utils/nativeShell.js';
 
 // Manual SW registration — vite-plugin-pwa's auto-inject has no error handling.
 // When the app is accessed via a raw IP address the SSL cert doesn't cover that
@@ -14,7 +16,8 @@ import './index.css';
 // this becomes an unhandled rejection that crashes the React root (white screen).
 // Skip service worker in Electron — the app:// custom scheme doesn't need it
 // and SW caching would interfere with hot-reloaded renderer assets.
-if ('serviceWorker' in navigator && !window.electronAPI?.isElectron) {
+// Skip it in the Capacitor apps too — their assets ship inside the APK/IPA.
+if ('serviceWorker' in navigator && !isElectron && !isNative) {
   window.addEventListener('load', () => {
     navigator.serviceWorker
       .register('/sw.js', { scope: '/' })
@@ -24,6 +27,10 @@ if ('serviceWorker' in navigator && !window.electronAPI?.isElectron) {
       });
   });
 }
+
+initNativeShell();
+
+const isPhone = window.matchMedia('(max-width: 639px)').matches;
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -45,7 +52,8 @@ ReactDOM.createRoot(document.getElementById('root')).render(
               <App />
             </ErrorBoundary>
             <Toaster
-              position="top-right"
+              position={isPhone ? 'top-center' : 'top-right'}
+              containerStyle={{ top: 'calc(var(--safe-top) + 12px)' }}
               toastOptions={{
                 duration: 4000,
                 style: { fontSize: '14px' },
@@ -57,3 +65,6 @@ ReactDOM.createRoot(document.getElementById('root')).render(
     </ErrorBoundary>
   </React.StrictMode>
 );
+
+// Native apps: drop the splash screen once the first frame is on screen.
+requestAnimationFrame(() => requestAnimationFrame(hideSplash));

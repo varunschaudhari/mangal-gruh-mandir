@@ -8,11 +8,13 @@ import { PageLoader } from '../../components/ui/Spinner.jsx';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import toast from 'react-hot-toast';
+import { useIsMobile } from '../../hooks/useMediaQuery.js';
 
 const fmt     = (n) => Number(n || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
 
 const SupplierReport = () => {
+  const isMobile = useIsMobile();
   const [startDate, setStartDate] = useState(null);
   const [endDate,   setEndDate]   = useState(null);
   const [supplierId, setSupplierId] = useState('');
@@ -87,6 +89,8 @@ const SupplierReport = () => {
             maxDate={endDate || new Date()}
             dateFormat="dd/MM/yyyy" isClearable placeholderText="All dates"
             className="input text-sm"
+            withPortal={isMobile}
+            customInput={<input inputMode={isMobile ? 'none' : 'text'} />}
           />
         </div>
         <div>
@@ -98,6 +102,8 @@ const SupplierReport = () => {
             minDate={startDate} maxDate={new Date()}
             dateFormat="dd/MM/yyyy" isClearable placeholderText="All dates"
             className="input text-sm"
+            withPortal={isMobile}
+            customInput={<input inputMode={isMobile ? 'none' : 'text'} />}
           />
         </div>
         <div className="flex-1 min-w-[180px] max-w-xs">

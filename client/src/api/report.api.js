@@ -1,4 +1,5 @@
 import api from './axios.js';
+import { saveFile } from '../utils/fileSaver.js';
 
 export const getDailyReport    = (params) => api.get('/reports/daily', { params });
 export const getDailyWhatsApp  = (params) => api.get('/reports/daily/whatsapp', { params });
@@ -9,14 +10,7 @@ export const getSupplierReport    = (params) => api.get('/reports/suppliers', { 
 
 async function downloadReport(path, params, filename) {
   const response = await api.get(path, { params, responseType: 'blob' });
-  const url = URL.createObjectURL(new Blob([response.data]));
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  URL.revokeObjectURL(url);
+  await saveFile(new Blob([response.data]), filename);
 }
 
 const d = () => new Date().toISOString().split('T')[0];

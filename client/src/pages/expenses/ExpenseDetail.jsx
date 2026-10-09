@@ -1,14 +1,23 @@
 import { useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, CheckCircle2, XCircle, Clock, AlertTriangle, Banknote, Paperclip, Trash2, FileText, Upload } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, XCircle, Clock, AlertTriangle, Banknote, Paperclip, Trash2, FileText, Upload, Camera } from 'lucide-react';
 import { getExpense, approveExpense, rejectExpense, voidExpense, uploadExpenseReceipt, removeExpenseReceipt } from '../../api/expense.api.js';
 import PageHeader from '../../components/ui/PageHeader.jsx';
 import Modal from '../../components/ui/Modal.jsx';
+import StickyActionBar from '../../components/ui/StickyActionBar.jsx';
 import EntityAuditTrail from '../../components/ui/EntityAuditTrail.jsx';
 import { fDate, fDateTime, fCurrency } from '../../utils/formatters.js';
 import { usePermissions } from '../../hooks/usePermissions.js';
+import { useMediaQuery } from '../../hooks/useMediaQuery.js';
 import toast from 'react-hot-toast';
+import { serverUrl, isNative } from '../../utils/platform.js';
+import { openFile } from '../../utils/fileSaver.js';
+import haptics from '../../utils/haptics.js';
+
+// The server only accepts .jpg/.png/.pdf. Listing exact types (not image/*) keeps HEIC/WebP out of
+// the picker; no `capture` attribute, so phones keep the OS chooser (camera *and* gallery/files).
+const RECEIPT_ACCEPT = 'image/jpeg,image/png,application/pdf,.jpg,.jpeg,.png,.pdf';
 
 const CATEGORY_LABELS = {
   electricity: 'Electricity', water: 'Water', salary: 'Salary',
@@ -49,6 +58,9 @@ export default function ExpenseDetail() {
   const navigate = useNavigate();
   const qc       = useQueryClient();
   const { can }  = usePermissions();
+  // Below lg the app bar has the back arrow; rendering the link only on desktop keeps the
+  // desktop DOM (and its space-y spacing) exactly as before.
+  const isDesktop = useMediaQuery('(min-width: 1024px)');
 
   const [showReject,   setShowReject]   = useState(false);
   const [showVoid,     setShowVoid]     = useState(false);
@@ -70,7 +82,7 @@ export default function ExpenseDetail() {
 
   const approveMut = useMutation({
     mutationFn: () => approveExpense(id),
-    onSuccess: () => { toast.success('Expense approved'); invalidate(); },
+    onSuccess: () => { haptics.success(); toast.success('Expense approved'); invalidate(); },
     onError: (e) => toast.error(e.response?.data?.message || 'Failed'),
   });
 
@@ -114,19 +126,26 @@ export default function ExpenseDetail() {
   const canApprove = can('payments:approve') && expense.status === 'pending_approval';
   const canVoid    = can('payments:approve') && expense.status === 'approved';
 
+  const openReject = () => { setReason(''); setShowReject(true); };
+  const openVoid   = () => { setReason(''); setShowVoid(true); };
+
   return (
-    <div className="max-w-2xl space-y-5">
-      <button onClick={() => navigate('/expenses')}
-        className="inline-flex items-center gap-1.5 text-sm text-gray-400 hover:text-gray-700 transition-colors">
-        <ArrowLeft className="h-4 w-4" /> Expenses
-      </button>
+    <div className="max-w-2xl space-y-4 sm:space-y-5">
+      {isDesktop && (
+        <button onClick={() => navigate('/expenses')}
+          className="inline-flex items-center gap-1.5 text-sm text-gray-400 hover:text-gray-700 transition-colors">
+          <ArrowLeft className="h-4 w-4" /> Expenses
+        </button>
+      )}
 
       <PageHeader
         title={expense.expenseNumber}
         subtitle={`${CATEGORY_LABELS[expense.category] || expense.category} · ${fCurrency(expense.amount)}`}
         breadcrumbs={[{ label: 'Expenses', to: '/expenses' }, { label: expense.expenseNumber }]}
         actions={
-          <div className="flex items-center gap-2">
+          // Phones get Approve / Reject in the pinned bar below and Void at the end of the page
+          (canApprove || canVoid) && (
+          <div className="hidden sm:flex items-center gap-2">
             {canApprove && (
               <>
                 <button
@@ -137,7 +156,7 @@ export default function ExpenseDetail() {
                   {approveMut.isPending ? 'Approving…' : 'Approve'}
                 </button>
                 <button
-                  onClick={() => { setReason(''); setShowReject(true); }}
+                  onClick={openReject}
                   className="btn-danger flex items-center gap-1.5 text-sm">
                   <XCircle className="h-4 w-4" /> Reject
                 </button>
@@ -145,14 +164,16 @@ export default function ExpenseDetail() {
             )}
             {canVoid && (
               <button
-                onClick={() => { setReason(''); setShowVoid(true); }}
+                onClick={openVoid}
                 className="btn-danger flex items-center gap-1.5 text-sm">
                 <XCircle className="h-4 w-4" /> Void
               </button>
             )}
           </div>
+          )
         }
       />
+
 
       {/* Status banner for rejected/voided */}
       {expense.status === 'rejected' && (
@@ -182,8 +203,8 @@ export default function ExpenseDetail() {
       )}
 
       {/* Amount card */}
-      <div className="card p-5">
-        <div className="flex items-center justify-between mb-4">
+      <div className="card p-4 sm:p-5">
+        <div className="flex items-center justify-between gap-2 mb-4">
           <div className="flex items-center gap-2">
             <Banknote className="h-5 w-5 text-orange-500" />
             <h3 className="text-sm font-semibold text-gray-700">Expense Details</h3>
@@ -211,17 +232,17 @@ export default function ExpenseDetail() {
       </div>
 
       {/* Receipt */}
-      <div className="card p-5">
+      <div className="card p-4 sm:p-5">
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-sm font-semibold text-gray-700 flex items-center gap-2">
             <Paperclip className="h-4 w-4 text-gray-400" /> Bill / Receipt
           </h3>
           {can('payments:write') && (
-            <div className="flex items-center gap-2">
+            <div className={`items-center gap-2 ${expense.receiptPath ? 'flex' : 'hidden sm:flex'}`}>
               <input
                 ref={fileInputRef}
                 type="file"
-                accept=".jpg,.jpeg,.png,.pdf"
+                accept={RECEIPT_ACCEPT}
                 className="hidden"
                 onChange={handleFileChange}
               />
@@ -236,7 +257,8 @@ export default function ExpenseDetail() {
                 <button
                   onClick={() => removeMut.mutate()}
                   disabled={removeMut.isPending}
-                  className="btn-ghost text-red-400 hover:text-red-600 p-1.5">
+                  className="btn-ghost text-red-400 hover:text-red-600 p-2 sm:p-1.5"
+                  aria-label="Remove receipt">
                   <Trash2 className="h-4 w-4" />
                 </button>
               )}
@@ -247,29 +269,74 @@ export default function ExpenseDetail() {
         {expense.receiptPath ? (
           (() => {
             const isPdf = expense.receiptPath.endsWith('.pdf');
-            const url   = `/uploads/expenses/${expense.receiptPath}`;
+            const url   = serverUrl(`/uploads/expenses/${expense.receiptPath}`);
+            // The mobile apps have no browser tabs — fetch the file and hand it to the share sheet.
+            const openNative = (e) => {
+              if (!isNative) return;
+              e.preventDefault();
+              fetch(url)
+                .then((r) => r.blob())
+                .then((blob) => openFile(blob, expense.receiptPath))
+                .catch(() => toast.error('Could not open receipt'));
+            };
             return isPdf ? (
-              <a href={url} target="_blank" rel="noreferrer"
+              <a href={url} target="_blank" rel="noreferrer" onClick={openNative}
                 className="inline-flex items-center gap-2 text-sm text-primary-600 hover:underline">
                 <FileText className="h-4 w-4" /> View PDF Receipt
               </a>
             ) : (
-              <a href={url} target="_blank" rel="noreferrer">
+              <a href={url} target="_blank" rel="noreferrer" onClick={openNative}>
                 <img
                   src={url}
                   alt="Receipt"
-                  className="max-h-64 rounded-lg border border-gray-200 object-contain cursor-pointer hover:opacity-90 transition-opacity"
+                  className="max-h-64 max-w-full rounded-lg border border-gray-200 object-contain cursor-pointer hover:opacity-90 transition-opacity"
                 />
               </a>
             );
           })()
         ) : (
-          <p className="text-sm text-gray-400 italic">No receipt attached yet.</p>
+          <>
+            <p className={`text-sm text-gray-400 italic ${can('payments:write') ? 'hidden sm:block' : ''}`}>No receipt attached yet.</p>
+            {/* Phones: a big tap target that opens the OS chooser (camera, photos or files) */}
+            {can('payments:write') && (
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploading}
+                className="flex w-full flex-col items-center justify-center gap-1.5 rounded-xl border-2 border-dashed border-gray-200 bg-gray-50 px-4 py-6 text-center active:bg-gray-100 disabled:opacity-60 sm:hidden"
+              >
+                <Camera className="h-6 w-6 text-primary-500" />
+                <span className="text-sm font-medium text-gray-700">{uploading ? 'Uploading…' : 'Add bill photo or PDF'}</span>
+                <span className="text-xs text-gray-400">Take a photo or pick from your phone</span>
+              </button>
+            )}
+          </>
         )}
         <p className="text-xs text-gray-400 mt-2">Accepted: JPG, PNG, PDF · Max 5 MB</p>
       </div>
 
+      {/* Phones: voiding is rare and destructive, so it stays out of the pinned bar */}
+      {canVoid && (
+        <button onClick={openVoid} className="btn-secondary w-full border-red-200 text-red-600 sm:hidden">
+          <XCircle className="h-4 w-4" /> Void Expense
+        </button>
+      )}
+
       {expense._id && <EntityAuditTrail entityRef={expense._id} title="Expense History" />}
+
+      {/* Phones: Approve / Reject pinned in thumb reach (Approve on the right) */}
+      {canApprove && (
+        <div className="sm:hidden">
+          <StickyActionBar>
+            <button onClick={openReject} className="btn-secondary border-red-200 text-red-600">
+              <XCircle className="h-4 w-4" /> Reject
+            </button>
+            <button onClick={() => approveMut.mutate()} disabled={approveMut.isPending} className="btn-primary bg-green-600 hover:bg-green-700">
+              <CheckCircle2 className="h-4 w-4" />
+              {approveMut.isPending ? 'Approving…' : 'Approve'}
+            </button>
+          </StickyActionBar>
+        </div>
+      )}
 
       {/* Reject modal */}
       <Modal open={showReject} onClose={() => setShowReject(false)} title="Reject Expense" size="sm">
@@ -283,7 +350,7 @@ export default function ExpenseDetail() {
               className="input"
               placeholder="Why is this expense being rejected?" />
           </div>
-          <div className="flex gap-2 justify-end">
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
             <button onClick={() => setShowReject(false)} className="btn-secondary">Cancel</button>
             <button
               onClick={() => { if (!reason.trim()) { toast.error('Reason is required'); return; } rejectMut.mutate(); }}
@@ -311,7 +378,7 @@ export default function ExpenseDetail() {
               className="input"
               placeholder="Why is this expense being voided?" />
           </div>
-          <div className="flex gap-2 justify-end">
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
             <button onClick={() => setShowVoid(false)} className="btn-secondary">Cancel</button>
             <button
               onClick={() => { if (!reason.trim()) { toast.error('Reason is required'); return; } voidMut.mutate(); }}
