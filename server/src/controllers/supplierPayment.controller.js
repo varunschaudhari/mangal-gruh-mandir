@@ -10,6 +10,7 @@ import mongoose from 'mongoose';
 import { generatePaymentNumber } from '../services/paymentNumber.service.js';
 import { notifyPaymentSubmitted, notifyPaymentStatusChange } from '../services/paymentNotification.service.js';
 import { logAction } from '../services/audit.service.js';
+import { pushPaymentSubmitted, pushPaymentDecision } from '../services/pushAlerts.service.js';
 
 const POPULATE = [
   { path: 'supplier',   select: 'name address city gstin phone bankAccounts creditDays' },
@@ -466,6 +467,7 @@ export const createPayment = asyncHandler(async (req, res) => {
 
   const populated = await SupplierPayment.findById(payment._id).populate(POPULATE);
   notifyPaymentSubmitted({ payment, supplierName: supplierDoc.name, submitterName: req.user.name });
+  pushPaymentSubmitted({ payment, supplierName: supplierDoc.name, submitterId: req.user._id, submitterName: req.user.name });
   logAction(req, {
     action: 'payment.create', entity: 'SupplierPayment',
     entityId: payment.paymentNumber, entityRef: payment._id,
@@ -490,6 +492,7 @@ export const approvePayment = asyncHandler(async (req, res) => {
   await payment.save();
   const populated = await SupplierPayment.findById(payment._id).populate(POPULATE);
   notifyPaymentStatusChange({ payment, approverName: req.user.name });
+  pushPaymentDecision({ payment, approverName: req.user.name });
   logAction(req, {
     action: 'payment.approve', entity: 'SupplierPayment',
     entityId: payment.paymentNumber, entityRef: payment._id,
@@ -523,6 +526,7 @@ export const bulkApprovePayments = asyncHandler(async (req, res) => {
   for (const payment of payments) {
     payment.status = 'approved';
     notifyPaymentStatusChange({ payment, approverName: req.user.name });
+    pushPaymentDecision({ payment, approverName: req.user.name });
   }
   logAction(req, {
     action: 'payment.bulk_approve', entity: 'SupplierPayment',
@@ -548,6 +552,7 @@ export const rejectPayment = asyncHandler(async (req, res) => {
   await payment.save();
   const populated = await SupplierPayment.findById(payment._id).populate(POPULATE);
   notifyPaymentStatusChange({ payment, approverName: req.user.name });
+  pushPaymentDecision({ payment, approverName: req.user.name });
   logAction(req, {
     action: 'payment.reject', entity: 'SupplierPayment',
     entityId: payment.paymentNumber, entityRef: payment._id,
@@ -629,6 +634,7 @@ export const resubmitPayment = asyncHandler(async (req, res) => {
   const populated     = await SupplierPayment.findById(payment._id).populate(POPULATE);
   const supplierDoc   = await Supplier.findById(payment.supplier).lean();
   notifyPaymentSubmitted({ payment, supplierName: supplierDoc?.name, submitterName: req.user.name });
+  pushPaymentSubmitted({ payment, supplierName: supplierDoc?.name, submitterId: req.user._id, submitterName: req.user.name });
   logAction(req, {
     action: 'payment.resubmit', entity: 'SupplierPayment',
     entityId: payment.paymentNumber, entityRef: payment._id,

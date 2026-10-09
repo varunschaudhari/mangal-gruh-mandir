@@ -1,4 +1,5 @@
 import PDFDocument from 'pdfkit';
+import { localDateStr } from '../utils/dates.js';
 
 const C = { primary: '#7c3aed', dark: '#1f2937', gray: '#6b7280', light: '#f5f3ff', white: '#ffffff', red: '#dc2626' };
 const STATUS_LABELS = { approved: 'Approved', checked_out: 'Checked Out', returned: 'Returned', overdue: 'Overdue', cancelled: 'Cancelled' };
@@ -12,7 +13,7 @@ export function generateAssetReportPDF(res, { transactions, from, to }) {
   const doc = new PDFDocument({ size: 'A4', margin: 40, bufferPages: true });
 
   res.setHeader('Content-Type', 'application/pdf');
-  res.setHeader('Content-Disposition', `attachment; filename="asset-report-${new Date().toISOString().split('T')[0]}.pdf"`);
+  res.setHeader('Content-Disposition', `attachment; filename="asset-report-${localDateStr()}.pdf"`);
   doc.pipe(res);
 
   const W    = doc.page.width - 80;

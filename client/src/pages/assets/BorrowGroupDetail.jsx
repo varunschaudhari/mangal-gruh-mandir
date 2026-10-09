@@ -18,6 +18,7 @@ import { PageLoader } from '../../components/ui/Spinner.jsx';
 import { usePermissions } from '../../hooks/usePermissions.js';
 import toast from 'react-hot-toast';
 import { useSetAppBarTitle } from '../../components/Layout/AppBarContext.jsx';
+import { localDateStr } from '../../utils/formatters.js';
 
 const STATUS_COLORS = { approved: 'blue', checked_out: 'green', partially_returned: 'yellow', returned: 'gray', overdue: 'red', cancelled: 'gray' };
 const STATUS_LABELS = { approved: 'Approved', checked_out: 'Checked Out', partially_returned: 'Partially Returned', returned: 'Returned', overdue: 'Overdue', cancelled: 'Cancelled' };
@@ -68,7 +69,7 @@ const ExtendModal = ({ groupId, currentDue, onClose, onSuccess }) => {
   const { data: aRes } = useQuery({ queryKey: ['users-approvers'], queryFn: getApprovers });
   const maxDays   = sRes?.data?.data?.assetMaxBorrowDays || 7;
   const approvers = aRes?.data?.data || [];
-  const today     = new Date().toISOString().split('T')[0];
+  const today     = localDateStr();
   const maxDate   = new Date(); maxDate.setDate(maxDate.getDate() + maxDays);
   const mut = useMutation({
     mutationFn: () => extendGroup(groupId, { newReturnDate, approvedBy, notes: notes || undefined }),
@@ -84,7 +85,7 @@ const ExtendModal = ({ groupId, currentDue, onClose, onSuccess }) => {
         </p>
         <div>
           <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">New Return Date <span className="text-red-400">*</span></p>
-          <input type="date" min={today} max={maxDate.toISOString().split('T')[0]} value={newReturnDate} onChange={(e) => setNewReturnDate(e.target.value)} className="input" />
+          <input type="date" min={today} max={localDateStr(maxDate)} value={newReturnDate} onChange={(e) => setNewReturnDate(e.target.value)} className="input" />
           <p className="mt-1 text-xs text-gray-400">Max {maxDays} days from today</p>
         </div>
         <div>

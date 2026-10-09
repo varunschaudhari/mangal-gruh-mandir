@@ -1,5 +1,7 @@
 import { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import { login as loginApi, logout as logoutApi, getMe } from '../api/auth.api.js';
+import { unregisterPush } from '../utils/push.js';
+import { isNative } from '../utils/platform.js';
 
 const AuthContext = createContext(null);
 
@@ -24,7 +26,8 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   const login = useCallback(async (email, password) => {
-    const { data } = await loginApi({ email, password });
+    // 'app' gets a long rolling session on the server; browsers keep the 7-day one.
+    const { data } = await loginApi({ email, password, client: isNative ? 'app' : 'web' });
     const { accessToken, refreshToken, user: userData } = data.data;
     localStorage.setItem('accessToken', accessToken);
     localStorage.setItem('refreshToken', refreshToken);
@@ -34,6 +37,7 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   const logout = useCallback(async () => {
+    await unregisterPush(); // while still signed in, so the server accepts it
     try { await logoutApi(); } catch { /* ignore */ }
     localStorage.clear();
     setUser(null);

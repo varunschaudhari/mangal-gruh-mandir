@@ -1,11 +1,16 @@
 import { ChevronRight } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import { useSetAppBarTitle } from '../Layout/AppBarContext.jsx';
+import { useT } from '../../i18n/index.jsx';
 
 // Below `lg` the title moves into the mobile app bar (with a back button), so the
 // in-page heading and breadcrumbs are desktop-only. The dashboard keeps its greeting.
-const PageHeader = ({ title, subtitle, actions, breadcrumbs }) => {
+const PageHeader = ({ title: rawTitle, subtitle: rawSubtitle, actions, breadcrumbs }) => {
   const { pathname } = useLocation();
+  const t = useT();
+  // Plain-text titles are translated when the dictionary has them (i18n/mr/*.js).
+  const title = t(rawTitle);
+  const subtitle = t(rawSubtitle);
   const titleInAppBar = pathname !== '/dashboard';
   useSetAppBarTitle(titleInAppBar ? title : null);
 
@@ -16,7 +21,7 @@ const PageHeader = ({ title, subtitle, actions, breadcrumbs }) => {
           {breadcrumbs.map((b, i) => (
             <span key={i} className="flex items-center gap-1">
               {i > 0 && <ChevronRight className="h-3 w-3" />}
-              {b.to ? <Link to={b.to} className="hover:text-gray-700">{b.label}</Link> : <span>{b.label}</span>}
+              {b.to ? <Link to={b.to} className="hover:text-gray-700">{t(b.label)}</Link> : <span>{t(b.label)}</span>}
             </span>
           ))}
         </nav>

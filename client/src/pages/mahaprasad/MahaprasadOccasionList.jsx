@@ -9,10 +9,12 @@ import { ActiveBadge } from '../../components/ui/Badge.jsx';
 import Modal, { ConfirmModal } from '../../components/ui/Modal.jsx';
 import { usePermissions } from '../../hooks/usePermissions.js';
 import toast from 'react-hot-toast';
+import { useT } from '../../i18n/index.jsx';
 
 const col = createColumnHelper();
 
 const OccasionForm = ({ initial, onSave, onClose, loading }) => {
+  const t = useT();
   const [name,      setName]      = useState(initial?.name      || '');
   const [notes,     setNotes]     = useState(initial?.notes     || '');
   const [sortOrder, setSortOrder] = useState(initial?.sortOrder ?? 0);
@@ -22,30 +24,30 @@ const OccasionForm = ({ initial, onSave, onClose, loading }) => {
     <div className="space-y-4">
       <div>
         <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
-          Name <span className="text-red-400">*</span>
+          {t('Name')} <span className="text-red-400">*</span>
         </label>
-        <input value={name} onChange={(e) => setName(e.target.value)} className="input" placeholder="e.g. Ekadashi" />
+        <input value={name} onChange={(e) => setName(e.target.value)} className="input" placeholder={t('e.g. Ekadashi')} />
       </div>
       <div>
-        <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Notes</label>
-        <input value={notes} onChange={(e) => setNotes(e.target.value)} className="input" placeholder="Optional description" />
+        <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">{t('Notes')}</label>
+        <input value={notes} onChange={(e) => setNotes(e.target.value)} className="input" placeholder={t('Optional description')} />
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
-          <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Sort Order</label>
+          <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">{t('Sort Order')}</label>
           <input type="number" inputMode="numeric" value={sortOrder} onChange={(e) => setSortOrder(Number(e.target.value))} className="input" />
         </div>
         <div className="flex items-end pb-1">
           <label className="flex items-center gap-2 cursor-pointer max-sm:py-2">
             <input type="checkbox" checked={isActive} onChange={(e) => setIsActive(e.target.checked)} className="h-4 w-4 max-sm:h-5 max-sm:w-5 rounded" />
-            <span className="text-sm text-gray-700">Active</span>
+            <span className="text-sm text-gray-700">{t('Active')}</span>
           </label>
         </div>
       </div>
       <div className="flex flex-col-reverse gap-2 pt-2 sm:flex-row sm:justify-end">
-        <button onClick={onClose} className="btn-secondary">Cancel</button>
+        <button onClick={onClose} className="btn-secondary">{t('Cancel')}</button>
         <button onClick={() => onSave({ name, notes, sortOrder, isActive })} disabled={loading || !name.trim()} className="btn-primary">
-          {loading ? 'Saving…' : initial ? 'Update' : 'Create'}
+          {loading ? t('Saving…') : initial ? t('Update') : t('Create')}
         </button>
       </div>
     </div>
@@ -53,6 +55,7 @@ const OccasionForm = ({ initial, onSave, onClose, loading }) => {
 };
 
 export default function MahaprasadOccasionList() {
+  const t = useT();
   const { can } = usePermissions();
   const qc = useQueryClient();
   const [editTarget,   setEditTarget]   = useState(null);
@@ -72,20 +75,20 @@ export default function MahaprasadOccasionList() {
 
   const createMut = useMutation({
     mutationFn: createOccasion,
-    onSuccess: () => { toast.success('Occasion created'); invalidate(); setShowCreate(false); },
-    onError: (e) => toast.error(e.response?.data?.message || 'Failed'),
+    onSuccess: () => { toast.success(t('Occasion created')); invalidate(); setShowCreate(false); },
+    onError: (e) => toast.error(e.response?.data?.message || t('Failed')),
   });
 
   const updateMut = useMutation({
     mutationFn: ({ id, data }) => updateOccasion(id, data),
-    onSuccess: () => { toast.success('Occasion updated'); invalidate(); setEditTarget(null); },
-    onError: (e) => toast.error(e.response?.data?.message || 'Failed'),
+    onSuccess: () => { toast.success(t('Occasion updated')); invalidate(); setEditTarget(null); },
+    onError: (e) => toast.error(e.response?.data?.message || t('Failed')),
   });
 
   const deleteMut = useMutation({
     mutationFn: (id) => deleteOccasion(id),
-    onSuccess: () => { toast.success('Occasion deleted'); invalidate(); setDeleteTarget(null); },
-    onError: (e) => toast.error(e.response?.data?.message || 'Failed'),
+    onSuccess: () => { toast.success(t('Occasion deleted')); invalidate(); setDeleteTarget(null); },
+    onError: (e) => toast.error(e.response?.data?.message || t('Failed')),
   });
 
   const columns = [
@@ -101,13 +104,13 @@ export default function MahaprasadOccasionList() {
       cell: ({ row }) => (
         <div className="flex gap-2">
           {can('masters:write') && (
-            <button onClick={() => setEditTarget(row.original)} aria-label="Edit occasion"
+            <button onClick={() => setEditTarget(row.original)} aria-label={t('Edit occasion')}
               className="btn-ghost p-1 max-md:p-3 text-gray-400 hover:text-indigo-600">
               <Pencil className="h-4 w-4" />
             </button>
           )}
           {can('masters:delete') && (
-            <button onClick={() => setDeleteTarget(row.original)} aria-label="Delete occasion"
+            <button onClick={() => setDeleteTarget(row.original)} aria-label={t('Delete occasion')}
               className="btn-ghost p-1 max-md:p-3 text-gray-400 hover:text-red-600">
               <Trash2 className="h-4 w-4" />
             </button>
@@ -125,18 +128,18 @@ export default function MahaprasadOccasionList() {
         breadcrumbs={[{ label: 'Mahaprasad', to: '/mahaprasad' }, { label: 'Occasions' }]}
         actions={can('masters:write') && (
           <button onClick={() => setShowCreate(true)} className="btn-primary flex items-center gap-2">
-            <Plus className="h-4 w-4" /> Add Occasion
+            <Plus className="h-4 w-4" /> {t('Add Occasion')}
           </button>
         )}
       />
 
       <DataTable columns={columns} data={occasions} loading={isLoading} />
 
-      <Modal open={showCreate} onClose={() => setShowCreate(false)} title="New Occasion" size="sm">
+      <Modal open={showCreate} onClose={() => setShowCreate(false)} title={t('New Occasion')} size="sm">
         <OccasionForm onSave={(d) => createMut.mutate(d)} onClose={() => setShowCreate(false)} loading={createMut.isPending} />
       </Modal>
 
-      <Modal open={!!editTarget} onClose={() => setEditTarget(null)} title="Edit Occasion" size="sm">
+      <Modal open={!!editTarget} onClose={() => setEditTarget(null)} title={t('Edit Occasion')} size="sm">
         {editTarget && (
           <OccasionForm initial={editTarget}
             onSave={(d) => updateMut.mutate({ id: editTarget._id, data: d })}
@@ -151,7 +154,7 @@ export default function MahaprasadOccasionList() {
         onConfirm={() => deleteMut.mutate(deleteTarget._id)}
         loading={deleteMut.isPending}
         title="Delete Occasion"
-        message={`Delete "${deleteTarget?.name}"? This cannot be undone.`} />
+        message={t('Delete "{name}"? This cannot be undone.', { name: deleteTarget?.name })} />
     </div>
   );
 }

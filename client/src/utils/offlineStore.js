@@ -1,4 +1,5 @@
 import { openDB } from 'idb';
+import { localDateStr } from './formatters.js';
 
 const DB_NAME    = 'mgm-offline';
 const DB_VERSION = 1;
@@ -194,7 +195,7 @@ export async function markSynced(ids) {
 
 // Remove synced stale data from previous days to keep IndexedDB lean
 export async function clearOldData() {
-  const today = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+  const today = localDateStr().replace(/-/g, '');
   const db  = await getDb();
   const all = await db.getAll('coupons');
   const tx  = db.transaction('coupons', 'readwrite');

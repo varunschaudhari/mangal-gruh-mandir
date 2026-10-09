@@ -1,4 +1,5 @@
 import PDFDocument from 'pdfkit';
+import { localDateStr } from '../utils/dates.js';
 
 const C = { primary: '#ea580c', dark: '#1f2937', gray: '#6b7280', light: '#fff7ed', white: '#ffffff', green: '#16a34a' };
 
@@ -25,7 +26,7 @@ const TYPE_LABELS = { named: 'Named', hundi: 'Hundi', anonymous: 'Anonymous' };
 export function generateDonationPDF(res, { donations, from, to }) {
   const doc = new PDFDocument({ size: 'A4', margin: 40, bufferPages: true });
   res.setHeader('Content-Type', 'application/pdf');
-  res.setHeader('Content-Disposition', `attachment; filename="donations-${new Date().toISOString().split('T')[0]}.pdf"`);
+  res.setHeader('Content-Disposition', `attachment; filename="donations-${localDateStr()}.pdf"`);
   doc.pipe(res);
 
   const W = doc.page.width - 80; const LEFT = 40;

@@ -22,6 +22,8 @@ import toast from 'react-hot-toast';
 import { openFile, shareText } from '../../utils/fileSaver.js';
 import { isNative } from '../../utils/platform.js';
 import haptics from '../../utils/haptics.js';
+import { localDateStr } from '../../utils/formatters.js';
+import { useT } from '../../i18n/index.jsx';
 
 // Touch screens: focusing the quantity field would pop the on-screen keyboard on open and after every issue.
 const canAutoFocus = () => !isNative && Boolean(window.matchMedia?.('(hover: hover) and (pointer: fine)').matches);
@@ -31,7 +33,7 @@ const canAutoFocus = () => !isNative && Boolean(window.matchMedia?.('(hover: hov
 const PdfIcon  = isNative ? Share2 : Printer;
 const pdfLabel = isNative ? 'Share / Print PDF' : 'PDF';
 
-const todayStr  = () => new Date().toISOString().split('T')[0];
+const todayStr  = () => localDateStr();
 const fmtTime   = (d) => d ? new Date(d).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }) : '—';
 const fmtMoney  = (n) => Number(n || 0).toLocaleString('en-IN');
 
@@ -75,6 +77,7 @@ function computeChange(amount, counts) {
 
 // ── Batches section ───────────────────────────────────────────────────────────
 function BatchesSection({ date, onPdfPrint, printing, onVoid }) {
+  const t = useT();
   const [open, setOpen] = useState(false);
 
   const { data } = useQuery({
@@ -91,8 +94,8 @@ function BatchesSection({ date, onPdfPrint, printing, onVoid }) {
         className="w-full flex items-center justify-between px-4 sm:px-5 py-3 max-sm:min-h-[48px] text-sm font-semibold text-gray-700 hover:bg-gray-50 transition-colors">
         <span className="flex items-center gap-2">
           <ClipboardList className="h-4 w-4 text-blue-500" />
-          Today's Batches
-          <span className="text-xs font-normal text-gray-400">({batches.length} batch{batches.length !== 1 ? 'es' : ''})</span>
+          {t("Today's Batches")}
+          <span className="text-xs font-normal text-gray-400">{t(batches.length !== 1 ? '({n} batches)' : '({n} batch)', { n: batches.length })}</span>
         </span>
         {open ? <ChevronUp className="h-4 w-4 text-gray-400" /> : <ChevronDown className="h-4 w-4 text-gray-400" />}
       </button>
@@ -104,10 +107,10 @@ function BatchesSection({ date, onPdfPrint, printing, onVoid }) {
               <div className="flex-1 min-w-0 flex items-center gap-x-2 gap-y-1 flex-wrap">
                 <span className="sm:hidden text-xs text-gray-400 font-mono">{fmtTime(b.issuedAt)}</span>
                 <Badge variant={b.type === 'paid' ? 'blue' : 'purple'} size="sm">
-                  {b.type === 'free' ? `Free${b.occasion ? ` · ${b.occasion}` : ''}` : 'Paid'}
+                  {b.type === 'free' ? `${t('Free')}${b.occasion ? ` · ${b.occasion}` : ''}` : t('Paid|coupon')}
                 </Badge>
                 <span className="text-xs font-semibold text-gray-700">
-                  {b.isGroup ? `Group · ${b.groupSize || b.count} persons` : `${b.count} coupon${b.count !== 1 ? 's' : ''}`}
+                  {b.isGroup ? t('Group · {n} persons', { n: b.groupSize || b.count }) : t(b.count !== 1 ? '{n} coupons' : '{n} coupon', { n: b.count })}
                 </span>
                 <span className="text-xs text-gray-400 font-mono break-words">
                   {b.couponFrom === b.couponTo ? b.couponFrom : `${b.couponFrom} → ${b.couponTo}`}
@@ -115,14 +118,14 @@ function BatchesSection({ date, onPdfPrint, printing, onVoid }) {
                 {b.issuedBy?.name && <span className="text-xs text-gray-400">· {b.issuedBy.name}</span>}
               </div>
               <button onClick={() => onPdfPrint(b.numbers)} disabled={printing}
-                aria-label={isNative ? 'Share or print PDF' : 'PDF'}
+                aria-label={isNative ? t('Share or print PDF') : 'PDF'}
                 className="shrink-0 btn btn-ghost border text-xs flex items-center gap-1 py-1 px-2 max-sm:h-10 max-sm:px-3">
-                <PdfIcon className="h-3 w-3 max-sm:h-4 max-sm:w-4" /> {isNative ? 'Share' : 'PDF'}
+                <PdfIcon className="h-3 w-3 max-sm:h-4 max-sm:w-4" /> {isNative ? t('Share') : 'PDF'}
               </button>
               {b.statuses?.includes('voided') ? (
-                <span className="shrink-0 text-xs text-red-500 font-semibold">Voided</span>
+                <span className="shrink-0 text-xs text-red-500 font-semibold">{t('Voided')}</span>
               ) : (
-                <button onClick={() => onVoid(b._id)} title="Void batch" aria-label="Void batch"
+                <button onClick={() => onVoid(b._id)} title={t('Void batch')} aria-label={t('Void batch')}
                   className="shrink-0 text-gray-300 hover:text-red-500 transition-colors max-sm:p-3 max-sm:-mr-3 max-sm:text-gray-400">
                   <X className="h-3.5 w-3.5 max-sm:h-4 max-sm:w-4" />
                 </button>
@@ -137,6 +140,7 @@ function BatchesSection({ date, onPdfPrint, printing, onVoid }) {
 
 // ── Main page ─────────────────────────────────────────────────────────────────
 export default function MahaprasadCounter() {
+  const t = useT();
   const qc             = useQueryClient();
   const qtyInputRef    = useRef(null);
   const cashDrawerRef  = useRef(null);   // imperative handle on CashDrawer
@@ -173,7 +177,7 @@ export default function MahaprasadCounter() {
 
   // No PageHeader here, so name the mobile app bar ourselves. Below lg the action bar is
   // pinned above the tab bar and the "issued" card rides inside it, next to the thumb.
-  useSetAppBarTitle('Mahaprasad Counter');
+  useSetAppBarTitle(t('Mahaprasad Counter'));
   const isTouchLayout = useMediaQuery('(max-width: 1023px)');
 
   const {
@@ -348,7 +352,7 @@ export default function MahaprasadCounter() {
     try {
       const res = await printCoupons(numbers);
       await openFile(res.data, `Coupons-${numbers.length === 1 ? numbers[0] : `${numbers.length}`}.pdf`);
-    } catch { toast.error('Failed to generate PDF'); }
+    } catch { toast.error(t('Failed to generate PDF')); }
     finally   { setPrinting(false); }
   };
 
@@ -359,9 +363,9 @@ export default function MahaprasadCounter() {
     } catch (err) {
       setQzReady(isConnected());
       const msg = err.message || 'Thermal print failed';
-      if (msg.includes('not set') || msg.includes('not configured')) toast.error('Set printer name in Settings → Mahaprasad');
-      else if (!isConnected()) toast.error('QZ Tray not running — install from qz.io');
-      else toast.error(msg);
+      if (msg.includes('not set') || msg.includes('not configured')) toast.error(t('Set printer name in Settings → Mahaprasad'));
+      else if (!isConnected()) toast.error(t('QZ Tray not running — install from qz.io'));
+      else toast.error(t(msg));
       throw err;
     }
   };
@@ -372,7 +376,7 @@ export default function MahaprasadCounter() {
     try {
       const ds     = date.replace(/-/g, '');
       const coupon = await offlineStore.popNextCoupon(ds);
-      if (!coupon) { toast.error('No offline coupons left. Go online and pre-fetch more.'); return; }
+      if (!coupon) { toast.error(t('No offline coupons left. Go online and pre-fetch more.')); return; }
 
       const user        = getOfflineUser();
       const offSettings = getOfflineSettings();
@@ -396,7 +400,7 @@ export default function MahaprasadCounter() {
         try { await printThermalCoupon({ ...issued, date: coupon.date, status: 'issued' }, ps); }
         catch { /* non-fatal */ }
       }
-      toast.success(`Issued offline · ${poolCount - 1} remaining`);
+      toast.success(t('Issued offline · {n} remaining', { n: poolCount - 1 }));
     } finally { setOfflineIssuing(false); }
   };
 
@@ -408,8 +412,8 @@ export default function MahaprasadCounter() {
       if (next && electronPrinterName) checkPrinterStatus(electronPrinterName);
       else if (!next) setPrinterStatus(null);
     } else if (next && !isConnected()) {
-      try { await connectToQzTray(); setQzReady(true); toast.success('QZ Tray connected'); }
-      catch { toast.error('QZ Tray not reachable — install & start from qz.io'); }
+      try { await connectToQzTray(); setQzReady(true); toast.success(t('QZ Tray connected')); }
+      catch { toast.error(t('QZ Tray not reachable — install & start from qz.io')); }
     }
   };
 
@@ -458,16 +462,20 @@ export default function MahaprasadCounter() {
           catch { failed.push(coupon); }
         }
         if (failed.length === 0) {
-          toast.success(vars.isGroup ? `Group (${vars.qty}) issued & printed` : `${coupons.length} coupon${coupons.length > 1 ? 's' : ''} issued & printed`);
+          toast.success(vars.isGroup
+            ? t('Group ({n}) issued & printed', { n: vars.qty })
+            : t(coupons.length > 1 ? '{n} coupons issued & printed' : '{n} coupon issued & printed', { n: coupons.length }));
         } else {
           setPrintQueue((q) => [...q, ...failed]);
-          toast.error(`${coupons.length - failed.length} printed, ${failed.length} queued — fix printer then retry`);
+          toast.error(t('{printed} printed, {queued} queued — fix printer then retry', { printed: coupons.length - failed.length, queued: failed.length }));
         }
       } else {
-        toast.success(vars.isGroup ? `Group coupon (${vars.qty} persons) issued` : `${coupons.length} coupon${coupons.length > 1 ? 's' : ''} issued`);
+        toast.success(vars.isGroup
+          ? t('Group coupon ({n} persons) issued', { n: vars.qty })
+          : t(coupons.length > 1 ? '{n} coupons issued' : '{n} coupon issued', { n: coupons.length }));
       }
     },
-    onError: (e) => { haptics.error(); toast.error(e.response?.data?.message || 'Failed to issue'); },
+    onError: (e) => { haptics.error(); toast.error(e.response?.data?.message || t('Failed to issue')); },
   });
 
   const voidMut = useMutation({
@@ -477,9 +485,9 @@ export default function MahaprasadCounter() {
       qc.invalidateQueries({ queryKey: ['mahaprasad-summary', date] });
       qc.invalidateQueries({ queryKey: ['mahaprasad-cash-drawer', date] });
       setVoidConfirm(null);
-      toast.success('Batch voided');
+      toast.success(t('Batch voided'));
     },
-    onError: (e) => toast.error(e.response?.data?.message || 'Failed to void batch'),
+    onError: (e) => toast.error(e.response?.data?.message || t('Failed to void batch')),
   });
 
   const handleRetryPrintQueue = async () => {
@@ -492,9 +500,9 @@ export default function MahaprasadCounter() {
     }
     if (stillFailed.length > 0) {
       setPrintQueue(stillFailed);
-      toast.error(`${stillFailed.length} still failed — check printer`);
+      toast.error(t('{n} still failed — check printer', { n: stillFailed.length }));
     } else {
-      toast.success('All queued coupons printed');
+      toast.success(t('All queued coupons printed'));
     }
   };
 
@@ -563,10 +571,10 @@ export default function MahaprasadCounter() {
     try {
       await navigator.clipboard.writeText(shiftSummaryText());
       setShiftCopied(true);
-      toast.success('Copied — paste in any WhatsApp chat');
+      toast.success(t('Copied — paste in any WhatsApp chat'));
       setTimeout(() => setShiftCopied(false), 3000);
     } catch {
-      toast.error('Could not copy — try manually');
+      toast.error(t('Could not copy — try manually'));
     }
   };
 
@@ -584,11 +592,11 @@ export default function MahaprasadCounter() {
               style={{ width: `${(autoResetIn / resetDuration) * 100}%` }}
             />
           </div>
-          <span className="text-xs text-green-600 tabular-nums shrink-0">Resetting in {autoResetIn}s</span>
+          <span className="text-xs text-green-600 tabular-nums shrink-0">{t('Resetting in {n}s', { n: autoResetIn })}</span>
           <button type="button"
             onClick={() => { setAutoResetIn(null); }}
             className="text-xs font-semibold text-green-700 hover:text-green-900 border border-green-300 rounded px-2 py-0.5 hover:bg-green-100 transition-colors shrink-0 max-lg:px-3 max-lg:py-2">
-            Keep
+            {t('Keep')}
           </button>
         </div>
       )}
@@ -598,21 +606,21 @@ export default function MahaprasadCounter() {
           <div className="min-w-0">
             <p className="text-sm font-semibold text-green-800">
               {lastBatch.isGroup
-                ? `Group coupon issued — ${lastBatch.groupQty} persons`
-                : `${lastBatch.numbers.length} coupon${lastBatch.numbers.length > 1 ? 's' : ''} issued`}
+                ? t('Group coupon issued — {n} persons', { n: lastBatch.groupQty })
+                : t(lastBatch.numbers.length > 1 ? '{n} coupons issued' : '{n} coupon issued', { n: lastBatch.numbers.length })}
             </p>
             {/* Payment summary */}
             {lastBatch.payment && (
               <p className="text-xs text-green-700 mt-0.5">
-                ₹{fmtMoney(lastBatch.payment.totalDue)} · paid ₹{fmtMoney(lastBatch.payment.amountReceived)} ({lastBatch.payment.mode})
+                {t('₹{total} · paid ₹{received} ({mode})', { total: fmtMoney(lastBatch.payment.totalDue), received: fmtMoney(lastBatch.payment.amountReceived), mode: t(lastBatch.payment.mode) })}
                 {lastBatch.payment.mode === 'cash' && lastBatch.payment.change > 0 && (
-                  <span className="font-bold text-amber-700 ml-1 max-lg:text-sm">· return ₹{fmtMoney(lastBatch.payment.change)}</span>
+                  <span className="font-bold text-amber-700 ml-1 max-lg:text-sm">{t('· return ₹{amount}', { amount: fmtMoney(lastBatch.payment.change) })}</span>
                 )}
               </p>
             )}
           </div>
         </div>
-        <button onClick={() => setLastBatch(null)} aria-label="Dismiss"
+        <button onClick={() => setLastBatch(null)} aria-label={t('Dismiss')}
           className="text-gray-400 hover:text-gray-600 shrink-0 mt-0.5 max-lg:p-3 max-lg:-m-3">
           <X className="h-4 w-4" />
         </button>
@@ -621,14 +629,14 @@ export default function MahaprasadCounter() {
       {/* Drawer change breakdown */}
       {lastBatch.payment?.drawerChange?.breakdown && Object.keys(lastBatch.payment.drawerChange.breakdown).length > 0 && (
         <div className="flex flex-wrap items-center gap-1.5 px-3 py-2 bg-amber-50 border border-amber-200 rounded-lg">
-          <span className="text-xs font-semibold text-amber-700">Give change:</span>
+          <span className="text-xs font-semibold text-amber-700">{t('Give change:')}</span>
           {Object.entries(lastBatch.payment.drawerChange.breakdown)
             .sort(([a], [b]) => Number(b) - Number(a))
             .map(([d, c]) => (
               <span key={d} className="text-xs bg-amber-100 text-amber-800 font-bold px-2 py-0.5 rounded-full">{c}×₹{d}</span>
             ))}
           {!lastBatch.payment.drawerChange.canMakeExact && (
-            <span className="text-xs text-red-600 font-medium">(short ₹{lastBatch.payment.drawerChange.shortBy} — check drawer)</span>
+            <span className="text-xs text-red-600 font-medium">{t('(short ₹{amount} — check drawer)', { amount: lastBatch.payment.drawerChange.shortBy })}</span>
           )}
         </div>
       )}
@@ -645,13 +653,13 @@ export default function MahaprasadCounter() {
             <button
               onClick={async () => { for (const c of lastBatch.coupons) { try { await handleThermalPrint(c); } catch { break; } } }}
               className="btn text-xs bg-green-600 hover:bg-green-700 text-white px-3 py-1.5 rounded-lg font-semibold flex items-center gap-1.5 max-lg:flex-1 max-lg:py-2.5">
-              <Printer className="h-3.5 w-3.5" /> Print
+              <Printer className="h-3.5 w-3.5" /> {t('Print')}
             </button>
           )}
           {isNative ? (
             <button onClick={() => handlePdfPrint(lastBatch.numbers)} disabled={printing}
               className="btn flex-1 bg-green-600 hover:bg-green-700 text-white py-2.5 rounded-lg font-semibold disabled:opacity-50">
-              {printing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Share2 className="h-4 w-4" />} {pdfLabel}
+              {printing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Share2 className="h-4 w-4" />} {t(pdfLabel)}
             </button>
           ) : (
             <button onClick={() => handlePdfPrint(lastBatch.numbers)} disabled={printing}
@@ -672,7 +680,7 @@ export default function MahaprasadCounter() {
       {/* ── Header ──────────────────────────────────────────────────────────── */}
       {/* Below lg the title lives in the app bar, so the controls get the whole row. */}
       <div className="flex items-center justify-between gap-2">
-        <h1 className="hidden lg:block text-base font-bold text-gray-900 leading-tight">Mahaprasad Counter</h1>
+        <h1 className="hidden lg:block text-base font-bold text-gray-900 leading-tight">{t('Mahaprasad Counter')}</h1>
         <div className="flex items-center gap-1.5 max-lg:w-full">
           <input
             type="date"
@@ -686,24 +694,24 @@ export default function MahaprasadCounter() {
             className="input text-sm h-8 py-1 max-lg:flex-1 max-lg:min-w-0"
           />
           {!isToday && (
-            <button onClick={() => setDate(todayStr())} className="text-xs text-primary-600 hover:underline whitespace-nowrap max-sm:px-2 max-sm:py-3 max-sm:text-sm max-sm:font-medium">Today</button>
+            <button onClick={() => setDate(todayStr())} className="text-xs text-primary-600 hover:underline whitespace-nowrap max-sm:px-2 max-sm:py-3 max-sm:text-sm max-sm:font-medium">{t('Today')}</button>
           )}
-          <button onClick={() => refetch()} title="Refresh" aria-label="Refresh"
+          <button onClick={() => refetch()} title={t('Refresh')} aria-label={t('Refresh')}
             className="btn btn-ghost border h-8 w-8 p-0 shrink-0 flex items-center justify-center max-sm:h-11 max-sm:w-11">
             <RefreshCw className="h-3.5 w-3.5 max-sm:h-4 max-sm:w-4" />
           </button>
           {/* Shortcuts only matter with a physical keyboard */}
           {!isNative && (
-            <button onClick={() => setShowShortcuts((v) => !v)} title="Keyboard shortcuts" aria-label="Keyboard shortcuts"
+            <button onClick={() => setShowShortcuts((v) => !v)} title={t('Keyboard shortcuts')} aria-label={t('Keyboard shortcuts')}
               className={`btn btn-ghost border h-8 w-8 p-0 shrink-0 hidden sm:flex items-center justify-center transition-colors ${showShortcuts ? 'bg-gray-100 border-gray-300' : ''}`}>
               <Keyboard className="h-3.5 w-3.5" />
             </button>
           )}
           {isToday && (
-            <button onClick={() => setShowShiftSummary(true)} title="My shift summary"
+            <button onClick={() => setShowShiftSummary(true)} title={t('My shift summary')}
               className="btn btn-ghost border h-8 px-2.5 shrink-0 whitespace-nowrap flex items-center gap-1 text-xs font-semibold text-gray-600 hover:bg-gray-50 max-sm:h-11 max-sm:px-3 max-sm:text-sm">
               <UtensilsCrossed className="h-3 w-3 max-sm:h-4 max-sm:w-4" />
-              My Shift
+              {t('My Shift')}
             </button>
           )}
         </div>
@@ -712,19 +720,19 @@ export default function MahaprasadCounter() {
       {/* ── Keyboard shortcut legend ────────────────────────────────────────── */}
       {showShortcuts && (
         <div className="card px-5 py-4">
-          <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3">Keyboard Shortcuts</p>
+          <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3">{t('Keyboard Shortcuts')}</p>
           <div className="grid grid-cols-2 gap-x-8 gap-y-1.5">
             {[
-              { key: 'Enter ↵', action: 'Issue coupon' },
-              { key: 'E',       action: 'Exact payment (no change)' },
-              { key: 'Q',       action: '₹10 note' },
-              { key: 'W',       action: '₹20 note' },
-              { key: 'H',       action: '₹50 note (Half)' },
-              { key: '1',       action: '₹100 note' },
-              { key: '2',       action: '₹200 note' },
-              { key: '5',       action: '₹500 note' },
-              { key: '⌫',       action: 'Remove last note' },
-              { key: 'Esc',     action: 'Cancel auto-reset' },
+              { key: 'Enter ↵', action: t('Issue coupon') },
+              { key: 'E',       action: t('Exact payment (no change)') },
+              { key: 'Q',       action: t('₹{n} note', { n: 10 }) },
+              { key: 'W',       action: t('₹{n} note', { n: 20 }) },
+              { key: 'H',       action: t('₹{n} note (Half)', { n: 50 }) },
+              { key: '1',       action: t('₹{n} note', { n: 100 }) },
+              { key: '2',       action: t('₹{n} note', { n: 200 }) },
+              { key: '5',       action: t('₹{n} note', { n: 500 }) },
+              { key: '⌫',       action: t('Remove last note') },
+              { key: 'Esc',     action: t('Cancel auto-reset') },
             ].map(({ key, action }) => (
               <div key={key} className="flex items-center gap-2.5">
                 <kbd className="min-w-[2rem] text-center text-xs font-bold bg-gray-100 border border-gray-300 text-gray-700 rounded px-1.5 py-0.5 font-mono">{key}</kbd>
@@ -732,7 +740,7 @@ export default function MahaprasadCounter() {
               </div>
             ))}
           </div>
-          <p className="text-[10px] text-gray-400 mt-3">Note shortcuts only work when focus is not inside a text input.</p>
+          <p className="text-[10px] text-gray-400 mt-3">{t('Note shortcuts only work when focus is not inside a text input.')}</p>
         </div>
       )}
 
@@ -743,26 +751,26 @@ export default function MahaprasadCounter() {
         }`}>
           <CloudOff className="h-3.5 w-3.5 shrink-0" />
           <span className="flex-1">
-            <strong>Offline</strong> — {poolCount > 0 ? `${poolCount} coupons available` : 'No coupons! Pre-fetch first'}
-            {offlineIssuedCount > 0 && ` · ${offlineIssuedCount} unsynced`}
+            <strong>{t('Offline')}</strong> — {poolCount > 0 ? t('{n} coupons available', { n: poolCount }) : t('No coupons! Pre-fetch first')}
+            {offlineIssuedCount > 0 && ` · ${t('{n} unsynced', { n: offlineIssuedCount })}`}
           </span>
         </div>
       ) : (syncPending > 0 || poolCount <= 10) && (
         <div className="card px-3 py-1.5 border flex flex-wrap items-center gap-2">
           <span className="text-gray-500 flex items-center gap-1.5 text-xs">
             <span className={`w-1.5 h-1.5 rounded-full ${poolCount > 50 ? 'bg-green-400' : poolCount > 10 ? 'bg-amber-400' : 'bg-red-400'}`} />
-            Offline pool: <strong>{poolCount}</strong>
+            {t('Offline pool:')} <strong>{poolCount}</strong>
           </span>
           <div className="flex gap-1.5 ml-auto">
             {syncPending > 0 && (
               <button onClick={sync} disabled={isSyncing}
                 className="flex items-center gap-1 px-2.5 py-0.5 max-sm:py-2 rounded-lg bg-blue-600 text-white text-xs font-semibold disabled:opacity-50">
-                <CloudUpload className="h-3 w-3" /> {isSyncing ? 'Syncing…' : `Sync (${syncPending})`}
+                <CloudUpload className="h-3 w-3" /> {isSyncing ? t('Syncing…') : t('Sync ({n})', { n: syncPending })}
               </button>
             )}
             <button onClick={() => prefetch(200)} disabled={isPrefetching}
               className="flex items-center gap-1 px-2.5 py-0.5 max-sm:py-2 rounded-lg border border-gray-200 text-gray-600 text-xs font-medium disabled:opacity-50">
-              <Download className="h-3 w-3" /> {isPrefetching ? 'Fetching…' : 'Pre-fetch 200'}
+              <Download className="h-3 w-3" /> {isPrefetching ? t('Fetching…') : t('Pre-fetch {n}', { n: 200 })}
             </button>
           </div>
         </div>
@@ -773,10 +781,10 @@ export default function MahaprasadCounter() {
         <div className="card px-4 py-3 border-2 border-yellow-300 bg-yellow-50 flex items-center gap-3">
           <span className="text-xl select-none" aria-hidden>🔔</span>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-bold text-yellow-900 leading-tight">High Traffic Day — Tuesday</p>
+            <p className="text-sm font-bold text-yellow-900 leading-tight">{t('High Traffic Day — Tuesday')}</p>
             <p className="text-xs text-yellow-700 mt-0.5">
-              Expected 1500+ devotees · Auto-reset in {resetDuration}s
-              {!cap ? ' · No daily cap set' : atCap ? ' · Cap reached' : ` · ${capRemaining} of ${cap} remaining`}
+              {t('Expected 1500+ devotees · Auto-reset in {n}s', { n: resetDuration })}
+              {` · ${!cap ? t('No daily cap set') : atCap ? t('Cap reached') : t('{left} of {cap} remaining', { left: capRemaining, cap })}`}
             </p>
           </div>
           {cap > 0 && (
@@ -802,9 +810,9 @@ export default function MahaprasadCounter() {
             <Vault className="h-5 w-5 text-amber-700" />
           </div>
           <div className="flex-1 min-w-0">
-            <p className="font-bold text-amber-900">Opening float not set</p>
+            <p className="font-bold text-amber-900">{t('Opening float not set')}</p>
             <p className="text-sm text-amber-700 mt-0.5">
-              Set the opening cash balance now so the drawer can calculate correct change throughout the day.
+              {t('Set the opening cash balance now so the drawer can calculate correct change throughout the day.')}
             </p>
             <button
               onClick={() => {
@@ -813,10 +821,10 @@ export default function MahaprasadCounter() {
               }}
               className="mt-3 inline-flex items-center gap-2 text-sm font-bold bg-amber-500 hover:bg-amber-600 text-white px-4 py-2 max-sm:py-2.5 rounded-lg transition-colors shadow-sm"
             >
-              <Vault className="h-4 w-4" /> Set Opening Float
+              <Vault className="h-4 w-4" /> {t('Set Opening Float')}
             </button>
           </div>
-          <button onClick={() => setFloatSkipped(true)} title="Remind me later" aria-label="Remind me later"
+          <button onClick={() => setFloatSkipped(true)} title={t('Remind me later')} aria-label={t('Remind me later')}
             className="text-amber-400 hover:text-amber-700 shrink-0 mt-0.5 transition-colors max-sm:p-3 max-sm:-m-3">
             <X className="h-4 w-4" />
           </button>
@@ -831,7 +839,7 @@ export default function MahaprasadCounter() {
             {
               label: 'Issued',
               value: totalIssued,
-              sub: cap > 0 ? (atCap ? 'Cap reached' : `${capRemaining} left`) : null,
+              sub: cap > 0 ? (atCap ? t('Cap reached') : t('{n} left', { n: capRemaining })) : null,
               color: atCap ? 'text-red-600' : 'text-orange-600',
               extra: capPct != null ? (
                 <div className="mt-1 h-1 bg-gray-100 rounded-full overflow-hidden">
@@ -845,12 +853,12 @@ export default function MahaprasadCounter() {
             { label: 'Collected', value: `₹${fmtMoney(summary.collected)}`, color: 'text-green-700' },
           ].map(({ label, value, sub, color, extra, mine }) => (
             <div key={label} className="card min-w-0 px-2.5 py-2 sm:px-3">
-              <p className="text-[11px] text-gray-400 font-medium truncate">{label}</p>
+              <p className="text-[11px] text-gray-400 font-medium truncate">{t(label)}</p>
               <p className={`text-base sm:text-xl font-black tabular-nums leading-tight truncate ${color}`}>{value}</p>
               {sub && <p className="text-[10px] text-gray-400 truncate">{sub}</p>}
               {extra}
               {mine !== undefined && (
-                <p className="text-[10px] text-primary-500 font-medium truncate">You: {mine}</p>
+                <p className="text-[10px] text-primary-500 font-medium truncate">{t('You: {n}', { n: mine })}</p>
               )}
             </div>
           ))}
@@ -861,7 +869,7 @@ export default function MahaprasadCounter() {
       {atCap && (
         <div className="card p-3 border-red-200 bg-red-50 flex items-center gap-2 text-sm text-red-700">
           <AlertTriangle className="h-4 w-4 shrink-0" />
-          Daily cap of {cap} reached — no more coupons can be issued for this date.
+          {t('Daily cap of {cap} reached — no more coupons can be issued for this date.', { cap })}
         </div>
       )}
 
@@ -875,11 +883,11 @@ export default function MahaprasadCounter() {
 
             {/* Quantity */}
             <div>
-              <label className="block text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3">Persons</label>
+              <label className="block text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3">{t('Persons')}</label>
               <div className="flex items-center gap-3 mb-3">
                 <button
                   type="button"
-                  aria-label="One less person"
+                  aria-label={t('One less person')}
                   onClick={() => { haptics.tap(); const v = Math.max(1, qty - 1); setQty(v); if (v === 1) setIsGroup(false); }}
                   className="w-12 h-12 sm:w-10 sm:h-10 shrink-0 rounded-xl border-2 border-gray-200 text-gray-500 hover:border-orange-400 hover:text-orange-600 hover:bg-orange-50 active:bg-orange-50 transition-all flex items-center justify-center font-bold text-lg">
                   <Minus className="h-5 w-5 sm:h-4 sm:w-4" />
@@ -889,14 +897,14 @@ export default function MahaprasadCounter() {
                   type="number" inputMode="numeric" min={1} max={cap > 0 ? capRemaining : 200}
                   value={qty}
                   onChange={(e) => { const v = Math.max(1, parseInt(e.target.value) || 1); setQty(v); setIsGroup(v > 1); }}
-                  aria-label="Persons"
+                  aria-label={t('Persons')}
                   className={`min-w-0 flex-1 sm:flex-none w-20 h-12 sm:h-10 text-3xl font-black text-center border-2 rounded-xl focus:outline-none focus:border-orange-400 tabular-nums ${
                     wouldExceed ? 'border-red-400 bg-red-50 text-red-700' : 'border-gray-200'
                   }`}
                 />
                 <button
                   type="button"
-                  aria-label="One more person"
+                  aria-label={t('One more person')}
                   onClick={() => { haptics.tap(); const v = qty + 1; setQty(v); setIsGroup(v > 1); }}
                   disabled={wouldExceed}
                   className="w-12 h-12 sm:w-10 sm:h-10 shrink-0 rounded-xl border-2 border-gray-200 text-gray-500 hover:border-orange-400 hover:text-orange-600 hover:bg-orange-50 active:bg-orange-50 transition-all flex items-center justify-center disabled:opacity-30">
@@ -922,7 +930,7 @@ export default function MahaprasadCounter() {
 
               {wouldExceed && (
                 <p className="text-xs text-red-500 flex items-center gap-1 mt-2">
-                  <AlertTriangle className="h-3 w-3" /> Only {capRemaining} left under today's cap
+                  <AlertTriangle className="h-3 w-3" /> {t("Only {n} left under today's cap", { n: capRemaining })}
                 </p>
               )}
 
@@ -934,7 +942,7 @@ export default function MahaprasadCounter() {
                     <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${isGroup ? 'translate-x-4' : 'translate-x-0.5'}`} />
                   </div>
                   <span className="text-sm text-gray-600">
-                    Group coupon <span className="text-gray-400">(one QR for all {qty})</span>
+                    {t('Group coupon')} <span className="text-gray-400">{t('(one QR for all {n})', { n: qty })}</span>
                   </span>
                 </label>
               )}
@@ -942,7 +950,7 @@ export default function MahaprasadCounter() {
 
             {/* Type */}
             <div>
-              <label className="block text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3">Type</label>
+              <label className="block text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3">{t('Type')}</label>
               <div className="grid grid-cols-2 gap-2">
                 <button type="button" onClick={() => setType('paid')}
                   className={`flex items-center gap-3 p-3 rounded-xl border-2 transition-all text-left ${
@@ -950,9 +958,9 @@ export default function MahaprasadCounter() {
                   }`}>
                   <IndianRupee className={`h-5 w-5 shrink-0 ${type === 'paid' ? 'text-blue-600' : ''}`} />
                   <div className="min-w-0">
-                    <p className={`text-sm font-semibold ${type === 'paid' ? 'text-blue-700' : 'text-gray-600'}`}>Paid</p>
+                    <p className={`text-sm font-semibold ${type === 'paid' ? 'text-blue-700' : 'text-gray-600'}`}>{t('Paid|coupon')}</p>
                     <p className={`text-xs ${type === 'paid' ? 'text-blue-500' : 'text-gray-400'}`}>
-                      ₹{pricePerPlate || '—'} / person
+                      {t('₹{price} / person', { price: pricePerPlate || '—' })}
                     </p>
                   </div>
                 </button>
@@ -962,8 +970,8 @@ export default function MahaprasadCounter() {
                   }`}>
                   <Gift className={`h-5 w-5 shrink-0 ${type === 'free' ? 'text-green-600' : ''}`} />
                   <div className="min-w-0">
-                    <p className={`text-sm font-semibold ${type === 'free' ? 'text-green-700' : 'text-gray-600'}`}>Free Seva</p>
-                    <p className={`text-xs ${type === 'free' ? 'text-green-500' : 'text-gray-400'}`}>Complimentary</p>
+                    <p className={`text-sm font-semibold ${type === 'free' ? 'text-green-700' : 'text-gray-600'}`}>{t('Free Seva')}</p>
+                    <p className={`text-xs ${type === 'free' ? 'text-green-500' : 'text-gray-400'}`}>{t('Complimentary')}</p>
                   </div>
                 </button>
               </div>
@@ -976,18 +984,18 @@ export default function MahaprasadCounter() {
                       <select value={occasionPreset}
                         onChange={(e) => { setOccasionPreset(e.target.value); setOccasionCustom(''); }}
                         className="input text-sm">
-                        <option value="">Occasion (optional)…</option>
+                        <option value="">{t('Occasion (optional)…')}</option>
                         {occasions.map((o) => <option key={o._id} value={o.name}>{o.name}</option>)}
-                        <option value="__other__">Other…</option>
+                        <option value="__other__">{t('Other…')}</option>
                       </select>
                       {occasionPreset === '__other__' && (
                         <input value={occasionCustom} onChange={(e) => setOccasionCustom(e.target.value)}
-                          className="input text-sm" placeholder="Describe the occasion…" />
+                          className="input text-sm" placeholder={t('Describe the occasion…')} />
                       )}
                     </>
                   ) : (
                     <input value={occasionCustom} onChange={(e) => setOccasionCustom(e.target.value)}
-                      className="input text-sm" placeholder="Occasion (optional)…" />
+                      className="input text-sm" placeholder={t('Occasion (optional)…')} />
                   )}
                 </div>
               )}
@@ -1002,21 +1010,21 @@ export default function MahaprasadCounter() {
                     <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${autoPrint ? 'translate-x-4' : 'translate-x-0.5'}`} />
                   </div>
                   <Zap className={`h-3.5 w-3.5 ${autoPrint ? 'text-orange-500' : 'text-gray-400'}`} />
-                  Auto-print
+                  {t('Auto-print')}
                 </button>
                 {autoPrint && (
                   window.electronAPI?.isElectron ? (
                     printerStatus === 'checking'
-                      ? <span className="text-xs text-gray-400 flex items-center gap-1"><Loader2 className="h-3 w-3 animate-spin" /> Checking…</span>
+                      ? <span className="text-xs text-gray-400 flex items-center gap-1"><Loader2 className="h-3 w-3 animate-spin" /> {t('Checking…')}</span>
                       : printerStatus === 'ok'
-                      ? <span className="text-xs text-green-600 flex items-center gap-1"><Wifi className="h-3 w-3" /> Printer ready</span>
+                      ? <span className="text-xs text-green-600 flex items-center gap-1"><Wifi className="h-3 w-3" /> {t('Printer ready')}</span>
                       : printerStatus
-                      ? <span className="text-xs text-red-500 flex items-center gap-1"><WifiOff className="h-3 w-3" /> {printerStatus}</span>
+                      ? <span className="text-xs text-red-500 flex items-center gap-1"><WifiOff className="h-3 w-3" /> {t(printerStatus)}</span>
                       : null
                   ) : (
                     qzReady
-                      ? <span className="text-xs text-green-600 flex items-center gap-1"><Wifi className="h-3 w-3" /> Connected</span>
-                      : <span className="text-xs text-red-500 flex items-center gap-1"><WifiOff className="h-3 w-3" /> QZ Tray offline</span>
+                      ? <span className="text-xs text-green-600 flex items-center gap-1"><Wifi className="h-3 w-3" /> {t('Connected')}</span>
+                      : <span className="text-xs text-red-500 flex items-center gap-1"><WifiOff className="h-3 w-3" /> {t('QZ Tray offline')}</span>
                   )
                 )}
               </div>
@@ -1033,7 +1041,7 @@ export default function MahaprasadCounter() {
 
                 {/* Total due */}
                 <div>
-                  <label className="block text-xs font-semibold text-gray-400 uppercase tracking-widest mb-1">Total Due</label>
+                  <label className="block text-xs font-semibold text-gray-400 uppercase tracking-widest mb-1">{t('Total Due')}</label>
                   <div className="flex items-baseline gap-2">
                     <span className="text-4xl font-black text-gray-900 tabular-nums">₹{fmtMoney(totalDue)}</span>
                     {qty > 1 && <span className="text-sm text-gray-400">{qty} × ₹{pricePerPlate}</span>}
@@ -1051,7 +1059,7 @@ export default function MahaprasadCounter() {
                       className={`flex items-center justify-center gap-2 py-2 max-sm:py-3 rounded-xl border-2 text-sm font-semibold transition-all ${
                         paymentMode === val ? 'border-blue-400 bg-blue-50 text-blue-700' : 'border-gray-200 text-gray-400 hover:border-gray-300'
                       }`}>
-                      <Icon className="h-4 w-4" /> {label}
+                      <Icon className="h-4 w-4" /> {t(label)}
                     </button>
                   ))}
                 </div>
@@ -1060,15 +1068,15 @@ export default function MahaprasadCounter() {
                   <div className="flex-1 flex items-center justify-center">
                     <div className="text-center py-6 max-md:py-3 text-gray-400">
                       <Smartphone className="h-8 w-8 mx-auto mb-2 text-blue-300" />
-                      <p className="text-sm">₹{fmtMoney(totalDue)} via UPI</p>
-                      <p className="text-xs mt-0.5">Exact payment — no change</p>
+                      <p className="text-sm">{t('₹{amount} via UPI', { amount: fmtMoney(totalDue) })}</p>
+                      <p className="text-xs mt-0.5">{t('Exact payment — no change')}</p>
                     </div>
                   </div>
                 ) : (
                   <div className={`max-lg:space-y-2.5 ${shakePayment ? 'animate-shake' : ''}`}>
                     {/* Note tiles — each shows change inline */}
                     <div>
-                      <label className="block text-xs font-semibold text-gray-400 uppercase tracking-widest mb-2">Customer pays with</label>
+                      <label className="block text-xs font-semibold text-gray-400 uppercase tracking-widest mb-2">{t('Customer pays with')}</label>
                       {/* Accumulator strip */}
                       {receivedNotes.length > 0 && (
                         <div className="flex items-center gap-1.5 flex-wrap bg-blue-50 border border-blue-200 rounded-xl px-3 py-2 max-lg:mb-2">
@@ -1084,7 +1092,7 @@ export default function MahaprasadCounter() {
                             </span>
                           ))}
                           <span className="text-blue-600 text-xs font-semibold ml-1">= ₹{fmtMoney(notesTotal)}</span>
-                          <button type="button" onClick={clearPayment} title="Clear all" aria-label="Clear all notes"
+                          <button type="button" onClick={clearPayment} title={t('Clear all')} aria-label={t('Clear all notes')}
                             className="ml-auto text-blue-400 hover:text-blue-700 transition-colors max-sm:p-3 max-sm:-m-3">
                             <X className="h-3.5 w-3.5 max-sm:h-4 max-sm:w-4" />
                           </button>
@@ -1102,7 +1110,7 @@ export default function MahaprasadCounter() {
                           {!isNative && (
                             <span className="hidden sm:block absolute top-0.5 right-1 text-[8px] font-bold bg-gray-100 text-gray-400 rounded px-1 leading-4">[E]</span>
                           )}
-                          <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Exact</p>
+                          <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">{t('Exact')}</p>
                           <p className="text-base font-black text-gray-900 tabular-nums leading-tight">₹{fmtMoney(totalDue)}</p>
                         </button>
 
@@ -1134,11 +1142,11 @@ export default function MahaprasadCounter() {
                       <input
                         type="number" inputMode="numeric" min={0} value={customCash}
                         onChange={(e) => { setCustomCash(e.target.value); setReceivedNotes([]); }}
-                        placeholder="Or type any amount…"
+                        placeholder={t('Or type any amount…')}
                         className="input text-sm flex-1"
                       />
                       {(customCash !== '' || receivedNotes.length > 0) && (
-                        <button type="button" onClick={clearPayment} aria-label="Clear amount"
+                        <button type="button" onClick={clearPayment} aria-label={t('Clear amount')}
                           className="text-gray-400 hover:text-gray-600 max-sm:p-3">
                           <X className="h-4 w-4" />
                         </button>
@@ -1154,14 +1162,14 @@ export default function MahaprasadCounter() {
                       }`}>
                         {changeDue > 0 ? (
                           <>
-                            <p className="text-xs font-semibold text-amber-600 uppercase tracking-wide">Return to customer</p>
+                            <p className="text-xs font-semibold text-amber-600 uppercase tracking-wide">{t('Return to customer')}</p>
                             <p className="text-2xl font-black text-amber-800 tabular-nums">₹{fmtMoney(changeDue)}</p>
                           </>
                         ) : changeDue === 0 ? (
-                          <p className="text-sm font-bold text-green-600 w-full text-center">✓ Exact — no change</p>
+                          <p className="text-sm font-bold text-green-600 w-full text-center">{t('✓ Exact — no change')}</p>
                         ) : (
                           <>
-                            <p className="text-xs font-semibold text-red-600 uppercase tracking-wide">Short by</p>
+                            <p className="text-xs font-semibold text-red-600 uppercase tracking-wide">{t('Short by')}</p>
                             <p className="text-2xl font-black text-red-700 tabular-nums">₹{fmtMoney(Math.abs(changeDue))}</p>
                           </>
                         )}
@@ -1177,24 +1185,24 @@ export default function MahaprasadCounter() {
                     <div className="w-14 h-14 max-md:w-11 max-md:h-11 rounded-full bg-green-100 flex items-center justify-center mx-auto">
                       <Gift className="h-7 w-7 max-md:h-5 max-md:w-5 text-green-500" />
                     </div>
-                    <p className="text-base font-bold text-green-700">Free Day</p>
-                    <p className="text-xs text-gray-400">No price set for today — all coupons are free</p>
+                    <p className="text-base font-bold text-green-700">{t('Free Day')}</p>
+                    <p className="text-xs text-gray-400">{t('No price set for today — all coupons are free')}</p>
                     <button type="button" onClick={() => setType('paid')}
                       className="text-xs text-gray-400 hover:text-gray-600 underline underline-offset-2 mt-1 max-sm:py-2">
-                      Issue as Paid anyway
+                      {t('Issue as Paid anyway')}
                     </button>
                   </div>
                 ) : (
                   <div className="text-center text-gray-400 py-8 max-md:py-3">
                     <Gift className="h-10 w-10 max-md:h-7 max-md:w-7 mx-auto mb-2 text-green-300" />
-                    <p className="text-sm font-medium text-green-600">Free Seva</p>
-                    <p className="text-xs mt-0.5">No payment required</p>
+                    <p className="text-sm font-medium text-green-600">{t('Free Seva')}</p>
+                    <p className="text-xs mt-0.5">{t('No payment required')}</p>
                   </div>
                 )}
               </div>
             ) : (
               <div className="flex-1 flex items-center justify-center text-center text-gray-400 py-8 max-md:py-4 text-sm">
-                Set price in Settings → Mahaprasad to enable payment tracking
+                {t('Set price in Settings → Mahaprasad to enable payment tracking')}
               </div>
             )}
           </div>
@@ -1221,13 +1229,13 @@ export default function MahaprasadCounter() {
           <div className="flex items-start gap-3">
             <AlertTriangle className="h-6 w-6 text-amber-500 shrink-0 mt-0.5" />
             <div>
-              <p className="font-semibold text-gray-900">Drawer short ₹{fmtMoney(shortageWarning.shortBy)}</p>
-              <p className="text-sm text-gray-500 mt-1">The cash drawer may not have enough notes to return exact change. Proceed anyway?</p>
+              <p className="font-semibold text-gray-900">{t('Drawer short ₹{amount}', { amount: fmtMoney(shortageWarning.shortBy) })}</p>
+              <p className="text-sm text-gray-500 mt-1">{t('The cash drawer may not have enough notes to return exact change. Proceed anyway?')}</p>
             </div>
           </div>
           <div className="flex gap-3 justify-end max-sm:[&>*]:flex-1">
             <button onClick={() => setShortageWarning(null)}
-              className="btn btn-ghost border px-4 py-2 max-sm:py-3 text-sm">Cancel</button>
+              className="btn btn-ghost border px-4 py-2 max-sm:py-3 text-sm">{t('Cancel')}</button>
             <button
               onClick={() => {
                 setShortageWarning(null);
@@ -1239,7 +1247,7 @@ export default function MahaprasadCounter() {
                 });
               }}
               className="btn bg-amber-500 hover:bg-amber-600 text-white px-4 py-2 max-sm:py-3 text-sm font-semibold">
-              Proceed anyway
+              {t('Proceed anyway')}
             </button>
           </div>
         </div>
@@ -1250,14 +1258,14 @@ export default function MahaprasadCounter() {
     <Sheet open={!!voidConfirm} onClose={() => setVoidConfirm(null)} size="sm">
       <div className="space-y-4 sm:pt-2">
         <div>
-          <p className="font-semibold text-gray-900">Void this batch?</p>
-          <p className="text-sm text-gray-500 mt-1">All coupons in this batch will be marked void and the payment will be reversed. This cannot be undone.</p>
+          <p className="font-semibold text-gray-900">{t('Void this batch?')}</p>
+          <p className="text-sm text-gray-500 mt-1">{t('All coupons in this batch will be marked void and the payment will be reversed. This cannot be undone.')}</p>
         </div>
         <div className="flex gap-3 justify-end max-sm:[&>*]:flex-1">
-          <button onClick={() => setVoidConfirm(null)} className="btn btn-ghost border px-4 py-2 max-sm:py-3 text-sm">Cancel</button>
+          <button onClick={() => setVoidConfirm(null)} className="btn btn-ghost border px-4 py-2 max-sm:py-3 text-sm">{t('Cancel')}</button>
           <button onClick={() => voidMut.mutate(voidConfirm)} disabled={voidMut.isPending}
             className="btn bg-red-600 hover:bg-red-700 text-white px-4 py-2 max-sm:py-3 text-sm font-semibold disabled:opacity-50">
-            {voidMut.isPending ? 'Voiding…' : 'Void Batch'}
+            {voidMut.isPending ? t('Voiding…') : t('Void Batch')}
           </button>
         </div>
       </div>
@@ -1280,13 +1288,13 @@ export default function MahaprasadCounter() {
             isPending ? 'bg-blue-400' : 'bg-blue-600 hover:bg-blue-700'
           }`}>
           {isPending ? (
-            <><span className="animate-spin text-lg">⟳</span> {autoPrint ? 'Issuing & printing…' : 'Issuing…'}</>
+            <><span className="animate-spin text-lg">⟳</span> {autoPrint ? t('Issuing & printing…') : t('Issuing…')}</>
           ) : isOnline ? (
             isGroup
-              ? `Issue Group — ${qty} persons${type === 'paid' && totalDue > 0 ? ` · ₹${fmtMoney(totalDue)}` : ''}`
-              : `Issue ${qty} Coupon${qty > 1 ? 's' : ''}${type === 'paid' && totalDue > 0 ? ` · ₹${fmtMoney(totalDue)}` : ''}`
+              ? `${t('Issue Group — {n} persons', { n: qty })}${type === 'paid' && totalDue > 0 ? ` · ₹${fmtMoney(totalDue)}` : ''}`
+              : `${t(qty > 1 ? 'Issue {n} Coupons' : 'Issue {n} Coupon', { n: qty })}${type === 'paid' && totalDue > 0 ? ` · ₹${fmtMoney(totalDue)}` : ''}`
           ) : (
-            'Issue Coupon (offline)'
+            t('Issue Coupon (offline)')
           )}
         </button>
         <p className="text-xs text-gray-400 hidden lg:block">Enter ↵</p>
@@ -1305,22 +1313,24 @@ export default function MahaprasadCounter() {
               }
             }}
             disabled={isNative && printing}
-            title={`${isNative ? 'Share' : 'Reprint'} last batch · ${lastIssuedBatch.numbers.length} coupon${lastIssuedBatch.numbers.length > 1 ? 's' : ''}`}
+            title={t(isNative ? 'Share last batch · {count}' : 'Reprint last batch · {count}', {
+              count: t(lastIssuedBatch.numbers.length > 1 ? '{n} coupons' : '{n} coupon', { n: lastIssuedBatch.numbers.length }),
+            })}
             className="shrink-0 flex items-center gap-1.5 text-xs font-semibold text-gray-500 hover:text-gray-800 border border-gray-200 rounded-lg px-3 py-2 hover:bg-gray-50 transition-colors
               max-lg:flex-col max-lg:gap-0.5 max-lg:self-stretch max-lg:justify-center max-lg:px-2.5 max-lg:text-[11px] max-lg:rounded-xl disabled:opacity-50">
             <PdfIcon className="h-3.5 w-3.5 max-lg:h-4 max-lg:w-4" />
-            <span className="max-lg:hidden">Reprint Last</span>
-            <span className="lg:hidden">{isNative ? 'Last PDF' : 'Reprint'}</span>
+            <span className="max-lg:hidden">{t('Reprint Last')}</span>
+            <span className="lg:hidden">{isNative ? t('Last PDF') : t('Reprint')}</span>
           </button>
         )}
         {printQueue.length > 0 && (
           <button
             onClick={handleRetryPrintQueue}
-            title={`${printQueue.length} coupon${printQueue.length > 1 ? 's' : ''} waiting to print`}
+            title={t(printQueue.length > 1 ? '{n} coupons waiting to print' : '{n} coupon waiting to print', { n: printQueue.length })}
             className="shrink-0 flex items-center gap-1.5 text-xs font-semibold text-white bg-red-500 hover:bg-red-600 rounded-lg px-3 py-2 transition-colors animate-pulse
               max-lg:flex-col max-lg:gap-0.5 max-lg:self-stretch max-lg:justify-center max-lg:px-2.5 max-lg:text-[11px] max-lg:rounded-xl">
             <Printer className="h-3.5 w-3.5 max-lg:h-4 max-lg:w-4" />
-            Retry ({printQueue.length})
+            {t('Retry ({n})', { n: printQueue.length })}
           </button>
         )}
       </div>
@@ -1331,7 +1341,7 @@ export default function MahaprasadCounter() {
       open={showShiftSummary}
       onClose={() => setShowShiftSummary(false)}
       size="sm"
-      title={<span className="flex items-center gap-2"><UtensilsCrossed className="h-5 w-5 text-orange-500" /> My Shift Summary</span>}
+      title={<span className="flex items-center gap-2"><UtensilsCrossed className="h-5 w-5 text-orange-500" /> {t('My Shift Summary')}</span>}
     >
       <div className="space-y-5">
         <div className="text-xs text-gray-400 -mt-1">{new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' })}</div>
@@ -1339,11 +1349,11 @@ export default function MahaprasadCounter() {
         {/* Stats grid */}
         <div className="grid grid-cols-2 gap-3">
           <div className="rounded-xl bg-orange-50 border border-orange-100 px-4 py-3 col-span-2">
-            <p className="text-xs text-orange-600 font-semibold uppercase tracking-wide">Coupons Issued</p>
+            <p className="text-xs text-orange-600 font-semibold uppercase tracking-wide">{t('Coupons Issued')}</p>
             <p className="text-3xl font-black text-orange-700 tabular-nums">{myCount}</p>
           </div>
           <div className="rounded-xl bg-green-50 border border-green-100 px-4 py-3">
-            <p className="text-xs text-green-600 font-semibold uppercase tracking-wide mb-0.5">Cash</p>
+            <p className="text-xs text-green-600 font-semibold uppercase tracking-wide mb-0.5">{t('Cash')}</p>
             <p className="text-xl font-black text-green-800 tabular-nums">₹{fmtMoney(myCash)}</p>
           </div>
           <div className="rounded-xl bg-blue-50 border border-blue-100 px-4 py-3">
@@ -1351,12 +1361,12 @@ export default function MahaprasadCounter() {
             <p className="text-xl font-black text-blue-800 tabular-nums">₹{fmtMoney(myUpi)}</p>
           </div>
           <div className="rounded-xl bg-gray-50 border border-gray-200 px-4 py-3 col-span-2 flex items-center justify-between">
-            <p className="text-sm font-semibold text-gray-600">Total Collected</p>
+            <p className="text-sm font-semibold text-gray-600">{t('Total Collected')}</p>
             <p className="text-2xl font-black text-gray-900 tabular-nums">₹{fmtMoney(myCash + myUpi)}</p>
           </div>
         </div>
 
-        <p className="text-xs text-center text-gray-400">Share your shift summary with your supervisor.</p>
+        <p className="text-xs text-center text-gray-400">{t('Share your shift summary with your supervisor.')}</p>
 
         <button
           onClick={handleShareShift}
@@ -1366,7 +1376,7 @@ export default function MahaprasadCounter() {
               : 'bg-white border-green-300 text-green-700 hover:bg-green-50'
           }`}>
           <MessageCircle className="h-4 w-4" />
-          {isNative ? 'Share summary' : shiftCopied ? 'Copied!' : 'Copy for WhatsApp'}
+          {isNative ? t('Share summary') : shiftCopied ? t('Copied!') : t('Copy for WhatsApp')}
         </button>
 
         {thermalPrinterName && (
@@ -1380,19 +1390,19 @@ export default function MahaprasadCounter() {
                   cash: myCash,
                   upi: myUpi,
                 }, thermalPrinterName);
-                toast.success('Shift slip printed');
+                toast.success(t('Shift slip printed'));
               } catch (err) {
-                toast.error(err.message || 'Print failed');
+                toast.error(err.message || t('Print failed'));
               }
             }}
             className="w-full flex items-center justify-center gap-2 bg-orange-600 hover:bg-orange-700 text-white py-2.5 rounded-xl text-sm font-bold transition-colors">
-            <Printer className="h-4 w-4" /> Print Shift Slip
+            <Printer className="h-4 w-4" /> {t('Print Shift Slip')}
           </button>
         )}
 
         <button onClick={() => setShowShiftSummary(false)}
           className="w-full btn btn-ghost border py-2 max-sm:py-3 text-sm font-semibold">
-          Close
+          {t('Close')}
         </button>
       </div>
     </Sheet>

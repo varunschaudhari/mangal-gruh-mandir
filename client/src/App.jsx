@@ -1,86 +1,97 @@
+import { Suspense } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import PrivateRoute from './components/PrivateRoute.jsx';
 import AppLayout from './components/Layout/AppLayout.jsx';
-import Login from './pages/auth/Login.jsx';
-import Dashboard from './pages/dashboard/Dashboard.jsx';
-import ProductList from './pages/masters/products/ProductList.jsx';
-import ProductForm from './pages/masters/products/ProductForm.jsx';
-import ProductDetail from './pages/masters/products/ProductDetail.jsx';
-import DepartmentList from './pages/masters/departments/DepartmentList.jsx';
-import DepartmentForm from './pages/masters/departments/DepartmentForm.jsx';
-import SupplierList from './pages/masters/suppliers/SupplierList.jsx';
-import SupplierForm from './pages/masters/suppliers/SupplierForm.jsx';
-import CategoryList from './pages/masters/categories/CategoryList.jsx';
-import CategoryForm from './pages/masters/categories/CategoryForm.jsx';
-import UnitList from './pages/masters/units/UnitList.jsx';
-import UserList from './pages/admin/UserList.jsx';
-import UserForm from './pages/admin/UserForm.jsx';
-import StockIn from './pages/transactions/StockIn.jsx';
-import StockOut from './pages/transactions/StockOut.jsx';
-import Transfer from './pages/transactions/Transfer.jsx';
-import Wastage from './pages/transactions/Wastage.jsx';
-import TransactionHistory from './pages/transactions/TransactionHistory.jsx';
-import CurrentStock from './pages/inventory/CurrentStock.jsx';
-import StockLedger from './pages/inventory/StockLedger.jsx';
-import LowStockAlerts from './pages/reports/LowStockAlerts.jsx';
-import DailyMovement from './pages/reports/DailyMovement.jsx';
-import ExpiringStock from './pages/reports/ExpiringStock.jsx';
-import Profile from './pages/auth/Profile.jsx';
-import ChangePassword from './pages/auth/ChangePassword.jsx';
-import RoleList from './pages/admin/RoleList.jsx';
-import RoleForm from './pages/admin/RoleForm.jsx';
-import AssetList from './pages/assets/AssetList.jsx';
-import AssetForm from './pages/assets/AssetForm.jsx';
-import AssetTransactions from './pages/assets/AssetTransactions.jsx';
-import NewBorrowRequest from './pages/assets/NewBorrowRequest.jsx';
-import ReturnAsset from './pages/assets/ReturnAsset.jsx';
-import BorrowDetail from './pages/assets/BorrowDetail.jsx';
-import AssetReports from './pages/assets/AssetReports.jsx';
-import StockValuation from './pages/reports/StockValuation.jsx';
-import SupplierReport from './pages/reports/SupplierReport.jsx';
-import AssetHistory from './pages/assets/AssetHistory.jsx';
-import DonationList from './pages/donations/DonationList.jsx';
-import NewDonation from './pages/donations/NewDonation.jsx';
-import DonationDetail from './pages/donations/DonationDetail.jsx';
-import DonorDetail from './pages/donations/DonorDetail.jsx';
-import DonationOccasionList from './pages/donations/DonationOccasionList.jsx';
-import BorrowerHistory from './pages/assets/BorrowerHistory.jsx';
-import UpcomingReturns from './pages/assets/UpcomingReturns.jsx';
-import Settings from './pages/settings/Settings.jsx';
-import SupplierDetail from './pages/masters/suppliers/SupplierDetail.jsx';
-import SupplierPayments from './pages/payments/SupplierPayments.jsx';
-import NewSupplierPayment from './pages/payments/NewSupplierPayment.jsx';
-import SupplierPaymentDetail from './pages/payments/SupplierPaymentDetail.jsx';
-import PaymentTemplates from './pages/payments/PaymentTemplates.jsx';
-import UpcomingDues from './pages/payments/UpcomingDues.jsx';
-import SupplierAgingReport from './pages/reports/SupplierAgingReport.jsx';
-import FestivalCostReport from './pages/reports/FestivalCostReport.jsx';
-import ConsumptionTrend from './pages/reports/ConsumptionTrend.jsx';
-import ReorderSuggestions from './pages/reports/ReorderSuggestions.jsx';
-import AuditLog from './pages/admin/AuditLog.jsx';
-import InvoiceRegister from './pages/payments/InvoiceRegister.jsx';
-import PurchaseRegister from './pages/purchases/PurchaseRegister.jsx';
-import NewPurchaseEntry from './pages/purchases/NewPurchaseEntry.jsx';
-import PurchaseEntryDetail from './pages/purchases/PurchaseEntryDetail.jsx';
-import PurchaseEntryEdit from './pages/purchases/PurchaseEntryEdit.jsx'
-import ExpenseList from './pages/expenses/ExpenseList.jsx'
-import NewExpense from './pages/expenses/NewExpense.jsx'
-import ExpenseDetail from './pages/expenses/ExpenseDetail.jsx'
-import MonthlyPnL from './pages/reports/MonthlyPnL.jsx'
-import ReportsHub from './pages/reports/ReportsHub.jsx'
-import BudgetManager from './pages/expenses/BudgetManager.jsx'
-import MahaprasadCounter from './pages/mahaprasad/MahaprasadCounter.jsx';
-import MahaprasadRedeem from './pages/mahaprasad/MahaprasadRedeem.jsx';
-import MahaprasadHistory from './pages/mahaprasad/MahaprasadHistory.jsx';
-import MahaprasadReport from './pages/mahaprasad/MahaprasadReport.jsx';
-import MahaprasadOccasionList from './pages/mahaprasad/MahaprasadOccasionList.jsx';
-import OccasionsManager from './pages/admin/OccasionsManager.jsx';
-import AssetUnitList from './pages/assets/AssetUnitList.jsx';
+import { PageLoader } from './components/ui/Spinner.jsx';
+import { lazyPage } from './utils/lazyPage.js';
 import ElectronSettings from './components/ElectronSettings.jsx';
+import UpdatePrompt from './components/UpdatePrompt.jsx';
+import AppLock from './components/AppLock.jsx';
+
+// Screens load on first use (only Login is in the main bundle).
+import Login from './pages/auth/Login.jsx';
+const Dashboard = lazyPage(() => import('./pages/dashboard/Dashboard.jsx'));
+const ProductList = lazyPage(() => import('./pages/masters/products/ProductList.jsx'));
+const ProductForm = lazyPage(() => import('./pages/masters/products/ProductForm.jsx'));
+const ProductDetail = lazyPage(() => import('./pages/masters/products/ProductDetail.jsx'));
+const DepartmentList = lazyPage(() => import('./pages/masters/departments/DepartmentList.jsx'));
+const DepartmentForm = lazyPage(() => import('./pages/masters/departments/DepartmentForm.jsx'));
+const SupplierList = lazyPage(() => import('./pages/masters/suppliers/SupplierList.jsx'));
+const SupplierForm = lazyPage(() => import('./pages/masters/suppliers/SupplierForm.jsx'));
+const CategoryList = lazyPage(() => import('./pages/masters/categories/CategoryList.jsx'));
+const CategoryForm = lazyPage(() => import('./pages/masters/categories/CategoryForm.jsx'));
+const UnitList = lazyPage(() => import('./pages/masters/units/UnitList.jsx'));
+const UserList = lazyPage(() => import('./pages/admin/UserList.jsx'));
+const UserForm = lazyPage(() => import('./pages/admin/UserForm.jsx'));
+const StockIn = lazyPage(() => import('./pages/transactions/StockIn.jsx'));
+const StockOut = lazyPage(() => import('./pages/transactions/StockOut.jsx'));
+const Transfer = lazyPage(() => import('./pages/transactions/Transfer.jsx'));
+const Wastage = lazyPage(() => import('./pages/transactions/Wastage.jsx'));
+const TransactionHistory = lazyPage(() => import('./pages/transactions/TransactionHistory.jsx'));
+const CurrentStock = lazyPage(() => import('./pages/inventory/CurrentStock.jsx'));
+const StockLedger = lazyPage(() => import('./pages/inventory/StockLedger.jsx'));
+const LowStockAlerts = lazyPage(() => import('./pages/reports/LowStockAlerts.jsx'));
+const DailyMovement = lazyPage(() => import('./pages/reports/DailyMovement.jsx'));
+const ExpiringStock = lazyPage(() => import('./pages/reports/ExpiringStock.jsx'));
+const Profile = lazyPage(() => import('./pages/auth/Profile.jsx'));
+const ChangePassword = lazyPage(() => import('./pages/auth/ChangePassword.jsx'));
+const RoleList = lazyPage(() => import('./pages/admin/RoleList.jsx'));
+const RoleForm = lazyPage(() => import('./pages/admin/RoleForm.jsx'));
+const AssetList = lazyPage(() => import('./pages/assets/AssetList.jsx'));
+const AssetForm = lazyPage(() => import('./pages/assets/AssetForm.jsx'));
+const AssetTransactions = lazyPage(() => import('./pages/assets/AssetTransactions.jsx'));
+const NewBorrowRequest = lazyPage(() => import('./pages/assets/NewBorrowRequest.jsx'));
+const ReturnAsset = lazyPage(() => import('./pages/assets/ReturnAsset.jsx'));
+const BorrowDetail = lazyPage(() => import('./pages/assets/BorrowDetail.jsx'));
+const AssetReports = lazyPage(() => import('./pages/assets/AssetReports.jsx'));
+const StockValuation = lazyPage(() => import('./pages/reports/StockValuation.jsx'));
+const SupplierReport = lazyPage(() => import('./pages/reports/SupplierReport.jsx'));
+const AssetHistory = lazyPage(() => import('./pages/assets/AssetHistory.jsx'));
+const DonationList = lazyPage(() => import('./pages/donations/DonationList.jsx'));
+const NewDonation = lazyPage(() => import('./pages/donations/NewDonation.jsx'));
+const DonationDetail = lazyPage(() => import('./pages/donations/DonationDetail.jsx'));
+const DonorDetail = lazyPage(() => import('./pages/donations/DonorDetail.jsx'));
+const DonationOccasionList = lazyPage(() => import('./pages/donations/DonationOccasionList.jsx'));
+const BorrowerHistory = lazyPage(() => import('./pages/assets/BorrowerHistory.jsx'));
+const UpcomingReturns = lazyPage(() => import('./pages/assets/UpcomingReturns.jsx'));
+const Settings = lazyPage(() => import('./pages/settings/Settings.jsx'));
+const SupplierDetail = lazyPage(() => import('./pages/masters/suppliers/SupplierDetail.jsx'));
+const SupplierPayments = lazyPage(() => import('./pages/payments/SupplierPayments.jsx'));
+const NewSupplierPayment = lazyPage(() => import('./pages/payments/NewSupplierPayment.jsx'));
+const SupplierPaymentDetail = lazyPage(() => import('./pages/payments/SupplierPaymentDetail.jsx'));
+const PaymentTemplates = lazyPage(() => import('./pages/payments/PaymentTemplates.jsx'));
+const UpcomingDues = lazyPage(() => import('./pages/payments/UpcomingDues.jsx'));
+const SupplierAgingReport = lazyPage(() => import('./pages/reports/SupplierAgingReport.jsx'));
+const FestivalCostReport = lazyPage(() => import('./pages/reports/FestivalCostReport.jsx'));
+const ConsumptionTrend = lazyPage(() => import('./pages/reports/ConsumptionTrend.jsx'));
+const ReorderSuggestions = lazyPage(() => import('./pages/reports/ReorderSuggestions.jsx'));
+const AuditLog = lazyPage(() => import('./pages/admin/AuditLog.jsx'));
+const AppErrors = lazyPage(() => import('./pages/admin/AppErrors.jsx'));
+const InvoiceRegister = lazyPage(() => import('./pages/payments/InvoiceRegister.jsx'));
+const PurchaseRegister = lazyPage(() => import('./pages/purchases/PurchaseRegister.jsx'));
+const NewPurchaseEntry = lazyPage(() => import('./pages/purchases/NewPurchaseEntry.jsx'));
+const PurchaseEntryDetail = lazyPage(() => import('./pages/purchases/PurchaseEntryDetail.jsx'));
+const PurchaseEntryEdit = lazyPage(() => import('./pages/purchases/PurchaseEntryEdit.jsx'));
+const ExpenseList = lazyPage(() => import('./pages/expenses/ExpenseList.jsx'));
+const NewExpense = lazyPage(() => import('./pages/expenses/NewExpense.jsx'));
+const ExpenseDetail = lazyPage(() => import('./pages/expenses/ExpenseDetail.jsx'));
+const MonthlyPnL = lazyPage(() => import('./pages/reports/MonthlyPnL.jsx'));
+const ReportsHub = lazyPage(() => import('./pages/reports/ReportsHub.jsx'));
+const BudgetManager = lazyPage(() => import('./pages/expenses/BudgetManager.jsx'));
+const MahaprasadCounter = lazyPage(() => import('./pages/mahaprasad/MahaprasadCounter.jsx'));
+const MahaprasadRedeem = lazyPage(() => import('./pages/mahaprasad/MahaprasadRedeem.jsx'));
+const MahaprasadHistory = lazyPage(() => import('./pages/mahaprasad/MahaprasadHistory.jsx'));
+const MahaprasadReport = lazyPage(() => import('./pages/mahaprasad/MahaprasadReport.jsx'));
+const MahaprasadOccasionList = lazyPage(() => import('./pages/mahaprasad/MahaprasadOccasionList.jsx'));
+const OccasionsManager = lazyPage(() => import('./pages/admin/OccasionsManager.jsx'));
+const AssetUnitList = lazyPage(() => import('./pages/assets/AssetUnitList.jsx'));
 
 const App = () => (
   <>
   {window.electronAPI?.isElectron && <ElectronSettings />}
+  <UpdatePrompt />
+  <AppLock />
+  <Suspense fallback={<PageLoader />}>
   <Routes>
     <Route path="/login" element={<Login />} />
 
@@ -198,12 +209,14 @@ const App = () => (
         <Route path="/admin/roles/new" element={<RoleForm />} />
         <Route path="/admin/roles/:id/edit" element={<RoleForm />} />
         <Route path="/admin/audit-log" element={<AuditLog />} />
+        <Route path="/admin/app-errors" element={<AppErrors />} />
 
         {/* Catch-all inside layout — any unknown path goes to dashboard */}
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Route>
     </Route>
   </Routes>
+  </Suspense>
   </>
 );
 

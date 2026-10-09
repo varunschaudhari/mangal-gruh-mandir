@@ -9,6 +9,7 @@ import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import toast from 'react-hot-toast';
 import { useIsMobile } from '../../hooks/useMediaQuery.js';
+import { localDateStr } from '../../utils/formatters.js';
 
 const fmt     = (n) => Number(n || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
@@ -27,8 +28,8 @@ const SupplierReport = () => {
   const supplierOptions = suppRes?.data?.data || [];
 
   const params = {
-    ...(startDate  && { startDate: startDate.toISOString().split('T')[0] }),
-    ...(endDate    && { endDate:   endDate.toISOString().split('T')[0] }),
+    ...(startDate  && { startDate: localDateStr(startDate) }),
+    ...(endDate    && { endDate:   localDateStr(endDate) }),
     ...(supplierId && { supplier:  supplierId }),
   };
 

@@ -16,17 +16,3 @@ export const useMobileNav = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [role, user?.permissions]);
 };
-
-// Which tab lights up for a path: 'home', a tab key, or 'more'.
-export const resolveActiveTab = (pathname, tabs) => {
-  if (pathname === '/dashboard' || pathname === '/') return 'home';
-  let best = null;
-  let bestLen = 0;
-  for (const t of tabs) {
-    for (const prefix of [t.to, ...(t.match || [])]) {
-      const hit = pathname === prefix || pathname.startsWith(`${prefix}/`);
-      if (hit && prefix.length > bestLen) { best = t.key; bestLen = prefix.length; }
-    }
-  }
-  return best || 'more';
-};

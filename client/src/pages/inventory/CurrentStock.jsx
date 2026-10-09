@@ -5,11 +5,13 @@ import { getDepartments } from '../../api/department.api.js';
 import PageHeader from '../../components/ui/PageHeader.jsx';
 import Badge from '../../components/ui/Badge.jsx';
 import { PageLoader } from '../../components/ui/Spinner.jsx';
-import { fDate } from '../../utils/formatters.js';
+import { fDate, localDateStr } from '../../utils/formatters.js';
 import { exportToExcel } from '../../utils/exportToExcel.js';
 import { Download, RefreshCw, Search } from 'lucide-react';
+import { useT } from '../../i18n/index.jsx';
 
 const CurrentStock = () => {
+  const t = useT();
   const [deptFilter, setDeptFilter] = useState('');
   const [lowStockOnly, setLowStockOnly] = useState(false);
   const [search, setSearch] = useState('');
@@ -35,7 +37,7 @@ const CurrentStock = () => {
       'Status':        b.quantity === 0 ? 'Out of Stock' : (b.product?.minStockLevel && b.quantity <= b.product.minStockLevel ? 'Low Stock' : 'OK'),
       'Last Updated':  b.lastTransactionDate ? new Date(b.lastTransactionDate).toLocaleDateString('en-IN') : '',
     }));
-    const dateStr = new Date().toISOString().split('T')[0];
+    const dateStr = localDateStr();
     exportToExcel(rows, `Stock_Statement_${dateStr}`, 'Current Stock');
   };
 
@@ -57,7 +59,7 @@ const CurrentStock = () => {
   // Group by department
   const grouped = {};
   for (const b of balances) {
-    const deptName = b.department?.name || 'Unknown';
+    const deptName = b.department?.name || t('Unknown');
     if (!grouped[deptName]) grouped[deptName] = [];
     grouped[deptName].push(b);
   }
@@ -70,13 +72,13 @@ const CurrentStock = () => {
         breadcrumbs={[{ label: 'Inventory' }, { label: 'Current Stock' }]}
         actions={
           <div className="flex gap-1 sm:gap-2">
-            <button onClick={() => refetch()} className="btn btn-ghost text-sm px-2.5 sm:px-4" aria-label="Refresh">
+            <button onClick={() => refetch()} className="btn btn-ghost text-sm px-2.5 sm:px-4" aria-label={t('Refresh')}>
               <RefreshCw className={`h-4 w-4 sm:hidden ${isFetching ? 'animate-spin' : ''}`} />
-              <span className="hidden sm:inline">Refresh</span>
+              <span className="hidden sm:inline">{t('Refresh')}</span>
             </button>
             {balances.length > 0 && (
               <button onClick={handleExport} className="btn btn-ghost text-sm flex items-center gap-1.5 px-2.5 sm:px-4">
-                <Download className="h-4 w-4" /> <span className="sm:hidden">Export</span><span className="hidden sm:inline">Export Excel</span>
+                <Download className="h-4 w-4" /> <span className="sm:hidden">{t('Export')}</span><span className="hidden sm:inline">{t('Export Excel')}</span>
               </button>
             )}
           </div>
@@ -92,12 +94,12 @@ const CurrentStock = () => {
             enterKeyHint="search"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search product…"
+            placeholder={t('Search product…')}
             className="input text-sm pl-9 sm:pl-3"
           />
         </div>
         <select value={deptFilter} onChange={(e) => setDeptFilter(e.target.value)} className="input text-sm flex-1 min-w-0 sm:flex-none">
-          <option value="">All Departments</option>
+          <option value="">{t('All Departments')}</option>
           {departments.map((d) => <option key={d._id} value={d._id}>{d.name}</option>)}
         </select>
         <label className="flex min-h-[44px] items-center gap-2 text-sm cursor-pointer select-none sm:min-h-0">
@@ -107,23 +109,23 @@ const CurrentStock = () => {
             onChange={(e) => setLowStockOnly(e.target.checked)}
             className="h-5 w-5 rounded sm:h-4 sm:w-4"
           />
-          <span className="text-red-600 font-medium"><span className="sm:hidden">Low only</span><span className="hidden sm:inline">Low stock only</span></span>
+          <span className="text-red-600 font-medium"><span className="sm:hidden">{t('Low only')}</span><span className="hidden sm:inline">{t('Low stock only')}</span></span>
         </label>
-        <span className="hidden sm:inline ml-auto text-sm text-gray-400">{balances.length} items</span>
+        <span className="hidden sm:inline ml-auto text-sm text-gray-400">{t('{n} items', { n: balances.length })}</span>
       </div>
 
       {isLoading ? (
         <PageLoader />
       ) : balances.length === 0 ? (
-        <div className="card p-8 text-center text-gray-500">No stock records found.</div>
+        <div className="card p-8 text-center text-gray-500">{t('No stock records found.')}</div>
       ) : (
         <div className="space-y-4">
-          <p className="-mt-1 px-1 text-xs text-gray-400 sm:hidden">{balances.length} items</p>
+          <p className="-mt-1 px-1 text-xs text-gray-400 sm:hidden">{t('{n} items', { n: balances.length })}</p>
           {Object.entries(grouped).map(([deptName, items]) => (
             <div key={deptName} className="card overflow-hidden">
               <div className="px-4 py-2 bg-gray-50 border-b border-gray-100 flex items-center gap-2">
                 <h3 className="font-semibold text-sm text-gray-700">{deptName}</h3>
-                <span className="text-xs text-gray-400">({items.length} products)</span>
+                <span className="text-xs text-gray-400">({t('{n} products', { n: items.length })})</span>
               </div>
 
               {/* Phones: dense rows — name on the left, quantity big on the right */}
@@ -138,7 +140,7 @@ const CurrentStock = () => {
                         <p className="text-[15px] font-medium text-gray-900 break-words">{b.product?.name}</p>
                         <p className="mt-0.5 text-xs text-gray-400">
                           <span className="font-mono">{b.product?.code}</span>
-                          {min > 0 && <> · Min {min}</>}
+                          {min > 0 && <> · {t('Min {n}', { n: min })}</>}
                           {b.lastTransactionDate && <> · {fDate(b.lastTransactionDate, 'dd MMM')}</>}
                         </p>
                       </div>
@@ -148,7 +150,7 @@ const CurrentStock = () => {
                         </p>
                         {(isOut || isLow) && (
                           <p className={`text-[11px] font-semibold uppercase tracking-wide ${isOut ? 'text-red-600' : 'text-amber-700'}`}>
-                            {isOut ? 'Out of stock' : 'Low stock'}
+                            {isOut ? t('Out of stock') : t('Low stock')}
                           </p>
                         )}
                       </div>
@@ -161,12 +163,12 @@ const CurrentStock = () => {
                 <table className="min-w-full">
                   <thead>
                     <tr className="border-b border-gray-100">
-                      <th className="table-th">Product</th>
-                      <th className="table-th">Code</th>
-                      <th className="table-th text-right">Quantity</th>
-                      <th className="table-th text-right">Min Level</th>
-                      <th className="table-th">Status</th>
-                      <th className="table-th">Last Updated</th>
+                      <th className="table-th">{t('Product')}</th>
+                      <th className="table-th">{t('Code')}</th>
+                      <th className="table-th text-right">{t('Quantity')}</th>
+                      <th className="table-th text-right">{t('Min Level')}</th>
+                      <th className="table-th">{t('Status')}</th>
+                      <th className="table-th">{t('Last Updated')}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-50">
@@ -184,10 +186,10 @@ const CurrentStock = () => {
                           <td className="table-td text-right text-sm text-gray-500">{min || '—'}</td>
                           <td className="table-td">
                             {isOut
-                              ? <Badge variant="danger" size="sm">Out of Stock</Badge>
+                              ? <Badge variant="danger" size="sm">{t('Out of Stock')}</Badge>
                               : isLow
-                                ? <Badge variant="warning" size="sm">Low Stock</Badge>
-                                : <Badge variant="success" size="sm">OK</Badge>
+                                ? <Badge variant="warning" size="sm">{t('Low Stock')}</Badge>
+                                : <Badge variant="success" size="sm">{t('OK')}</Badge>
                             }
                           </td>
                           <td className="table-td text-xs text-gray-400">

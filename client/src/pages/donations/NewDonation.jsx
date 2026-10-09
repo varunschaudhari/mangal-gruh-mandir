@@ -13,6 +13,7 @@ import SearchableSelect from '../../components/ui/SearchableSelect.jsx';
 import PageHeader from '../../components/ui/PageHeader.jsx';
 import { useDebounce } from '../../hooks/useDebounce.js';
 import toast from 'react-hot-toast';
+import { localDateStr } from '../../utils/formatters.js';
 
 const Field = ({ label, required, hint, error, children }) => (
   <div>
@@ -34,7 +35,7 @@ const NewDonation = () => {
   const { register, handleSubmit, watch, control, setValue, formState: { errors } } = useForm({
     defaultValues: {
       donationType: 'named',
-      date: new Date().toISOString().split('T')[0],
+      date: localDateStr(),
       cashAmount: '',
       paymentMode: 'cash',
       is80G: false,
@@ -173,7 +174,7 @@ const NewDonation = () => {
                 <Field label="Date" required>
                   <div className="relative">
                     <CalendarDays className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-300" />
-                    <input type="date" max={new Date().toISOString().split('T')[0]}
+                    <input type="date" max={localDateStr()}
                       {...register('date', { required: true })} className="input pl-9" />
                   </div>
                 </Field>

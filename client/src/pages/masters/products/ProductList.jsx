@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { createColumnHelper } from '@tanstack/react-table';
-import { Plus, Search, Pencil, Trash2, Eye } from 'lucide-react';
+import { Plus, Search, Pencil, Trash2, Eye, QrCode } from 'lucide-react';
 import { getProducts, deleteProduct } from '../../../api/product.api.js';
 import DataTable from '../../../components/ui/DataTable.jsx';
 import PageHeader from '../../../components/ui/PageHeader.jsx';
@@ -10,12 +10,15 @@ import { ActiveBadge } from '../../../components/ui/Badge.jsx';
 import { ConfirmModal } from '../../../components/ui/Modal.jsx';
 import { usePermissions } from '../../../hooks/usePermissions.js';
 import toast from 'react-hot-toast';
+import { printProductLabels } from '../../../utils/productLabel.js';
+import { useT } from '../../../i18n/index.jsx';
 
 const col = createColumnHelper();
 
 const ProductList = () => {
   const { can } = usePermissions();
   const qc = useQueryClient();
+  const t = useT();
   const [search, setSearch] = useState('');
   const [deleteTarget, setDeleteTarget] = useState(null);
 
@@ -27,11 +30,11 @@ const ProductList = () => {
   const deleteMut = useMutation({
     mutationFn: (id) => deleteProduct(id),
     onSuccess: () => {
-      toast.success('Product deleted');
+      toast.success(t('Product deleted'));
       qc.invalidateQueries({ queryKey: ['products'] });
       setDeleteTarget(null);
     },
-    onError: (err) => toast.error(err.response?.data?.message || 'Delete failed'),
+    onError: (err) => toast.error(err.response?.data?.message || t('Delete failed')),
   });
 
   const products = data?.data?.data || [];
@@ -59,7 +62,7 @@ const ProductList = () => {
     col.accessor('isPujaItem', {
       header: 'Puja Item',
       size: 90,
-      cell: (i) => i.getValue() ? <span className="text-xs text-orange-600 font-medium">Yes</span> : <span className="text-xs text-gray-400">No</span>,
+      cell: (i) => i.getValue() ? <span className="text-xs text-orange-600 font-medium">{t('Yes')}</span> : <span className="text-xs text-gray-400">{t('No')}</span>,
     }),
     col.accessor('isActive', {
       header: 'Status',
@@ -72,16 +75,16 @@ const ProductList = () => {
       size: 100,
       cell: ({ row }) => (
         <div className="flex items-center gap-2">
-          <Link to={`/masters/products/${row.original._id}`} className="btn-ghost p-1 text-gray-400 hover:text-primary-600" title="View details">
+          <Link to={`/masters/products/${row.original._id}`} className="btn-ghost p-1 text-gray-400 hover:text-primary-600" title={t('View details')}>
             <Eye className="h-4 w-4" />
           </Link>
           {can('masters:write') && (
-            <Link to={`/masters/products/${row.original._id}/edit`} className="btn-ghost p-1 text-gray-400 hover:text-indigo-600" title="Edit">
+            <Link to={`/masters/products/${row.original._id}/edit`} className="btn-ghost p-1 text-gray-400 hover:text-indigo-600" title={t('Edit')}>
               <Pencil className="h-4 w-4" />
             </Link>
           )}
           {can('masters:delete') && (
-            <button onClick={() => setDeleteTarget(row.original)} className="btn-ghost p-1 text-gray-400 hover:text-red-600" title="Delete">
+            <button onClick={() => setDeleteTarget(row.original)} className="btn-ghost p-1 text-gray-400 hover:text-red-600" title={t('Delete')}>
               <Trash2 className="h-4 w-4" />
             </button>
           )}
@@ -97,11 +100,22 @@ const ProductList = () => {
         subtitle="Manage all temple inventory items"
         breadcrumbs={[{ label: 'Masters' }, { label: 'Products' }]}
         actions={
-          can('masters:write') && (
-            <Link to="/masters/products/new" className="btn-primary">
-              <Plus className="h-4 w-4" /> Add Product
-            </Link>
-          )
+          <>
+            {products.some((p) => p.isActive) && (
+              <button
+                onClick={() => printProductLabels(products.filter((p) => p.isActive))}
+                className="btn-secondary"
+                title={t('QR labels for shelves — scan them in the app')}
+              >
+                <QrCode className="h-4 w-4" /> {t('Labels')}
+              </button>
+            )}
+            {can('masters:write') && (
+              <Link to="/masters/products/new" className="btn-primary">
+                <Plus className="h-4 w-4" /> {t('Add Product')}
+              </Link>
+            )}
+          </>
         }
       />
 
@@ -109,7 +123,7 @@ const ProductList = () => {
         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
         <input
           type="text"
-          placeholder="Search products..."
+          placeholder={t('Search products...')}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           className="input pl-9"
@@ -124,7 +138,7 @@ const ProductList = () => {
         onConfirm={() => deleteMut.mutate(deleteTarget._id)}
         loading={deleteMut.isPending}
         title="Delete Product"
-        message={`Are you sure you want to delete "${deleteTarget?.name}"? This cannot be undone.`}
+        message={t('Are you sure you want to delete "{name}"? This cannot be undone.', { name: deleteTarget?.name })}
       />
     </div>
   );

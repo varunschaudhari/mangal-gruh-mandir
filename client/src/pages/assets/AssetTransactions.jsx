@@ -19,6 +19,7 @@ import { usePermissions } from '../../hooks/usePermissions.js';
 import { useDebounce } from '../../hooks/useDebounce.js';
 import toast from 'react-hot-toast';
 import { saveFile } from '../../utils/fileSaver.js';
+import { localDateStr } from '../../utils/formatters.js';
 
 const STATUS_COLORS = { approved: 'blue', checked_out: 'green', returned: 'gray', overdue: 'red', cancelled: 'gray' };
 const STATUS_LABELS = { approved: 'Approved', checked_out: 'Checked Out', returned: 'Returned', overdue: 'Overdue', cancelled: 'Cancelled' };
@@ -74,7 +75,7 @@ const ExtendModal = ({ txn, onClose, onSuccess }) => {
   const { data: approversRes } = useQuery({ queryKey: ['users-approvers'], queryFn: getApprovers });
   const maxDays = settingsRes?.data?.data?.assetMaxBorrowDays || 7;
   const approvers = approversRes?.data?.data || [];
-  const today = new Date().toISOString().split('T')[0];
+  const today = localDateStr();
   const maxDate = new Date(); maxDate.setDate(maxDate.getDate() + maxDays);
   const mutation = useMutation({
     mutationFn: () => extendBorrow(txn._id, { newReturnDate, approvedBy, notes: notes || undefined }),
@@ -90,7 +91,7 @@ const ExtendModal = ({ txn, onClose, onSuccess }) => {
         </p>
         <div>
           <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">New Return Date <span className="text-red-400">*</span></p>
-          <input type="date" min={today} max={maxDate.toISOString().split('T')[0]} value={newReturnDate} onChange={(e) => setNewReturnDate(e.target.value)} className="input" />
+          <input type="date" min={today} max={localDateStr(maxDate)} value={newReturnDate} onChange={(e) => setNewReturnDate(e.target.value)} className="input" />
           <p className="mt-1 text-xs text-gray-400">Max {maxDays} days from today</p>
         </div>
         <div>
@@ -214,10 +215,10 @@ const ExportMenu = ({ statusFilter, searchInput }) => {
     try {
       if (format === 'excel') {
         const res = await exportAssetExcel(params);
-        downloadBlob(res.data, `borrows-${new Date().toISOString().split('T')[0]}.xlsx`);
+        downloadBlob(res.data, `borrows-${localDateStr()}.xlsx`);
       } else {
         const res = await exportAssetPDF(params);
-        downloadBlob(res.data, `borrows-${new Date().toISOString().split('T')[0]}.pdf`);
+        downloadBlob(res.data, `borrows-${localDateStr()}.pdf`);
       }
     } catch { toast.error('Export failed'); }
     finally { setLoading(null); }

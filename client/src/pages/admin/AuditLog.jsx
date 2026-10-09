@@ -5,13 +5,13 @@ import { Shield, Download, ChevronDown, ChevronRight, Search, ExternalLink, X } 
 import { getAuditLogs, exportAuditLogsExcel } from '../../api/auditLog.api.js';
 import { getUsers } from '../../api/user.api.js';
 import PageHeader from '../../components/ui/PageHeader.jsx';
-import { fDateTime } from '../../utils/formatters.js';
+import { fDateTime, localDateStr } from '../../utils/formatters.js';
 import toast from 'react-hot-toast';
 import { saveFile } from '../../utils/fileSaver.js';
 
 // ── Date shortcut helpers ─────────────────────────────────────────────────────
 
-const isoDate = (d) => d.toISOString().split('T')[0];
+const isoDate = (d) => localDateStr(d);
 
 const DATE_SHORTCUTS = [
   { label: 'Today',      get: () => { const t = isoDate(new Date()); return { dateFrom: t, dateTo: t }; } },

@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { ChevronDown, Search, X, Check } from 'lucide-react';
 import Sheet from './Sheet.jsx';
 import { useIsMobile } from '../../hooks/useMediaQuery.js';
+import { useT } from '../../i18n/index.jsx';
 
 /**
  * SearchableSelect — drop-in replacement for native <select> on large lists.
@@ -34,11 +35,12 @@ export default function SearchableSelect({
   const containerRef = useRef(null);
   const inputRef     = useRef(null);
   const isMobile     = useIsMobile();
+  const t            = useT();
 
   const selected = options.find((o) => String(o.value) === String(value));
 
   const list = nullable
-    ? [{ value: '', label: placeholder, _null: true }, ...options]
+    ? [{ value: '', label: t(placeholder), _null: true }, ...options]
     : options;
 
   const filtered = search.trim()
@@ -98,14 +100,14 @@ export default function SearchableSelect({
         className={`input w-full text-left flex items-center justify-between gap-2 ${borderCls} ${disabledCls}`}
       >
         <span className={`truncate ${selected ? 'text-gray-900' : 'text-gray-400'}`}>
-          {selected ? selected.label : placeholder}
+          {selected ? selected.label : t(placeholder)}
         </span>
         <ChevronDown className={`h-4 w-4 text-gray-400 shrink-0 transition-transform ${open ? 'rotate-180' : ''}`} />
       </button>
 
       {/* Phone: bottom sheet */}
       {isMobile && (
-        <Sheet open={open} onClose={close} title={placeholder.replace(/^[\s—–-]+|[\s—–-]+$/g, '')} full={options.length > 8} bodyClassName="!px-0 !pt-0">
+        <Sheet open={open} onClose={close} title={t(placeholder).replace(/^[\s—–-]+|[\s—–-]+$/g, '')} full={options.length > 8} bodyClassName="!px-0 !pt-0">
           <div className="sticky top-0 z-10 border-b border-gray-100 bg-white px-4 py-2.5">
             <div className="relative">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
@@ -113,14 +115,14 @@ export default function SearchableSelect({
                 ref={inputRef}
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search…"
+                placeholder={t('Search…')}
                 className="input pl-9"
                 enterKeyHint="search"
               />
             </div>
           </div>
           {filtered.length === 0 ? (
-            <p className="px-4 py-8 text-center text-sm text-gray-400">No results</p>
+            <p className="px-4 py-8 text-center text-sm text-gray-400">{t('No results')}</p>
           ) : (
             <div className="divide-y divide-gray-50">
               {filtered.map((opt) => {
@@ -158,7 +160,7 @@ export default function SearchableSelect({
                 ref={inputRef}
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search…"
+                placeholder={t('Search…')}
                 className="w-full pl-8 pr-3 py-1.5 text-sm border border-gray-200 rounded-md focus:outline-none focus:border-primary-400 bg-gray-50"
               />
               {search && (
@@ -175,7 +177,7 @@ export default function SearchableSelect({
           {/* Options list */}
           <div className="max-h-56 overflow-y-auto">
             {filtered.length === 0 ? (
-              <p className="px-3 py-4 text-sm text-gray-400 text-center">No results</p>
+              <p className="px-3 py-4 text-sm text-gray-400 text-center">{t('No results')}</p>
             ) : (
               filtered.map((opt) => {
                 const isActive = String(opt.value) === String(value);

@@ -1,3 +1,5 @@
+import { useT } from '../../i18n/index.jsx';
+
 const variants = {
   green:  'bg-green-100 text-green-800',
   red:    'bg-red-100 text-red-800',
@@ -20,8 +22,9 @@ const Badge = ({ children, variant = 'gray', className = '' }) => (
   </span>
 );
 
-export const ActiveBadge = ({ isActive }) => (
-  <Badge variant={isActive ? 'green' : 'gray'}>{isActive ? 'Active' : 'Inactive'}</Badge>
-);
+export const ActiveBadge = ({ isActive }) => {
+  const t = useT();
+  return <Badge variant={isActive ? 'green' : 'gray'}>{isActive ? t('Active') : t('Inactive')}</Badge>;
+};
 
 export default Badge;

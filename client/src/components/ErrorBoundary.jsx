@@ -1,4 +1,5 @@
 import { Component } from 'react';
+import { reportError } from '../utils/errorReporter.js';
 
 export default class ErrorBoundary extends Component {
   constructor(props) {
@@ -13,6 +14,7 @@ export default class ErrorBoundary extends Component {
   componentDidCatch(error, info) {
     // Log to console so it's visible in Electron DevTools / browser console
     console.error('[ErrorBoundary]', error, info.componentStack);
+    reportError(error, { source: 'screen' }); // shows up under Admin → App Errors
   }
 
   handleReload = () => {

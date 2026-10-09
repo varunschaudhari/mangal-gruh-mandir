@@ -1,9 +1,10 @@
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Home, LayoutGrid, Plus } from 'lucide-react';
-import { useMobileNav, resolveActiveTab } from '../../hooks/useMobileNav.js';
+import { useMobileNav } from '../../hooks/useMobileNav.js';
 import { useNavBadges } from '../../hooks/useNavBadges.js';
-import { isTaskRoute } from './navConfig.js';
+import { isTaskRoute, resolveActiveTab } from './navConfig.js';
 import haptics from '../../utils/haptics.js';
+import { useT } from '../../i18n/index.jsx';
 
 const TabButton = ({ label, icon: Icon, active, badge, dot, onClick }) => (
   <button
@@ -33,6 +34,7 @@ const TabButton = ({ label, icon: Icon, active, badge, dot, onClick }) => (
 // Phones and tablets (< lg). Hidden on full-screen task routes and while the keyboard is up.
 const MobileTabBar = ({ onMore, onQuickActions, onReselect }) => {
   const { pathname } = useLocation();
+  const t = useT();
   const navigate = useNavigate();
   const { tabs, quickActions } = useMobileNav();
   const badges = useNavBadges();
@@ -46,14 +48,14 @@ const MobileTabBar = ({ onMore, onQuickActions, onReselect }) => {
     else navigate(to);
   };
 
-  const middle = tabs.map((t) => (
+  const middle = tabs.map((tab) => (
     <TabButton
-      key={t.key}
-      label={t.label}
-      icon={t.icon}
-      active={active === t.key}
-      badge={t.badge ? badges[t.badge] : 0}
-      onClick={() => go(t.key, t.to)}
+      key={tab.key}
+      label={t(tab.label)}
+      icon={tab.icon}
+      active={active === tab.key}
+      badge={tab.badge ? badges[tab.badge] : 0}
+      onClick={() => go(tab.key, tab.to)}
     />
   ));
 
@@ -63,7 +65,7 @@ const MobileTabBar = ({ onMore, onQuickActions, onReselect }) => {
         <button
           onClick={() => { haptics.tap(); onQuickActions(); }}
           className="-mt-4 flex h-14 w-14 items-center justify-center rounded-full bg-primary-600 text-white shadow-lg shadow-primary-600/30 ring-4 ring-white active:scale-95 transition-transform"
-          aria-label="Quick actions"
+          aria-label={t('Quick actions')}
         >
           <Plus className="h-7 w-7" strokeWidth={2.5} />
         </button>
@@ -71,15 +73,15 @@ const MobileTabBar = ({ onMore, onQuickActions, onReselect }) => {
     ));
   }
 
-  const moreBadge = Object.entries(badges).some(([to, n]) => n && !tabs.some((t) => t.badge === to));
+  const moreBadge = Object.entries(badges).some(([to, n]) => n && !tabs.some((tab) => tab.badge === to));
 
   return (
     <nav className="mobile-tabbar fixed inset-x-0 bottom-0 z-30 border-t border-gray-200 bg-white/95 backdrop-blur pb-safe lg:hidden">
       <div className="mx-auto flex h-16 max-w-xl items-stretch">
-        <TabButton label="Home" icon={Home} active={active === 'home'} onClick={() => go('home', '/dashboard')} />
+        <TabButton label={t('Home')} icon={Home} active={active === 'home'} onClick={() => go('home', '/dashboard')} />
         {middle}
         <TabButton
-          label="More"
+          label={t('More')}
           icon={LayoutGrid}
           active={active === 'more'}
           dot={moreBadge}

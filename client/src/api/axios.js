@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { serverUrl } from '../utils/platform.js';
+import { serverUrl, isNative } from '../utils/platform.js';
 
 // In Electron the app runs on app://renderer/ so relative /api works via the
 // protocol handler in main.js (it proxies to the configured VPS URL).
@@ -42,9 +42,14 @@ api.interceptors.response.use(
         const refreshToken = localStorage.getItem('refreshToken');
         if (!refreshToken) throw new Error('No refresh token');
 
-        const { data } = await axios.post(serverUrl('/api/auth/refresh'), { refreshToken });
+        const { data } = await axios.post(serverUrl('/api/auth/refresh'), {
+          refreshToken,
+          client: isNative ? 'app' : 'web',
+        });
         const newToken = data.data.accessToken;
         localStorage.setItem('accessToken', newToken);
+        // Sign-ins from before per-device sessions get a new refresh token once.
+        if (data.data.refreshToken) localStorage.setItem('refreshToken', data.data.refreshToken);
         processQueue(null, newToken);
         originalRequest.headers.Authorization = `Bearer ${newToken}`;
         return api(originalRequest);

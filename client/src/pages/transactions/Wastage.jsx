@@ -13,6 +13,7 @@ import CurrentBalanceDisplay from '../../components/transactions/CurrentBalanceD
 import SearchableSelect from '../../components/ui/SearchableSelect.jsx';
 import haptics from '../../utils/haptics.js';
 import toast from 'react-hot-toast';
+import { useT } from '../../i18n/index.jsx';
 
 const REASONS = [
   { value: 'EXPIRED', label: 'Expired' },
@@ -25,6 +26,7 @@ const REASONS = [
 const Wastage = () => {
   const navigate = useNavigate();
   const qc = useQueryClient();
+  const t = useT();
   // Only used to show the unit next to the quantity; the form stores the product id.
   const [pickedProduct, setPickedProduct] = useState(null);
 
@@ -43,14 +45,14 @@ const Wastage = () => {
     mutationFn: (data) => createTransaction({ ...data, transactionType: 'WASTAGE', product: data.product?._id || data.product }),
     onSuccess: () => {
       haptics.success();
-      toast.success('Wastage recorded');
+      toast.success(t('Wastage recorded'));
       qc.invalidateQueries({ queryKey: ['transactions'] });
       qc.invalidateQueries({ queryKey: ['balance'] });
       navigate('/transactions/history');
     },
     onError: (err) => {
       haptics.error();
-      toast.error(err.response?.data?.message || 'Failed to record');
+      toast.error(err.response?.data?.message || t('Failed to record'));
     },
   });
 
@@ -63,38 +65,38 @@ const Wastage = () => {
       />
       <form onSubmit={handleSubmit((d) => mutation.mutate(d))} className="space-y-4 sm:space-y-6">
         <div className="card p-4 sm:p-6 space-y-6">
-          <FormSection title="Wastage Details">
+          <FormSection title={t('Wastage Details')}>
             <FormRow cols={2}>
-              <DatePickerField name="transactionDate" control={control} label="Date" required error={errors.transactionDate?.message} />
-              <FormField label="Reason" required>
+              <DatePickerField name="transactionDate" control={control} label={t('Date')} required error={errors.transactionDate?.message} />
+              <FormField label={t('Reason')} required>
                 <select {...register('wastageReason')} className="input">
-                  {REASONS.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
+                  {REASONS.map((r) => <option key={r.value} value={r.value}>{t(r.label)}</option>)}
                 </select>
               </FormField>
             </FormRow>
 
-            <FormField label="Product" required error={errors.product?.message}>
+            <FormField label={t('Product')} required error={errors.product?.message}>
               <Controller
                 name="product"
                 control={control}
-                rules={{ required: 'Product is required' }}
+                rules={{ required: t('Product is required') }}
                 render={({ field }) => (
                   <ProductSearchSelect value={field.value} onChange={field.onChange} onSelect={setPickedProduct} error={errors.product?.message} />
                 )}
               />
             </FormField>
 
-            <FormField label="From Department" required error={errors.fromDepartment?.message}>
+            <FormField label={t('From Department')} required error={errors.fromDepartment?.message}>
               <Controller
                 name="fromDepartment"
                 control={control}
-                rules={{ required: 'Department is required' }}
+                rules={{ required: t('Department is required') }}
                 render={({ field }) => (
                   <SearchableSelect
                     value={field.value || ''}
                     onChange={field.onChange}
                     options={departments.map((d) => ({ value: d._id, label: d.name }))}
-                    placeholder="Select department…"
+                    placeholder={t('Select department…')}
                     error={errors.fromDepartment?.message}
                   />
                 )}
@@ -105,10 +107,10 @@ const Wastage = () => {
               <CurrentBalanceDisplay productId={selectedProduct._id || selectedProduct} departmentId={fromDept} />
             )}
 
-            <FormField label="Quantity" required error={errors.quantity?.message}>
+            <FormField label={t('Quantity')} required error={errors.quantity?.message}>
               <div className="relative sm:max-w-xs">
                 <input
-                  {...register('quantity', { required: 'Quantity is required', min: { value: 0.001, message: 'Must be > 0' } })}
+                  {...register('quantity', { required: t('Quantity is required'), min: { value: 0.001, message: t('Must be > 0') } })}
                   type="number" step="0.001" inputMode="decimal" placeholder="0"
                   className="input pr-16"
                 />
@@ -119,15 +121,15 @@ const Wastage = () => {
             </FormField>
           </FormSection>
 
-          <FormField label="Notes">
-            <textarea {...register('notes')} className="input" rows={2} placeholder="Describe the wastage…" />
+          <FormField label={t('Notes')}>
+            <textarea {...register('notes')} className="input" rows={2} placeholder={t('Describe the wastage…')} />
           </FormField>
         </div>
 
         <StickyActionBar>
-          <button type="button" onClick={() => navigate(-1)} className="btn-secondary hidden sm:inline-flex">Cancel</button>
+          <button type="button" onClick={() => navigate(-1)} className="btn-secondary hidden sm:inline-flex">{t('Cancel')}</button>
           <button type="submit" disabled={mutation.isPending} className="btn-primary">
-            {mutation.isPending ? 'Saving...' : 'Record Wastage'}
+            {mutation.isPending ? t('Saving...') : t('Record Wastage')}
           </button>
         </StickyActionBar>
       </form>

@@ -7,6 +7,7 @@ import { getAssetTransaction, returnAsset } from '../../api/assetTransaction.api
 import PageHeader from '../../components/ui/PageHeader.jsx';
 import { PageLoader } from '../../components/ui/Spinner.jsx';
 import toast from 'react-hot-toast';
+import { localDateStr } from '../../utils/formatters.js';
 
 const Field = ({ label, required, error, hint, children }) => (
   <div>
@@ -32,7 +33,7 @@ const ReturnAsset = () => {
       fineApplied: false,
       fineWaived: false,
       fineAmount: 0,
-      actualReturnDate: new Date().toISOString().split('T')[0],
+      actualReturnDate: localDateStr(),
     },
   });
 
@@ -138,7 +139,7 @@ const ReturnAsset = () => {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <Field label="Actual Return Date" required>
-                <input type="date" max={new Date().toISOString().split('T')[0]} {...register('actualReturnDate')} className="input" />
+                <input type="date" max={localDateStr()} {...register('actualReturnDate')} className="input" />
               </Field>
               <Field label="Condition at Return" required>
                 <select {...register('conditionAtReturn')} className="input">

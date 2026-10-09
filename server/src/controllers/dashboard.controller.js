@@ -3,10 +3,11 @@ import Department from '../models/Department.js';
 import Supplier from '../models/Supplier.js';
 import User from '../models/User.js';
 import StockTransaction from '../models/StockTransaction.js';
-import StockBalance from '../models/StockBalance.js';
 import AssetTransaction from '../models/AssetTransaction.js';
 import asyncHandler from '../utils/asyncHandler.js';
 import ApiResponse from '../utils/ApiResponse.js';
+import { APP_TIMEZONE, localDateStr } from '../utils/dates.js';
+import { getStockAlertCounts } from '../services/stockAlerts.service.js';
 
 export const getDashboardStats = asyncHandler(async (req, res) => {
   // ── Counts ─────────────────────────────────────────────────────────────
@@ -18,21 +19,7 @@ export const getDashboardStats = asyncHandler(async (req, res) => {
   ]);
 
   // Low stock: quantity = 0 OR (minStockLevel > 0 AND qty <= min)
-  const allBalances = await StockBalance.find({})
-    .populate('product', 'minStockLevel isActive')
-    .lean();
-
-  let lowStockItems = 0;
-  let outOfStockItems = 0;
-  let reorderItems = 0;
-  for (const b of allBalances) {
-    if (!b.product?.isActive) continue;
-    const min    = b.product?.minStockLevel || 0;
-    const reorder = b.product?.reorderPoint  || 0;
-    if (b.quantity === 0) { outOfStockItems++; lowStockItems++; }
-    else if (min > 0 && b.quantity <= min) lowStockItems++;
-    else if (reorder > 0 && b.quantity <= reorder) reorderItems++;
-  }
+  const { lowStock: lowStockItems, outOfStock: outOfStockItems, reorder: reorderItems } = await getStockAlertCounts();
 
   // ── Recent Transactions ────────────────────────────────────────────────
   const recentTransactions = await StockTransaction.find({ isVoided: false })
@@ -61,7 +48,7 @@ export const getDashboardStats = asyncHandler(async (req, res) => {
     {
       $group: {
         _id: {
-          date: { $dateToString: { format: '%Y-%m-%d', date: '$transactionDate' } },
+          date: { $dateToString: { format: '%Y-%m-%d', date: '$transactionDate', timezone: APP_TIMEZONE } },
           type: '$transactionType',
         },
         totalQty: { $sum: '$quantity' },
@@ -75,7 +62,7 @@ export const getDashboardStats = asyncHandler(async (req, res) => {
   for (let i = 6; i >= 0; i--) {
     const d = new Date();
     d.setDate(d.getDate() - i);
-    const dateStr = d.toISOString().split('T')[0];
+    const dateStr = localDateStr(d);
     const label = d.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric' });
     const day = { date: dateStr, label, stockIn: 0, stockOut: 0, wastage: 0, transfer: 0 };
 

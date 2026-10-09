@@ -2,7 +2,7 @@ import Product from '../models/Product.js';
 import ApiError from '../utils/ApiError.js';
 import ApiResponse from '../utils/ApiResponse.js';
 import asyncHandler from '../utils/asyncHandler.js';
-import { generateProductCode } from '../utils/helpers.js';
+import { generateProductCode, escapeRegex } from '../utils/helpers.js';
 import { logAction } from '../services/audit.service.js';
 
 export const getProducts = asyncHandler(async (req, res) => {
@@ -13,10 +13,13 @@ export const getProducts = asyncHandler(async (req, res) => {
   if (category) filter.category = category;
   if (pujaItem !== undefined) filter.isPujaItem = pujaItem === 'true';
   if (search) {
+    // Escape the text: "Rice (Basmati" is a search term, not a broken regular expression.
+    const pattern = escapeRegex(search);
     filter.$or = [
-      { name: { $regex: search, $options: 'i' } },
-      { code: { $regex: search, $options: 'i' } },
-      { aliases: { $elemMatch: { $regex: search, $options: 'i' } } },
+      { name: { $regex: pattern, $options: 'i' } },
+      { code: { $regex: pattern, $options: 'i' } },
+      { aliases: { $elemMatch: { $regex: pattern, $options: 'i' } } },
+      { barcode: search.trim() },
     ];
   }
 
@@ -25,6 +28,17 @@ export const getProducts = asyncHandler(async (req, res) => {
     .populate('unit', 'name symbol')
     .sort({ name: 1 });
   res.json(new ApiResponse(200, products));
+});
+
+// GET /products/lookup?code=… — exact match on product code or barcode (used when scanning)
+export const lookupProduct = asyncHandler(async (req, res) => {
+  const code = String(req.query.code || '').trim();
+  if (!code) throw new ApiError(400, 'code is required');
+  const product = await Product.findOne({ $or: [{ code: code.toUpperCase() }, { barcode: code }] })
+    .populate('category', 'name code')
+    .populate('unit', 'name symbol');
+  if (!product) throw new ApiError(404, `No product with code or barcode "${code}"`);
+  res.json(new ApiResponse(200, product));
 });
 
 export const getProduct = asyncHandler(async (req, res) => {

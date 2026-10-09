@@ -2,6 +2,8 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import * as offlineStore from '../utils/offlineStore.js';
 import { reserveOffline, syncOfflineCoupons, getTodayForOffline } from '../api/mahaprasad.api.js';
 import toast from 'react-hot-toast';
+import { localDateStr } from '../utils/formatters.js';
+import { tNow } from '../i18n/index.jsx';
 
 const SETTINGS_KEY = 'mgm-offline-settings';
 const USER_KEY     = 'mgm-offline-user';
@@ -15,7 +17,7 @@ export function useOfflineMode() {
   const [isPrefetching, setIsPrefetching] = useState(false);
   const [countsLoaded,  setCountsLoaded]  = useState(false); // true after first IndexedDB read
 
-  const todayDateStr      = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+  const todayDateStr      = localDateStr().replace(/-/g, '');
   const syncingRef        = useRef(false);
   const prevOnlineRef     = useRef(null); // null = first mount, then true/false
   const lastAutoFetchRef  = useRef(0);    // timestamp of last auto-prefetch
@@ -52,7 +54,7 @@ export function useOfflineMode() {
   const prefetch = useCallback(async (qty = 200) => {
     setIsPrefetching(true);
     try {
-      const res  = await reserveOffline({ qty, date: new Date().toISOString().split('T')[0] });
+      const res  = await reserveOffline({ qty, date: localDateStr() });
       const { coupons, user, settings } = res.data.data;
 
       await offlineStore.storePrefetched(coupons);
@@ -70,9 +72,9 @@ export function useOfflineMode() {
 
       await offlineStore.clearOldData();
       await refreshCounts();
-      toast.success(`${coupons.length} coupons ready for offline use`);
+      toast.success(tNow('{n} coupons ready for offline use', { n: coupons.length }));
     } catch (err) {
-      toast.error(err.response?.data?.message || err.message || 'Pre-fetch failed');
+      toast.error(err.response?.data?.message || err.message || tNow('Pre-fetch failed'));
     } finally {
       setIsPrefetching(false);
     }
@@ -85,7 +87,7 @@ export function useOfflineMode() {
     setIsSyncing(true);
     try {
       const pending = await offlineStore.getPendingSync();
-      if (!pending.length) { toast('Nothing to sync'); return; }
+      if (!pending.length) { toast(tNow('Nothing to sync')); return; }
 
       const issued   = pending.filter((p) => p.type === 'issue').map((p) => p.data);
       const redeemed = pending.filter((p) => p.type === 'redeem').map((p) => ({
@@ -105,9 +107,10 @@ export function useOfflineMode() {
       if (conflicts.length) {
         try { localStorage.setItem('mgm-redeem-conflicts', JSON.stringify(conflicts)); } catch {}
       }
-      toast.success(`Synced ${total} record${total !== 1 ? 's' : ''}${skipped ? ` (${skipped} skipped)` : ''}`);
+      toast.success(`${tNow(total !== 1 ? 'Synced {n} records' : 'Synced {n} record', { n: total })}`
+        + `${skipped ? ` ${tNow('({n} skipped)', { n: skipped })}` : ''}`);
     } catch (err) {
-      toast.error('Sync failed — ' + (err.response?.data?.message || err.message));
+      toast.error(tNow('Sync failed — {reason}', { reason: err.response?.data?.message || err.message }));
     } finally {
       setIsSyncing(false);
       syncingRef.current = false;
@@ -129,7 +132,7 @@ export function useOfflineMode() {
     const t = setTimeout(async () => {
       const pending = await offlineStore.getPendingSync();
       if (!pending.length || syncingRef.current) return;
-      toast('Back online — syncing…', { icon: '🔄', duration: 2500 });
+      toast(tNow('Back online — syncing…'), { icon: '🔄', duration: 2500 });
       sync();
     }, 2000);
 
@@ -145,7 +148,7 @@ export function useOfflineMode() {
     if (now - lastAutoFetchRef.current < 5 * 60 * 1000) return; // 5-min cooldown
     lastAutoFetchRef.current = now;
     if (poolCount > 0) {
-      toast(`Offline pool low (${poolCount} left) — refilling…`, { icon: '📦', duration: 3000 });
+      toast(tNow('Offline pool low ({n} left) — refilling…', { n: poolCount }), { icon: '📦', duration: 3000 });
     }
     prefetch(200);
   }, [isOnline, countsLoaded, poolCount, isPrefetching, prefetch]);

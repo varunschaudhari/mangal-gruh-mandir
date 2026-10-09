@@ -17,12 +17,20 @@ const protect = asyncHandler(async (req, res, next) => {
     throw new ApiError(401, 'Invalid or expired token');
   }
 
+  // Only access tokens may call the API. Refresh tokens from before sessions were JWTs
+  // signed with the same secret (no `typ`, 7-day life) — never accept those here.
+  const lifetime = (decoded.exp || 0) - (decoded.iat || 0);
+  if (decoded.typ ? decoded.typ !== 'access' : lifetime > 2 * 24 * 60 * 60) {
+    throw new ApiError(401, 'Invalid or expired token');
+  }
+
   const user = await User.findById(decoded.id).select('-password -refreshToken');
   if (!user || !user.isActive) {
     throw new ApiError(401, 'User not found or deactivated');
   }
 
   req.user = user;
+  req.auth = { sid: decoded.sid };
   next();
 });
 

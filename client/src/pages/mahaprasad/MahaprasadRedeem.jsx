@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useSearchParams } from 'react-router-dom';
 import {
   ScanLine, KeyboardIcon, CheckCircle2, XCircle, RotateCcw,
   Clock, AlertTriangle, Info, ChevronRight, CloudOff,
@@ -13,9 +14,11 @@ import redeemFeedback from '../../utils/redeemFeedback.js';
 import { isNative } from '../../utils/platform.js';
 import { scanQrCode } from '../../utils/nativeScanner.js';
 import { useBackHandler } from '../../hooks/useBackHandler.js';
+import { localDateStr } from '../../utils/formatters.js';
+import { useT } from '../../i18n/index.jsx';
 
 const fmt     = (d) => d ? new Date(d).toLocaleString('en-IN',  { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : '—';
-const todayStr = () => new Date().toISOString().split('T')[0];
+const todayStr = () => localDateStr();
 
 // Full coupon number pattern: MP-YYYYMMDD-NNN (or more digits)
 const FULL_COUPON_RE = /^MP-\d{8}-\d{3,}$/;
@@ -29,6 +32,7 @@ const stopScanner = (inst) => {
 // ── Stats bar with progress ────────────────────────────────────────────────────
 
 function StatsBar({ summary }) {
+  const t = useT();
   if (!summary) return null;
   const { total = 0, redeemed = 0, pending = 0, cap = 0 } = summary;
   const pct = total > 0 ? Math.round((redeemed / total) * 100) : 0;
@@ -37,8 +41,8 @@ function StatsBar({ summary }) {
   return (
     <div className="card p-4 space-y-2.5">
       <div className="flex items-center justify-between text-xs font-medium text-gray-500">
-        <span className="uppercase tracking-wide">Today's Progress</span>
-        <span className="text-gray-700 font-semibold">{redeemed}/{total} redeemed ({pct}%)</span>
+        <span className="uppercase tracking-wide">{t("Today's Progress")}</span>
+        <span className="text-gray-700 font-semibold">{t('{redeemed}/{total} redeemed ({pct}%)', { redeemed, total, pct })}</span>
       </div>
 
       {/* Redemption progress bar */}
@@ -50,13 +54,13 @@ function StatsBar({ summary }) {
       </div>
 
       <div className="flex flex-wrap gap-x-5 gap-y-1 text-sm">
-        <span className="text-gray-600"><span className="font-black text-gray-800">{total}</span> issued</span>
-        <span className="text-green-600"><span className="font-black">{redeemed}</span> redeemed</span>
-        <span className="text-yellow-600"><span className="font-black">{pending}</span> pending</span>
+        <span className="text-gray-600"><span className="font-black text-gray-800">{total}</span> {t('issued')}</span>
+        <span className="text-green-600"><span className="font-black">{redeemed}</span> {t('redeemed')}</span>
+        <span className="text-yellow-600"><span className="font-black">{pending}</span> {t('pending')}</span>
         {cap > 0 && (
           <span className={total >= cap ? 'text-red-600 font-semibold' : 'text-gray-400'}>
-            cap {total}/{cap}
-            {total >= cap && ' — FULL'}
+            {t('cap {used}/{cap}', { used: total, cap })}
+            {total >= cap && ` — ${t('FULL')}`}
           </span>
         )}
       </div>
@@ -84,18 +88,19 @@ const ERROR_CONFIG = {
 };
 
 function ErrorBanner({ message, type, onRetry }) {
+  const t = useT();
   const cfg = ERROR_CONFIG[type] || ERROR_CONFIG.error;
   const Icon = cfg.icon;
   return (
     <div className={`card p-4 border ${cfg.bg} flex items-start gap-3`}>
       <Icon className={`h-5 w-5 shrink-0 mt-0.5 ${cfg.iconCls}`} />
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-semibold text-gray-800">{cfg.title}</p>
+        <p className="text-sm font-semibold text-gray-800">{t(cfg.title)}</p>
         <p className="text-xs text-gray-600 mt-0.5">{message}</p>
       </div>
       <button onClick={onRetry}
         className="shrink-0 text-xs text-gray-400 hover:text-gray-700 flex items-center gap-1 whitespace-nowrap max-sm:-my-2 max-sm:py-2.5 max-sm:text-sm max-sm:text-gray-500">
-        <RotateCcw className="h-3.5 w-3.5" /> Try again
+        <RotateCcw className="h-3.5 w-3.5" /> {t('Try again')}
       </button>
     </div>
   );
@@ -104,6 +109,7 @@ function ErrorBanner({ message, type, onRetry }) {
 // ── Coupon result card ────────────────────────────────────────────────────────
 
 function CouponCard({ coupon, onRedeem, redeeming, justRedeemed, countdown }) {
+  const t = useT();
   const isRedeemed = coupon.status === 'redeemed';
 
   const isGroupCoupon = coupon.isGroup && (coupon.groupSize || 1) > 1;
@@ -114,11 +120,11 @@ function CouponCard({ coupon, onRedeem, redeeming, justRedeemed, countdown }) {
       <div className="card p-6 border-2 border-green-300 bg-green-50 text-center space-y-3">
         <CheckCircle2 className="h-14 w-14 text-green-500 mx-auto" />
         <div>
-          <p className="text-lg font-black text-green-800">Redeemed!</p>
+          <p className="text-lg font-black text-green-800">{t('Redeemed!')}</p>
           <p className="font-mono text-sm text-green-700 mt-0.5">{coupon.couponNumber}</p>
           {isGroupCoupon && (
             <div className="inline-flex items-center gap-1.5 mt-2 px-3 py-1 rounded-full bg-purple-100 text-purple-700 text-sm font-semibold">
-              <Users className="h-3.5 w-3.5" /> {groupSize} persons
+              <Users className="h-3.5 w-3.5" /> {t('{n} persons', { n: groupSize })}
             </div>
           )}
           {coupon.type === 'free' && coupon.occasion && (
@@ -127,7 +133,7 @@ function CouponCard({ coupon, onRedeem, redeeming, justRedeemed, countdown }) {
         </div>
         {countdown !== null && (
           <p className="text-sm text-green-600">
-            Next scan in <span className="font-bold">{countdown}s</span>…
+            {t('Next scan in')} <span className="font-bold">{t('{n}s', { n: countdown })}</span>…
           </p>
         )}
         <div className="h-1.5 bg-green-200 rounded-full overflow-hidden">
@@ -146,18 +152,18 @@ function CouponCard({ coupon, onRedeem, redeeming, justRedeemed, countdown }) {
         <div className="flex items-center gap-3">
           <XCircle className="h-9 w-9 text-red-500 shrink-0" />
           <div>
-            <p className="text-sm font-black text-red-700 uppercase tracking-wide">Already Redeemed</p>
+            <p className="text-sm font-black text-red-700 uppercase tracking-wide">{t('Already Redeemed')}</p>
             <p className="font-mono text-sm font-bold text-red-800 mt-0.5">{coupon.couponNumber}</p>
           </div>
-          <span className="ml-auto text-xs font-bold bg-red-200 text-red-700 px-2.5 py-1 rounded-full shrink-0">Used</span>
+          <span className="ml-auto text-xs font-bold bg-red-200 text-red-700 px-2.5 py-1 rounded-full shrink-0">{t('Used')}</span>
         </div>
         <div className="grid grid-cols-2 gap-3 text-sm pt-2 border-t border-red-200">
           <div>
-            <p className="text-xs text-red-400 font-medium">Redeemed at</p>
+            <p className="text-xs text-red-400 font-medium">{t('Redeemed at')}</p>
             <p className="font-semibold text-red-800">{fmt(coupon.redeemedAt)}</p>
           </div>
           <div>
-            <p className="text-xs text-red-400 font-medium">Redeemed by</p>
+            <p className="text-xs text-red-400 font-medium">{t('Redeemed by')}</p>
             <p className="font-semibold text-red-800">{coupon.redeemedBy?.name || '—'}</p>
           </div>
         </div>
@@ -177,11 +183,11 @@ function CouponCard({ coupon, onRedeem, redeeming, justRedeemed, countdown }) {
         </div>
         <div className="flex flex-col items-end gap-1.5 shrink-0">
           <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${coupon.type === 'free' ? 'bg-green-200 text-green-800' : 'bg-blue-100 text-blue-800'}`}>
-            {coupon.type === 'free' ? (coupon.occasion || 'Free Seva') : `Paid · ₹${coupon.amount}`}
+            {coupon.type === 'free' ? (coupon.occasion || t('Free Seva')) : `${t('Paid|coupon')} · ₹${coupon.amount}`}
           </span>
           {isGroupCoupon && (
             <span className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full bg-purple-100 text-purple-700">
-              <Users className="h-3 w-3" /> {groupSize} persons
+              <Users className="h-3 w-3" /> {t('{n} persons', { n: groupSize })}
             </span>
           )}
         </div>
@@ -190,11 +196,11 @@ function CouponCard({ coupon, onRedeem, redeeming, justRedeemed, countdown }) {
       {/* Meta */}
       <div className="grid grid-cols-2 gap-2 text-sm">
         <div>
-          <p className="text-xs text-gray-400">Issued by</p>
+          <p className="text-xs text-gray-400">{t('Issued by')}</p>
           <p className="font-medium text-gray-800">{coupon.issuedBy?.name || '—'}</p>
         </div>
         <div>
-          <p className="text-xs text-gray-400">Issued at</p>
+          <p className="text-xs text-gray-400">{t('Issued at')}</p>
           <p className="font-medium text-gray-800">{fmt(coupon.issuedAt)}</p>
         </div>
       </div>
@@ -205,7 +211,7 @@ function CouponCard({ coupon, onRedeem, redeeming, justRedeemed, countdown }) {
         disabled={redeeming}
         className="w-full py-3.5 rounded-xl bg-green-600 hover:bg-green-700 text-white font-bold text-base flex items-center justify-center gap-2 transition-colors disabled:opacity-60">
         <CheckCircle2 className="h-5 w-5" />
-        {redeeming ? 'Redeeming…' : 'Mark as Redeemed'}
+        {redeeming ? t('Redeeming…') : t('Mark as Redeemed')}
         {!redeeming && !isNative && <span className="hidden sm:inline text-xs font-normal opacity-60 ml-1">(Enter ↵)</span>}
       </button>
     </div>
@@ -215,17 +221,18 @@ function CouponCard({ coupon, onRedeem, redeeming, justRedeemed, countdown }) {
 // ── Recent redemptions ────────────────────────────────────────────────────────
 
 function RecentList({ items }) {
+  const t = useT();
   if (!items.length) return null;
   return (
     <div className="card p-4 space-y-2">
-      <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">This session</p>
+      <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">{t('This session')}</p>
       <div className="space-y-2">
         {items.map((c) => (
           <div key={c._id} className="flex items-center gap-2 text-sm">
             <CheckCircle2 className="h-3.5 w-3.5 text-green-500 shrink-0" />
             <span className="font-mono text-gray-700 flex-1 min-w-0 truncate">{c.couponNumber}</span>
             <span className={`shrink-0 text-xs px-2 py-0.5 rounded-full ${c.type === 'free' ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'}`}>
-              {c.type === 'free' ? 'Free' : `₹${c.amount}`}
+              {c.type === 'free' ? t('Free') : `₹${c.amount}`}
             </span>
             <span className="shrink-0 text-xs text-gray-400">{fmt(c.redeemedAt)}</span>
           </div>
@@ -238,6 +245,10 @@ function RecentList({ items }) {
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function MahaprasadRedeem() {
+  const t = useT();
+  // ?code=MP-… — a coupon scanned from the app bar scanner: show it for confirmation.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const scannedCode = useRef(searchParams.get('code')).current;
   const qc          = useQueryClient();
   const [mode,       setMode]      = useState('scan');   // 'scan' | 'manual'
   const [manualNum,  setManualNum] = useState('');
@@ -268,7 +279,8 @@ export default function MahaprasadRedeem() {
 
   // Mobile apps: ML Kit full-screen scanner instead of the in-page html5-qrcode camera.
   const [nativeScanning, setNativeScanning] = useState(false);
-  const nativeDismissedRef = useRef(false); // user closed the scanner — don't reopen it on their behalf
+  // user closed the scanner — don't reopen it on their behalf (nor when a coupon arrived via ?code)
+  const nativeDismissedRef = useRef(Boolean(scannedCode));
 
   const [isOnline,     setIsOnline]     = useState(navigator.onLine);
   const [isFullscreen, setIsFullscreen] = useState(!!document.fullscreenElement);
@@ -329,14 +341,14 @@ export default function MahaprasadRedeem() {
         // Offline: look up from IndexedDB cache
         const local = await offlineStore.lookupCoupon(number);
         if (!local) {
-          setError(`Coupon "${number}" not found in offline cache`);
+          setError(t('Coupon "{number}" not found in offline cache', { number }));
           setErrorType('notfound');
           redeemFeedback.notFound();
           return;
         }
         const status = local.status;
         if (status === 'available') {
-          setError(`Coupon "${number}" has not been issued yet`);
+          setError(t('Coupon "{number}" has not been issued yet', { number }));
           setErrorType('notfound');
           redeemFeedback.notFound();
           return;
@@ -368,7 +380,7 @@ export default function MahaprasadRedeem() {
       }
     } catch (e) {
       const status  = e.response?.status;
-      const message = e.response?.data?.message || `Coupon "${number}" not found`;
+      const message = e.response?.data?.message || t('Coupon "{number}" not found', { number });
       setError(message);
       setErrorType(status === 404 ? 'notfound' : status === 410 ? 'expired' : 'error');
       if (status === 404)      redeemFeedback.notFound();
@@ -378,7 +390,7 @@ export default function MahaprasadRedeem() {
       setLooking(false);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // redeemMut.mutate is stable and only called after all hooks have run
+  }, [t]); // redeemMut.mutate is stable and only called after all hooks have run
 
   const launchNativeScan = useCallback(async () => {
     nativeDismissedRef.current = false;
@@ -389,11 +401,18 @@ export default function MahaprasadRedeem() {
       else nativeDismissedRef.current = true;
     } catch (e) {
       nativeDismissedRef.current = true;
-      toast.error(e?.message || 'Scanner not available — use manual entry');
+      toast.error(e?.message || t('Scanner not available — use manual entry'));
     } finally {
       setNativeScanning(false);
     }
-  }, [handleLookup]);
+  }, [handleLookup, t]);
+
+  useEffect(() => {
+    if (!scannedCode) return;
+    setSearchParams({}, { replace: true });
+    handleLookup(scannedCode);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // ── Camera scanner ───────────────────────────────────────────────────────
   useEffect(() => {
@@ -447,7 +466,7 @@ export default function MahaprasadRedeem() {
       } catch {
         if (active) {
           setMode('manual');
-          toast.error('Camera not available — use manual entry');
+          toast.error(t('Camera not available — use manual entry'));
         }
       }
     })();
@@ -460,7 +479,7 @@ export default function MahaprasadRedeem() {
         stopPromiseRef.current = stopScanner(inst);
       }
     };
-  }, [mode, scanKey, handleLookup, launchNativeScan]);
+  }, [mode, scanKey, handleLookup, launchNativeScan, t]);
 
   useEffect(() => {
     if (mode === 'manual') inputRef.current?.focus();
@@ -483,7 +502,7 @@ export default function MahaprasadRedeem() {
   const redeemMut = useMutation({
     mutationFn: async (couponArg) => {
       const target = couponArg ?? coupon;
-      if (!target) throw new Error('No coupon to redeem');
+      if (!target) throw new Error(t('No coupon to redeem'));
       if (!navigator.onLine) {
         const user    = JSON.parse(localStorage.getItem('mgm-offline-user') || '{}');
         const updated = await offlineStore.markRedeemed(target.couponNumber, {
@@ -491,7 +510,7 @@ export default function MahaprasadRedeem() {
           redeemedById:   user._id  || '',
           redeemedByName: user.name || 'Staff',
         });
-        if (!updated) throw new Error('Coupon not found in offline store');
+        if (!updated) throw new Error(t('Coupon not found in offline store'));
         return { offline: true, coupon: offlineStore.normalizeForUi(updated) };
       }
       const res = await redeemCoupon(target.couponNumber);
@@ -506,11 +525,11 @@ export default function MahaprasadRedeem() {
         refetchSummary();
         qc.invalidateQueries({ queryKey: ['mahaprasad-coupons'] });
       }
-      toast.success(offline ? 'Redeemed offline — will sync later' : 'Coupon redeemed!');
+      toast.success(offline ? t('Redeemed offline — will sync later') : t('Coupon redeemed!'));
     },
     onError: (e) => {
       const status  = e.response?.status;
-      const message = e.response?.data?.message || e.message || 'Failed to redeem';
+      const message = e.response?.data?.message || e.message || t('Failed to redeem');
       setError(message);
       setErrorType(status === 409 ? 'redeemed' : status === 410 ? 'expired' : 'error');
       if (status === 409)      redeemFeedback.alreadyRedeemed();
@@ -599,8 +618,8 @@ export default function MahaprasadRedeem() {
         />
         {!isNative && <button
           onClick={toggleFullscreen}
-          title={isFullscreen ? 'Exit fullscreen' : 'Fullscreen'}
-          aria-label={isFullscreen ? 'Exit fullscreen' : 'Fullscreen'}
+          title={isFullscreen ? t('Exit fullscreen') : t('Fullscreen')}
+          aria-label={isFullscreen ? t('Exit fullscreen') : t('Fullscreen')}
           className="absolute top-0 right-0 p-1.5 max-lg:p-2.5 max-lg:-mt-2 max-lg:-mr-2 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors">
           {isFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
         </button>}
@@ -609,7 +628,7 @@ export default function MahaprasadRedeem() {
       {!isOnline && (
         <div className="card p-3 border border-amber-200 bg-amber-50 flex items-center gap-2 text-sm text-amber-800">
           <CloudOff className="h-4 w-4 shrink-0" />
-          Offline mode — looking up coupons from local cache. Redemptions will sync automatically when back online.
+          {t('Offline mode — looking up coupons from local cache. Redemptions will sync automatically when back online.')}
         </div>
       )}
 
@@ -619,12 +638,12 @@ export default function MahaprasadRedeem() {
             <div className="flex items-start gap-2">
               <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
               <div>
-                <p className="font-semibold">Sync conflict — {syncConflicts.length} coupon{syncConflicts.length > 1 ? 's' : ''} could not be redeemed</p>
-                <p className="text-xs text-red-600 mt-0.5">These were already redeemed on another device before the sync completed.</p>
+                <p className="font-semibold">{t(syncConflicts.length > 1 ? 'Sync conflict — {n} coupons could not be redeemed' : 'Sync conflict — {n} coupon could not be redeemed', { n: syncConflicts.length })}</p>
+                <p className="text-xs text-red-600 mt-0.5">{t('These were already redeemed on another device before the sync completed.')}</p>
                 <p className="text-xs font-mono mt-1 text-red-700">{syncConflicts.map((c) => c.couponNumber).join(', ')}</p>
               </div>
             </div>
-            <button onClick={dismissConflicts} aria-label="Dismiss"
+            <button onClick={dismissConflicts} aria-label={t('Dismiss')}
               className="text-red-400 hover:text-red-600 shrink-0 text-xl leading-none max-sm:-m-2 max-sm:p-2.5">&times;</button>
           </div>
         </div>
@@ -648,7 +667,7 @@ export default function MahaprasadRedeem() {
             className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-medium transition-all ${
               mode === key ? 'bg-primary-600 text-white shadow-sm' : 'text-gray-500 hover:bg-gray-50'
             }`}>
-            <Icon className="h-4 w-4" /> {label}
+            <Icon className="h-4 w-4" /> {t(label)}
           </button>
         ))}
       </div>
@@ -667,15 +686,15 @@ export default function MahaprasadRedeem() {
                   <ScanLine className="h-10 w-10" />
                 </span>
                 <span className="text-base font-semibold text-gray-800">
-                  {nativeScanning ? 'Scanner open…' : 'Tap to scan coupon'}
+                  {nativeScanning ? t('Scanner open…') : t('Tap to scan coupon')}
                 </span>
-                <span className="text-xs text-gray-400">Point the camera at the QR code on the coupon</span>
+                <span className="text-xs text-gray-400">{t('Point the camera at the QR code on the coupon')}</span>
               </button>
               {(looking || redeemMut.isPending) && (
                 <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
                   <div className="bg-white rounded-xl px-5 py-4 text-sm font-semibold text-gray-700 flex items-center gap-2.5">
                     <div className={`h-4 w-4 border-2 border-t-transparent rounded-full animate-spin ${redeemMut.isPending ? 'border-green-500' : 'border-primary-500'}`} />
-                    {redeemMut.isPending ? 'Redeeming…' : 'Looking up coupon…'}
+                    {redeemMut.isPending ? t('Redeeming…') : t('Looking up coupon…')}
                   </div>
                 </div>
               )}
@@ -689,12 +708,12 @@ export default function MahaprasadRedeem() {
                 <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
                   <div className="bg-white rounded-xl px-5 py-4 text-sm font-semibold text-gray-700 flex items-center gap-2.5">
                     <div className={`h-4 w-4 border-2 border-t-transparent rounded-full animate-spin ${redeemMut.isPending ? 'border-green-500' : 'border-primary-500'}`} />
-                    {redeemMut.isPending ? 'Redeeming…' : 'Looking up coupon…'}
+                    {redeemMut.isPending ? t('Redeeming…') : t('Looking up coupon…')}
                   </div>
                 </div>
               )}
               <p className="text-xs text-center text-gray-400 py-2 px-4">
-                Point the camera at the QR code on the coupon
+                {t('Point the camera at the QR code on the coupon')}
               </p>
             </div>
           )}
@@ -702,7 +721,7 @@ export default function MahaprasadRedeem() {
           {mode === 'manual' && (
             <div className="card p-5 space-y-3">
               <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide">
-                Coupon Number
+                {t('Coupon Number')}
               </label>
               <input
                 ref={inputRef}
@@ -718,11 +737,11 @@ export default function MahaprasadRedeem() {
                 disabled={!manualNum.trim() || looking}
                 className="w-full btn-primary py-3 font-semibold flex items-center justify-center gap-2">
                 {looking
-                  ? <><div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> Looking up…</>
-                  : <><ChevronRight className="h-4 w-4" /> Look Up</>
+                  ? <><div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> {t('Looking up…')}</>
+                  : <><ChevronRight className="h-4 w-4" /> {t('Look Up')}</>
                 }
               </button>
-              <p className="text-xs text-center text-gray-400">Tip: submits automatically on a full coupon number</p>
+              <p className="text-xs text-center text-gray-400">{t('Tip: submits automatically on a full coupon number')}</p>
             </div>
           )}
         </>
@@ -747,19 +766,19 @@ export default function MahaprasadRedeem() {
           {redeemMut.isError && !justRedeemed && (
             <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-red-50 border border-red-200 text-sm text-red-700">
               <AlertTriangle className="h-4 w-4 shrink-0" />
-              {redeemMut.error?.response?.data?.message || redeemMut.error?.message || 'Redemption failed — try again'}
+              {redeemMut.error?.response?.data?.message || redeemMut.error?.message || t('Redemption failed — try again')}
             </div>
           )}
           {!justRedeemed && (
             <button onClick={reset}
               className="w-full btn btn-ghost border text-sm flex items-center justify-center gap-1.5 py-2.5">
-              <RotateCcw className="h-4 w-4" /> Scan Next Coupon
+              <RotateCcw className="h-4 w-4" /> {t('Scan Next Coupon')}
             </button>
           )}
           {justRedeemed && (
             <button onClick={reset}
               className="w-full text-sm text-gray-400 hover:text-gray-600 py-1">
-              Skip countdown and scan next →
+              {t('Skip countdown and scan next →')}
             </button>
           )}
         </div>

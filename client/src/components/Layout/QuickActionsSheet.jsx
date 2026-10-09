@@ -2,6 +2,7 @@ import { useNavigate } from 'react-router-dom';
 import Sheet from '../ui/Sheet.jsx';
 import { useMobileNav } from '../../hooks/useMobileNav.js';
 import haptics from '../../utils/haptics.js';
+import { useT } from '../../i18n/index.jsx';
 
 const TONES = {
   orange: 'bg-orange-50 text-orange-600',
@@ -14,6 +15,7 @@ const TONES = {
 const QuickActionsSheet = ({ open, onClose }) => {
   const navigate = useNavigate();
   const { quickActions } = useMobileNav();
+  const t = useT();
 
   const go = (to) => {
     haptics.tap();
@@ -22,7 +24,7 @@ const QuickActionsSheet = ({ open, onClose }) => {
   };
 
   return (
-    <Sheet open={open} onClose={onClose} title="Quick actions" size="md">
+    <Sheet open={open} onClose={onClose} title={t('Quick actions')} size="md">
       <div className="grid grid-cols-3 gap-3">
         {quickActions.map((a) => (
           <button
@@ -33,7 +35,7 @@ const QuickActionsSheet = ({ open, onClose }) => {
             <span className={`flex h-12 w-12 items-center justify-center rounded-2xl ${TONES[a.tone]}`}>
               <a.icon className="h-6 w-6" />
             </span>
-            <span className="text-xs font-semibold leading-tight text-gray-700">{a.label}</span>
+            <span className="text-xs font-semibold leading-tight text-gray-700">{t(a.label)}</span>
           </button>
         ))}
       </div>

@@ -7,6 +7,7 @@ import PageHeader from '../../components/ui/PageHeader.jsx';
 import Badge from '../../components/ui/Badge.jsx';
 import { PageLoader } from '../../components/ui/Spinner.jsx';
 import { exportToExcel } from '../../utils/exportToExcel.js';
+import { localDateStr } from '../../utils/formatters.js';
 
 const ALERT_CONFIG = {
   out_of_stock: { label: 'Out of Stock', variant: 'danger'  },
@@ -48,7 +49,7 @@ const ReorderSuggestions = () => {
       'Avg Monthly (3M)': r.avgMonthlyConsumption,
       'Suggested Order':  r.suggestedQty,
     }));
-    exportToExcel(exportRows, `Reorder-Suggestions-${new Date().toISOString().split('T')[0]}`, 'Reorder Suggestions');
+    exportToExcel(exportRows, `Reorder-Suggestions-${localDateStr()}`, 'Reorder Suggestions');
   };
 
   const criticalCount = rows.filter((r) => r.alertLevel === 'out_of_stock').length;

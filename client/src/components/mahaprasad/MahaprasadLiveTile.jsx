@@ -4,17 +4,20 @@ import { Link } from 'react-router-dom';
 import { Utensils, TrendingUp, IndianRupee } from 'lucide-react';
 import { getDailySummary } from '../../api/mahaprasad.api.js';
 import { usePermissions } from '../../hooks/usePermissions.js';
+import { localDateStr } from '../../utils/formatters.js';
+import { useT } from '../../i18n/index.jsx';
 
-const todayStr = () => new Date().toISOString().split('T')[0];
+const todayStr = () => localDateStr();
 
-function agoLabel(ms) {
+function agoLabel(ms, t) {
   const s = Math.round(ms / 1000);
-  if (s < 20)  return 'just now';
-  if (s < 60)  return `${s}s ago`;
-  return `${Math.floor(s / 60)}m ago`;
+  if (s < 20)  return t('just now');
+  if (s < 60)  return t('{n}s ago', { n: s });
+  return t('{n}m ago', { n: Math.floor(s / 60) });
 }
 
 export default function MahaprasadLiveTile() {
+  const t = useT();
   const { can } = usePermissions();
 
   const historyRef = useRef([]);
@@ -79,7 +82,7 @@ export default function MahaprasadLiveTile() {
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2 min-w-0">
           <Utensils className="h-4 w-4 shrink-0 text-orange-500" />
-          <h2 className="text-sm font-semibold text-gray-700 truncate">Mahaprasad Today</h2>
+          <h2 className="text-sm font-semibold text-gray-700 truncate">{t('Mahaprasad Today')}</h2>
           {/* live pulse dot */}
           <span className="relative flex h-2 w-2 ml-0.5 shrink-0">
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
@@ -87,8 +90,8 @@ export default function MahaprasadLiveTile() {
           </span>
         </div>
         <div className="flex items-center gap-3 shrink-0">
-          <span className="text-xs text-gray-400 tabular-nums">{agoLabel(msAgo)}</span>
-          <Link to="/mahaprasad" className="text-xs text-primary-600 hover:underline max-sm:-my-2 max-sm:py-2.5 max-sm:text-sm">Counter →</Link>
+          <span className="text-xs text-gray-400 tabular-nums">{agoLabel(msAgo, t)}</span>
+          <Link to="/mahaprasad" className="text-xs text-primary-600 hover:underline max-sm:-my-2 max-sm:py-2.5 max-sm:text-sm">{t('Counter →')}</Link>
         </div>
       </div>
 
@@ -97,16 +100,16 @@ export default function MahaprasadLiveTile() {
         <Link to="/mahaprasad/history"
           className="min-w-0 rounded-lg bg-blue-50 border border-blue-100 px-2 py-2.5 text-center hover:bg-blue-100 active:bg-blue-100 transition-colors">
           <p className="text-2xl max-sm:text-xl font-black text-blue-700 tabular-nums truncate">{total.toLocaleString('en-IN')}</p>
-          <p className="text-xs text-blue-600 font-medium mt-0.5">Issued</p>
+          <p className="text-xs text-blue-600 font-medium mt-0.5">{t('Issued')}</p>
         </Link>
         <Link to="/mahaprasad/redeem"
           className="min-w-0 rounded-lg bg-green-50 border border-green-100 px-2 py-2.5 text-center hover:bg-green-100 active:bg-green-100 transition-colors">
           <p className="text-2xl max-sm:text-xl font-black text-green-700 tabular-nums truncate">{redeemed.toLocaleString('en-IN')}</p>
-          <p className="text-xs text-green-600 font-medium mt-0.5">Redeemed</p>
+          <p className="text-xs text-green-600 font-medium mt-0.5">{t('Redeemed')}</p>
         </Link>
         <div className="min-w-0 rounded-lg bg-amber-50 border border-amber-100 px-2 py-2.5 text-center">
           <p className="text-2xl max-sm:text-xl font-black text-amber-700 tabular-nums truncate">{pending.toLocaleString('en-IN')}</p>
-          <p className="text-xs text-amber-600 font-medium mt-0.5">Pending</p>
+          <p className="text-xs text-amber-600 font-medium mt-0.5">{t('Pending')}</p>
         </div>
       </div>
 
@@ -114,7 +117,7 @@ export default function MahaprasadLiveTile() {
       {total > 0 && (
         <div className="space-y-1">
           <div className="flex justify-between text-xs text-gray-400">
-            <span>Redemption</span>
+            <span>{t('Redemption')}</span>
             <span className="font-medium text-gray-600 tabular-nums">{pct}%</span>
           </div>
           <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
@@ -131,24 +134,24 @@ export default function MahaprasadLiveTile() {
         {pace != null && pace > 0 && (
           <span className="flex items-center gap-1 text-emerald-600 font-medium">
             <TrendingUp className="h-3 w-3" />
-            ~{pace}/hr
+            {t('~{n}/hr', { n: pace })}
           </span>
         )}
         {collected > 0 && (
           <span className="flex items-center gap-1">
             <IndianRupee className="h-3 w-3" />
-            {collected.toLocaleString('en-IN')} collected
+            {t('{amount} collected', { amount: collected.toLocaleString('en-IN') })}
             {paid > 0 && free > 0 && (
-              <span className="text-gray-400 ml-0.5">({paid} paid · {free} free)</span>
+              <span className="text-gray-400 ml-0.5">{t('({paid} paid · {free} free)', { paid, free })}</span>
             )}
           </span>
         )}
         {cap > 0 && (
           <span className={capCls}>
-            Cap {total}/{cap}{capPct >= 100 ? ' — FULL' : capPct >= 80 ? ` (${capPct}%)` : ''}
+            {t('Cap {used}/{cap}', { used: total, cap })}{capPct >= 100 ? ` — ${t('FULL')}` : capPct >= 80 ? ` (${capPct}%)` : ''}
           </span>
         )}
-        {total === 0 && <span className="text-gray-400 italic">No coupons issued today</span>}
+        {total === 0 && <span className="text-gray-400 italic">{t('No coupons issued today')}</span>}
       </div>
     </div>
   );

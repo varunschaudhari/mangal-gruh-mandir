@@ -6,13 +6,14 @@ import { getExpenses } from '../../api/expense.api.js';
 import api from '../../api/axios.js';
 import PageHeader from '../../components/ui/PageHeader.jsx';
 import SearchableSelect from '../../components/ui/SearchableSelect.jsx';
-import { fDate, fCurrency } from '../../utils/formatters.js';
+import { fDate, fCurrency, localDateStr } from '../../utils/formatters.js';
 import { usePermissions } from '../../hooks/usePermissions.js';
 import { useIsMobile } from '../../hooks/useMediaQuery.js';
 import MobileCard from '../../components/ui/MobileCard.jsx';
 import toast from 'react-hot-toast';
 import { saveFile } from '../../utils/fileSaver.js';
 import haptics from '../../utils/haptics.js';
+import { useT } from '../../i18n/index.jsx';
 
 const CATEGORY_LABELS = {
   electricity: 'Electricity', water: 'Water', salary: 'Salary',
@@ -39,30 +40,27 @@ const STATUS_BADGES = {
 };
 
 function StatusBadge({ status }) {
+  const t    = useT();
   const cfg  = STATUS_BADGES[status] || STATUS_BADGES.pending_approval;
   const Icon = cfg.icon;
   return (
     <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${cfg.cls}`}>
-      <Icon size={11} />{cfg.label}
+      <Icon size={11} />{t(cfg.label)}
     </span>
   );
 }
 
-// YYYY-MM-DD in local time. toISOString() is UTC, which in India (UTC+5:30) turns
-// local midnight on the 1st into the previous month's last day.
-const localIso = (d) =>
-  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-
 const thisMonthFrom = () => {
   const d = new Date();
-  return localIso(new Date(d.getFullYear(), d.getMonth(), 1));
+  return localDateStr(new Date(d.getFullYear(), d.getMonth(), 1));
 };
-const today = () => localIso(new Date());
+const today = () => localDateStr();
 
 // Phone status filter: horizontally scrollable chips instead of a dropdown.
 const STATUS_CHIPS = [{ value: '', label: 'All' }, ...STATUS_OPTIONS.map((o) => ({ ...o, label: STATUS_BADGES[o.value].label }))];
 
 export default function ExpenseList() {
+  const t = useT();
   const { can } = usePermissions();
   const navigate = useNavigate();
   const isMobile = useIsMobile();
@@ -86,7 +84,7 @@ export default function ExpenseList() {
       const res  = await api.get(`/expenses/export/pdf?${params}`, { responseType: 'blob' });
       await saveFile(new Blob([res.data], { type: 'application/pdf' }), `Expenses-${from || 'all'}-to-${to || 'all'}.pdf`);
     } catch {
-      toast.error('Export failed');
+      toast.error(t('Export failed'));
     } finally {
       setExporting(false);
     }
@@ -112,13 +110,13 @@ export default function ExpenseList() {
               onClick={exportPdf}
               disabled={exporting}
               className="btn-secondary flex items-center gap-1.5 text-sm px-3 sm:px-4"
-              aria-label="Export PDF">
+              aria-label={t('Export PDF')}>
               <FileDown className="h-4 w-4" />
-              <span className={exporting ? '' : 'hidden sm:inline'}>{exporting ? 'Exporting…' : 'Export PDF'}</span>
+              <span className={exporting ? '' : 'hidden sm:inline'}>{exporting ? t('Exporting…') : t('Export PDF')}</span>
             </button>
             {can('payments:write') && (
               <Link to="/expenses/new" className="btn-primary flex items-center gap-2">
-                <Plus className="h-4 w-4" /> New Expense
+                <Plus className="h-4 w-4" /> {t('New Expense')}
               </Link>
             )}
           </div>
@@ -128,16 +126,16 @@ export default function ExpenseList() {
       {/* Summary cards */}
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
         <div className="card p-3 sm:p-4 text-center">
-          <p className="text-xs text-gray-400 uppercase tracking-wide mb-1">Approved</p>
+          <p className="text-xs text-gray-400 uppercase tracking-wide mb-1">{t('Approved')}</p>
           <p className="text-lg sm:text-xl font-bold text-green-600">{fCurrency(approvedSum)}</p>
         </div>
         <div className="card p-3 sm:p-4 text-center">
-          <p className="text-xs text-gray-400 uppercase tracking-wide mb-1">Pending</p>
+          <p className="text-xs text-gray-400 uppercase tracking-wide mb-1">{t('Pending')}</p>
           <p className="text-lg sm:text-xl font-bold text-yellow-600">{fCurrency(pendingSum)}</p>
         </div>
         {/* Phones: a slim one-line row so the count doesn't take a whole tile row */}
         <div className="card px-4 py-2.5 sm:p-4 col-span-2 sm:col-span-1 flex items-center justify-between sm:block sm:text-center">
-          <p className="text-xs text-gray-400 uppercase tracking-wide sm:mb-1">Entries</p>
+          <p className="text-xs text-gray-400 uppercase tracking-wide sm:mb-1">{t('Entries')}</p>
           <p className="text-base sm:text-xl font-bold text-gray-900">{expenses.length}</p>
         </div>
       </div>
@@ -153,7 +151,7 @@ export default function ExpenseList() {
                 status === c.value ? 'border-primary-600 bg-primary-600 text-white' : 'border-gray-200 bg-white text-gray-600'
               }`}
             >
-              {c.label}
+              {t(c.label)}
             </button>
           ))}
         </div>
@@ -162,40 +160,40 @@ export default function ExpenseList() {
       {/* Filters */}
       <div className="card p-3 sm:p-4 grid grid-cols-2 sm:grid-cols-4 gap-3">
         <div>
-          <label className="block text-xs font-semibold text-gray-500 mb-1">From</label>
+          <label className="block text-xs font-semibold text-gray-500 mb-1">{t('From')}</label>
           <input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className="input text-sm" />
         </div>
         <div>
-          <label className="block text-xs font-semibold text-gray-500 mb-1">To</label>
+          <label className="block text-xs font-semibold text-gray-500 mb-1">{t('To')}</label>
           <input type="date" value={to} onChange={(e) => setTo(e.target.value)} className="input text-sm" />
         </div>
         <div className="col-span-2 sm:col-span-1">
-          <label className="block text-xs font-semibold text-gray-500 mb-1">Category</label>
+          <label className="block text-xs font-semibold text-gray-500 mb-1">{t('Category')}</label>
           <SearchableSelect
             value={category}
             onChange={setCategory}
-            options={CATEGORIES}
-            placeholder="All categories"
+            options={CATEGORIES.map((c) => ({ ...c, label: t(c.label) }))}
+            placeholder={t('All categories')}
           />
         </div>
         <div className="hidden md:block">
-          <label className="block text-xs font-semibold text-gray-500 mb-1">Status</label>
+          <label className="block text-xs font-semibold text-gray-500 mb-1">{t('Status')}</label>
           <SearchableSelect
             value={status}
             onChange={setStatus}
-            options={STATUS_OPTIONS}
-            placeholder="All statuses"
+            options={STATUS_OPTIONS.map((o) => ({ ...o, label: t(o.label) }))}
+            placeholder={t('All statuses')}
           />
         </div>
       </div>
 
       {isMobile ? (
         isLoading ? (
-          <div className="card py-12 text-center text-gray-400">Loading…</div>
+          <div className="card py-12 text-center text-gray-400">{t('Loading…')}</div>
         ) : expenses.length === 0 ? (
           <div className="card py-12 text-center">
             <Banknote className="h-8 w-8 text-gray-300 mx-auto mb-2" />
-            <p className="text-sm text-gray-400">No expenses found for the selected filters.</p>
+            <p className="text-sm text-gray-400">{t('No expenses found for the selected filters.')}</p>
           </div>
         ) : (
           <div className="space-y-2.5">
@@ -212,14 +210,14 @@ export default function ExpenseList() {
                   </div>
                 }
                 fields={[
-                  { label: 'Category', value: CATEGORY_LABELS[e.category] || e.category },
-                  { label: 'Payee', value: e.payee },
-                  { label: 'Mode', value: PM_LABELS[e.paymentMode] || e.paymentMode },
+                  { label: t('Category'), value: t(CATEGORY_LABELS[e.category]) || e.category },
+                  { label: t('Payee'), value: e.payee },
+                  { label: t('Mode'), value: t(PM_LABELS[e.paymentMode]) || e.paymentMode },
                 ]}
               />
             ))}
             <div className="flex items-center justify-between rounded-xl border border-orange-100 bg-orange-50 px-4 py-3">
-              <span className="text-sm font-semibold text-gray-700">Approved Total</span>
+              <span className="text-sm font-semibold text-gray-700">{t('Approved Total')}</span>
               <span className="text-base font-bold text-gray-900">{fCurrency(approvedSum)}</span>
             </div>
           </div>
@@ -227,25 +225,25 @@ export default function ExpenseList() {
       ) : (
       <div className="card overflow-hidden">
         {isLoading ? (
-          <div className="py-12 text-center text-gray-400">Loading…</div>
+          <div className="py-12 text-center text-gray-400">{t('Loading…')}</div>
         ) : expenses.length === 0 ? (
           <div className="py-12 text-center">
             <Banknote className="h-8 w-8 text-gray-300 mx-auto mb-2" />
-            <p className="text-sm text-gray-400">No expenses found for the selected filters.</p>
+            <p className="text-sm text-gray-400">{t('No expenses found for the selected filters.')}</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="text-xs text-gray-400 uppercase tracking-wide border-b bg-gray-50">
-                  <th className="py-2 px-4 text-left font-semibold">No.</th>
-                  <th className="py-2 px-4 text-left font-semibold">Date</th>
-                  <th className="py-2 px-4 text-left font-semibold">Category</th>
-                  <th className="py-2 px-4 text-left font-semibold">Description</th>
-                  <th className="py-2 px-4 text-left font-semibold">Payee</th>
-                  <th className="py-2 px-4 text-left font-semibold">Mode</th>
-                  <th className="py-2 px-4 text-right font-semibold">Amount</th>
-                  <th className="py-2 px-4 text-left font-semibold">Status</th>
+                  <th className="py-2 px-4 text-left font-semibold">{t('No.')}</th>
+                  <th className="py-2 px-4 text-left font-semibold">{t('Date')}</th>
+                  <th className="py-2 px-4 text-left font-semibold">{t('Category')}</th>
+                  <th className="py-2 px-4 text-left font-semibold">{t('Description')}</th>
+                  <th className="py-2 px-4 text-left font-semibold">{t('Payee')}</th>
+                  <th className="py-2 px-4 text-left font-semibold">{t('Mode')}</th>
+                  <th className="py-2 px-4 text-right font-semibold">{t('Amount')}</th>
+                  <th className="py-2 px-4 text-left font-semibold">{t('Status')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
@@ -257,10 +255,10 @@ export default function ExpenseList() {
                       </Link>
                     </td>
                     <td className="py-3 px-4 text-gray-600 whitespace-nowrap">{fDate(e.expenseDate)}</td>
-                    <td className="py-3 px-4 text-gray-700 whitespace-nowrap">{CATEGORY_LABELS[e.category] || e.category}</td>
+                    <td className="py-3 px-4 text-gray-700 whitespace-nowrap">{t(CATEGORY_LABELS[e.category]) || e.category}</td>
                     <td className="py-3 px-4 text-gray-700 max-w-[200px] truncate">{e.description}</td>
                     <td className="py-3 px-4 text-gray-500 whitespace-nowrap">{e.payee || '—'}</td>
-                    <td className="py-3 px-4 text-gray-500 whitespace-nowrap">{PM_LABELS[e.paymentMode] || e.paymentMode}</td>
+                    <td className="py-3 px-4 text-gray-500 whitespace-nowrap">{t(PM_LABELS[e.paymentMode]) || e.paymentMode}</td>
                     <td className="py-3 px-4 text-right font-semibold text-gray-800 whitespace-nowrap">{fCurrency(e.amount)}</td>
                     <td className="py-3 px-4"><StatusBadge status={e.status} /></td>
                   </tr>
@@ -268,7 +266,7 @@ export default function ExpenseList() {
               </tbody>
               <tfoot>
                 <tr className="border-t bg-orange-50">
-                  <td colSpan={6} className="py-3 px-4 text-sm font-semibold text-gray-700 text-right">Approved Total</td>
+                  <td colSpan={6} className="py-3 px-4 text-sm font-semibold text-gray-700 text-right">{t('Approved Total')}</td>
                   <td className="py-3 px-4 text-right text-base font-bold text-gray-900">{fCurrency(approvedSum)}</td>
                   <td />
                 </tr>

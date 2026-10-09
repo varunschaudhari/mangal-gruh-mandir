@@ -4,13 +4,14 @@ import { FlameKindling, Package, CreditCard, IndianRupee } from 'lucide-react';
 import { getFestivalCostReport } from '../../api/report.api.js';
 import PageHeader from '../../components/ui/PageHeader.jsx';
 import { PageLoader } from '../../components/ui/Spinner.jsx';
+import { localDateStr } from '../../utils/formatters.js';
 
 const fmt    = (d) => d ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
 const fmtAmt = (n) => `₹${Number(n || 0).toLocaleString('en-IN')}`;
 const PM_LABELS = { cash: 'Cash', upi: 'UPI', neft: 'NEFT', rtgs: 'RTGS', cheque: 'Cheque' };
 
 const FestivalCostReport = () => {
-  const today = new Date().toISOString().split('T')[0];
+  const today = localDateStr();
   const [from, setFrom] = useState('');
   const [to,   setTo]   = useState(today);
   const [label, setLabel] = useState('');

@@ -13,6 +13,8 @@ import Modal from '../../components/ui/Modal.jsx';
 import StickyActionBar from '../../components/ui/StickyActionBar.jsx';
 import { useMediaQuery } from '../../hooks/useMediaQuery.js';
 import toast from 'react-hot-toast';
+import { localDateStr } from '../../utils/formatters.js';
+import { useT } from '../../i18n/index.jsx';
 
 const fmt    = (d)  => d ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
 const fmtAmt = (n)  => `₹${Number(n || 0).toLocaleString('en-IN')}`;
@@ -27,6 +29,7 @@ const PM_LABELS = { cash: 'Cash', upi: 'UPI / Online', neft: 'NEFT', rtgs: 'RTGS
 const STATUS_LABELS = { pending_approval: 'Pending', approved: 'Approved' };
 
 export default function NewSupplierPayment() {
+  const t              = useT();
   const navigate       = useNavigate();
   const qc             = useQueryClient();
   const [searchParams] = useSearchParams();
@@ -51,7 +54,7 @@ export default function NewSupplierPayment() {
   const { register, handleSubmit, control, watch, setValue, getValues, formState: { errors } } = useForm({
     defaultValues: {
       supplier:              preSupplier || '',
-      paymentDate:           new Date().toISOString().split('T')[0],
+      paymentDate:           localDateStr(),
       paymentMode:           'cash',
       referenceNumber:       '',
       selectedBankAccountId: '',
@@ -118,14 +121,14 @@ export default function NewSupplierPayment() {
     appendInv({
       purchaseEntryId: inv._id || '',
       invoiceNumber:   inv.invoiceNumber || '',
-      invoiceDate:     inv.invoiceDate ? new Date(inv.invoiceDate).toISOString().split('T')[0] : '',
+      invoiceDate:     inv.invoiceDate ? localDateStr(inv.invoiceDate) : '',
       invoiceTotal:    inv.invoiceTotal,
       paidAmount:      inv.remaining,
     });
   };
 
   const addAdvance = () => {
-    appendInv({ invoiceNumber: '', invoiceDate: new Date().toISOString().split('T')[0], invoiceTotal: 0, paidAmount: 0 });
+    appendInv({ invoiceNumber: '', invoiceDate: localDateStr(), invoiceTotal: 0, paidAmount: 0 });
   };
 
   useEffect(() => {
@@ -150,7 +153,7 @@ export default function NewSupplierPayment() {
   const mutation = useMutation({
     mutationFn: (data) => createPayment(data),
     onSuccess: (res) => {
-      toast.success('Payment submitted for approval');
+      toast.success(t('Payment submitted for approval'));
       qc.invalidateQueries({ queryKey: ['payments'] });
       qc.invalidateQueries({ queryKey: ['supplier-invoices'] });
       setDuplicateWarning(null);
@@ -162,13 +165,13 @@ export default function NewSupplierPayment() {
       if (e.response?.status === 409 && e.response?.data?.data?.duplicates) {
         setDuplicateWarning(e.response.data.data);
       } else {
-        toast.error(e.response?.data?.message || 'Failed to submit');
+        toast.error(e.response?.data?.message || t('Failed to submit'));
       }
     },
   });
 
   const handleSaveTemplate = async () => {
-    if (!templateName.trim()) { toast.error('Enter a template name'); return; }
+    if (!templateName.trim()) { toast.error(t('Enter a template name')); return; }
     setSavingTemplate(true);
     try {
       await createTemplate({
@@ -178,12 +181,12 @@ export default function NewSupplierPayment() {
         selectedBankAccountId: watch('selectedBankAccountId') || undefined,
         notes:                 watch('notes') || undefined,
       });
-      toast.success('Template saved');
+      toast.success(t('Template saved'));
       qc.invalidateQueries({ queryKey: ['payment-templates'] });
       setShowSaveTemplateModal(false);
       setTemplateName('');
       navigate(`/payments/${createdPaymentId}`);
-    } catch { toast.error('Failed to save template'); }
+    } catch { toast.error(t('Failed to save template')); }
     finally   { setSavingTemplate(false); }
   };
 
@@ -194,7 +197,7 @@ export default function NewSupplierPayment() {
     if (tpl.selectedBankAccountId) setValue('selectedBankAccountId', tpl.selectedBankAccountId);
     if (tpl.notes) setValue('notes', tpl.notes);
     setShowTemplateModal(false);
-    toast.success(`Template "${tpl.name}" loaded`);
+    toast.success(t('Template "{name}" loaded', { name: tpl.name }));
   };
 
   const needsRef  = ['upi', 'neft', 'rtgs', 'cheque'].includes(paymentMode);
@@ -205,13 +208,13 @@ export default function NewSupplierPayment() {
       <div className="max-w-3xl space-y-4">
         <div className="card p-6 sm:p-8 text-center space-y-4">
           <CheckCircle2 className="h-12 w-12 text-green-500 mx-auto" />
-          <h2 className="text-lg font-bold text-gray-800">Payment Submitted!</h2>
-          <p className="text-sm text-gray-500">Save this payment config as a template for quick reuse?</p>
+          <h2 className="text-lg font-bold text-gray-800">{t('Payment Submitted!')}</h2>
+          <p className="text-sm text-gray-500">{t('Save this payment config as a template for quick reuse?')}</p>
           <div className="max-w-xs mx-auto space-y-3">
             <input
               value={templateName}
               onChange={(e) => setTemplateName(e.target.value)}
-              placeholder="Template name (e.g. Monthly Electricity)"
+              placeholder={t('Template name (e.g. Monthly Electricity)')}
               className="input w-full"
               autoFocus
               enterKeyHint="done"
@@ -221,11 +224,11 @@ export default function NewSupplierPayment() {
               <button onClick={handleSaveTemplate} disabled={savingTemplate}
                 className="btn-primary flex items-center gap-1.5 text-sm">
                 <Save className="h-4 w-4" />
-                {savingTemplate ? 'Saving…' : 'Save Template'}
+                {savingTemplate ? t('Saving…') : t('Save Template')}
               </button>
               <button onClick={() => { setShowSaveTemplateModal(false); navigate(`/payments/${createdPaymentId}`); }}
                 className="btn-secondary text-sm">
-                Skip
+                {t('Skip')}
               </button>
             </div>
           </div>
@@ -239,7 +242,7 @@ export default function NewSupplierPayment() {
       {isDesktop && (
         <button onClick={() => navigate('/payments')}
           className="inline-flex items-center gap-1.5 text-sm text-gray-400 hover:text-gray-700 transition-colors">
-          <ArrowLeft className="h-4 w-4" /> Payments
+          <ArrowLeft className="h-4 w-4" /> {t('Payments')}
         </button>
       )}
 
@@ -254,7 +257,7 @@ export default function NewSupplierPayment() {
               onClick={() => setShowTemplateModal(true)}
               className="btn-secondary flex items-center gap-1.5 text-sm">
               <BookTemplate className="h-4 w-4" />
-              From Template
+              {t('From Template')}
               <ChevronDown className="h-3.5 w-3.5" />
             </button>
           )
@@ -267,13 +270,15 @@ export default function NewSupplierPayment() {
           <div className="flex items-start gap-3">
             <AlertTriangle className="h-5 w-5 text-amber-500 shrink-0 mt-0.5" />
             <div className="flex-1">
-              <p className="text-sm font-semibold text-amber-800">Possible duplicate payment detected</p>
+              <p className="text-sm font-semibold text-amber-800">{t('Possible duplicate payment detected')}</p>
               <p className="text-xs text-amber-700 mt-0.5">
-                {duplicateWarning.duplicates.length} existing payment{duplicateWarning.duplicates.length > 1 ? 's' : ''} already
-                cover{duplicateWarning.duplicates.length === 1 ? 's' : ''} one or more of the same invoice numbers.
+                {t(duplicateWarning.duplicates.length > 1
+                  ? '{n} existing payments already cover one or more of the same invoice numbers.'
+                  : '{n} existing payment already covers one or more of the same invoice numbers.',
+                { n: duplicateWarning.duplicates.length })}
               </p>
             </div>
-            <button onClick={() => setDuplicateWarning(null)} className="-m-2 p-2 text-amber-400 hover:text-amber-600" aria-label="Dismiss">
+            <button onClick={() => setDuplicateWarning(null)} className="-m-2 p-2 text-amber-400 hover:text-amber-600" aria-label={t('Dismiss')}>
               <X className="h-4 w-4" />
             </button>
           </div>
@@ -282,13 +287,13 @@ export default function NewSupplierPayment() {
               <div key={i} className="flex flex-col gap-1 px-3 py-2 text-xs sm:flex-row sm:items-center sm:justify-between sm:gap-0">
                 <div className="min-w-0">
                   <span className="font-mono font-semibold text-gray-700">{d.paymentNumber}</span>
-                  <span className="ml-2 text-gray-400">by {d.createdBy || 'Unknown'}</span>
-                  <span className="ml-2 text-amber-600 break-words">· Invoices: {d.matchedInvoices.join(', ')}</span>
+                  <span className="ml-2 text-gray-400">{t('by {name}', { name: d.createdBy || t('Unknown') })}</span>
+                  <span className="ml-2 text-amber-600 break-words">· {t('Invoices: {list}', { list: d.matchedInvoices.join(', ') })}</span>
                 </div>
                 <div className="shrink-0 sm:ml-3 sm:text-right">
                   <span className="font-semibold text-gray-700">{fmtAmt(d.totalAmount)}</span>
                   <span className={`ml-2 px-1.5 py-0.5 rounded-full text-[10px] font-bold ${d.status === 'approved' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
-                    {STATUS_LABELS[d.status] || d.status}
+                    {t(STATUS_LABELS[d.status]) || d.status}
                   </span>
                 </div>
               </div>
@@ -300,11 +305,11 @@ export default function NewSupplierPayment() {
               onClick={() => doSubmit(getValues(), true)}
               disabled={mutation.isPending}
               className="btn btn-ghost border text-xs font-semibold text-amber-700 hover:bg-amber-100 disabled:opacity-50">
-              Submit Anyway
+              {t('Submit Anyway')}
             </button>
             <button type="button" onClick={() => setDuplicateWarning(null)}
               className="px-3 py-2 sm:p-0 text-xs text-gray-400 hover:text-gray-600">
-              Cancel
+              {t('Cancel')}
             </button>
           </div>
         </div>
@@ -314,20 +319,20 @@ export default function NewSupplierPayment() {
 
         {/* Supplier + Date */}
         <div className="card p-4 sm:p-5 space-y-4">
-          <h3 className="text-sm font-semibold text-gray-700">Payment Details</h3>
+          <h3 className="text-sm font-semibold text-gray-700">{t('Payment Details')}</h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Supplier *</label>
+              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">{t('Supplier')} *</label>
               <Controller
                 name="supplier"
                 control={control}
-                rules={{ required: 'Supplier is required' }}
+                rules={{ required: t('Supplier is required') }}
                 render={({ field }) => (
                   <SearchableSelect
                     value={field.value || ''}
                     onChange={field.onChange}
                     options={suppliers.map((s) => ({ value: s._id, label: s.name }))}
-                    placeholder="Select supplier…"
+                    placeholder={t('Select supplier…')}
                     error={errors.supplier?.message}
                   />
                 )}
@@ -335,7 +340,7 @@ export default function NewSupplierPayment() {
               {errors.supplier && <p className="mt-1 text-xs text-red-500">{errors.supplier.message}</p>}
             </div>
             <div>
-              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Payment Date *</label>
+              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">{t('Payment Date')} *</label>
               <input {...register('paymentDate', { required: true })} type="date" className="input" />
             </div>
           </div>
@@ -343,7 +348,7 @@ export default function NewSupplierPayment() {
           {/* Bank account selector */}
           {supplierId && bankAccounts.length > 0 && (
             <div>
-              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Pay To Bank Account</label>
+              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">{t('Pay To Bank Account')}</label>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 {bankAccounts.map((acc) => {
                   const isSelected = selectedBankAccountId === acc._id;
@@ -354,11 +359,11 @@ export default function NewSupplierPayment() {
                         className="mt-0.5 h-4 w-4 text-primary-600" />
                       <div className="min-w-0 break-words">
                         <p className="text-sm font-semibold text-gray-800">
-                          {acc.label || acc.bankName || 'Account'}
-                          {acc.isDefault && <span className="ml-1.5 text-xs text-primary-600">(Default)</span>}
+                          {acc.label || acc.bankName || t('Account')}
+                          {acc.isDefault && <span className="ml-1.5 text-xs text-primary-600">{t('(Default)')}</span>}
                         </p>
                         {acc.bankName && acc.label && <p className="text-xs text-gray-500">{acc.bankName}</p>}
-                        {acc.accountNumber && <p className="text-xs font-mono text-gray-500">A/C: {acc.accountNumber}</p>}
+                        {acc.accountNumber && <p className="text-xs font-mono text-gray-500">{t('A/C: {number}', { number: acc.accountNumber })}</p>}
                         {acc.ifscCode && <p className="text-xs font-mono text-gray-400">IFSC: {acc.ifscCode}</p>}
                         {acc.upiId && <p className="text-xs font-mono text-gray-400">UPI: {acc.upiId}</p>}
                       </div>
@@ -371,31 +376,31 @@ export default function NewSupplierPayment() {
           {supplierId && bankAccounts.length === 0 && (
             <div className="flex items-center gap-2 text-xs text-gray-400 bg-gray-50 rounded-lg p-2.5">
               <CreditCard className="h-4 w-4 shrink-0" />
-              No bank accounts on file for this supplier. Add them in the supplier profile.
+              {t('No bank accounts on file for this supplier. Add them in the supplier profile.')}
             </div>
           )}
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Payment Mode *</label>
+              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">{t('Payment Mode')} *</label>
               <select {...register('paymentMode')} className="input">
-                {PM_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                {PM_OPTIONS.map((o) => <option key={o.value} value={o.value}>{t(o.label)}</option>)}
               </select>
             </div>
             {needsRef && (
               <div>
                 <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
-                  {paymentMode === 'cheque' ? 'Cheque No.' : 'Reference / UTR No.'} *
+                  {paymentMode === 'cheque' ? t('Cheque No.') : t('Reference / UTR No.')} *
                 </label>
-                <input {...register('referenceNumber', { required: needsRef ? 'Reference number is required' : false })}
-                  className="input font-mono" placeholder="Transaction / cheque number" />
+                <input {...register('referenceNumber', { required: needsRef ? t('Reference number is required') : false })}
+                  className="input font-mono" placeholder={t('Transaction / cheque number')} />
                 {errors.referenceNumber && <p className="mt-1 text-xs text-red-500">{errors.referenceNumber.message}</p>}
               </div>
             )}
           </div>
           <div>
-            <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Notes</label>
-            <textarea {...register('notes')} rows={2} className="input" placeholder="Optional notes" />
+            <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">{t('Notes')}</label>
+            <textarea {...register('notes')} rows={2} className="input" placeholder={t('Optional notes')} />
           </div>
         </div>
 
@@ -403,17 +408,17 @@ export default function NewSupplierPayment() {
         {supplierId && (
           <div className="card p-4 sm:p-5 space-y-4">
             <div className="flex items-center justify-between gap-2">
-              <h3 className="text-sm font-semibold text-gray-700">Invoice Allocation</h3>
+              <h3 className="text-sm font-semibold text-gray-700">{t('Invoice Allocation')}</h3>
               <button type="button" onClick={addAdvance}
                 className="btn-secondary text-xs flex items-center gap-1 px-3 sm:px-4">
-                <Plus className="h-3.5 w-3.5" /> Advance / No Invoice
+                <Plus className="h-3.5 w-3.5" /> {t('Advance / No Invoice')}
               </button>
             </div>
 
             {unpaidInvoices.length > 0 && (
               <div className="rounded-lg border border-gray-100 overflow-hidden">
                 <div className="bg-gray-50 px-3 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                  Unpaid Invoices — Click to add
+                  {t('Unpaid Invoices — Click to add')}
                 </div>
                 <div className="divide-y divide-gray-50">
                   {unpaidInvoices.map((inv, i) => {
@@ -423,15 +428,15 @@ export default function NewSupplierPayment() {
                         className={`flex items-center justify-between gap-3 px-3 py-2.5 ${alreadyAdded ? 'opacity-40' : 'hover:bg-gray-50 active:bg-gray-100 cursor-pointer'}`}
                         onClick={() => !alreadyAdded && addInvoice(inv)}>
                         <div className="min-w-0">
-                          <p className="text-sm font-medium text-gray-900">{inv.entryNumber || inv.invoiceNumber || 'No Invoice No.'}</p>
+                          <p className="text-sm font-medium text-gray-900">{inv.entryNumber || inv.invoiceNumber || t('No Invoice No.')}</p>
                           <p className="text-xs text-gray-400">
-                            {inv.invoiceNumber && inv.entryNumber && <span className="font-mono">Inv: {inv.invoiceNumber} · </span>}
-                            {fmt(inv.invoiceDate)}{inv.isOverdue ? ' · Overdue' : ''}
+                            {inv.invoiceNumber && inv.entryNumber && <span className="font-mono">{t('Inv: {number}', { number: inv.invoiceNumber })} · </span>}
+                            {fmt(inv.invoiceDate)}{inv.isOverdue ? ` · ${t('Overdue')}` : ''}
                           </p>
                         </div>
                         <div className="shrink-0 text-right">
                           <p className="text-sm font-semibold text-gray-800">{fmtAmt(inv.invoiceTotal)}</p>
-                          <p className="text-xs text-red-600">Remaining: {fmtAmt(inv.remaining)}</p>
+                          <p className="text-xs text-red-600">{t('Remaining: {amount}', { amount: fmtAmt(inv.remaining) })}</p>
                         </div>
                       </div>
                     );
@@ -442,7 +447,7 @@ export default function NewSupplierPayment() {
 
             {invFields.length > 0 && (
               <div className="space-y-2">
-                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Payment Allocation</p>
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">{t('Payment Allocation')}</p>
                 {invFields.map((field, idx) => (
                   <div key={field.id} className="grid grid-cols-2 sm:grid-cols-12 gap-2 items-end p-3 rounded-lg bg-orange-50 border border-orange-100">
                     <input type="hidden" {...register(`invoices.${idx}.purchaseEntryId`)} />
@@ -450,30 +455,30 @@ export default function NewSupplierPayment() {
                     <div className="col-span-2 -mt-1 flex items-center justify-between sm:hidden">
                       <span className="text-xs font-semibold text-gray-500">#{idx + 1}</span>
                       <button type="button" onClick={() => removeInv(idx)}
-                        className="-mr-1 p-2 rounded hover:bg-red-50 text-red-400" aria-label="Remove invoice">
+                        className="-mr-1 p-2 rounded hover:bg-red-50 text-red-400" aria-label={t('Remove invoice')}>
                         <Trash2 className="h-4 w-4" />
                       </button>
                     </div>
                     <div className="col-span-1 sm:col-span-3">
-                      <label className="block text-xs text-gray-500 mb-1">Invoice No.</label>
+                      <label className="block text-xs text-gray-500 mb-1">{t('Invoice No.')}</label>
                       <input {...register(`invoices.${idx}.invoiceNumber`)} className="input text-sm font-mono" placeholder="INV-001" />
                     </div>
                     <div className="col-span-1 sm:col-span-2">
-                      <label className="block text-xs text-gray-500 mb-1">Invoice Date</label>
+                      <label className="block text-xs text-gray-500 mb-1">{t('Invoice Date')}</label>
                       <input {...register(`invoices.${idx}.invoiceDate`)} type="date" className="input text-sm" />
                     </div>
                     <div className="col-span-1 sm:col-span-3">
-                      <label className="block text-xs text-gray-500 mb-1">Invoice Total (₹)</label>
+                      <label className="block text-xs text-gray-500 mb-1">{t('Invoice Total (₹)')}</label>
                       <input {...register(`invoices.${idx}.invoiceTotal`, { valueAsNumber: true })} type="number" inputMode="decimal" step="0.01" min={0} className="input text-sm" />
                     </div>
                     <div className="col-span-1 sm:col-span-3">
-                      <label className="block text-xs text-gray-500 mb-1">Paying Now (₹) *</label>
+                      <label className="block text-xs text-gray-500 mb-1">{t('Paying Now (₹)')} *</label>
                       <input {...register(`invoices.${idx}.paidAmount`, { required: true, valueAsNumber: true, min: 0.01 })}
                         type="number" inputMode="decimal" step="0.01" min={0.01} className="input text-sm font-semibold" />
                     </div>
                     <div className="hidden sm:flex col-span-1 justify-end">
                       <button type="button" onClick={() => removeInv(idx)}
-                        className="p-1.5 rounded hover:bg-red-50 text-red-400" aria-label="Remove invoice">
+                        className="p-1.5 rounded hover:bg-red-50 text-red-400" aria-label={t('Remove invoice')}>
                         <Trash2 className="h-4 w-4" />
                       </button>
                     </div>
@@ -485,7 +490,7 @@ export default function NewSupplierPayment() {
             {invFields.length === 0 && unpaidInvoices.length === 0 && (
               <div className="flex items-center gap-2 text-sm text-gray-400 bg-gray-50 rounded-lg p-3">
                 <AlertTriangle className="h-4 w-4 shrink-0" />
-                No unpaid invoices found. Use "Advance / No Invoice" for advance payments.
+                {t('No unpaid invoices found. Use "Advance / No Invoice" for advance payments.')}
               </div>
             )}
           </div>
@@ -496,16 +501,16 @@ export default function NewSupplierPayment() {
           <div className="card p-4 sm:p-5 space-y-3">
             <div className="flex items-center justify-between">
               <div>
-                <h3 className="text-sm font-semibold text-gray-700">Apply Advance Credit</h3>
+                <h3 className="text-sm font-semibold text-gray-700">{t('Apply Advance Credit')}</h3>
                 <p className="text-xs text-gray-400 mt-0.5">
-                  Available balance from prior advance payments:
+                  {t('Available balance from prior advance payments:')}
                   <span className="ml-1 font-semibold text-green-700">{fmtAmt(availableAdvance)}</span>
                 </p>
               </div>
             </div>
             <div className="flex items-center gap-3">
               <div className="flex-1 max-w-xs">
-                <label className="block text-xs font-medium text-gray-500 mb-1">Advance to apply (₹)</label>
+                <label className="block text-xs font-medium text-gray-500 mb-1">{t('Advance to apply (₹)')}</label>
                 <input
                   type="number"
                   inputMode="decimal"
@@ -530,22 +535,22 @@ export default function NewSupplierPayment() {
                   onClick={() => setAdvanceApplied(0)}
                   className="mt-5 px-2 py-2 sm:p-0 text-xs text-gray-400 hover:text-gray-600"
                 >
-                  Clear
+                  {t('Clear')}
                 </button>
               )}
             </div>
             {advanceApplied > 0 && (
               <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-4 rounded-lg bg-green-50 border border-green-200 px-4 py-2.5 text-sm">
                 <div className="flex-1">
-                  <span className="text-gray-500">Invoice total:</span>
+                  <span className="text-gray-500">{t('Invoice total:')}</span>
                   <span className="ml-2 font-semibold text-gray-800">{fmtAmt(invoiceTotal)}</span>
                 </div>
                 <div>
-                  <span className="text-gray-500">Advance applied:</span>
+                  <span className="text-gray-500">{t('Advance applied:')}</span>
                   <span className="ml-2 font-semibold text-green-700">−{fmtAmt(advanceApplied)}</span>
                 </div>
                 <div>
-                  <span className="text-gray-500">Cash required:</span>
+                  <span className="text-gray-500">{t('Cash required:')}</span>
                   <span className="ml-2 font-bold text-gray-900">{fmtAmt(cashRequired)}</span>
                 </div>
               </div>
@@ -557,13 +562,13 @@ export default function NewSupplierPayment() {
         <div className="card p-4 sm:p-5">
           <div>
             <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
-              {advanceApplied > 0 ? 'Cash to Pay (₹) *' : 'Total Payment Amount (₹) *'}
+              {advanceApplied > 0 ? t('Cash to Pay (₹)') : t('Total Payment Amount (₹)')} *
             </label>
             <input
               {...register('totalAmount', {
-                required: 'Amount is required',
+                required: t('Amount is required'),
                 valueAsNumber: true,
-                min: { value: 0, message: 'Cannot be negative' },
+                min: { value: 0, message: t('Cannot be negative') },
               })}
               type="number" inputMode="decimal" step="0.01" min={0}
               className="input text-lg font-semibold max-w-xs"
@@ -573,11 +578,13 @@ export default function NewSupplierPayment() {
             {errors.totalAmount && <p className="mt-1 text-xs text-red-500">{errors.totalAmount.message}</p>}
             {invFields.length > 0 && advanceApplied > 0 && (
               <p className="mt-1 text-xs text-green-600 font-medium">
-                {fmtAmt(invoiceTotal)} invoice − {fmtAmt(advanceApplied)} advance = {fmtAmt(cashRequired)} cash
+                {t('{invoice} invoice − {advance} advance = {cash} cash', {
+                  invoice: fmtAmt(invoiceTotal), advance: fmtAmt(advanceApplied), cash: fmtAmt(cashRequired),
+                })}
               </p>
             )}
             {invFields.length > 0 && advanceApplied === 0 && (
-              <p className="mt-1 text-xs text-gray-400">Auto-calculated from invoice allocation: {fmtAmt(invoiceTotal)}</p>
+              <p className="mt-1 text-xs text-gray-400">{t('Auto-calculated from invoice allocation: {amount}', { amount: fmtAmt(invoiceTotal) })}</p>
             )}
           </div>
         </div>
@@ -585,17 +592,17 @@ export default function NewSupplierPayment() {
         {/* Pinned to the bottom on phones (Submit on the right); unchanged left-aligned row from sm up */}
         <StickyActionBar className="flex-row-reverse sm:flex-row sm:items-center sm:!justify-start sm:gap-3">
           <button type="submit" disabled={mutation.isPending} className="btn-primary">
-            {mutation.isPending ? 'Submitting…' : 'Submit for Approval'}
+            {mutation.isPending ? t('Submitting…') : t('Submit for Approval')}
           </button>
-          <button type="button" onClick={() => navigate('/payments')} className="btn-secondary max-sm:!flex-none max-sm:px-5">Cancel</button>
+          <button type="button" onClick={() => navigate('/payments')} className="btn-secondary max-sm:!flex-none max-sm:px-5">{t('Cancel')}</button>
         </StickyActionBar>
       </form>
 
       {/* Template picker modal */}
-      <Modal open={showTemplateModal} onClose={() => setShowTemplateModal(false)} title="Load from Template" size="md">
+      <Modal open={showTemplateModal} onClose={() => setShowTemplateModal(false)} title={t('Load from Template')} size="md">
         <div className="space-y-2 max-h-96 overflow-y-auto">
           {templates.length === 0 ? (
-            <p className="text-sm text-gray-400 py-4 text-center">No templates saved yet.</p>
+            <p className="text-sm text-gray-400 py-4 text-center">{t('No templates saved yet.')}</p>
           ) : templates.map((tpl) => (
             <button
               key={tpl._id}
@@ -605,8 +612,8 @@ export default function NewSupplierPayment() {
               <div>
                 <p className="text-sm font-semibold text-gray-800">{tpl.name}</p>
                 <p className="text-xs text-gray-400 mt-0.5">
-                  {tpl.supplier?.name} · {PM_LABELS[tpl.paymentMode] || tpl.paymentMode}
-                  {tpl.usageCount > 0 && ` · Used ${tpl.usageCount}×`}
+                  {tpl.supplier?.name} · {t(PM_LABELS[tpl.paymentMode]) || tpl.paymentMode}
+                  {tpl.usageCount > 0 && ` · ${t('Used {n}×', { n: tpl.usageCount })}`}
                 </p>
               </div>
               <ChevronDown className="h-4 w-4 text-gray-300 rotate-[-90deg]" />
@@ -615,8 +622,8 @@ export default function NewSupplierPayment() {
         </div>
         <div className="mt-4 pt-3 border-t flex justify-between items-center">
           {/* Client-side link: a full page load is slow inside the mobile apps */}
-          <Link to="/payments/templates" className="py-2 text-xs text-primary-600 hover:underline">Manage templates →</Link>
-          <button onClick={() => setShowTemplateModal(false)} className="btn-secondary text-sm">Close</button>
+          <Link to="/payments/templates" className="py-2 text-xs text-primary-600 hover:underline">{t('Manage templates →')}</Link>
+          <button onClick={() => setShowTemplateModal(false)} className="btn-secondary text-sm">{t('Close')}</button>
         </div>
       </Modal>
     </div>

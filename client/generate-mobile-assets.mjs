@@ -37,6 +37,24 @@ console.log(`Generated ${OUT}/icon-background.png`);
 await place(2732, SAFFRON, 900, 'splash.png');
 await place(2732, SAFFRON, 900, 'splash-dark.png');
 
+// Android notification icon: Android draws it as a white silhouette, so it must be a
+// simple single-colour glyph (the temple shape), not the full-colour logo.
+const notifySvg = Buffer.from(`
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+  <path fill="#fff" d="M12 1.5 15 7H9z"/>
+  <rect fill="#fff" x="10.2" y="7" width="3.6" height="1.4"/>
+  <path fill="#fff" fill-rule="evenodd" d="M6.5 8.4h11v7.6h-11z M10.4 16v-3a1.6 1.6 0 0 1 3.2 0v3z"/>
+  <rect fill="#fff" x="4.8" y="16.6" width="14.4" height="1.6" rx=".4"/>
+  <rect fill="#fff" x="3.2" y="18.8" width="17.6" height="1.6" rx=".4"/>
+</svg>`);
+const NOTIFY_SIZES = { mdpi: 24, hdpi: 36, xhdpi: 48, xxhdpi: 72, xxxhdpi: 96 };
+for (const [dpi, size] of Object.entries(NOTIFY_SIZES)) {
+  const dir = `android/app/src/main/res/drawable-${dpi}`;
+  mkdirSync(dir, { recursive: true });
+  await sharp(notifySvg).resize(size, size).png().toFile(`${dir}/ic_stat_notify.png`);
+}
+console.log('Generated Android notification icon (ic_stat_notify)');
+
 execSync(
   `npx @capacitor/assets generate --android --ios --assetPath ${OUT} `
   + `--iconBackgroundColor "${WHITE}" --iconBackgroundColorDark "${WHITE}" `

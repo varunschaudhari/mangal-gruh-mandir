@@ -15,6 +15,8 @@ import SearchableSelect from '../../components/ui/SearchableSelect.jsx';
 import { useDebounce } from '../../hooks/useDebounce.js';
 import haptics from '../../utils/haptics.js';
 import toast from 'react-hot-toast';
+import { useT, rich } from '../../i18n/index.jsx';
+
 
 const fmtTotal = (n) => `₹${n.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
@@ -37,6 +39,7 @@ const defaultItem = () => ({
 const StockIn = () => {
   const navigate = useNavigate();
   const qc = useQueryClient();
+  const t = useT();
 
   const { register, handleSubmit, control, watch, formState: { errors } } = useForm({
     defaultValues: {
@@ -104,14 +107,14 @@ const StockIn = () => {
     onSuccess: (res) => {
       haptics.success();
       const count = res?.data?.data?.length || 1;
-      toast.success(`${count} item${count > 1 ? 's' : ''} recorded`);
+      toast.success(t(count > 1 ? '{n} items recorded' : '{n} item recorded', { n: count }));
       qc.invalidateQueries({ queryKey: ['transactions'] });
       qc.invalidateQueries({ queryKey: ['balance'] });
       navigate('/transactions/history');
     },
     onError: (err) => {
       haptics.error();
-      toast.error(err.response?.data?.message || 'Failed to record');
+      toast.error(err.response?.data?.message || t('Failed to record'));
     },
   });
 
@@ -126,26 +129,26 @@ const StockIn = () => {
 
         {/* Shared header fields */}
         <div className="card p-4 sm:p-6 space-y-6">
-          <FormSection title="Transaction Details">
+          <FormSection title={t('Transaction Details')}>
             <FormRow cols={2}>
-              <DatePickerField name="transactionDate" control={control} label="Date" required />
-              <FormField label="Type" required>
+              <DatePickerField name="transactionDate" control={control} label={t('Date')} required />
+              <FormField label={t('Type')} required>
                 <select {...register('stockInType')} className="input">
-                  {STOCK_IN_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+                  {STOCK_IN_TYPES.map((ty) => <option key={ty.value} value={ty.value}>{t(ty.label)}</option>)}
                 </select>
               </FormField>
             </FormRow>
-            <FormField label="To Department" required error={errors.toDepartment?.message}>
+            <FormField label={t('To Department')} required error={errors.toDepartment?.message}>
               <Controller
                 name="toDepartment"
                 control={control}
-                rules={{ required: 'Department is required' }}
+                rules={{ required: t('Department is required') }}
                 render={({ field }) => (
                   <SearchableSelect
                     value={field.value || ''}
                     onChange={field.onChange}
                     options={departments.map((d) => ({ value: d._id, label: d.name }))}
-                    placeholder="Select department…"
+                    placeholder={t('Select department…')}
                     error={errors.toDepartment?.message}
                   />
                 )}
@@ -154,8 +157,8 @@ const StockIn = () => {
           </FormSection>
 
           {stockInType === 'PURCHASE' && (
-            <FormSection title="Purchase Details">
-              <FormField label="Supplier">
+            <FormSection title={t('Purchase Details')}>
+              <FormField label={t('Supplier')}>
                 <Controller
                   name="supplier"
                   control={control}
@@ -164,24 +167,24 @@ const StockIn = () => {
                       value={field.value || ''}
                       onChange={field.onChange}
                       options={suppliers.map((s) => ({ value: s._id, label: s.name }))}
-                      placeholder="Select supplier…"
+                      placeholder={t('Select supplier…')}
                     />
                   )}
                 />
               </FormField>
               <FormRow cols={2}>
-                <FormField label="Invoice Number">
+                <FormField label={t('Invoice Number')}>
                   <input {...register('invoiceNumber')} className="input" autoCapitalize="characters" />
                 </FormField>
-                <DatePickerField name="invoiceDate" control={control} label="Invoice Date" />
+                <DatePickerField name="invoiceDate" control={control} label={t('Invoice Date')} />
               </FormRow>
             </FormSection>
           )}
 
           {stockInType === 'DONATION' && (
-            <FormSection title="Donation Details">
-              <FormField label="Donor Name">
-                <input {...register('donorName')} className="input" placeholder="Donor's name (optional)" />
+            <FormSection title={t('Donation Details')}>
+              <FormField label={t('Donor Name')}>
+                <input {...register('donorName')} className="input" placeholder={t("Donor's name (optional)")} />
               </FormField>
             </FormSection>
           )}
@@ -190,10 +193,10 @@ const StockIn = () => {
         {/* Dynamic item rows */}
         <div className="space-y-3">
           <div className="flex items-center justify-between">
-            <h3 className="text-sm font-semibold text-gray-700">Items</h3>
+            <h3 className="text-sm font-semibold text-gray-700">{t('Items')}</h3>
             {grandTotal > 0 && (
               <span className="text-sm text-gray-500">
-                Grand Total:{' '}
+                {t('Grand Total')}:{' '}
                 <span className="font-semibold text-gray-900">{fmtTotal(grandTotal)}</span>
               </span>
             )}
@@ -207,7 +210,7 @@ const StockIn = () => {
             return (
               <div key={field.id} className="card p-4 space-y-3">
                 <div className="flex min-h-[2rem] items-center justify-between">
-                  <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Item {index + 1}</span>
+                  <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">{t('Item {n}', { n: index + 1 })}</span>
                   <div className="flex items-center gap-3">
                     {rowTotal > 0 && (
                       <span className="text-sm font-semibold text-gray-800 sm:text-xs sm:font-normal sm:text-gray-500">
@@ -218,21 +221,21 @@ const StockIn = () => {
                       <button
                         type="button"
                         onClick={() => remove(index)}
-                        aria-label={`Remove item ${index + 1}`}
+                        aria-label={t('Remove item {n}', { n: index + 1 })}
                         className="-mr-2 rounded-md p-2 text-xs text-red-400 hover:text-red-600 active:bg-red-50 transition-colors sm:mr-0 sm:p-0"
                       >
                         <Trash2 className="h-4 w-4 sm:hidden" />
-                        <span className="hidden sm:inline">Remove</span>
+                        <span className="hidden sm:inline">{t('Remove')}</span>
                       </button>
                     )}
                   </div>
                 </div>
 
-                <FormField label="Product" required error={errors.items?.[index]?.product?.message}>
+                <FormField label={t('Product')} required error={errors.items?.[index]?.product?.message}>
                   <Controller
                     name={`items.${index}.product`}
                     control={control}
-                    rules={{ required: 'Product is required' }}
+                    rules={{ required: t('Product is required') }}
                     render={({ field: f }) => (
                       <ProductSearchSelect
                         value={f.value}
@@ -246,12 +249,12 @@ const StockIn = () => {
 
                 {/* Qty + rate stay side by side on phones too: both are short numbers. */}
                 <div className="grid grid-cols-2 gap-3 sm:gap-4">
-                  <FormField label="Quantity" required error={errors.items?.[index]?.quantity?.message}>
+                  <FormField label={t('Quantity')} required error={errors.items?.[index]?.quantity?.message}>
                     <div className="relative">
                       <input
                         {...register(`items.${index}.quantity`, {
-                          required: 'Required',
-                          min: { value: 0.001, message: 'Must be > 0' },
+                          required: t('Required'),
+                          min: { value: 0.001, message: t('Must be > 0') },
                         })}
                         type="number"
                         step="0.001"
@@ -266,9 +269,9 @@ const StockIn = () => {
                       )}
                     </div>
                   </FormField>
-                  <FormField label="Rate (₹)" hint="Per unit" error={errors.items?.[index]?.rate?.message}>
+                  <FormField label={t('Rate (₹)')} hint={t('Per unit')} error={errors.items?.[index]?.rate?.message}>
                     <input
-                      {...register(`items.${index}.rate`, { min: { value: 0, message: 'Cannot be negative' } })}
+                      {...register(`items.${index}.rate`, { min: { value: 0, message: t('Cannot be negative') } })}
                       type="number"
                       step="0.01"
                       inputMode="decimal"
@@ -278,11 +281,11 @@ const StockIn = () => {
                   </FormField>
                 </div>
 
-                <FormField label="Batch Reference" hint="Optional">
+                <FormField label={t('Batch Reference')} hint={t('Optional')}>
                   <input
                     {...register(`items.${index}.batchRef`)}
                     className="input font-mono"
-                    placeholder="e.g. LOT-2026-001"
+                    placeholder={t('e.g. {example}', { example: 'LOT-2026-001' })}
                   />
                 </FormField>
 
@@ -292,13 +295,13 @@ const StockIn = () => {
                     {...register(`items.${index}.hasExpiry`)}
                     className="h-5 w-5 rounded sm:h-4 sm:w-4"
                   />
-                  This batch has an expiry date
+                  {t('This batch has an expiry date')}
                 </label>
 
                 {item.hasExpiry && (
                   <FormRow cols={2}>
-                    <DatePickerField name={`items.${index}.expiryDate`} control={control} label="Expiry Date" required allowFuture />
-                    <DatePickerField name={`items.${index}.manufacturingDate`} control={control} label="Manufacturing Date" />
+                    <DatePickerField name={`items.${index}.expiryDate`} control={control} label={t('Expiry Date')} required allowFuture />
+                    <DatePickerField name={`items.${index}.manufacturingDate`} control={control} label={t('Manufacturing Date')} />
                   </FormRow>
                 )}
               </div>
@@ -310,13 +313,13 @@ const StockIn = () => {
             onClick={() => append(defaultItem())}
             className="flex w-full items-center justify-center gap-1.5 border-2 border-dashed border-gray-200 rounded-lg py-3 text-sm font-medium text-gray-500 hover:border-primary-400 hover:text-primary-600 active:bg-gray-50 transition-colors sm:font-normal"
           >
-            <Plus className="h-4 w-4" /> Add another item
+            <Plus className="h-4 w-4" /> {t('Add another item')}
           </button>
         </div>
 
         <div className="card p-4 sm:p-6">
-          <FormField label="Notes">
-            <textarea {...register('notes')} className="input" rows={2} placeholder="Optional remarks…" />
+          <FormField label={t('Notes')}>
+            <textarea {...register('notes')} className="input" rows={2} placeholder={t('Optional remarks…')} />
           </FormField>
         </div>
 
@@ -324,11 +327,12 @@ const StockIn = () => {
           <div className="flex items-start gap-3 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3">
             <AlertTriangle className="h-5 w-5 text-amber-500 shrink-0 mt-0.5" />
             <div className="text-sm">
-              <p className="font-semibold text-amber-800">Possible duplicate invoice</p>
+              <p className="font-semibold text-amber-800">{t('Possible duplicate invoice')}</p>
               <p className="text-amber-700 text-xs mt-0.5">
-                Invoice <span className="font-mono font-bold">{invoiceWatch}</span> from this supplier
-                was already recorded in <span className="font-mono">{dupCheck.existing.transactionNumber}</span>.
-                Proceed only if this is a separate delivery.
+                {rich(t('Invoice {invoice} from this supplier was already recorded in {txn}. Proceed only if this is a separate delivery.'), {
+                  invoice: <span className="font-mono font-bold">{invoiceWatch}</span>,
+                  txn: <span className="font-mono">{dupCheck.existing.transactionNumber}</span>,
+                })}
               </p>
             </div>
           </div>
@@ -338,13 +342,13 @@ const StockIn = () => {
           {/* Phones: running total next to Save, since the item list can be long. */}
           <div className="flex flex-col justify-center leading-tight sm:hidden">
             <span className="text-[11px] uppercase tracking-wide text-gray-400">
-              {fields.length} item{fields.length !== 1 ? 's' : ''}
+              {t(fields.length !== 1 ? '{n} items' : '{n} item', { n: fields.length })}
             </span>
             <span className="text-base font-bold text-gray-900">{fmtTotal(grandTotal)}</span>
           </div>
-          <button type="button" onClick={() => navigate(-1)} className="btn-secondary hidden sm:inline-flex">Cancel</button>
+          <button type="button" onClick={() => navigate(-1)} className="btn-secondary hidden sm:inline-flex">{t('Cancel')}</button>
           <button type="submit" disabled={mutation.isPending} className="btn-primary">
-            {mutation.isPending ? 'Saving...' : 'Record Stock In'}
+            {mutation.isPending ? t('Saving...') : t('Record Stock In')}
           </button>
         </StickyActionBar>
       </form>

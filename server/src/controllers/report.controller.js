@@ -24,8 +24,9 @@ import Department from '../models/Department.js';
 import asyncHandler from '../utils/asyncHandler.js';
 import ApiError from '../utils/ApiError.js';
 import ApiResponse from '../utils/ApiResponse.js';
+import { localDateStr } from '../utils/dates.js';
 
-function today() { return new Date().toISOString().split('T')[0]; }
+function today() { return localDateStr(); }
 
 async function resolveParams(query) {
   const { date, department: departmentId } = query;

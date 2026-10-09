@@ -154,6 +154,70 @@ sudo crontab -e
 
 ---
 
+## 9a. Uploaded files (expense receipts)
+
+Receipts are stored in `server/uploads/` **on the host** (bind-mounted into the server container),
+so rebuilding the container no longer deletes them, and the nightly backup (§10) copies them.
+
+> **One-time, when first deploying this change:** older deployments kept receipts *inside* the
+> container, and `docker compose up --build` would delete them. Copy them out **before** rebuilding:
+>
+> ```bash
+> docker cp mgm_server:/app/uploads/. server/uploads/   # run while the old container still exists
+> docker compose up -d --build
+> ```
+
+Android app updates are published the same way, in `mobile-releases/` on the host — see MOBILE.md.
+
+---
+
+## 10. Nightly database backups
+
+The free Atlas tier (M0) keeps **no backups**. `backup-db.sh` dumps the whole database
+(using `MONGO_URI` from `server/.env`) to a compressed archive on this VM every night, keeps the
+last **14 daily + 8 weekly (Sunday)** copies in `/var/backups/mgm/`, and never replaces a good
+archive with a failed or empty one. `mongodump` runs inside the official `mongo` Docker image,
+so nothing needs installing on the host.
+
+**Set up (once):**
+
+```bash
+cd /root/mangal-gruh-mandir          # adjust to where the repo is cloned
+git pull
+chmod +x backup-db.sh restore-db.sh
+./backup-db.sh                       # first run pulls the mongo image (~1 min) and makes a backup
+ls -lh /var/backups/mgm/daily/
+./restore-db.sh verify /var/backups/mgm/daily/<file>.archive.gz   # proves it restores; prints counts
+```
+
+**Schedule it** — `crontab -e` and add (server clock in UTC → 20:00 UTC = 1:30 AM India time;
+check with `date`, and use `30 1 * * *` instead if the server is set to IST):
+
+```
+0 20 * * * cd /root/mangal-gruh-mandir && ./backup-db.sh >> /var/log/mgm-backup.log 2>&1
+```
+
+**Get told when it fails (recommended):** create a free check at [healthchecks.io](https://healthchecks.io)
+(period 1 day, grace 2 hours), and put its ping URL in the repo-root `.env`:
+`HEALTHCHECK_URL=https://hc-ping.com/<uuid>`. You get an email if a night's backup fails or doesn't run.
+
+**Off-site copy (optional):** the archives live on this VM, separate from Atlas. To also survive
+losing the VM, install [rclone](https://rclone.org/install/), run `rclone config` to add e.g. a Google
+Drive remote, and set `RCLONE_REMOTE=gdrive:mgm-backups` in `.env`. Copies older than 90 days are pruned.
+
+**Restore:**
+
+```bash
+./restore-db.sh verify <archive>     # safe — restores into a temporary container and prints counts
+./backup-db.sh                       # take a fresh backup of the current state first
+./restore-db.sh live <archive>       # DANGER — replaces the live database; asks you to type its name
+docker compose restart server
+```
+
+Do a `verify` every month or two — an untested backup isn't a backup.
+
+---
+
 ## Operations cheatsheet
 
 ```bash
@@ -162,14 +226,20 @@ docker compose restart server        # restart after env change
 docker compose pull && docker compose up -d --build   # deploy new code (after git pull)
 ```
 
-**Backups:** Atlas handles backups on paid tiers (M0 free has none). To dump manually:
+**Backups:** see section 10 — `./backup-db.sh` (manual run), `./restore-db.sh verify|live <archive>`.
 
-```bash
-docker compose exec server npx --yes mongodb-tools >/dev/null 2>&1 || true
-# or run mongodump locally against the Atlas URI
-```
+**App crashes:** the website, desktop and mobile apps report crashes to the server automatically.
+See them under **Admin → App Errors** (grouped, with a count, the screen, app version and user).
+
+**Time zone:** the server runs on India time (`TZ=Asia/Kolkata`), so "today", daily reports and the
+9:00 / 9:30 alerts and the 8:30 push summary follow the IST calendar.
 
 ## Notes
+- **nginx config is edited in place by `init-letsencrypt.sh`** (it replaces `yourdomain.com` in
+  `nginx/conf.d/app.conf`). That makes the server's copy differ from git, so any future change to
+  `app.conf` in the repo will block `git pull` there. Before pulling such a change, run
+  `git checkout -- nginx/conf.d/app.conf` on the server, pull, then re-apply the domain with
+  `sed -i "s/yourdomain.com/mandir.aumora.io/g" nginx/conf.d/app.conf` and `docker compose restart nginx`.
 - MongoDB runs on **Atlas**, not in Docker — there is no `mongodb` container or `mongo_data` volume.
 - The client calls the API at the relative path `/api`, proxied by nginx to `server:5000` — no build-time API URL needed.
 - Only **nginx** exposes public ports (80/443); server and client are reachable only on the internal `mgm_net` network.

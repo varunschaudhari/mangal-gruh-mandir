@@ -9,6 +9,8 @@ import { PageLoader } from '../../components/ui/Spinner.jsx';
 import { exportToExcel } from '../../utils/exportToExcel.js';
 import { shareText } from '../../utils/fileSaver.js';
 import { isNative } from '../../utils/platform.js';
+import { localDateStr } from '../../utils/formatters.js';
+import { useT } from '../../i18n/index.jsx';
 
 // Header action rows: phones get equal-width, thumb-sized buttons on one line.
 const ACTION_ROW = 'flex flex-wrap justify-end gap-2 max-sm:[&>*]:flex-1';
@@ -19,7 +21,7 @@ const ACTION_BTN = 'btn btn-ghost border text-sm flex items-center gap-1.5 max-s
 const fmt    = (d) => d ? new Date(d + 'T00:00:00').toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', weekday: 'short' }) : '—';
 const pct    = (n, d) => d > 0 ? `${Math.round((n / d) * 100)}%` : '—';
 const fmtRs  = (n) => `₹${Number(n || 0).toLocaleString('en-IN')}`;
-function isoDate(d) { return d.toISOString().split('T')[0]; }
+function isoDate(d) { return localDateStr(d); }
 
 const fmtMonth = (ym) => {
   const [y, m] = ym.split('-');
@@ -34,6 +36,7 @@ const SHORTCUTS = [
 ];
 
 function DateRangeFilter({ from, to, setFrom, setTo, onApply, active, setActive, shortcuts = true }) {
+  const t = useT();
   return (
     <div className="card p-3 sm:p-4 space-y-3">
       {shortcuts && (
@@ -41,7 +44,7 @@ function DateRangeFilter({ from, to, setFrom, setTo, onApply, active, setActive,
           {SHORTCUTS.map(({ label, range }) => (
             <button key={label} onClick={() => { const r = range(); setFrom(r.from); setTo(r.to); onApply(r); setActive(label); }}
               className={`px-3 py-1 max-sm:py-2 rounded-full text-xs font-medium border transition-all ${active === label ? 'bg-primary-600 text-white border-primary-600' : 'border-gray-200 text-gray-500 hover:border-gray-400'}`}>
-              {label}
+              {t(label)}
             </button>
           ))}
         </div>
@@ -49,24 +52,25 @@ function DateRangeFilter({ from, to, setFrom, setTo, onApply, active, setActive,
       {/* Phones: From | To side by side, Generate full width underneath */}
       <div className="grid grid-cols-2 gap-3 sm:flex sm:flex-wrap sm:items-end">
         <div className="min-w-0">
-          <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">From</label>
+          <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">{t('From')}</label>
           <input type="date" value={from} onChange={(e) => { setFrom(e.target.value); setActive?.(''); }} className="input text-sm" />
         </div>
         <div className="min-w-0">
-          <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">To</label>
+          <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">{t('To')}</label>
           <input type="date" value={to} onChange={(e) => { setTo(e.target.value); setActive?.(''); }} className="input text-sm" />
         </div>
-        <button onClick={() => onApply({ from, to })} className="btn-primary text-sm col-span-2">Generate</button>
+        <button onClick={() => onApply({ from, to })} className="btn-primary text-sm col-span-2">{t('Generate')}</button>
       </div>
     </div>
   );
 }
 
 function EmptyState() {
+  const t = useT();
   return (
     <div className="card p-10 text-center">
       <BarChart2 className="h-10 w-10 text-gray-300 mx-auto mb-3" />
-      <p className="text-gray-500 font-medium">No data for selected period</p>
+      <p className="text-gray-500 font-medium">{t('No data for selected period')}</p>
     </div>
   );
 }
@@ -74,6 +78,7 @@ function EmptyState() {
 // ── Tab 1: Daily ──────────────────────────────────────────────────────────────
 
 function DailyTab() {
+  const t = useT();
   const def = (() => { const to = new Date(); const from = new Date(); from.setDate(from.getDate() - 29); return { from: isoDate(from), to: isoDate(to) }; })();
   const [from,       setFrom]      = useState(def.from);
   const [to,         setTo]        = useState(def.to);
@@ -111,10 +116,10 @@ function DailyTab() {
       if (isNative) { await shareText(text); return; }
       await navigator.clipboard.writeText(text);
       setWaCopied(true);
-      toast.success('Copied — paste in any WhatsApp chat');
+      toast.success(t('Copied — paste in any WhatsApp chat'));
       setTimeout(() => setWaCopied(false), 3000);
     } catch {
-      toast.error('Failed to generate WhatsApp summary');
+      toast.error(t('Failed to generate WhatsApp summary'));
     } finally {
       setWaLoading(false);
     }
@@ -124,7 +129,7 @@ function DailyTab() {
     <div className="space-y-4">
       <div className={ACTION_ROW}>
         <button onClick={refetch} disabled={isFetching} className={ACTION_BTN}>
-          <RefreshCw className={`h-4 w-4 ${isFetching ? 'animate-spin' : ''}`} /> Refresh
+          <RefreshCw className={`h-4 w-4 ${isFetching ? 'animate-spin' : ''}`} /> {t('Refresh')}
         </button>
         <button onClick={handleWhatsApp} disabled={waLoading}
           className={`${ACTION_BTN} disabled:opacity-50 transition-colors ${
@@ -133,13 +138,13 @@ function DailyTab() {
               : 'text-green-700 border-green-200 hover:bg-green-50'
           }`}>
           <MessageCircle className="h-4 w-4 shrink-0" />
-          {waLoading ? 'Loading…' : waCopied ? 'Copied!' : (
+          {waLoading ? t('Loading…') : waCopied ? t('Copied!') : (
             <>
-              <span className="sm:hidden">{isNative ? 'Share' : 'WhatsApp'}</span>
+              <span className="sm:hidden">{isNative ? t('Share') : 'WhatsApp'}</span>
               <span className="hidden sm:inline">
                 {isNative
-                  ? (from === to ? 'Share Summary' : "Share Today's Summary")
-                  : (from === to ? 'Copy for WhatsApp' : "Copy Today's Summary")}
+                  ? (from === to ? t('Share Summary') : t("Share Today's Summary"))
+                  : (from === to ? t('Copy for WhatsApp') : t("Copy Today's Summary"))}
               </span>
             </>
           )}
@@ -165,7 +170,7 @@ function DailyTab() {
             { label: 'Collected',    value: fmtRs(totals.collected),                            color: 'border-primary-400 text-primary-600' },
           ].map(({ label, value, color }) => (
             <div key={label} className={`card px-4 py-3 border-l-4 ${color}`}>
-              <p className="text-xs text-gray-500">{label}</p>
+              <p className="text-xs text-gray-500">{t(label)}</p>
               <p className={`text-xl font-black ${color.split(' ')[1]}`}>{value ?? 0}</p>
             </div>
           ))}
@@ -175,7 +180,7 @@ function DailyTab() {
       {!isLoading && res.occasionBreakdown?.length > 0 && (
         <div className="card overflow-hidden">
           <div className="px-4 sm:px-5 py-3 border-b bg-purple-50">
-            <p className="text-sm font-semibold text-purple-800">Free Coupons by Occasion</p>
+            <p className="text-sm font-semibold text-purple-800">{t('Free Coupons by Occasion')}</p>
           </div>
           {/* Phones: compact list */}
           <div className="divide-y divide-gray-50 md:hidden">
@@ -183,8 +188,8 @@ function DailyTab() {
               <div key={o._id} className="flex items-center justify-between gap-3 px-4 py-2.5 text-sm">
                 <span className="min-w-0 font-medium text-gray-800 break-words">{o._id}</span>
                 <span className="shrink-0 text-right text-xs text-gray-500">
-                  <span className="font-bold text-purple-700 text-sm">{o.count}</span> issued
-                  <span className="block"><span className="text-green-700">{o.redeemed}</span> redeemed · {pct(o.redeemed, o.count)}</span>
+                  <span className="font-bold text-purple-700 text-sm">{o.count}</span> {t('issued')}
+                  <span className="block"><span className="text-green-700">{o.redeemed}</span> {t('redeemed')} · {pct(o.redeemed, o.count)}</span>
                 </span>
               </div>
             ))}
@@ -192,10 +197,10 @@ function DailyTab() {
           <div className="hidden md:block overflow-x-auto">
             <table className="min-w-full">
               <thead><tr className="bg-gray-50 border-b">
-                <th className="table-th">Occasion</th>
-                <th className="table-th text-right">Issued</th>
-                <th className="table-th text-right">Redeemed</th>
-                <th className="table-th text-right">Redemption %</th>
+                <th className="table-th">{t('Occasion')}</th>
+                <th className="table-th text-right">{t('Issued')}</th>
+                <th className="table-th text-right">{t('Redeemed')}</th>
+                <th className="table-th text-right">{t('Redemption %')}</th>
               </tr></thead>
               <tbody className="divide-y divide-gray-50">
                 {res.occasionBreakdown.map((o) => (
@@ -224,10 +229,10 @@ function DailyTab() {
                 title={fmt(r._id)}
                 aside={<span className="font-semibold text-primary-700">{fmtRs(r.collected)}</span>}
                 fields={[
-                  { label: 'Issued',   value: <span className="font-bold text-gray-800">{r.total}</span> },
-                  { label: 'Redeemed', value: <span className="text-green-700">{r.redeemed} <span className="text-gray-400">({pct(r.redeemed, r.total)})</span></span> },
-                  { label: 'Pending',  value: <span className={pending > 0 ? 'text-yellow-600' : 'text-gray-400'}>{pending}</span> },
-                  { label: 'Paid / Free', value: <><span className="text-blue-700">{r.paid}</span> / <span className="text-purple-700">{r.free}</span></> },
+                  { label: t('Issued'),   value: <span className="font-bold text-gray-800">{r.total}</span> },
+                  { label: t('Redeemed'), value: <span className="text-green-700">{r.redeemed} <span className="text-gray-400">({pct(r.redeemed, r.total)})</span></span> },
+                  { label: t('Pending'),  value: <span className={pending > 0 ? 'text-yellow-600' : 'text-gray-400'}>{pending}</span> },
+                  { label: t('Paid / Free'), value: <><span className="text-blue-700">{r.paid}</span> / <span className="text-purple-700">{r.free}</span></> },
                 ]}
               />
             );
@@ -237,14 +242,14 @@ function DailyTab() {
           <div className="overflow-x-auto">
             <table className="min-w-full">
               <thead><tr className="bg-gray-50 border-b">
-                <th className="table-th">Date</th>
-                <th className="table-th text-right">Issued</th>
-                <th className="table-th text-right">Redeemed</th>
-                <th className="table-th text-right">Redemption %</th>
-                <th className="table-th text-right">Pending</th>
-                <th className="table-th text-right">Paid</th>
-                <th className="table-th text-right">Free</th>
-                <th className="table-th text-right">Collected</th>
+                <th className="table-th">{t('Date')}</th>
+                <th className="table-th text-right">{t('Issued')}</th>
+                <th className="table-th text-right">{t('Redeemed')}</th>
+                <th className="table-th text-right">{t('Redemption %')}</th>
+                <th className="table-th text-right">{t('Pending')}</th>
+                <th className="table-th text-right">{t('Paid|coupon')}</th>
+                <th className="table-th text-right">{t('Free')}</th>
+                <th className="table-th text-right">{t('Collected')}</th>
               </tr></thead>
               <tbody className="divide-y divide-gray-50">
                 {rows.map((r) => {
@@ -263,7 +268,7 @@ function DailyTab() {
                   );
                 })}
                 <tr className="bg-orange-50 font-bold border-t-2 border-orange-200">
-                  <td className="table-td text-gray-700">Totals</td>
+                  <td className="table-td text-gray-700">{t('Totals')}</td>
                   <td className="table-td text-right text-gray-800">{totals.total}</td>
                   <td className="table-td text-right text-green-700">{totals.redeemed}</td>
                   <td className="table-td text-right text-gray-500">{pct(totals.redeemed, totals.total)}</td>
@@ -285,6 +290,7 @@ function DailyTab() {
 // ── Tab 2: Monthly ────────────────────────────────────────────────────────────
 
 function MonthlyTab() {
+  const t = useT();
   const now = new Date();
   const def = { from: isoDate(new Date(now.getFullYear(), 0, 1)), to: isoDate(now) };
   const [from,   setFrom]   = useState(def.from);
@@ -312,7 +318,7 @@ function MonthlyTab() {
     <div className="space-y-4">
       <div className={ACTION_ROW}>
         <button onClick={refetch} disabled={isFetching} className={ACTION_BTN}>
-          <RefreshCw className={`h-4 w-4 ${isFetching ? 'animate-spin' : ''}`} /> Refresh
+          <RefreshCw className={`h-4 w-4 ${isFetching ? 'animate-spin' : ''}`} /> {t('Refresh')}
         </button>
         {rows.length > 0 && (
           <button onClick={handleExport} className={ACTION_BTN}>
@@ -334,7 +340,7 @@ function MonthlyTab() {
             { label: 'Collected',    value: fmtRs(totals.collected), color: 'border-primary-400 text-primary-600' },
           ].map(({ label, value, color }) => (
             <div key={label} className={`card px-4 py-3 border-l-4 ${color}`}>
-              <p className="text-xs text-gray-500">{label}</p>
+              <p className="text-xs text-gray-500">{t(label)}</p>
               <p className={`text-xl font-black ${color.split(' ')[1]}`}>{value ?? 0}</p>
             </div>
           ))}
@@ -353,17 +359,17 @@ function MonthlyTab() {
                 aside={<span className="font-semibold text-primary-700">{fmtRs(r.collected)}</span>}
                 fields={[
                   {
-                    label: 'Volume', full: true,
+                    label: t('Volume'), full: true,
                     value: (
                       <div className="mt-1 h-2 bg-gray-100 rounded-full overflow-hidden">
                         <div className="h-full bg-orange-400 rounded-full" style={{ width: `${Math.round((r.total / maxTotal) * 100)}%` }} />
                       </div>
                     ),
                   },
-                  { label: 'Issued',   value: <span className="font-bold text-gray-800">{r.total}</span> },
-                  { label: 'Redeemed', value: <span className="text-green-700">{r.redeemed} <span className="text-gray-400">({pct(r.redeemed, r.total)})</span></span> },
-                  { label: 'Pending',  value: <span className={pending > 0 ? 'text-yellow-600' : 'text-gray-400'}>{pending}</span> },
-                  { label: 'Paid / Free', value: <><span className="text-blue-700">{r.paid}</span> / <span className="text-purple-700">{r.free}</span></> },
+                  { label: t('Issued'),   value: <span className="font-bold text-gray-800">{r.total}</span> },
+                  { label: t('Redeemed'), value: <span className="text-green-700">{r.redeemed} <span className="text-gray-400">({pct(r.redeemed, r.total)})</span></span> },
+                  { label: t('Pending'),  value: <span className={pending > 0 ? 'text-yellow-600' : 'text-gray-400'}>{pending}</span> },
+                  { label: t('Paid / Free'), value: <><span className="text-blue-700">{r.paid}</span> / <span className="text-purple-700">{r.free}</span></> },
                 ]}
               />
             );
@@ -373,15 +379,15 @@ function MonthlyTab() {
           <div className="overflow-x-auto">
             <table className="min-w-full">
               <thead><tr className="bg-gray-50 border-b">
-                <th className="table-th">Month</th>
-                <th className="table-th">Volume</th>
-                <th className="table-th text-right">Issued</th>
-                <th className="table-th text-right">Redeemed</th>
-                <th className="table-th text-right">Redemption %</th>
-                <th className="table-th text-right">Pending</th>
-                <th className="table-th text-right">Paid</th>
-                <th className="table-th text-right">Free</th>
-                <th className="table-th text-right">Collected</th>
+                <th className="table-th">{t('Month')}</th>
+                <th className="table-th">{t('Volume')}</th>
+                <th className="table-th text-right">{t('Issued')}</th>
+                <th className="table-th text-right">{t('Redeemed')}</th>
+                <th className="table-th text-right">{t('Redemption %')}</th>
+                <th className="table-th text-right">{t('Pending')}</th>
+                <th className="table-th text-right">{t('Paid|coupon')}</th>
+                <th className="table-th text-right">{t('Free')}</th>
+                <th className="table-th text-right">{t('Collected')}</th>
               </tr></thead>
               <tbody className="divide-y divide-gray-50">
                 {rows.map((r) => {
@@ -407,7 +413,7 @@ function MonthlyTab() {
                   );
                 })}
                 <tr className="bg-orange-50 font-bold border-t-2 border-orange-200">
-                  <td className="table-td text-gray-700">Totals</td>
+                  <td className="table-td text-gray-700">{t('Totals')}</td>
                   <td className="table-td" />
                   <td className="table-td text-right text-gray-800">{totals.total}</td>
                   <td className="table-td text-right text-green-700">{totals.redeemed}</td>
@@ -430,6 +436,7 @@ function MonthlyTab() {
 // ── Tab 3: Staff ──────────────────────────────────────────────────────────────
 
 function StaffTab() {
+  const t = useT();
   const now = new Date();
   const def = { from: isoDate(new Date(now.getFullYear(), now.getMonth(), 1)), to: isoDate(now) };
   const [from,   setFrom]   = useState(def.from);
@@ -457,7 +464,7 @@ function StaffTab() {
     <div className="space-y-4">
       <div className={ACTION_ROW}>
         <button onClick={refetch} disabled={isFetching} className={ACTION_BTN}>
-          <RefreshCw className={`h-4 w-4 ${isFetching ? 'animate-spin' : ''}`} /> Refresh
+          <RefreshCw className={`h-4 w-4 ${isFetching ? 'animate-spin' : ''}`} /> {t('Refresh')}
         </button>
         {rows.length > 0 && (
           <button onClick={handleExport} className={ACTION_BTN}>
@@ -472,16 +479,16 @@ function StaffTab() {
       {isLoading ? <PageLoader /> : rows.length === 0 ? <EmptyState /> : (
         <>
         <div className="space-y-2.5 md:hidden">
-          {[...rows, { userId: '__totals', name: 'Totals', ...totals }].map((r) => (
+          {[...rows, { userId: '__totals', name: t('Totals'), ...totals }].map((r) => (
             <MobileCard
               key={r.userId}
               className={r.userId === '__totals' ? 'bg-gray-50 border-gray-200' : ''}
               title={<span className={r.userId === '__totals' ? 'font-bold' : ''}>{r.name}</span>}
               aside={<span className="font-semibold text-primary-700">{fmtRs(r.collected)}</span>}
               fields={[
-                { label: 'Issued',    value: <span className="font-bold text-orange-700">{r.issued}</span> },
-                { label: 'Free Seva', value: <span className="text-purple-700">{r.freeSeva}</span> },
-                { label: 'Redeemed',  value: <span className="text-green-700">{r.redeemed}</span> },
+                { label: t('Issued'),    value: <span className="font-bold text-orange-700">{r.issued}</span> },
+                { label: t('Free Seva'), value: <span className="text-purple-700">{r.freeSeva}</span> },
+                { label: t('Redeemed'),  value: <span className="text-green-700">{r.redeemed}</span> },
               ]}
             />
           ))}
@@ -490,11 +497,11 @@ function StaffTab() {
           <div className="overflow-x-auto">
             <table className="min-w-full">
               <thead><tr className="bg-gray-50 border-b">
-                <th className="table-th">Staff</th>
-                <th className="table-th text-right">Coupons Issued</th>
-                <th className="table-th text-right">Free Seva Issued</th>
-                <th className="table-th text-right">Coupons Redeemed</th>
-                <th className="table-th text-right">Amount Collected</th>
+                <th className="table-th">{t('Staff')}</th>
+                <th className="table-th text-right">{t('Coupons Issued')}</th>
+                <th className="table-th text-right">{t('Free Seva Issued')}</th>
+                <th className="table-th text-right">{t('Coupons Redeemed')}</th>
+                <th className="table-th text-right">{t('Amount Collected')}</th>
               </tr></thead>
               <tbody className="divide-y divide-gray-50">
                 {rows.map((r) => (
@@ -509,7 +516,7 @@ function StaffTab() {
                   </tr>
                 ))}
                 <tr className="bg-gray-50 font-bold border-t-2 border-gray-200">
-                  <td className="table-td text-gray-700">Totals</td>
+                  <td className="table-td text-gray-700">{t('Totals')}</td>
                   <td className="table-td text-right text-orange-700">{totals.issued}</td>
                   <td className="table-td text-right text-purple-700">{totals.freeSeva}</td>
                   <td className="table-td text-right text-green-700">{totals.redeemed}</td>
@@ -528,6 +535,7 @@ function StaffTab() {
 // ── Tab 4: Wastage ────────────────────────────────────────────────────────────
 
 function WastageTab() {
+  const t = useT();
   const [from,   setFrom]   = useState('');
   const [params, setParams] = useState({});
 
@@ -553,7 +561,7 @@ function WastageTab() {
     <div className="space-y-4">
       <div className={ACTION_ROW}>
         <button onClick={refetch} disabled={isFetching} className={ACTION_BTN}>
-          <RefreshCw className={`h-4 w-4 ${isFetching ? 'animate-spin' : ''}`} /> Refresh
+          <RefreshCw className={`h-4 w-4 ${isFetching ? 'animate-spin' : ''}`} /> {t('Refresh')}
         </button>
         {rows.length > 0 && (
           <button onClick={handleExport} className={ACTION_BTN}>
@@ -566,17 +574,17 @@ function WastageTab() {
       <div className="card p-3 sm:p-4 space-y-2">
         <div className="flex flex-wrap items-end gap-3">
           <div className="max-sm:w-full">
-            <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">From date (optional)</label>
+            <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">{t('From date (optional)')}</label>
             <input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className="input text-sm" />
           </div>
-          <button onClick={() => setParams(from ? { from } : {})} className="btn-primary text-sm max-sm:flex-1">Refresh</button>
-          {from && <button onClick={() => { setFrom(''); setParams({}); }} className="btn-secondary text-sm max-sm:flex-1">Clear</button>}
+          <button onClick={() => setParams(from ? { from } : {})} className="btn-primary text-sm max-sm:flex-1">{t('Refresh')}</button>
+          {from && <button onClick={() => { setFrom(''); setParams({}); }} className="btn-secondary text-sm max-sm:flex-1">{t('Clear')}</button>}
         </div>
         {validityDays !== undefined && (
           <p className="text-xs text-gray-400">
             {validityDays === 0
-              ? 'Coupon expiry is disabled — no coupons can expire'
-              : `Showing coupons issued more than ${validityDays} day${validityDays > 1 ? 's' : ''} ago that were never redeemed`}
+              ? t('Coupon expiry is disabled — no coupons can expire')
+              : t(validityDays > 1 ? 'Showing coupons issued more than {n} days ago that were never redeemed' : 'Showing coupons issued more than {n} day ago that were never redeemed', { n: validityDays })}
           </p>
         )}
       </div>
@@ -584,8 +592,8 @@ function WastageTab() {
       {validityDays === 0 ? (
         <div className="card p-8 text-center">
           <AlertTriangle className="h-10 w-10 text-gray-300 mx-auto mb-3" />
-          <p className="text-gray-500 font-medium">Coupon expiry is disabled</p>
-          <p className="text-sm text-gray-400 mt-1">Set "Coupon Validity (days)" in Settings to a value &gt; 0 to track expiry.</p>
+          <p className="text-gray-500 font-medium">{t('Coupon expiry is disabled')}</p>
+          <p className="text-sm text-gray-400 mt-1">{t('Set "Coupon Validity (days)" in Settings to a value > 0 to track expiry.')}</p>
         </div>
       ) : (
         <>
@@ -598,7 +606,7 @@ function WastageTab() {
                 { label: 'Amount Lost',    value: fmtRs(totals.wasted),   color: 'border-gray-400 text-gray-700'   },
               ].map(({ label, value, color }) => (
                 <div key={label} className={`card px-4 py-3 border-l-4 ${color}`}>
-                  <p className="text-xs text-gray-500">{label}</p>
+                  <p className="text-xs text-gray-500">{t(label)}</p>
                   <p className={`text-xl font-black ${color.split(' ')[1]}`}>{value ?? 0}</p>
                 </div>
               ))}
@@ -608,8 +616,8 @@ function WastageTab() {
           {isLoading ? <PageLoader /> : rows.length === 0 ? (
             <div className="card p-8 text-center">
               <AlertTriangle className="h-10 w-10 text-green-300 mx-auto mb-3" />
-              <p className="text-green-600 font-medium">No expired coupons found</p>
-              <p className="text-sm text-gray-400 mt-1">All issued coupons have been redeemed.</p>
+              <p className="text-green-600 font-medium">{t('No expired coupons found')}</p>
+              <p className="text-sm text-gray-400 mt-1">{t('All issued coupons have been redeemed.')}</p>
             </div>
           ) : (
             <>
@@ -620,8 +628,8 @@ function WastageTab() {
                   title={fmt(r._id)}
                   aside={<span className="font-semibold text-gray-700">{r.wasted > 0 ? fmtRs(r.wasted) : '—'}</span>}
                   fields={[
-                    { label: 'Expired', value: <span className="font-bold text-red-700">{r.count}</span> },
-                    { label: 'Paid / Free', value: <><span className="text-orange-700">{r.paid}</span> / <span className="text-purple-700">{r.free}</span></> },
+                    { label: t('Expired'), value: <span className="font-bold text-red-700">{r.count}</span> },
+                    { label: t('Paid / Free'), value: <><span className="text-orange-700">{r.paid}</span> / <span className="text-purple-700">{r.free}</span></> },
                   ]}
                 />
               ))}
@@ -630,11 +638,11 @@ function WastageTab() {
               <div className="overflow-x-auto">
                 <table className="min-w-full">
                   <thead><tr className="bg-gray-50 border-b">
-                    <th className="table-th">Date</th>
-                    <th className="table-th text-right">Expired (Total)</th>
-                    <th className="table-th text-right">Paid</th>
-                    <th className="table-th text-right">Free</th>
-                    <th className="table-th text-right">Amount Lost</th>
+                    <th className="table-th">{t('Date')}</th>
+                    <th className="table-th text-right">{t('Expired (Total)')}</th>
+                    <th className="table-th text-right">{t('Paid|coupon')}</th>
+                    <th className="table-th text-right">{t('Free')}</th>
+                    <th className="table-th text-right">{t('Amount Lost')}</th>
                   </tr></thead>
                   <tbody className="divide-y divide-gray-50">
                     {rows.map((r) => (
@@ -647,7 +655,7 @@ function WastageTab() {
                       </tr>
                     ))}
                     <tr className="bg-red-50 font-bold border-t-2 border-red-200">
-                      <td className="table-td text-gray-700">Totals</td>
+                      <td className="table-td text-gray-700">{t('Totals')}</td>
                       <td className="table-td text-right text-red-700">{totals.count}</td>
                       <td className="table-td text-right text-orange-700">{totals.paid}</td>
                       <td className="table-td text-right text-purple-700">{totals.free}</td>
@@ -675,6 +683,7 @@ const TABS = [
 ];
 
 export default function MahaprasadReport() {
+  const t = useT();
   const [tab, setTab] = useState('daily');
 
   return (
@@ -692,7 +701,7 @@ export default function MahaprasadReport() {
             className={`flex items-center gap-2 py-2 px-4 rounded-lg text-sm font-medium transition-all max-sm:flex-col max-sm:gap-1 max-sm:px-1 max-sm:text-xs ${
               tab === key ? 'bg-primary-600 text-white shadow-sm' : 'text-gray-500 hover:bg-gray-50'
             }`}>
-            <Icon className="h-4 w-4" /> {label}
+            <Icon className="h-4 w-4" /> {t(label)}
           </button>
         ))}
       </div>

@@ -14,6 +14,8 @@ import { useMediaQuery } from '../../hooks/useMediaQuery.js';
 import toast from 'react-hot-toast';
 import { saveFile } from '../../utils/fileSaver.js';
 import haptics from '../../utils/haptics.js';
+import { localDateStr } from '../../utils/formatters.js';
+import { useT, rich } from '../../i18n/index.jsx';
 
 const fmt    = (d)  => d ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
 const fmtTs  = (d)  => d ? new Date(d).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—';
@@ -21,6 +23,7 @@ const fmtAmt = (n)  => n != null ? `₹${Number(n).toLocaleString('en-IN')}` : '
 const STATUS_COLORS = { pending_approval: 'yellow', approved: 'green', rejected: 'red', voided: 'gray' };
 const STATUS_LABELS = { pending_approval: 'Pending Approval', approved: 'Approved', rejected: 'Rejected', voided: 'Voided' };
 const PM_LABELS     = { cash: 'Cash', upi: 'UPI / Online', neft: 'NEFT', rtgs: 'RTGS', cheque: 'Cheque' };
+
 
 const Row = ({ label, children }) => (
   <div className="flex items-start justify-between gap-4 py-2.5 border-b border-gray-50 last:border-0">
@@ -87,6 +90,7 @@ function buildTimeline(payment) {
 }
 
 function ActivityTimeline({ payment }) {
+  const t = useT();
   const events = buildTimeline(payment);
   if (!events.length) return null;
 
@@ -94,7 +98,7 @@ function ActivityTimeline({ payment }) {
     <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
       <div className="px-4 py-3 border-b bg-gray-50 flex items-center gap-2">
         <Clock className="h-4 w-4 text-gray-400" />
-        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Activity Timeline</p>
+        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">{t('Activity Timeline')}</p>
       </div>
       <div className="p-4">
         <ol className="relative space-y-0">
@@ -115,7 +119,7 @@ function ActivityTimeline({ payment }) {
                 {/* Content */}
                 <div className={`flex-1 pb-6 ${isLast ? 'pb-0' : ''}`}>
                   <div className="flex items-baseline gap-2 flex-wrap">
-                    <span className={`text-sm font-semibold ${cfg.text}`}>{cfg.label}</span>
+                    <span className={`text-sm font-semibold ${cfg.text}`}>{t(cfg.label)}</span>
                     {ev.by && (
                       <span className="flex items-center gap-1 text-xs text-gray-500">
                         <UserCircle2 className="h-3 w-3" /> {ev.by}
@@ -141,6 +145,7 @@ function ActivityTimeline({ payment }) {
 }
 
 export default function SupplierPaymentDetail() {
+  const t        = useT();
   const { id }   = useParams();
   const navigate = useNavigate();
   const qc       = useQueryClient();
@@ -165,25 +170,25 @@ export default function SupplierPaymentDetail() {
   const { data, isLoading } = useQuery({ queryKey: ['payment', id], queryFn: () => getPayment(id) });
 
   // No PageHeader here, so name the mobile app bar ourselves.
-  useSetAppBarTitle(data?.data?.data?.paymentNumber || 'Payment');
+  useSetAppBarTitle(data?.data?.data?.paymentNumber || t('Payment'));
 
   const approveMut = useMutation({
     mutationFn: (note) => approvePayment(id, note ? { approvalNote: note } : undefined),
     onSuccess:  () => {
       haptics.success();
-      toast.success('Payment approved');
+      toast.success(t('Payment approved'));
       qc.invalidateQueries({ queryKey: ['payment', id] });
       qc.invalidateQueries({ queryKey: ['payments'] });
       setApproveModal(false);
       setApprovalNote('');
     },
-    onError: (e) => toast.error(e.response?.data?.message || 'Failed'),
+    onError: (e) => toast.error(e.response?.data?.message || t('Failed')),
   });
 
   const rejectMut = useMutation({
     mutationFn: () => rejectPayment(id, { rejectionReason: rejectReason }),
-    onSuccess:  () => { toast.success('Payment rejected'); qc.invalidateQueries({ queryKey: ['payment', id] }); qc.invalidateQueries({ queryKey: ['payments'] }); setRejectModal(false); },
-    onError:    (e) => toast.error(e.response?.data?.message || 'Failed'),
+    onSuccess:  () => { toast.success(t('Payment rejected')); qc.invalidateQueries({ queryKey: ['payment', id] }); qc.invalidateQueries({ queryKey: ['payments'] }); setRejectModal(false); },
+    onError:    (e) => toast.error(e.response?.data?.message || t('Failed')),
   });
 
   const resubmitMut = useMutation({
@@ -194,24 +199,24 @@ export default function SupplierPaymentDetail() {
       notes:           rsNotes || undefined,
     }),
     onSuccess: () => {
-      toast.success('Payment resubmitted for approval');
+      toast.success(t('Payment resubmitted for approval'));
       qc.invalidateQueries({ queryKey: ['payment', id] });
       qc.invalidateQueries({ queryKey: ['payments'] });
       setResubmitModal(false);
     },
-    onError: (e) => toast.error(e.response?.data?.message || 'Failed'),
+    onError: (e) => toast.error(e.response?.data?.message || t('Failed')),
   });
 
   const voidMut = useMutation({
     mutationFn: () => voidPayment(id, { voidReason }),
     onSuccess:  () => {
-      toast.success('Payment voided');
+      toast.success(t('Payment voided'));
       qc.invalidateQueries({ queryKey: ['payment', id] });
       qc.invalidateQueries({ queryKey: ['payments'] });
       setVoidModal(false);
       setVoidReason('');
     },
-    onError: (e) => toast.error(e.response?.data?.message || 'Failed'),
+    onError: (e) => toast.error(e.response?.data?.message || t('Failed')),
   });
 
   const handleDownloadVoucher = async () => {
@@ -219,13 +224,13 @@ export default function SupplierPaymentDetail() {
     try {
       const res = await downloadVoucher(id);
       await saveFile(res.data, `VOUCHER-${payment.paymentNumber}.pdf`);
-    } catch { toast.error('Failed to download voucher'); }
+    } catch { toast.error(t('Failed to download voucher')); }
     finally   { setDownloading(false); }
   };
 
   if (isLoading) return <PageLoader />;
   const payment = data?.data?.data;
-  if (!payment)  return <div className="text-gray-400 p-6">Payment not found.</div>;
+  if (!payment)  return <div className="text-gray-400 p-6">{t('Payment not found.')}</div>;
 
   const canApprove  = can('payments:approve') && user?.canApprovePayments;
   const isPending   = payment.status === 'pending_approval';
@@ -237,7 +242,7 @@ export default function SupplierPaymentDetail() {
   const openReject   = () => { setRejectModal(true); setRejectReason(''); };
   const openVoid     = () => { setVoidReason(''); setVoidModal(true); };
   const openResubmit = () => {
-    setRsDate(new Date(payment.paymentDate).toISOString().split('T')[0]);
+    setRsDate(localDateStr(payment.paymentDate));
     setRsMode(payment.paymentMode);
     setRsRef(payment.referenceNumber || '');
     setRsNotes(payment.notes || '');
@@ -252,7 +257,7 @@ export default function SupplierPaymentDetail() {
       {isDesktop && (
         <button onClick={() => navigate('/payments')}
           className="inline-flex items-center gap-1.5 text-sm text-gray-400 hover:text-gray-700 transition-colors">
-          <ArrowLeft className="h-4 w-4" /> Payments
+          <ArrowLeft className="h-4 w-4" /> {t('Payments')}
         </button>
       )}
 
@@ -260,15 +265,18 @@ export default function SupplierPaymentDetail() {
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div className="min-w-0">
           <div className="flex items-center gap-2.5 mb-1">
-            <Badge variant={STATUS_COLORS[payment.status]}>{STATUS_LABELS[payment.status]}</Badge>
+            <Badge variant={STATUS_COLORS[payment.status]}>{t(STATUS_LABELS[payment.status])}</Badge>
             {/* Below lg the voucher number is already the app bar title */}
             <span className="hidden lg:inline font-mono text-xs text-gray-400">{payment.paymentNumber}</span>
           </div>
           <h1 className="text-lg sm:text-xl font-bold text-gray-900 break-words">
-            Payment to{' '}
-            <Link to={`/masters/suppliers/${payment.supplier?._id}`} className="hover:text-primary-600 transition-colors">
-              {payment.supplier?.name || '—'}
-            </Link>
+            {rich(t('Payment to {supplier}'), {
+              supplier: (
+                <Link to={`/masters/suppliers/${payment.supplier?._id}`} className="hover:text-primary-600 transition-colors">
+                  {payment.supplier?.name || '—'}
+                </Link>
+              ),
+            })}
           </h1>
           <p className="text-sm text-gray-400 mt-0.5">{fmt(payment.paymentDate)}</p>
         </div>
@@ -279,12 +287,12 @@ export default function SupplierPaymentDetail() {
               <button onClick={handleDownloadVoucher} disabled={downloading}
                 className="btn-secondary flex items-center gap-2 text-sm disabled:opacity-50">
                 <Download className="h-4 w-4" />
-                {downloading ? 'Generating…' : 'Voucher PDF'}
+                {downloading ? t('Generating…') : t('Voucher PDF')}
               </button>
               {canApprove && (
                 <button onClick={openVoid}
                   className="btn-secondary flex items-center gap-2 text-sm text-red-500 hover:text-red-600 border-red-200 hover:border-red-300">
-                  <Ban className="h-4 w-4" /> Void
+                  <Ban className="h-4 w-4" /> {t('Void')}
                 </button>
               )}
             </>
@@ -293,7 +301,7 @@ export default function SupplierPaymentDetail() {
             <button
               onClick={openResubmit}
               className="btn-secondary flex items-center gap-2 text-sm border-amber-300 text-amber-700 hover:border-amber-400">
-              <RotateCcw className="h-4 w-4" /> Edit &amp; Resubmit
+              <RotateCcw className="h-4 w-4" /> {t('Edit & Resubmit')}
             </button>
           )}
           {showApproveBar && (
@@ -301,11 +309,11 @@ export default function SupplierPaymentDetail() {
               <button
                 onClick={openApprove}
                 className="btn-primary flex items-center gap-2 text-sm bg-green-600 hover:bg-green-700">
-                <CheckCircle2 className="h-4 w-4" /> Approve
+                <CheckCircle2 className="h-4 w-4" /> {t('Approve')}
               </button>
               <button onClick={openReject}
                 className="btn-danger flex items-center gap-2 text-sm">
-                <XCircle className="h-4 w-4" /> Reject
+                <XCircle className="h-4 w-4" /> {t('Reject')}
               </button>
             </>
           )}
@@ -315,7 +323,7 @@ export default function SupplierPaymentDetail() {
       {/* Amount strip */}
       <div className="bg-white rounded-xl border border-gray-100 px-4 sm:px-6 py-4 text-center">
         <p className="text-3xl font-black text-primary-600">{fmtAmt(payment.totalAmount)}</p>
-        <p className="text-sm text-gray-400 mt-0.5">{PM_LABELS[payment.paymentMode] || payment.paymentMode}</p>
+        <p className="text-sm text-gray-400 mt-0.5">{t(PM_LABELS[payment.paymentMode]) || payment.paymentMode}</p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -323,13 +331,13 @@ export default function SupplierPaymentDetail() {
         <div className="bg-white rounded-xl border border-gray-100 p-4">
           <div className="flex items-center gap-2 mb-3">
             <Building2 className="h-4 w-4 text-gray-400" />
-            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Payment Info</p>
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">{t('Payment Info')}</p>
           </div>
-          <Row label="Mode">{PM_LABELS[payment.paymentMode] || payment.paymentMode}</Row>
-          {payment.referenceNumber && <Row label="Reference No.">{payment.referenceNumber}</Row>}
-          {payment.bankName        && <Row label="Bank">{payment.bankName}</Row>}
-          {payment.notes           && <Row label="Notes">{payment.notes}</Row>}
-          <Row label="Submitted By">{payment.createdBy?.name || '—'}</Row>
+          <Row label={t('Mode')}>{t(PM_LABELS[payment.paymentMode]) || payment.paymentMode}</Row>
+          {payment.referenceNumber && <Row label={t('Reference No.')}>{payment.referenceNumber}</Row>}
+          {payment.bankName        && <Row label={t('Bank')}>{payment.bankName}</Row>}
+          {payment.notes           && <Row label={t('Notes')}>{payment.notes}</Row>}
+          <Row label={t('Submitted By')}>{payment.createdBy?.name || '—'}</Row>
         </div>
 
         {/* Supplier info */}
@@ -337,18 +345,18 @@ export default function SupplierPaymentDetail() {
           <div className="bg-white rounded-xl border border-gray-100 p-4">
             <div className="flex items-center gap-2 mb-3">
               <Building2 className="h-4 w-4 text-gray-400" />
-              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Supplier</p>
+              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">{t('Supplier')}</p>
             </div>
-            <Row label="Name">{payment.supplier.name}</Row>
-            {payment.bankName && <Row label="Paid To">{payment.bankName}</Row>}
+            <Row label={t('Name')}>{payment.supplier.name}</Row>
+            {payment.bankName && <Row label={t('Paid To')}>{payment.bankName}</Row>}
             {!payment.bankName && (() => {
               const acc = payment.supplier.bankAccounts?.find((a) => a.isDefault) || payment.supplier.bankAccounts?.[0];
               if (!acc) return null;
               return (
                 <>
-                  {acc.bankName      && <Row label="Bank">{acc.bankName}</Row>}
-                  {acc.accountNumber && <Row label="Account No.">{acc.accountNumber}</Row>}
-                  {acc.ifscCode      && <Row label="IFSC">{acc.ifscCode}</Row>}
+                  {acc.bankName      && <Row label={t('Bank')}>{acc.bankName}</Row>}
+                  {acc.accountNumber && <Row label={t('Account No.')}>{acc.accountNumber}</Row>}
+                  {acc.ifscCode      && <Row label={t('IFSC')}>{acc.ifscCode}</Row>}
                 </>
               );
             })()}
@@ -360,21 +368,21 @@ export default function SupplierPaymentDetail() {
       {payment.invoices?.length > 0 && (
         <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
           <div className="px-4 py-3 border-b bg-orange-50">
-            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Invoice Allocation</p>
+            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">{t('Invoice Allocation')}</p>
           </div>
           {/* Phones: one line per invoice instead of a 4-column table */}
           <div className="divide-y divide-gray-50 md:hidden">
             {payment.invoices.map((inv, i) => (
               <div key={i} className="flex items-start justify-between gap-3 px-4 py-3">
                 <div className="min-w-0">
-                  <p className="font-mono text-sm text-gray-800 break-all">{inv.invoiceNumber || 'Advance'}</p>
-                  <p className="text-xs text-gray-400">{fmt(inv.invoiceDate)} · of {fmtAmt(inv.invoiceTotal)}</p>
+                  <p className="font-mono text-sm text-gray-800 break-all">{inv.invoiceNumber || t('Advance')}</p>
+                  <p className="text-xs text-gray-400">{fmt(inv.invoiceDate)} · {t('of {amount}', { amount: fmtAmt(inv.invoiceTotal) })}</p>
                 </div>
                 <p className="shrink-0 text-sm font-semibold text-primary-600">{fmtAmt(inv.paidAmount)}</p>
               </div>
             ))}
             <div className="flex items-center justify-between bg-gray-50 px-4 py-3 text-sm font-bold">
-              <span>Total</span>
+              <span>{t('Total')}</span>
               <span className="text-primary-700">{fmtAmt(payment.totalAmount)}</span>
             </div>
           </div>
@@ -382,21 +390,21 @@ export default function SupplierPaymentDetail() {
             <thead>
               <tr className="bg-gray-50">
                 {['Invoice No.', 'Invoice Date', 'Invoice Total', 'Amount Paid'].map((h) => (
-                  <th key={h} className="table-th">{h}</th>
+                  <th key={h} className="table-th">{t(h)}</th>
                 ))}
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
               {payment.invoices.map((inv, i) => (
                 <tr key={i} className="hover:bg-gray-50">
-                  <td className="table-td font-mono text-xs">{inv.invoiceNumber || 'Advance'}</td>
+                  <td className="table-td font-mono text-xs">{inv.invoiceNumber || t('Advance')}</td>
                   <td className="table-td text-sm">{fmt(inv.invoiceDate)}</td>
                   <td className="table-td text-right">{fmtAmt(inv.invoiceTotal)}</td>
                   <td className="table-td text-right font-semibold text-primary-600">{fmtAmt(inv.paidAmount)}</td>
                 </tr>
               ))}
               <tr className="bg-gray-50 font-bold">
-                <td className="table-td" colSpan={3}>Total</td>
+                <td className="table-td" colSpan={3}>{t('Total')}</td>
                 <td className="table-td text-right text-primary-700">{fmtAmt(payment.totalAmount)}</td>
               </tr>
             </tbody>
@@ -410,12 +418,12 @@ export default function SupplierPaymentDetail() {
       {/* Phones: voiding is rare and destructive, so it stays out of the pinned bar */}
       {isApproved && canApprove && (
         <button onClick={openVoid} className="btn-secondary w-full border-red-200 text-red-600 sm:hidden">
-          <Ban className="h-4 w-4" /> Void Payment
+          <Ban className="h-4 w-4" /> {t('Void Payment')}
         </button>
       )}
 
       {/* Audit trail */}
-      {payment?._id && <EntityAuditTrail entityRef={payment._id} title="Payment History" />}
+      {payment?._id && <EntityAuditTrail entityRef={payment._id} title={t('Payment History')} />}
 
       {/* Phones: primary actions pinned in thumb reach (Approve on the right) */}
       {(showApproveBar || showResubmitBar || isApproved) && (
@@ -424,22 +432,22 @@ export default function SupplierPaymentDetail() {
             {showApproveBar && (
               <>
                 <button onClick={openReject} className="btn-secondary border-red-200 text-red-600">
-                  <XCircle className="h-4 w-4" /> Reject
+                  <XCircle className="h-4 w-4" /> {t('Reject')}
                 </button>
                 <button onClick={openApprove} className="btn-primary bg-green-600 hover:bg-green-700">
-                  <CheckCircle2 className="h-4 w-4" /> Approve
+                  <CheckCircle2 className="h-4 w-4" /> {t('Approve')}
                 </button>
               </>
             )}
             {showResubmitBar && (
               <button onClick={openResubmit} className="btn-secondary border-amber-300 text-amber-700">
-                <RotateCcw className="h-4 w-4" /> Edit &amp; Resubmit
+                <RotateCcw className="h-4 w-4" /> {t('Edit & Resubmit')}
               </button>
             )}
             {isApproved && (
               <button onClick={handleDownloadVoucher} disabled={downloading} className="btn-secondary">
                 <Download className="h-4 w-4" />
-                {downloading ? 'Generating…' : 'Voucher PDF'}
+                {downloading ? t('Generating…') : t('Voucher PDF')}
               </button>
             )}
           </StickyActionBar>
@@ -447,126 +455,133 @@ export default function SupplierPaymentDetail() {
       )}
 
       {/* Void modal */}
-      <Modal open={voidModal} onClose={() => setVoidModal(false)} title="Void Payment" size="sm">
+      <Modal open={voidModal} onClose={() => setVoidModal(false)} title={t('Void Payment')} size="sm">
         <div className="space-y-4">
           <p className="text-sm text-gray-600">
-            Void <strong>{payment.paymentNumber}</strong> of <strong>{fmtAmt(payment.totalAmount)}</strong>?
-            This will remove it from the supplier's outstanding balance.
+            {rich(t('Void {number} of {amount}?'), {
+              number: <strong>{payment.paymentNumber}</strong>,
+              amount: <strong>{fmtAmt(payment.totalAmount)}</strong>,
+            })}
+            {' '}{t("This will remove it from the supplier's outstanding balance.")}
           </p>
           <div>
-            <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Reason *</label>
+            <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">{t('Reason')} *</label>
             <textarea value={voidReason} onChange={(e) => setVoidReason(e.target.value)}
-              rows={3} className="input" placeholder="e.g. Entered in error, duplicate payment…" />
+              rows={3} className="input" placeholder={t('e.g. Entered in error, duplicate payment…')} />
           </div>
           <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-            <button onClick={() => setVoidModal(false)} className="btn-secondary">Cancel</button>
+            <button onClick={() => setVoidModal(false)} className="btn-secondary">{t('Cancel')}</button>
             <button
               onClick={() => voidMut.mutate()}
               disabled={!voidReason.trim() || voidMut.isPending}
               className="btn-danger flex items-center gap-2 text-sm">
               <Ban className="h-4 w-4" />
-              {voidMut.isPending ? 'Voiding…' : 'Void Payment'}
+              {voidMut.isPending ? t('Voiding…') : t('Void Payment')}
             </button>
           </div>
         </div>
       </Modal>
 
       {/* Approve modal */}
-      <Modal open={approveModal} onClose={() => setApproveModal(false)} title="Approve Payment" size="sm">
+      <Modal open={approveModal} onClose={() => setApproveModal(false)} title={t('Approve Payment')} size="sm">
         <div className="space-y-4">
           <p className="text-sm text-gray-600">
-            Approve <strong>{payment.paymentNumber}</strong> of{' '}
-            <strong>{fmtAmt(payment.totalAmount)}</strong>?
+            {rich(t('Approve {number} of {amount}?'), {
+              number: <strong>{payment.paymentNumber}</strong>,
+              amount: <strong>{fmtAmt(payment.totalAmount)}</strong>,
+            })}
           </p>
           <div>
             <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
-              Approval Note <span className="normal-case font-normal text-gray-400">(optional)</span>
+              {t('Approval Note')} <span className="normal-case font-normal text-gray-400">{t('(optional)')}</span>
             </label>
             <textarea
               value={approvalNote}
               onChange={(e) => setApprovalNote(e.target.value)}
               rows={2}
               className="input"
-              placeholder="e.g. Cross-checked with bank statement…"
+              placeholder={t('e.g. Cross-checked with bank statement…')}
             />
           </div>
           <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-            <button onClick={() => setApproveModal(false)} className="btn-secondary">Cancel</button>
+            <button onClick={() => setApproveModal(false)} className="btn-secondary">{t('Cancel')}</button>
             <button
               onClick={() => approveMut.mutate(approvalNote)}
               disabled={approveMut.isPending}
               className="btn-primary flex items-center gap-2 text-sm bg-green-600 hover:bg-green-700 disabled:opacity-50">
               <CheckCircle2 className="h-4 w-4" />
-              {approveMut.isPending ? 'Approving…' : 'Approve'}
+              {approveMut.isPending ? t('Approving…') : t('Approve')}
             </button>
           </div>
         </div>
       </Modal>
 
       {/* Reject modal */}
-      <Modal open={rejectModal} onClose={() => setRejectModal(false)} title="Reject Payment" size="sm">
+      <Modal open={rejectModal} onClose={() => setRejectModal(false)} title={t('Reject Payment')} size="sm">
         <div className="space-y-4">
-          <p className="text-sm text-gray-600">Reject <strong>{payment.paymentNumber}</strong>?</p>
+          <p className="text-sm text-gray-600">{rich(t('Reject {number}?'), { number: <strong>{payment.paymentNumber}</strong> })}</p>
           <div>
-            <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Reason *</label>
+            <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">{t('Reason')} *</label>
             <textarea value={rejectReason} onChange={(e) => setRejectReason(e.target.value)}
-              rows={3} className="input" placeholder="e.g. Invoice mismatch, duplicate entry…" />
+              rows={3} className="input" placeholder={t('e.g. Invoice mismatch, duplicate entry…')} />
           </div>
           <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-            <button onClick={() => setRejectModal(false)} className="btn-secondary">Cancel</button>
+            <button onClick={() => setRejectModal(false)} className="btn-secondary">{t('Cancel')}</button>
             <button
               onClick={() => rejectMut.mutate()}
               disabled={!rejectReason.trim() || rejectMut.isPending}
               className="btn-danger">
-              {rejectMut.isPending ? 'Rejecting…' : 'Reject'}
+              {rejectMut.isPending ? t('Rejecting…') : t('Reject')}
             </button>
           </div>
         </div>
       </Modal>
 
       {/* Resubmit modal */}
-      <Modal open={resubmitModal} onClose={() => setResubmitModal(false)} title="Edit & Resubmit Payment">
+      <Modal open={resubmitModal} onClose={() => setResubmitModal(false)} title={t('Edit & Resubmit Payment')}>
         <div className="space-y-4">
           {payment.rejectionReason && (
             <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3">
-              <p className="text-xs font-semibold text-red-600 uppercase tracking-wide mb-1">Rejection reason</p>
+              <p className="text-xs font-semibold text-red-600 uppercase tracking-wide mb-1">{t('Rejection reason')}</p>
               <p className="text-sm text-red-800">{payment.rejectionReason}</p>
             </div>
           )}
           <p className="text-sm text-gray-500">
-            Correct the details below and resubmit <strong>{payment.paymentNumber}</strong> for approval.
-            Invoice allocation and total amount are preserved.
+            {rich(t('Correct the details below and resubmit {number} for approval.'), {
+              number: <strong>{payment.paymentNumber}</strong>,
+            })}
+            {' '}{t('Invoice allocation and total amount are preserved.')}
           </p>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Payment Date</label>
+              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">{t('Payment Date')}</label>
               <input type="date" value={rsDate} onChange={(e) => setRsDate(e.target.value)} className="input" />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Payment Mode</label>
+              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">{t('Payment Mode')}</label>
               <select value={rsMode} onChange={(e) => setRsMode(e.target.value)} className="input">
                 {['cash', 'upi', 'neft', 'rtgs', 'cheque'].map((m) => (
-                  <option key={m} value={m}>{PM_LABELS[m] || m}</option>
+                  <option key={m} value={m}>{t(PM_LABELS[m]) || m}</option>
                 ))}
               </select>
             </div>
           </div>
           <div>
-            <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Reference Number</label>
-            <input value={rsRef} onChange={(e) => setRsRef(e.target.value)} className="input" placeholder="UPI ID, cheque no., etc." />
+            <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">{t('Reference Number')}</label>
+            <input value={rsRef} onChange={(e) => setRsRef(e.target.value)} className="input" placeholder={t('UPI ID, cheque no., etc.')} />
           </div>
           <div>
-            <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Notes</label>
-            <textarea value={rsNotes} onChange={(e) => setRsNotes(e.target.value)} rows={2} className="input" placeholder="Optional remarks…" />
+            <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">{t('Notes')}</label>
+            <textarea value={rsNotes} onChange={(e) => setRsNotes(e.target.value)} rows={2} className="input" placeholder={t('Optional remarks…')} />
           </div>
           <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-            <button onClick={() => setResubmitModal(false)} className="btn-secondary">Cancel</button>
+            <button onClick={() => setResubmitModal(false)} className="btn-secondary">{t('Cancel')}</button>
             <button
               onClick={() => resubmitMut.mutate()}
               disabled={resubmitMut.isPending}
               className="btn-primary flex items-center gap-2 text-sm disabled:opacity-50">
               <RotateCcw className="h-4 w-4" />
-              {resubmitMut.isPending ? 'Resubmitting…' : 'Resubmit for Approval'}
+              {resubmitMut.isPending ? t('Resubmitting…') : t('Resubmit for Approval')}
             </button>
           </div>
         </div>

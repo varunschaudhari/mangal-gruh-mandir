@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { History, ChevronDown, ChevronRight } from 'lucide-react';
 import { getEntityHistory } from '../../api/auditLog.api.js';
 import { fDateTime } from '../../utils/formatters.js';
+import { useT } from '../../i18n/index.jsx';
 
 const ACTION_LABELS = {
   'auth.login':           'Login',
@@ -59,6 +60,7 @@ function MetaBlock({ label, data, colorClass }) {
 
 function TrailEntry({ log }) {
   const [open, setOpen] = useState(false);
+  const t = useT();
   const hasDetails = log.before || log.after || log.meta;
 
   return (
@@ -73,12 +75,12 @@ function TrailEntry({ log }) {
       <div className="pb-4 flex-1 min-w-0">
         <div className="flex items-center justify-between gap-2">
           <span className="text-sm font-medium text-gray-800">
-            {ACTION_LABELS[log.action] || log.action}
+            {t(ACTION_LABELS[log.action] || log.action)}
           </span>
           <span className="text-xs text-gray-400 shrink-0">{fDateTime(log.timestamp)}</span>
         </div>
         <div className="text-xs text-gray-500">
-          {log.user?.name || 'System'}
+          {log.user?.name || t('System')}
           {log.user?.role && <span className="text-gray-400"> · {log.user.role}</span>}
         </div>
 
@@ -88,15 +90,15 @@ function TrailEntry({ log }) {
             className="flex items-center gap-1 text-xs text-indigo-600 hover:text-indigo-800 mt-1"
           >
             {open ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
-            {open ? 'Hide details' : 'Show details'}
+            {open ? t('Hide details') : t('Show details')}
           </button>
         )}
 
         {open && hasDetails && (
           <div className="mt-2 bg-gray-50 border rounded p-2 text-xs space-y-1">
-            <MetaBlock label="Before" data={log.before} colorClass="text-orange-600" />
-            <MetaBlock label="After"  data={log.after}  colorClass="text-green-600" />
-            <MetaBlock label="Details" data={log.meta}  colorClass="text-blue-600" />
+            <MetaBlock label={t('Before')} data={log.before} colorClass="text-orange-600" />
+            <MetaBlock label={t('After')}  data={log.after}  colorClass="text-green-600" />
+            <MetaBlock label={t('Details')} data={log.meta}  colorClass="text-blue-600" />
           </div>
         )}
       </div>
@@ -106,6 +108,7 @@ function TrailEntry({ log }) {
 
 const EntityAuditTrail = ({ entityRef, title = 'History' }) => {
   const [open, setOpen] = useState(false);
+  const t = useT();
 
   const { data, isLoading } = useQuery({
     queryKey: ['audit-trail', entityRef],
@@ -123,7 +126,7 @@ const EntityAuditTrail = ({ entityRef, title = 'History' }) => {
       >
         <div className="flex items-center gap-2">
           <History size={15} />
-          {title}
+          {t(title)}
         </div>
         {open ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
       </button>
@@ -131,9 +134,9 @@ const EntityAuditTrail = ({ entityRef, title = 'History' }) => {
       {open && (
         <div className="px-4 pb-4 pt-2 border-t">
           {isLoading ? (
-            <p className="text-sm text-gray-400 py-4 text-center">Loading history…</p>
+            <p className="text-sm text-gray-400 py-4 text-center">{t('Loading history…')}</p>
           ) : logs.length === 0 ? (
-            <p className="text-sm text-gray-400 py-4 text-center">No history found</p>
+            <p className="text-sm text-gray-400 py-4 text-center">{t('No history found')}</p>
           ) : (
             <div className="mt-2">
               {logs.map((log, i) => (

@@ -31,6 +31,8 @@ import assetUnitRoutes from './assetUnit.routes.js';
 import expenseRoutes from './expense.routes.js';
 import budgetRoutes from './budget.routes.js';
 import pnlRoutes from './pnl.routes.js';
+import deviceRoutes from './device.routes.js';
+import clientErrorRoutes from './clientError.routes.js';
 
 const router = Router();
 
@@ -67,5 +69,7 @@ router.use('/asset-units',         assetUnitRoutes);
 router.use('/expenses',            expenseRoutes);
 router.use('/budgets',             budgetRoutes);
 router.use('/pnl',                 pnlRoutes);
+router.use('/devices',             deviceRoutes);
+router.use('/client-errors',       clientErrorRoutes);
 
 export default router;

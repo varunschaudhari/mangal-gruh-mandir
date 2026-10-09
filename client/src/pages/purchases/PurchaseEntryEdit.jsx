@@ -10,18 +10,20 @@ import PageHeader from '../../components/ui/PageHeader.jsx';
 import StickyActionBar from '../../components/ui/StickyActionBar.jsx';
 import { useSetAppBarTitle } from '../../components/Layout/AppBarContext.jsx';
 import { PageLoader } from '../../components/ui/Spinner.jsx';
-import { fCurrency } from '../../utils/formatters.js';
+import { fCurrency, localDateStr } from '../../utils/formatters.js';
 import haptics from '../../utils/haptics.js';
 import toast from 'react-hot-toast';
+import { useT } from '../../i18n/index.jsx';
 
-const toDateStr = (d) => d ? new Date(d).toISOString().split('T')[0] : '';
+const toDateStr = (d) => d ? localDateStr(d) : '';
 
 export default function PurchaseEntryEdit() {
   const { id }   = useParams();
   const navigate = useNavigate();
   const qc       = useQueryClient();
+  const t        = useT();
   // The loading / locked states below render without a PageHeader.
-  useSetAppBarTitle('Edit Purchase Entry');
+  useSetAppBarTitle(t('Edit Purchase Entry'));
 
   const { data: res, isLoading } = useQuery({
     queryKey: ['purchase-entry', id],
@@ -81,14 +83,14 @@ export default function PurchaseEntryEdit() {
     }),
     onSuccess: () => {
       haptics.success();
-      toast.success('Purchase entry updated');
+      toast.success(t('Purchase entry updated'));
       qc.invalidateQueries({ queryKey: ['purchase-entry', id] });
       qc.invalidateQueries({ queryKey: ['purchase-entries'] });
       navigate(`/purchases/${id}`);
     },
     onError: (e) => {
       haptics.error();
-      toast.error(e.response?.data?.message || 'Failed to update');
+      toast.error(e.response?.data?.message || t('Failed to update'));
     },
   });
 
@@ -98,11 +100,11 @@ export default function PurchaseEntryEdit() {
   }, 0);
 
   if (isLoading) return <PageLoader />;
-  if (!entry)    return <div className="py-16 text-center text-gray-400">Entry not found.</div>;
-  if (entry.isVoided) return <div className="py-16 text-center text-gray-400">Cannot edit a voided entry.</div>;
+  if (!entry)    return <div className="py-16 text-center text-gray-400">{t('Entry not found.')}</div>;
+  if (entry.isVoided) return <div className="py-16 text-center text-gray-400">{t('Cannot edit a voided entry.')}</div>;
   if ((entry.paidSoFar || 0) > 0) return (
     <div className="py-16 text-center text-gray-400">
-      This entry is locked — an approved payment exists. Void the payment first to make changes.
+      {t('This entry is locked — an approved payment exists. Void the payment first to make changes.')}
     </div>
   );
 
@@ -120,7 +122,7 @@ export default function PurchaseEntryEdit() {
       <div className="space-y-4">
         <PageHeader
           title="Edit Purchase Entry"
-          subtitle={`${entry.entryNumber} · Stock quantities and products cannot be changed`}
+          subtitle={`${entry.entryNumber} · ${t('Stock quantities and products cannot be changed')}`}
           breadcrumbs={[{ label: 'Purchases', to: '/purchases' }, { label: entry.entryNumber, to: `/purchases/${id}` }, { label: 'Edit' }]}
         />
 
@@ -128,21 +130,21 @@ export default function PurchaseEntryEdit() {
 
           {/* Header metadata */}
           <div className="card p-4 sm:p-5 space-y-4">
-            <h3 className="text-sm font-semibold text-gray-700">Invoice Details</h3>
+            <h3 className="text-sm font-semibold text-gray-700">{t('Invoice Details')}</h3>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Supplier *</label>
+                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">{t('Supplier')} *</label>
                 <Controller
                   name="supplier"
                   control={control}
-                  rules={{ required: 'Required' }}
+                  rules={{ required: t('Required') }}
                   render={({ field }) => (
                     <SearchableSelect
                       value={field.value || ''}
                       onChange={field.onChange}
                       options={suppliers.map((s) => ({ value: s._id, label: s.name }))}
-                      placeholder="Select supplier…"
+                      placeholder={t('Select supplier…')}
                       error={errors.supplier?.message}
                     />
                   )}
@@ -151,34 +153,34 @@ export default function PurchaseEntryEdit() {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Department (read-only)</label>
+                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">{t('Department (read-only)')}</label>
                 <div className="input bg-gray-50 text-gray-500 cursor-not-allowed">{entry.toDepartment?.name || '—'}</div>
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Invoice Number</label>
-                <input {...register('invoiceNumber')} className="input font-mono" placeholder="e.g. INV-2025-001" />
+                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">{t('Invoice Number')}</label>
+                <input {...register('invoiceNumber')} className="input font-mono" placeholder={t('e.g. {example}', { example: 'INV-2025-001' })} />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Invoice Date</label>
+                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">{t('Invoice Date')}</label>
                 <input {...register('invoiceDate')} type="date" className="input" />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Received Date</label>
+                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">{t('Received Date')}</label>
                 <input {...register('receivedDate')} type="date" className="input" />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Due Date</label>
+                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">{t('Due Date')}</label>
                 <input {...register('dueDate')} type="date" className="input" />
               </div>
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Notes</label>
-              <textarea {...register('notes')} rows={2} className="input" placeholder="Optional notes" />
+              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">{t('Notes')}</label>
+              <textarea {...register('notes')} rows={2} className="input" placeholder={t('Optional notes')} />
             </div>
           </div>
 
@@ -186,17 +188,17 @@ export default function PurchaseEntryEdit() {
           <div className="card p-4 sm:p-5 space-y-3">
             <div className="flex flex-wrap items-center gap-2">
               <Package className="h-4 w-4 text-gray-400" />
-              <h3 className="text-sm font-semibold text-gray-700">Items Received</h3>
-              <span className="text-xs text-gray-400 bg-gray-100 rounded-full px-2 py-0.5">qty &amp; product locked</span>
+              <h3 className="text-sm font-semibold text-gray-700">{t('Items Received')}</h3>
+              <span className="text-xs text-gray-400 bg-gray-100 rounded-full px-2 py-0.5">{t('qty & product locked')}</span>
             </div>
 
             {/* Column headers */}
             <div className="hidden sm:grid sm:grid-cols-12 gap-2 px-1 text-xs font-semibold text-gray-400 uppercase tracking-wide">
-              <div className="col-span-4">Product</div>
-              <div className="col-span-2 text-right">Qty</div>
-              <div className="col-span-2">Rate (₹)</div>
-              <div className="col-span-2 text-right">Total</div>
-              <div className="col-span-2">Batch Ref</div>
+              <div className="col-span-4">{t('Product')}</div>
+              <div className="col-span-2 text-right">{t('Qty')}</div>
+              <div className="col-span-2">{t('Rate (₹)')}</div>
+              <div className="col-span-2 text-right">{t('Total')}</div>
+              <div className="col-span-2">{t('Batch Ref')}</div>
             </div>
 
             {fields.map((field, idx) => {
@@ -216,7 +218,7 @@ export default function PurchaseEntryEdit() {
                       <p className="text-xs text-gray-400 font-mono">{original?.product?.code}</p>
                     </div>
                     <div className="shrink-0 text-right">
-                      <p className="text-[11px] uppercase tracking-wide text-gray-400">Qty</p>
+                      <p className="text-[11px] uppercase tracking-wide text-gray-400">{t('Qty')}</p>
                       <p className="text-sm font-semibold text-gray-700">
                         {qty} <span className="text-xs font-normal text-gray-400">{original?.unit?.symbol}</span>
                       </p>
@@ -241,7 +243,7 @@ export default function PurchaseEntryEdit() {
 
                     {/* Rate (editable) */}
                     <div className="col-span-6 sm:col-span-2">
-                      <label className="block text-xs text-gray-500 mb-1 sm:hidden">Rate (₹)</label>
+                      <label className="block text-xs text-gray-500 mb-1 sm:hidden">{t('Rate (₹)')}</label>
                       <input
                         {...register(`items.${idx}.rate`, { valueAsNumber: true, min: 0 })}
                         type="number" step="0.01" min="0" inputMode="decimal"
@@ -256,19 +258,19 @@ export default function PurchaseEntryEdit() {
 
                     {/* Batch Ref */}
                     <div className="col-span-6 sm:col-span-2">
-                      <label className="block text-xs text-gray-500 mb-1 sm:hidden">Batch Ref</label>
+                      <label className="block text-xs text-gray-500 mb-1 sm:hidden">{t('Batch Ref')}</label>
                       <input
                         {...register(`items.${idx}.batchRef`)}
                         className="input text-xs font-mono"
                         autoCapitalize="characters"
-                        placeholder="Optional" />
+                        placeholder={t('Optional')} />
                     </div>
                   </div>
 
                   {/* Expiry date row */}
                   <div className="grid grid-cols-12 gap-2 items-end">
                     <div className="col-span-12 sm:col-span-5">
-                      <label className="block text-xs text-gray-500 sm:text-gray-400 mb-1">Expiry Date</label>
+                      <label className="block text-xs text-gray-500 sm:text-gray-400 mb-1">{t('Expiry Date')}</label>
                       <input {...register(`items.${idx}.expiryDate`)} type="date" className="input text-sm" />
                     </div>
                   </div>
@@ -276,7 +278,7 @@ export default function PurchaseEntryEdit() {
                   {/* Phone: line amount */}
                   <div className="flex items-baseline justify-between border-t border-orange-100 pt-2 sm:hidden">
                     <span className="text-xs text-gray-500">
-                      {rate > 0 ? `${qty} × ${fCurrency(rate)}` : 'Amount'}
+                      {rate > 0 ? `${qty} × ${fCurrency(rate)}` : t('Amount')}
                     </span>
                     <span className="text-base font-semibold text-gray-900">{total > 0 ? fCurrency(total) : '—'}</span>
                   </div>
@@ -285,7 +287,7 @@ export default function PurchaseEntryEdit() {
             })}
 
             <div className="flex items-center justify-between pt-3 border-t border-dashed">
-              <span className="text-sm font-semibold text-gray-700">Grand Total</span>
+              <span className="text-sm font-semibold text-gray-700">{t('Grand Total')}</span>
               <span className="text-xl font-bold text-gray-900">{fCurrency(grandTotal)}</span>
             </div>
           </div>
@@ -293,14 +295,14 @@ export default function PurchaseEntryEdit() {
           <StickyActionBar>
             {/* Phones: running total beside Save */}
             <div className="flex flex-col justify-center leading-tight sm:hidden">
-              <span className="text-[11px] uppercase tracking-wide text-gray-400">Total</span>
+              <span className="text-[11px] uppercase tracking-wide text-gray-400">{t('Total')}</span>
               <span className="text-base font-bold text-gray-900">{fCurrency(grandTotal)}</span>
             </div>
             <button type="button" onClick={() => navigate(`/purchases/${id}`)} className="btn-secondary hidden sm:inline-flex">
-              Cancel
+              {t('Cancel')}
             </button>
             <button type="submit" disabled={mutation.isPending} className="btn-primary">
-              {mutation.isPending ? 'Saving…' : 'Save Changes'}
+              {mutation.isPending ? t('Saving…') : t('Save Changes')}
             </button>
           </StickyActionBar>
         </form>

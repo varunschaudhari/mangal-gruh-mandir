@@ -3,6 +3,7 @@ import ApiError from '../utils/ApiError.js';
 import ApiResponse from '../utils/ApiResponse.js';
 import asyncHandler from '../utils/asyncHandler.js';
 import { logAction } from '../services/audit.service.js';
+import { endAllSessions } from '../services/session.service.js';
 
 export const getUsers = asyncHandler(async (req, res) => {
   const filter = {};
@@ -72,6 +73,7 @@ export const updateUser = asyncHandler(async (req, res) => {
   const before = { role: target.role, isActive: target.isActive, canApprovePayments: target.canApprovePayments, canApproveAssets: target.canApproveAssets };
   Object.assign(target, { name, phone, role, departments, isActive, whatsappAlertsEnabled, smsAlertsEnabled, canApproveAssets, canApprovePayments, monthlySalary: Number(monthlySalary) || 0 });
   await target.save({ validateBeforeSave: false });
+  if (before.isActive && target.isActive === false) await endAllSessions(target._id);
 
   const populated = await User.findById(target._id).populate('departments', 'name code');
   logAction(req, {
@@ -91,7 +93,9 @@ export const resetUserPassword = asyncHandler(async (req, res) => {
   if (!user) throw new ApiError(404, 'User not found');
 
   user.password = newPassword;
+  user.refreshToken = undefined;
   await user.save();
+  await endAllSessions(user._id); // the old password's sessions must not keep working
   logAction(req, {
     action: 'user.password_reset', entity: 'User',
     entityId: user.email, entityRef: user._id,

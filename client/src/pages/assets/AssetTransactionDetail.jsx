@@ -15,6 +15,7 @@ import { usePermissions } from '../../hooks/usePermissions.js';
 import toast from 'react-hot-toast';
 import { printHtml } from '../../utils/printHtml.js';
 import { useSetAppBarTitle } from '../../components/Layout/AppBarContext.jsx';
+import { localDateStr } from '../../utils/formatters.js';
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 const fmt     = (d) => d ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
@@ -81,7 +82,7 @@ const ExtendModal = ({ txn, onClose, onSuccess }) => {
   const { data: aRes } = useQuery({ queryKey: ['users-approvers'], queryFn: getApprovers });
   const maxDays = sRes?.data?.data?.assetMaxBorrowDays || 7;
   const approvers = aRes?.data?.data || [];
-  const today = new Date().toISOString().split('T')[0];
+  const today = localDateStr();
   const maxDate = new Date(); maxDate.setDate(maxDate.getDate() + maxDays);
   const mut = useMutation({
     mutationFn: () => extendBorrow(txn._id, { newReturnDate, approvedBy, notes: notes || undefined }),
@@ -97,7 +98,7 @@ const ExtendModal = ({ txn, onClose, onSuccess }) => {
         </p>
         <div>
           <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">New Return Date <span className="text-red-400">*</span></p>
-          <input type="date" min={today} max={maxDate.toISOString().split('T')[0]} value={newReturnDate} onChange={(e) => setNewReturnDate(e.target.value)} className="input" />
+          <input type="date" min={today} max={localDateStr(maxDate)} value={newReturnDate} onChange={(e) => setNewReturnDate(e.target.value)} className="input" />
           <p className="mt-1 text-xs text-gray-400">Max {maxDays} days from today</p>
         </div>
         <div>

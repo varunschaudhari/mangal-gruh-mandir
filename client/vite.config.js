@@ -5,6 +5,8 @@ import { VitePWA } from 'vite-plugin-pwa';
 // `vite build --mode mobile` produces the bundle for the Capacitor apps (see MOBILE.md).
 // Native apps ship their assets inside the APK/IPA, so the PWA service worker is skipped.
 export default defineConfig(({ mode }) => ({
+  // Build date, sent with crash reports (utils/errorReporter.js) to tell versions apart.
+  define: { __APP_BUILD__: JSON.stringify(new Date().toISOString().slice(0, 16).replace('T', ' ')) },
   plugins: [
     react(),
     mode !== 'mobile' && VitePWA({

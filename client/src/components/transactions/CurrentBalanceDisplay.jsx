@@ -1,10 +1,12 @@
 import { useQuery } from '@tanstack/react-query';
 import { getProductBalance } from '../../api/stockBalance.api.js';
 import { Package } from 'lucide-react';
+import { useT } from '../../i18n/index.jsx';
 
 // Phones: a prominent row with the quantity large on the right, so it can be checked
 // at a glance before typing the quantity. From `sm` up: the compact inline pill.
 const CurrentBalanceDisplay = ({ productId, departmentId, label = 'Current Balance' }) => {
+  const t = useT();
   const { data, isLoading } = useQuery({
     queryKey: ['balance', productId, departmentId],
     queryFn: () => getProductBalance(productId, departmentId),
@@ -26,15 +28,15 @@ const CurrentBalanceDisplay = ({ productId, departmentId, label = 'Current Balan
     >
       <Package className="h-5 w-5 shrink-0 sm:h-4 sm:w-4" />
       <span className="flex-1 font-medium sm:flex-none">
-        {label}<span className="hidden sm:inline">:</span>
-        {isLow && <span className="block text-xs font-normal sm:hidden">Low stock</span>}
+        {t(label)}<span className="hidden sm:inline">:</span>
+        {isLow && <span className="block text-xs font-normal sm:hidden">{t('Low stock')}</span>}
       </span>
       {isLoading ? (
-        <span className="text-gray-400">Loading…</span>
+        <span className="text-gray-400">{t('Loading…')}</span>
       ) : (
         <span className={`font-bold ${isLow ? 'text-red-700' : 'text-gray-900'}`}>
           <span className="text-xl sm:text-sm">{qty}</span> {unit}
-          {isLow && <span className="ml-1 hidden text-xs font-normal sm:inline">(Low stock)</span>}
+          {isLow && <span className="ml-1 hidden text-xs font-normal sm:inline">({t('Low stock')})</span>}
         </span>
       )}
     </div>

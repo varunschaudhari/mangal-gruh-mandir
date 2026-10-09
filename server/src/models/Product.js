@@ -5,6 +5,8 @@ const productSchema = new mongoose.Schema(
     name: { type: String, required: true, trim: true },
     code: { type: String, required: true, unique: true, uppercase: true, trim: true },
     aliases: [{ type: String, trim: true }],
+    // Manufacturer barcode (EAN/UPC…) printed on packaged goods, so the app can scan it.
+    barcode: { type: String, trim: true, default: undefined },
     category: { type: mongoose.Schema.Types.ObjectId, ref: 'Category', required: true },
     unit: { type: mongoose.Schema.Types.ObjectId, ref: 'Unit', required: true },
     description: { type: String, default: '' },
@@ -21,5 +23,6 @@ const productSchema = new mongoose.Schema(
 );
 
 productSchema.index({ name: 'text', aliases: 'text' });
+productSchema.index({ barcode: 1 }, { sparse: true });
 
 export default mongoose.model('Product', productSchema);

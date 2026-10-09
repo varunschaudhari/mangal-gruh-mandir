@@ -13,10 +13,12 @@ import { exportToExcel } from '../../utils/exportToExcel.js';
 import toast from 'react-hot-toast';
 import { openFile } from '../../utils/fileSaver.js';
 import { isNative } from '../../utils/platform.js';
+import { localDateStr } from '../../utils/formatters.js';
+import { useT } from '../../i18n/index.jsx';
 
 const fmt   = (d) => d ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
 const fmtTs = (d) => d ? new Date(d).toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : '—';
-const today = () => new Date().toISOString().split('T')[0];
+const today = () => localDateStr();
 
 const STATUS_V = { issued: 'yellow', redeemed: 'green' };
 const TYPE_V   = { paid: 'blue', free: 'purple' };
@@ -47,6 +49,7 @@ function SumPill({ icon: Icon, label, value, color }) {
 }
 
 export default function MahaprasadHistory() {
+  const t = useT();
   const [date,        setDate]        = useState(today());
   const [status,      setStatus]      = useState('');
   const [type,        setType]        = useState('');
@@ -93,7 +96,7 @@ export default function MahaprasadHistory() {
     try {
       const r = await printCoupons([coupon.couponNumber]);
       await openFile(r.data, `Coupon-${coupon.couponNumber}.pdf`);
-    } catch { toast.error('Failed to generate PDF'); }
+    } catch { toast.error(t('Failed to generate PDF')); }
     finally   { setPrinting(false); }
   };
 
@@ -113,7 +116,7 @@ export default function MahaprasadHistory() {
       }));
       const label = search ? 'search' : (date || 'all');
       await exportToExcel(rows, `mahaprasad-history-${label}`, 'Coupons');
-    } catch { toast.error('Export failed'); }
+    } catch { toast.error(t('Export failed')); }
   };
 
   return (
@@ -126,11 +129,11 @@ export default function MahaprasadHistory() {
           <div className="flex items-center gap-2">
             <button onClick={handleExport} disabled={coupons.length === 0}
               className="btn btn-ghost border text-sm flex items-center gap-1.5 disabled:opacity-40 max-sm:py-2.5">
-              <FileSpreadsheet className="h-4 w-4" /> Export
+              <FileSpreadsheet className="h-4 w-4" /> {t('Export')}
             </button>
             <button onClick={() => refetch()} disabled={isFetching}
               className="btn btn-ghost border text-sm flex items-center gap-1.5 max-sm:py-2.5">
-              <RefreshCw className={`h-4 w-4 ${isFetching ? 'animate-spin' : ''}`} /> Refresh
+              <RefreshCw className={`h-4 w-4 ${isFetching ? 'animate-spin' : ''}`} /> {t('Refresh')}
             </button>
           </div>
         }
@@ -146,7 +149,7 @@ export default function MahaprasadHistory() {
               type="text"
               value={searchInput}
               onChange={(e) => setSearchInput(e.target.value.toUpperCase())}
-              placeholder="Search MP-YYYYMMDD-NNN"
+              placeholder={t('Search MP-YYYYMMDD-NNN')}
               autoCapitalize="characters"
               autoComplete="off"
               className="input pl-8 text-sm font-mono w-full sm:w-52"
@@ -158,50 +161,50 @@ export default function MahaprasadHistory() {
             value={date}
             onChange={(e) => { setDate(e.target.value); setPage(1); }}
             disabled={!!search}
-            aria-label="Date"
+            aria-label={t('Date')}
             className="input text-sm disabled:opacity-40 col-span-2 sm:w-auto"
           />
 
-          <select value={status} onChange={(e) => { setStatus(e.target.value); setPage(1); }} aria-label="Status" className="input text-sm min-w-0 sm:w-auto">
-            <option value="">All Status</option>
-            <option value="issued">Issued (Pending)</option>
-            <option value="redeemed">Redeemed</option>
+          <select value={status} onChange={(e) => { setStatus(e.target.value); setPage(1); }} aria-label={t('Status')} className="input text-sm min-w-0 sm:w-auto">
+            <option value="">{t('All Status')}</option>
+            <option value="issued">{t('Issued (Pending)')}</option>
+            <option value="redeemed">{t('Redeemed')}</option>
           </select>
 
-          <select value={type} onChange={(e) => { setType(e.target.value); setPage(1); }} aria-label="Type" className="input text-sm min-w-0 sm:w-auto">
-            <option value="">All Types</option>
-            <option value="paid">Paid</option>
-            <option value="free">Free</option>
+          <select value={type} onChange={(e) => { setType(e.target.value); setPage(1); }} aria-label={t('Type')} className="input text-sm min-w-0 sm:w-auto">
+            <option value="">{t('All Types')}</option>
+            <option value="paid">{t('Paid|coupon')}</option>
+            <option value="free">{t('Free')}</option>
           </select>
 
-          <span className="hidden sm:inline text-xs text-gray-400 ml-auto">{total} total</span>
+          <span className="hidden sm:inline text-xs text-gray-400 ml-auto">{t('{n} total', { n: total })}</span>
         </div>
 
         {/* Summary pills — only when data loaded */}
         {!isLoading && coupons.length > 0 && (
           <div className="flex flex-wrap items-center gap-2 pt-1">
-            <SumPill icon={CheckCircle2} label="Redeemed" value={summary.redeemed} color="green" />
-            <SumPill icon={Clock}        label="Pending"  value={summary.pending}  color="amber" />
-            <SumPill icon={IndianRupee}  label="Paid"     value={summary.paid}     color="blue" />
-            <SumPill icon={Gift}         label="Free"     value={summary.free}     color="purple" />
+            <SumPill icon={CheckCircle2} label={t('Redeemed')} value={summary.redeemed} color="green" />
+            <SumPill icon={Clock}        label={t('Pending')}  value={summary.pending}  color="amber" />
+            <SumPill icon={IndianRupee}  label={t('Paid|coupon')}     value={summary.paid}     color="blue" />
+            <SumPill icon={Gift}         label={t('Free')}     value={summary.free}     color="purple" />
             {summary.collected > 0 && (
-              <SumPill icon={IndianRupee} label="Collected" value={`₹${summary.collected.toLocaleString('en-IN')}`} color="green" />
+              <SumPill icon={IndianRupee} label={t('Collected')} value={`₹${summary.collected.toLocaleString('en-IN')}`} color="green" />
             )}
             {pages > 1 && (
-              <span className="hidden sm:inline text-xs text-gray-400 ml-auto">Showing page {page} of {pages}</span>
+              <span className="hidden sm:inline text-xs text-gray-400 ml-auto">{t('Showing page {page} of {pages}', { page, pages })}</span>
             )}
           </div>
         )}
         <p className="sm:hidden text-xs text-gray-400">
-          {total} total{pages > 1 ? ` · page ${page} of ${pages}` : ''}
+          {t('{n} total', { n: total })}{pages > 1 ? ` · ${t('page {page} of {pages}', { page, pages })}` : ''}
         </p>
       </div>
 
       {isLoading ? <PageLoader /> : coupons.length === 0 ? (
         <div className="card p-10 text-center">
           <History className="h-10 w-10 text-gray-300 mx-auto mb-3" />
-          <p className="text-gray-500 font-medium">No coupons found</p>
-          <p className="text-sm text-gray-400 mt-1">Try changing the date or filters</p>
+          <p className="text-gray-500 font-medium">{t('No coupons found')}</p>
+          <p className="text-sm text-gray-400 mt-1">{t('Try changing the date or filters')}</p>
         </div>
       ) : (
         <>
@@ -216,20 +219,20 @@ export default function MahaprasadHistory() {
               aside={
                 <>
                   <Badge variant={STATUS_V[c.status]} size="sm">
-                    {c.status === 'redeemed' ? 'Redeemed' : 'Pending'}
+                    {c.status === 'redeemed' ? t('Redeemed') : t('Pending')}
                   </Badge>
                   <button onClick={() => handleReprint(c)} disabled={printing}
-                    aria-label={isNative ? 'Share or print PDF' : 'Reprint'}
+                    aria-label={isNative ? t('Share or print PDF') : t('Reprint')}
                     className="-my-1.5 -mr-1.5 p-2.5 rounded-lg text-gray-400 active:bg-gray-100 disabled:opacity-40">
                     {isNative ? <Share2 className="h-[18px] w-[18px]" /> : <Printer className="h-[18px] w-[18px]" />}
                   </button>
                 </>
               }
               fields={[
-                { label: 'Type', value: c.type === 'free' ? `Free${c.occasion ? ` · ${c.occasion}` : ''}` : 'Paid' },
-                { label: 'Amount', value: c.type === 'paid' ? `₹${c.amount}` : '—' },
+                { label: t('Type'), value: c.type === 'free' ? `${t('Free')}${c.occasion ? ` · ${c.occasion}` : ''}` : t('Paid|coupon') },
+                { label: t('Amount'), value: c.type === 'paid' ? `₹${c.amount}` : '—' },
                 c.status === 'redeemed' && {
-                  label: 'Redeemed',
+                  label: t('Redeemed'),
                   full: true,
                   value: `${fmtTs(c.redeemedAt)}${c.redeemedBy?.name ? ` · ${c.redeemedBy.name}` : ''}`,
                 },
@@ -243,13 +246,13 @@ export default function MahaprasadHistory() {
             <table className="min-w-full">
               <thead>
                 <tr className="bg-gray-50 border-b">
-                  <th className="table-th">Coupon No.</th>
-                  <th className="table-th">Date</th>
-                  <th className="table-th">Type</th>
-                  <th className="table-th text-right">Amt</th>
-                  <th className="table-th">Status</th>
-                  <th className="table-th">Issued By</th>
-                  <th className="table-th">Redeemed</th>
+                  <th className="table-th">{t('Coupon No.')}</th>
+                  <th className="table-th">{t('Date')}</th>
+                  <th className="table-th">{t('Type')}</th>
+                  <th className="table-th text-right">{t('Amt')}</th>
+                  <th className="table-th">{t('Status')}</th>
+                  <th className="table-th">{t('Issued By')}</th>
+                  <th className="table-th">{t('Redeemed')}</th>
                   <th className="table-th w-8"></th>
                 </tr>
               </thead>
@@ -261,8 +264,8 @@ export default function MahaprasadHistory() {
                     <td className="table-td">
                       <Badge variant={TYPE_V[c.type]} size="sm">
                         {c.type === 'free'
-                          ? <span title={c.occasion || undefined}>Free{c.occasion ? ` · ${c.occasion.length > 12 ? c.occasion.slice(0,12)+'…' : c.occasion}` : ''}</span>
-                          : 'Paid'}
+                          ? <span title={c.occasion || undefined}>{t('Free')}{c.occasion ? ` · ${c.occasion.length > 12 ? c.occasion.slice(0,12)+'…' : c.occasion}` : ''}</span>
+                          : t('Paid|coupon')}
                       </Badge>
                     </td>
                     <td className="table-td text-right font-medium text-xs">
@@ -270,7 +273,7 @@ export default function MahaprasadHistory() {
                     </td>
                     <td className="table-td">
                       <Badge variant={STATUS_V[c.status]} size="sm">
-                        {c.status === 'redeemed' ? 'Redeemed' : 'Pending'}
+                        {c.status === 'redeemed' ? t('Redeemed') : t('Pending')}
                       </Badge>
                     </td>
                     <td className="table-td text-gray-500 text-xs">{c.issuedBy?.name || '—'}</td>
@@ -287,7 +290,7 @@ export default function MahaprasadHistory() {
                     <td className="table-td">
                       <button onClick={() => handleReprint(c)} disabled={printing}
                         className="p-1.5 rounded hover:bg-white/60 text-gray-400 hover:text-gray-600 transition-colors"
-                        title="Reprint">
+                        title={t('Reprint')}>
                         <Printer className="h-3.5 w-3.5" />
                       </button>
                     </td>
@@ -300,12 +303,12 @@ export default function MahaprasadHistory() {
           {/* Pagination */}
           {pages > 1 && (
             <div className="px-4 py-3 md:border-t flex items-center justify-between gap-3 text-xs text-gray-500">
-              <span>Page {page} of {pages} &nbsp;·&nbsp; {total} coupons</span>
+              <span>{t('Page {page} of {pages}', { page, pages })} &nbsp;·&nbsp; {t('{n} coupons', { n: total })}</span>
               <div className="flex gap-2">
                 <button disabled={page <= 1} onClick={() => setPage(page - 1)}
-                  className="btn-secondary text-xs px-2 py-1 max-sm:px-4 disabled:opacity-40">Prev</button>
+                  className="btn-secondary text-xs px-2 py-1 max-sm:px-4 disabled:opacity-40">{t('Prev')}</button>
                 <button disabled={page >= pages} onClick={() => setPage(page + 1)}
-                  className="btn-secondary text-xs px-2 py-1 max-sm:px-4 disabled:opacity-40">Next</button>
+                  className="btn-secondary text-xs px-2 py-1 max-sm:px-4 disabled:opacity-40">{t('Next')}</button>
               </div>
             </div>
           )}

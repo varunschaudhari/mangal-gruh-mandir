@@ -10,6 +10,7 @@ import { AlertTriangle, PackageX, RefreshCw, ShoppingCart, Download, FileText, M
 import { exportToExcel } from '../../utils/exportToExcel.js';
 import toast from 'react-hot-toast';
 import { shareText } from '../../utils/fileSaver.js';
+import { localDateStr } from '../../utils/formatters.js';
 
 const LowStockAlerts = () => {
   const [deptFilter, setDeptFilter] = useState('');
@@ -73,7 +74,7 @@ const LowStockAlerts = () => {
       'Reorder Point':  b.product?.reorderPoint || '',
       'Status':         STATUS[b.alertLevel] || '',
     }));
-    exportToExcel(rows, `Stock_Alerts_${new Date().toISOString().split('T')[0]}`, 'Stock Alerts');
+    exportToExcel(rows, `Stock_Alerts_${localDateStr()}`, 'Stock Alerts');
   };
 
   return (

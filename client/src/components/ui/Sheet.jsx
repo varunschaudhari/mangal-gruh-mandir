@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 import { useBackHandler } from '../../hooks/useBackHandler.js';
+import { useT } from '../../i18n/index.jsx';
 
 const widths = { sm: 'sm:max-w-sm', md: 'sm:max-w-lg', lg: 'sm:max-w-2xl', xl: 'sm:max-w-4xl' };
 
@@ -15,6 +16,7 @@ const Sheet = ({ open, onClose, title, children, size = 'md', footer, full = fal
   }, [open, onClose]);
 
   useBackHandler(open, onClose);
+  const t = useT();
 
   if (!open) return null;
 
@@ -34,8 +36,8 @@ const Sheet = ({ open, onClose, title, children, size = 'md', footer, full = fal
         </div>
         {title !== undefined && (
           <div className="flex shrink-0 items-center justify-between border-b px-4 py-3 sm:px-6 sm:py-4">
-            <h2 className="text-base font-semibold text-gray-800">{title}</h2>
-            <button onClick={onClose} className="btn-ghost -mr-2 rounded-md p-2" aria-label="Close">
+            <h2 className="text-base font-semibold text-gray-800">{t(title)}</h2>
+            <button onClick={onClose} className="btn-ghost -mr-2 rounded-md p-2" aria-label={t('Close')}>
               <X className="h-5 w-5 sm:h-4 sm:w-4" />
             </button>
           </div>

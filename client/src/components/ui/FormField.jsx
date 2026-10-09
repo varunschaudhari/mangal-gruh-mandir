@@ -1,3 +1,4 @@
+import { useT } from '../../i18n/index.jsx';
 // Reusable form field wrapper — used inside react-hook-form forms
 export const FormField = ({ label, error, required, children, hint }) => (
   <div>
@@ -25,15 +26,18 @@ export const FormSection = ({ title, children }) => (
   </div>
 );
 
-export const FormActions = ({ onCancel, submitLabel = 'Save', loading }) => (
-  <div className="flex items-center gap-3 pt-2">
-    <button type="submit" disabled={loading} className="btn-primary">
-      {loading ? 'Saving...' : submitLabel}
-    </button>
-    {onCancel && (
-      <button type="button" onClick={onCancel} className="btn-secondary">
-        Cancel
+export const FormActions = ({ onCancel, submitLabel = 'Save', loading }) => {
+  const t = useT();
+  return (
+    <div className="flex items-center gap-3 pt-2">
+      <button type="submit" disabled={loading} className="btn-primary">
+        {loading ? t('Saving...') : t(submitLabel)}
       </button>
-    )}
-  </div>
-);
+      {onCancel && (
+        <button type="button" onClick={onCancel} className="btn-secondary">
+          {t('Cancel')}
+        </button>
+      )}
+    </div>
+  );
+};

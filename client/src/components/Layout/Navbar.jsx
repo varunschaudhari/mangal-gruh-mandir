@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
-import { LogOut, User, KeyRound, ChevronDown, ChevronLeft, Bell } from 'lucide-react';
+import { LogOut, User, KeyRound, ChevronDown, ChevronLeft, Bell, ScanLine } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '../../context/AuthContext.jsx';
 import { getDashboardStats } from '../../api/dashboard.api.js';
@@ -8,6 +8,12 @@ import { ROLE_LABELS } from '../../utils/permissions.js';
 import toast from 'react-hot-toast';
 import { useAppBarTitle } from './AppBarContext.jsx';
 import { useMobileNav } from '../../hooks/useMobileNav.js';
+import { usePermissions } from '../../hooks/usePermissions.js';
+import { isNative } from '../../utils/platform.js';
+import { scanQrCode } from '../../utils/nativeScanner.js';
+import { resolveScan } from '../../utils/scanResolver.js';
+import haptics from '../../utils/haptics.js';
+import { useT } from '../../i18n/index.jsx';
 
 const AlertBell = () => {
   const { data } = useQuery({
@@ -38,10 +44,46 @@ const AlertBell = () => {
   );
 };
 
+// Mobile app: scan any label this app prints (product, asset, coupon) or a shop barcode
+// and jump to it. See utils/scanResolver.js.
+const ScanButton = () => {
+  const navigate = useNavigate();
+  const t = useT();
+  const { can } = usePermissions();
+  const [busy, setBusy] = useState(false);
+  if (!isNative || !(can('masters:read') || can('assets:read') || can('mahaprasad:redeem'))) return null;
+
+  const scan = async () => {
+    setBusy(true);
+    try {
+      const text = await scanQrCode({ barcodes: true });
+      if (!text) return;
+      const result = await resolveScan(text);
+      if (result.to) { haptics.success(); navigate(result.to); } else { haptics.error(); toast.error(result.error); }
+    } catch (err) {
+      toast.error(err?.message || t('Scanner not available'));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <button
+      onClick={scan}
+      disabled={busy}
+      className="flex h-10 w-10 items-center justify-center rounded-full text-gray-500 active:bg-gray-100 disabled:opacity-50 lg:hidden"
+      aria-label={t('Scan a label or barcode')}
+    >
+      <ScanLine className="h-5 w-5" />
+    </button>
+  );
+};
+
 // Mobile app bar: brand on the home screen, otherwise ← back + the page title
 // (published by <PageHeader>). Desktop keeps the original bar.
 const MobileTitle = () => {
   const navigate = useNavigate();
+  const t = useT();
   const { pathname } = useLocation();
   const title = useAppBarTitle();
   const { rootPaths } = useMobileNav();
@@ -55,8 +97,8 @@ const MobileTitle = () => {
       <div className="flex min-w-0 flex-1 items-center gap-2.5 pl-2 lg:hidden">
         <img src="/logo.png" alt="" className="h-8 w-8 rounded object-contain" />
         <div className="min-w-0 leading-tight">
-          <p className="truncate text-sm font-bold text-gray-900">Mangal Grah Mandir</p>
-          <p className="text-[11px] text-gray-500">Amalner</p>
+          <p className="truncate text-sm font-bold text-gray-900">{t('Mangal Grah Mandir')}</p>
+          <p className="text-[11px] text-gray-500">{t('Amalner')}</p>
         </div>
       </div>
     );
@@ -67,7 +109,7 @@ const MobileTitle = () => {
       {isRoot ? (
         <span className="w-2" />
       ) : (
-        <button onClick={goBack} className="-ml-1 flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-gray-700 active:bg-gray-100" aria-label="Back">
+        <button onClick={goBack} className="-ml-1 flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-gray-700 active:bg-gray-100" aria-label={t('Back')}>
           <ChevronLeft className="h-6 w-6" />
         </button>
       )}
@@ -78,12 +120,13 @@ const MobileTitle = () => {
 
 const Navbar = () => {
   const { user, logout } = useAuth();
+  const t = useT();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
 
   const handleLogout = async () => {
     await logout();
-    toast.success('Logged out');
+    toast.success(t('Logged out'));
     navigate('/login');
   };
 
@@ -95,7 +138,8 @@ const Navbar = () => {
         {/* Desktop spacer */}
         <div className="hidden lg:block" />
 
-        <div className="flex items-center gap-2 sm:gap-3">
+        <div className="flex items-center gap-1 sm:gap-3">
+          <ScanButton />
           <AlertBell />
 
           <div className="relative hidden lg:block">
@@ -122,20 +166,20 @@ const Navbar = () => {
                     onClick={() => { setOpen(false); navigate('/profile'); }}
                     className="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
                   >
-                    <User className="h-4 w-4" /> My Profile
+                    <User className="h-4 w-4" /> {t('My Profile')}
                   </button>
                   <button
                     onClick={() => { setOpen(false); navigate('/change-password'); }}
                     className="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
                   >
-                    <KeyRound className="h-4 w-4" /> Change Password
+                    <KeyRound className="h-4 w-4" /> {t('Change Password')}
                   </button>
                   <hr className="my-1" />
                   <button
                     onClick={handleLogout}
                     className="flex w-full items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50"
                   >
-                    <LogOut className="h-4 w-4" /> Logout
+                    <LogOut className="h-4 w-4" /> {t('Logout')}
                   </button>
                 </div>
               </>

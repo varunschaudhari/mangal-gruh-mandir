@@ -13,6 +13,7 @@ import Modal from '../../components/ui/Modal.jsx';
 import { usePermissions } from '../../hooks/usePermissions.js';
 import toast from 'react-hot-toast';
 import { saveFile } from '../../utils/fileSaver.js';
+import { localDateStr } from '../../utils/formatters.js';
 
 const TYPE_COLORS = { named: 'green', hundi: 'blue', anonymous: 'gray' };
 const TYPE_LABELS = { named: 'Named', hundi: 'Hundi', anonymous: 'Anonymous' };
@@ -56,7 +57,7 @@ const DonationList = () => {
       const res = format === 'excel'
         ? await exportDonationsExcel(params)
         : await exportDonationsPDF(params);
-      await saveFile(res.data, `donations-${new Date().toISOString().split('T')[0]}.${format === 'excel' ? 'xlsx' : 'pdf'}`);
+      await saveFile(res.data, `donations-${localDateStr()}.${format === 'excel' ? 'xlsx' : 'pdf'}`);
     } catch { toast.error('Export failed'); }
     finally { setExporting(null); }
   };
@@ -209,7 +210,7 @@ const DonationList = () => {
         </div>
         <div className="flex gap-2 items-center">
           <label className="text-xs font-semibold text-gray-500 uppercase">To</label>
-          <input type="date" value={to} max={new Date().toISOString().split('T')[0]}
+          <input type="date" value={to} max={localDateStr()}
             onChange={(e) => { setTo(e.target.value); setPage(1); }} className="input text-sm py-1.5" />
         </div>
         <div className="flex gap-1.5">

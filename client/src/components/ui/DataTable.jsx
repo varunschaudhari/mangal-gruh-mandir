@@ -11,6 +11,7 @@ import { ChevronUp, ChevronDown, ChevronsUpDown, ChevronLeft, ChevronRight } fro
 import { PageLoader } from './Spinner.jsx';
 import { useIsMobile } from '../../hooks/useMediaQuery.js';
 import MobileCard from './MobileCard.jsx';
+import { useT } from '../../i18n/index.jsx';
 
 // ── Phone layout: each row becomes a card ────────────────────────────────────
 // Columns can steer placement with `meta: { mobile: 'title' | 'subtitle' | 'aside' | 'hidden' }`.
@@ -40,12 +41,13 @@ const pickTitleId = (columns) => {
 const MOBILE_PAGE = 20;
 
 const MobileCards = ({ table, onRowClick }) => {
+  const t = useT();
   const [visible, setVisible] = useState(MOBILE_PAGE);
   const rows = table.getPrePaginationRowModel().rows;
   const titleId = pickTitleId(table.getVisibleLeafColumns());
 
   if (rows.length === 0) {
-    return <div className="card px-4 py-12 text-center text-sm text-gray-400">No records found</div>;
+    return <div className="card px-4 py-12 text-center text-sm text-gray-400">{t('No records found')}</div>;
   }
 
   return (
@@ -63,14 +65,14 @@ const MobileCards = ({ table, onRowClick }) => {
             title={title && render(title)}
             subtitle={by('subtitle').length > 0 && by('subtitle').map((c) => <div key={c.id}>{render(c)}</div>)}
             aside={by('aside').length > 0 && by('aside').map((c) => <div key={c.id}>{render(c)}</div>)}
-            fields={by('field').map((c) => ({ label: headerText(c.column) || c.id, value: render(c) ?? '—' }))}
+            fields={by('field').map((c) => ({ label: t(headerText(c.column)) || c.id, value: render(c) ?? '—' }))}
             footer={actions.length > 0 && actions.map((c) => <div key={c.id}>{render(c)}</div>)}
           />
         );
       })}
       {rows.length > visible && (
         <button onClick={() => setVisible((v) => v + MOBILE_PAGE)} className="btn-secondary w-full">
-          Show more ({rows.length - visible} remaining)
+          {t('Show more ({n} remaining)', { n: rows.length - visible })}
         </button>
       )}
     </div>
@@ -80,6 +82,7 @@ const MobileCards = ({ table, onRowClick }) => {
 const DataTable = ({ columns, data, loading, globalFilter, onGlobalFilterChange, pageSize = 15, onRowClick }) => {
   const [sorting, setSorting] = useState([]);
   const [pagination, setPagination] = useState({ pageIndex: 0, pageSize });
+  const t = useT();
   const isMobile = useIsMobile();
 
   const table = useReactTable({
@@ -119,7 +122,9 @@ const DataTable = ({ columns, data, loading, globalFilter, onGlobalFilterChange,
                         className={`flex items-center gap-1 ${h.column.getCanSort() ? 'cursor-pointer select-none' : ''}`}
                         onClick={h.column.getToggleSortingHandler()}
                       >
-                        {flexRender(h.column.columnDef.header, h.getContext())}
+                        {typeof h.column.columnDef.header === 'string'
+                          ? t(h.column.columnDef.header)
+                          : flexRender(h.column.columnDef.header, h.getContext())}
                         <SortIcon column={h.column} />
                       </div>
                     )}
@@ -132,7 +137,7 @@ const DataTable = ({ columns, data, loading, globalFilter, onGlobalFilterChange,
             {table.getRowModel().rows.length === 0 ? (
               <tr>
                 <td colSpan={columns.length} className="px-4 py-12 text-center text-sm text-gray-400">
-                  No records found
+                  {t('No records found')}
                 </td>
               </tr>
             ) : (
@@ -157,8 +162,11 @@ const DataTable = ({ columns, data, loading, globalFilter, onGlobalFilterChange,
       {table.getPageCount() > 1 && (
         <div className="flex items-center justify-between border-t px-4 py-3 text-sm text-gray-600">
           <span>
-            Page {table.getState().pagination.pageIndex + 1} of {table.getPageCount()}
-            {' · '}{table.getFilteredRowModel().rows.length} records
+            {t('Page {page} of {pages} · {n} records', {
+              page: table.getState().pagination.pageIndex + 1,
+              pages: table.getPageCount(),
+              n: table.getFilteredRowModel().rows.length,
+            })}
           </span>
           <div className="flex items-center gap-1">
             <button onClick={() => table.previousPage()} disabled={!table.getCanPreviousPage()} className="btn-ghost p-1 disabled:opacity-40">

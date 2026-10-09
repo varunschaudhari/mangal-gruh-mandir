@@ -7,7 +7,7 @@ import { downloadExpiringPDF, getExpiringWhatsApp } from '../../api/report.api.j
 import PageHeader from '../../components/ui/PageHeader.jsx';
 import Badge from '../../components/ui/Badge.jsx';
 import { PageLoader } from '../../components/ui/Spinner.jsx';
-import { fDate } from '../../utils/formatters.js';
+import { fDate, localDateStr } from '../../utils/formatters.js';
 import { exportToExcel } from '../../utils/exportToExcel.js';
 import toast from 'react-hot-toast';
 import { shareText } from '../../utils/fileSaver.js';
@@ -81,7 +81,7 @@ const ExpiringStock = () => {
         'Status':        d <= 0 ? 'Expired' : d <= 7 ? 'Critical' : d <= 14 ? 'Warning' : 'Expiring Soon',
       };
     });
-    exportToExcel(rows, `Expiring_Stock_${days}days_${new Date().toISOString().split('T')[0]}`, 'Expiring Stock');
+    exportToExcel(rows, `Expiring_Stock_${days}days_${localDateStr()}`, 'Expiring Stock');
   };
 
   return (

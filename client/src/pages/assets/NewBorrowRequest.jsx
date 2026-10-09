@@ -10,6 +10,7 @@ import { useDebounce } from '../../hooks/useDebounce.js';
 import SearchableSelect from '../../components/ui/SearchableSelect.jsx';
 import PageHeader from '../../components/ui/PageHeader.jsx';
 import toast from 'react-hot-toast';
+import { localDateStr } from '../../utils/formatters.js';
 
 const ID_PROOF_LABELS = {
   aadhar:          'Aadhar Card',
@@ -85,9 +86,9 @@ const NewBorrowRequest = () => {
   const { data: approversRes }= useQuery({ queryKey: ['users-approvers'],   queryFn: getApprovers });
 
   const maxDays    = settingsRes?.data?.data?.assetMaxBorrowDays || 7;
-  const today      = new Date().toISOString().split('T')[0];
+  const today      = localDateStr();
   const maxDate    = new Date(); maxDate.setDate(maxDate.getDate() + maxDays);
-  const maxDateStr = maxDate.toISOString().split('T')[0];
+  const maxDateStr = localDateStr(maxDate);
 
   const assets    = assetsRes?.data?.data   || [];
   const users     = usersRes?.data?.data    || [];

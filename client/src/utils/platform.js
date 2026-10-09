@@ -13,3 +13,10 @@ export const API_ORIGIN = isNative
   : '';
 
 export const serverUrl = (path) => `${API_ORIGIN}${path}`;
+
+// Public web address for links printed on paper (QR labels): the app's own origin is
+// https://localhost (Android), capacitor://localhost (iOS) or app://… (Electron), which
+// no phone camera can open.
+const PUBLIC_ORIGIN = (import.meta.env.VITE_API_ORIGIN || 'https://mandir.aumora.io').replace(/\/$/, '');
+export const publicUrl = (path) =>
+  `${isNative || isElectron ? PUBLIC_ORIGIN : window.location.origin}${path}`;

@@ -3,7 +3,7 @@ import {
   Trash2, Package, Warehouse, Users, Tag, Ruler, Truck, Shield,
   FlameKindling, History, AlertTriangle, BookOpen, CalendarClock,
   Armchair, ClipboardList, Settings2, BarChart2, TrendingUp, Heart, CreditCard, Plus,
-  ShoppingCart, BookTemplate, FileText, Utensils, ScanLine, BarChart3, Receipt, PiggyBank,
+  ShoppingCart, BookTemplate, FileText, Utensils, ScanLine, BarChart3, Receipt, PiggyBank, Bug,
 } from 'lucide-react';
 
 // Single source of truth for navigation: the desktop sidebar, the mobile bottom tab bar,
@@ -136,6 +136,7 @@ export const navConfig = [
       { label: 'Users',     to: '/admin/users',      icon: Users,     permission: 'users:read'  },
       { label: 'Roles',     to: '/admin/roles',      icon: Shield,    permission: 'users:read'  },
       { label: 'Audit Log', to: '/admin/audit-log',  icon: History,   permission: 'users:read'  },
+      { label: 'App Errors', to: '/admin/app-errors', icon: Bug,      permission: 'users:read'  },
       { label: 'Settings',  to: '/settings',         icon: Settings2, permission: 'users:write' },
     ],
   },
@@ -193,6 +194,20 @@ export const QUICK_ACTIONS = [
   { label: 'New Expense',    to: '/expenses/new',           icon: Receipt,         permission: 'payments:write',      tone: 'green'  },
   { label: 'New Donation',   to: '/donations/new',          icon: Heart,           permission: 'donations:write',     tone: 'pink'   },
 ];
+
+// Which tab lights up for a path: 'home', a tab key, or 'more'.
+export const resolveActiveTab = (pathname, tabs) => {
+  if (pathname === '/dashboard' || pathname === '/') return 'home';
+  let best = null;
+  let bestLen = 0;
+  for (const t of tabs) {
+    for (const prefix of [t.to, ...(t.match || [])]) {
+      const hit = pathname === prefix || pathname.startsWith(`${prefix}/`);
+      if (hit && prefix.length > bestLen) { best = t.key; bestLen = prefix.length; }
+    }
+  }
+  return best || 'more';
+};
 
 // Full-screen task routes (forms) hide the bottom tab bar on mobile, like a pushed screen.
 const TASK_ROUTE = /(\/new|\/edit|\/return)$|^\/transactions\/(stock-in|stock-out|transfer|wastage)$|^\/change-password$/;

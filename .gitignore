@@ -3,3 +3,12 @@ node_modules/
 dist/
 .DS_Store
 *.log
+
+# Files people upload and Android release builds live on the server, not in git
+server/uploads/expenses/*
+!server/uploads/expenses/.gitkeep
+mobile-releases/
+
+# Firebase app config (add locally / on the build machine — see MOBILE.md → Push notifications)
+client/android/app/google-services.json
+client/ios/App/App/GoogleService-Info.plist

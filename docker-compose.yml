@@ -9,6 +9,10 @@ services:
     env_file: ./server/.env
     environment:
       - NODE_ENV=production
+      - TZ=Asia/Kolkata          # temple runs on India time (also pinned in server/src/config/timezone.js)
+    volumes:
+      - ./server/uploads:/app/uploads               # expense receipts — on the host so rebuilds don't delete them
+      - ./mobile-releases:/app/mobile-releases:ro   # Android app updates (MOBILE.md)
     networks:
       - mgm_net
 

@@ -1,10 +1,14 @@
 import { useState, useRef, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Search, X, ChevronDown, Package } from 'lucide-react';
-import { getProducts } from '../../api/product.api.js';
+import { Search, X, ChevronDown, Package, ScanLine } from 'lucide-react';
+import toast from 'react-hot-toast';
+import { getProducts, lookupProduct } from '../../api/product.api.js';
+import { isNative } from '../../utils/platform.js';
+import { scanQrCode } from '../../utils/nativeScanner.js';
 import { useIsMobile } from '../../hooks/useMediaQuery.js';
 import Sheet from '../ui/Sheet.jsx';
 import haptics from '../../utils/haptics.js';
+import { useT } from '../../i18n/index.jsx';
 
 const ProductSearchSelect = ({ value, onChange, onSelect, error, disabled }) => {
   const [search,          setSearch]          = useState('');
@@ -13,6 +17,7 @@ const ProductSearchSelect = ({ value, onChange, onSelect, error, disabled }) => 
   const containerRef = useRef(null);
   const sheetInputRef = useRef(null);
   const isMobile = useIsMobile();
+  const t = useT();
 
   // Clear display when form resets value to ''
   useEffect(() => {
@@ -21,7 +26,8 @@ const ProductSearchSelect = ({ value, onChange, onSelect, error, disabled }) => 
 
   const { data } = useQuery({
     queryKey: ['products', 'search', search],
-    queryFn:  () => getProducts({ search, limit: 20, isActive: true }),
+    // `active` is the API's filter name (isActive was ignored, so inactive products showed up)
+    queryFn:  () => getProducts({ search, limit: 20, active: true }),
     staleTime: 10000,
   });
 
@@ -39,8 +45,8 @@ const ProductSearchSelect = ({ value, onChange, onSelect, error, disabled }) => 
   // Phones: focus the sheet's search box once the sheet has mounted.
   useEffect(() => {
     if (!isMobile || !open) return undefined;
-    const t = setTimeout(() => sheetInputRef.current?.focus(), 60);
-    return () => clearTimeout(t);
+    const timer = setTimeout(() => sheetInputRef.current?.focus(), 60);
+    return () => clearTimeout(timer);
   }, [isMobile, open]);
 
   const handleSelect = (product) => {
@@ -60,6 +66,21 @@ const ProductSearchSelect = ({ value, onChange, onSelect, error, disabled }) => 
   };
 
   const closeSheet = () => { setOpen(false); setSearch(''); };
+
+  // App only: pick the product by scanning its label (product code) or shop barcode.
+  const scanProduct = async () => {
+    try {
+      const text = await scanQrCode({ barcodes: true });
+      if (!text) return;
+      const { data } = await lookupProduct(text);
+      if (!data.data.isActive) { haptics.error(); toast.error(t('{name} is inactive', { name: data.data.name })); return; }
+      handleSelect(data.data);
+      haptics.success();
+    } catch (err) {
+      haptics.error();
+      toast.error(err?.response?.status === 404 ? t('No product with that code or barcode') : (err?.message || t('Scanner not available')));
+    }
+  };
 
   // ── Phones: a tappable field that opens a full-height picker sheet ─────────
   if (isMobile) {
@@ -82,19 +103,24 @@ const ProductSearchSelect = ({ value, onChange, onSelect, error, disabled }) => 
             ) : (
               <>
                 <Search className="h-4 w-4 shrink-0 text-gray-400" />
-                <span className="flex-1 truncate text-gray-400">Search by name or code…</span>
+                <span className="flex-1 truncate text-gray-400">{t('Search by name or code…')}</span>
               </>
             )}
             {!selectedProduct && <ChevronDown className="mr-2 h-4 w-4 shrink-0 text-gray-400" />}
           </button>
           {selectedProduct && !disabled && (
-            <button type="button" onClick={handleClear} className="shrink-0 p-2.5 text-gray-400 active:text-gray-600" aria-label="Clear product">
+            <button type="button" onClick={handleClear} className="shrink-0 p-2.5 text-gray-400 active:text-gray-600" aria-label={t('Clear product')}>
               <X className="h-4 w-4" />
+            </button>
+          )}
+          {isNative && !disabled && (
+            <button type="button" onClick={scanProduct} className="shrink-0 border-l border-gray-200 p-2.5 text-primary-600 active:bg-gray-50" aria-label={t('Scan product')}>
+              <ScanLine className="h-5 w-5" />
             </button>
           )}
         </div>
 
-        <Sheet open={open} onClose={closeSheet} title="Select product" full bodyClassName="!px-0 !pt-0">
+        <Sheet open={open} onClose={closeSheet} title={t('Select product')} full bodyClassName="!px-0 !pt-0">
           <div className="sticky top-0 z-10 border-b border-gray-100 bg-white px-4 py-3">
             <div className="relative">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
@@ -104,13 +130,13 @@ const ProductSearchSelect = ({ value, onChange, onSelect, error, disabled }) => 
                 enterKeyHint="search"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search by name or code…"
+                placeholder={t('Search by name or code…')}
                 className="input pl-9"
               />
             </div>
           </div>
           {products.length === 0 ? (
-            <div className="px-4 py-10 text-center text-sm text-gray-500">No products found</div>
+            <div className="px-4 py-10 text-center text-sm text-gray-500">{t('No products found')}</div>
           ) : (
             <ul className="divide-y divide-gray-100">
               {products.map((p) => {
@@ -143,7 +169,7 @@ const ProductSearchSelect = ({ value, onChange, onSelect, error, disabled }) => 
           )}
         </Sheet>
 
-        {error && <p className="mt-1 text-xs text-red-600">{typeof error === 'string' ? error : 'Required'}</p>}
+        {error && <p className="mt-1 text-xs text-red-600">{typeof error === 'string' ? error : t('Required')}</p>}
       </div>
     );
   }
@@ -170,7 +196,7 @@ const ProductSearchSelect = ({ value, onChange, onSelect, error, disabled }) => 
             value={search}
             onChange={(e) => { setSearch(e.target.value); setOpen(true); }}
             onFocus={() => setOpen(true)}
-            placeholder="Search by name or code…"
+            placeholder={t('Search by name or code…')}
             className={`input pl-9 text-sm ${error ? 'border-red-300' : ''}`}
             disabled={disabled}
           />
@@ -180,7 +206,7 @@ const ProductSearchSelect = ({ value, onChange, onSelect, error, disabled }) => 
       {open && (
         <div className="absolute z-30 w-full mt-1 max-h-60 overflow-y-auto bg-white border border-gray-200 rounded-lg shadow-lg">
           {products.length === 0 ? (
-            <div className="px-4 py-3 text-sm text-gray-500">No products found</div>
+            <div className="px-4 py-3 text-sm text-gray-500">{t('No products found')}</div>
           ) : (
             products.map((p) => (
               <button
@@ -197,7 +223,7 @@ const ProductSearchSelect = ({ value, onChange, onSelect, error, disabled }) => 
         </div>
       )}
 
-      {error && <p className="mt-1 text-xs text-red-600">{typeof error === 'string' ? error : 'Required'}</p>}
+      {error && <p className="mt-1 text-xs text-red-600">{typeof error === 'string' ? error : t('Required')}</p>}
     </div>
   );
 };

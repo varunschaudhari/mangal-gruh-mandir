@@ -1,4 +1,5 @@
 import ExcelJS from 'exceljs';
+import { localDateStr } from '../utils/dates.js';
 
 const HDR_FILL  = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFEA580C' } }; // orange
 const BORDER    = { top: { style: 'thin' }, bottom: { style: 'thin' }, left: { style: 'thin' }, right: { style: 'thin' } };
@@ -78,7 +79,7 @@ export async function generateDonationExcel(res, { donations, from, to }) {
   sheet.views = [{ state: 'frozen', ySplit: 4 }];
 
   res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-  res.setHeader('Content-Disposition', `attachment; filename="donations-${new Date().toISOString().split('T')[0]}.xlsx"`);
+  res.setHeader('Content-Disposition', `attachment; filename="donations-${localDateStr()}.xlsx"`);
   await wb.xlsx.write(res);
   res.end();
 }

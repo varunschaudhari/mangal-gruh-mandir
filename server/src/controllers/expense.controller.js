@@ -9,6 +9,7 @@ import { generateExpenseNumber } from '../services/expenseNumber.service.js';
 import { logAction } from '../services/audit.service.js';
 import { generateExpenseReport } from '../services/expensePdf.service.js';
 import Settings from '../models/Settings.js';
+import { pushExpenseSubmitted, pushExpenseDecision } from '../services/pushAlerts.service.js';
 
 const __dirname   = path.dirname(fileURLToPath(import.meta.url));
 const UPLOADS_DIR = path.join(__dirname, '../../uploads/expenses');
@@ -52,6 +53,7 @@ export const createExpense = asyncHandler(async (req, res) => {
   });
 
   const populated = await Expense.findById(expense._id).populate(POPULATE).lean();
+  pushExpenseSubmitted({ expense, submitterId: req.user._id, submitterName: req.user.name });
   res.status(201).json(new ApiResponse(201, populated, 'Expense created'));
 });
 
@@ -126,6 +128,7 @@ export const approveExpense = asyncHandler(async (req, res) => {
   });
 
   const populated = await Expense.findById(expense._id).populate(POPULATE).lean();
+  pushExpenseDecision({ expense, approverName: req.user.name });
   res.json(new ApiResponse(200, populated, 'Expense approved'));
 });
 
@@ -151,6 +154,7 @@ export const rejectExpense = asyncHandler(async (req, res) => {
   });
 
   const populated = await Expense.findById(expense._id).populate(POPULATE).lean();
+  pushExpenseDecision({ expense, approverName: req.user.name });
   res.json(new ApiResponse(200, populated, 'Expense rejected'));
 });
 

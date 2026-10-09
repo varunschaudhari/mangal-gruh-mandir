@@ -8,6 +8,7 @@ import ApiResponse from '../utils/ApiResponse.js';
 import asyncHandler from '../utils/asyncHandler.js';
 import { randomBytes } from 'crypto';
 import { logAction } from '../services/audit.service.js';
+import { APP_TIMEZONE, localDateStr } from '../utils/dates.js';
 const nanoid = () => randomBytes(6).toString('hex');
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -65,8 +66,7 @@ function dayBounds(date) {
 }
 
 function datePart(date) {
-  const d = date ? new Date(date) : new Date();
-  return d.toISOString().split('T')[0].replace(/-/g, '');
+  return localDateStr(date ? new Date(date) : new Date()).replace(/-/g, '');
 }
 
 // Atomic counter — returns the starting sequence number for this batch.
@@ -219,7 +219,7 @@ export const issueCoupons = asyncHandler(async (req, res) => {
     }).catch(() => {}); // fire-and-forget; don't fail the coupon issue
   }
 
-  logAction(req, { action: 'mahaprasad.issue', entity: 'MahaprasadCoupon', entityId: batchId, entityRef: batchId, after: { qty, type, isGroup: Boolean(isGroup), groupSize, date: couponDate.toISOString().split('T')[0], occasion: type === 'free' ? occasion : undefined } });
+  logAction(req, { action: 'mahaprasad.issue', entity: 'MahaprasadCoupon', entityId: batchId, entityRef: batchId, after: { qty, type, isGroup: Boolean(isGroup), groupSize, date: localDateStr(couponDate), occasion: type === 'free' ? occasion : undefined } });
   const msg = isGroup ? `Group coupon (${qty} persons) issued` : `${qty} coupon(s) issued`;
   res.status(201).json(new ApiResponse(201, { coupons, batchId, drawerChange }, msg));
 });
@@ -414,7 +414,7 @@ export const getMonthlyReport = asyncHandler(async (req, res) => {
   const rows = await MahaprasadCoupon.aggregate([
     { $match: filter },
     { $group: {
-      _id:       { $dateToString: { format: '%Y-%m', date: '$date' } },
+      _id:       { $dateToString: { format: '%Y-%m', date: '$date', timezone: APP_TIMEZONE } },
       total:     { $sum: 1 },
       redeemed:  { $sum: { $cond: [{ $eq: ['$status', 'redeemed'] }, 1, 0] } },
       paid:      { $sum: { $cond: [{ $eq: ['$type',   'paid']     }, 1, 0] } },
@@ -505,7 +505,7 @@ export const getWastageReport = asyncHandler(async (req, res) => {
     MahaprasadCoupon.aggregate([
       { $match: wasteFilter },
       { $group: {
-        _id:    { $dateToString: { format: '%Y-%m-%d', date: '$date' } },
+        _id:    { $dateToString: { format: '%Y-%m-%d', date: '$date', timezone: APP_TIMEZONE } },
         count:  { $sum: 1 },
         paid:   { $sum: { $cond: [{ $eq: ['$type', 'paid'] }, 1, 0] } },
         free:   { $sum: { $cond: [{ $eq: ['$type', 'free'] }, 1, 0] } },
@@ -529,7 +529,7 @@ export const getWastageReport = asyncHandler(async (req, res) => {
 
 // GET /mahaprasad/report/whatsapp?date=YYYY-MM-DD
 export const getMahaprasadWhatsApp = asyncHandler(async (req, res) => {
-  const dateStr  = req.query.date || new Date().toISOString().split('T')[0];
+  const dateStr  = req.query.date || localDateStr();
   const { start, end } = dayBounds(dateStr);
   const dateLabel = new Date(dateStr).toLocaleDateString('en-IN', {
     weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
@@ -614,7 +614,7 @@ export const getReport = asyncHandler(async (req, res) => {
     MahaprasadCoupon.aggregate([
       { $match: filter },
       { $group: {
-        _id:       { $dateToString: { format: '%Y-%m-%d', date: '$date' } },
+        _id:       { $dateToString: { format: '%Y-%m-%d', date: '$date', timezone: APP_TIMEZONE } },
         total:     { $sum: 1 },
         redeemed:  { $sum: { $cond: [{ $eq: ['$status', 'redeemed'] }, 1, 0] } },
         paid:      { $sum: { $cond: [{ $eq: ['$type',   'paid']     }, 1, 0] } },
@@ -786,11 +786,11 @@ export const syncOffline = asyncHandler(async (req, res) => {
 // GET /mahaprasad/cash-drawer?date=YYYY-MM-DD
 export const getCashDrawer = asyncHandler(async (req, res) => {
   const dateStr = datePart(req.query.date);
+  const { start, end } = dayBounds(req.query.date);
   const [drawer, paymentTotals] = await Promise.all([
     getOrCreateDrawer(dateStr),
     MahaprasadPayment.aggregate([
-      { $match: { date: { $gte: new Date(`${req.query.date || new Date().toISOString().split('T')[0]}T00:00:00.000Z`),
-                          $lt:  new Date(`${req.query.date || new Date().toISOString().split('T')[0]}T23:59:59.999Z`) } } },
+      { $match: { date: { $gte: start, $lte: end } } },
       { $group: { _id: '$paymentMode', total: { $sum: '$totalDue' } } },
     ]),
   ]);
@@ -875,7 +875,7 @@ export const voidBatch = asyncHandler(async (req, res) => {
   );
 
   if (payment && payment.paymentMode === 'cash' && payment.receivedNotes?.length) {
-    const dateStr = datePart(payment.date.toISOString().split('T')[0]);
+    const dateStr = datePart(payment.date);
     const inc = {};
     for (const note of payment.receivedNotes) {
       const noteMap = NOTE_TO_DRAWER[Number(note)];

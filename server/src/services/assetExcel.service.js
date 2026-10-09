@@ -1,4 +1,5 @@
 import ExcelJS from 'exceljs';
+import { localDateStr } from '../utils/dates.js';
 
 const HEADER_FILL  = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF7C3AED' } }; // purple
 const SECTION_FILL = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFEDE9FE' } };
@@ -133,7 +134,7 @@ export async function generateAssetReportExcel(res, { transactions, utilizationD
   }
 
   res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-  res.setHeader('Content-Disposition', `attachment; filename="asset-report-${new Date().toISOString().split('T')[0]}.xlsx"`);
+  res.setHeader('Content-Disposition', `attachment; filename="asset-report-${localDateStr()}.xlsx"`);
   await wb.xlsx.write(res);
   res.end();
 }

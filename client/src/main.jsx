@@ -9,6 +9,8 @@ import ErrorBoundary from './components/ErrorBoundary.jsx';
 import './index.css';
 import { isNative, isElectron } from './utils/platform.js';
 import { initNativeShell, hideSplash } from './utils/nativeShell.js';
+import { installGlobalErrorHandlers } from './utils/errorReporter.js';
+import { LanguageProvider } from './i18n/index.jsx';
 
 // Manual SW registration — vite-plugin-pwa's auto-inject has no error handling.
 // When the app is accessed via a raw IP address the SSL cert doesn't cover that
@@ -29,6 +31,7 @@ if ('serviceWorker' in navigator && !isElectron && !isNative) {
 }
 
 initNativeShell();
+installGlobalErrorHandlers();
 
 const isPhone = window.matchMedia('(max-width: 639px)').matches;
 
@@ -47,6 +50,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
     <ErrorBoundary>
       <BrowserRouter>
         <QueryClientProvider client={queryClient}>
+          <LanguageProvider>
           <AuthProvider>
             <ErrorBoundary>
               <App />
@@ -60,6 +64,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
               }}
             />
           </AuthProvider>
+          </LanguageProvider>
         </QueryClientProvider>
       </BrowserRouter>
     </ErrorBoundary>

@@ -4,6 +4,7 @@ import StockBalance from '../models/StockBalance.js';
 import StockBatch from '../models/StockBatch.js';
 import SupplierPayment from '../models/SupplierPayment.js';
 import Product from '../models/Product.js';
+import { APP_TIMEZONE } from '../utils/dates.js';
 
 /**
  * Fetches all non-voided transactions for a date (optionally filtered by department)
@@ -256,8 +257,8 @@ export async function getConsumptionTrendData(departmentId) {
     { $group: {
       _id: {
         product: '$product',
-        year:    { $year: '$transactionDate' },
-        month:   { $month: '$transactionDate' },
+        year:    { $year:  { date: '$transactionDate', timezone: APP_TIMEZONE } },
+        month:   { $month: { date: '$transactionDate', timezone: APP_TIMEZONE } },
       },
       totalQty: { $sum: '$quantity' },
     }},

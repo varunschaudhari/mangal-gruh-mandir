@@ -4,9 +4,11 @@ import { ChevronDown, ChevronRight } from 'lucide-react';
 import { usePermissions } from '../../hooks/usePermissions.js';
 import { useNavBadges } from '../../hooks/useNavBadges.js';
 import { navConfig } from './navConfig.js';
+import { useT } from '../../i18n/index.jsx';
 
 const NavItem = ({ item, can, onNavigate, badges = {} }) => {
   const location = useLocation();
+  const t = useT();
   const childActive = item.children?.some((c) => location.pathname.startsWith(c.to));
   const [open, setOpen] = useState(true);
 
@@ -26,7 +28,7 @@ const NavItem = ({ item, can, onNavigate, badges = {} }) => {
         }
       >
         <item.icon className="h-4 w-4 shrink-0" />
-        {item.label}
+        {t(item.label)}
       </NavLink>
     );
   }
@@ -51,7 +53,7 @@ const NavItem = ({ item, can, onNavigate, badges = {} }) => {
             <span className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-red-500" />
           )}
         </div>
-        <span className="flex-1 text-left">{item.label}</span>
+        <span className="flex-1 text-left">{t(item.label)}</span>
         {open ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
       </button>
 
@@ -72,7 +74,7 @@ const NavItem = ({ item, can, onNavigate, badges = {} }) => {
                 }
               >
                 <child.icon className="h-3.5 w-3.5 shrink-0" />
-                <span className="flex-1">{child.label}</span>
+                <span className="flex-1">{t(child.label)}</span>
                 {badge > 0 && (
                   <span className="ml-auto shrink-0 min-w-[18px] h-[18px] rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center px-1">
                     {badge > 99 ? '99+' : badge}
@@ -90,6 +92,7 @@ const NavItem = ({ item, can, onNavigate, badges = {} }) => {
 // Desktop-only (lg+). Phones and tablets use MobileTabBar + MoreSheet instead.
 const Sidebar = () => {
   const { can } = usePermissions();
+  const t = useT();
   const badges  = useNavBadges();
 
   return (
@@ -107,8 +110,8 @@ const Sidebar = () => {
             />
           </div>
           <div>
-            <p className="text-xs font-bold leading-tight text-white">Mangal Grah Mandir</p>
-            <p className="text-xs text-gray-400">Stock Management</p>
+            <p className="text-xs font-bold leading-tight text-white">{t('Mangal Grah Mandir')}</p>
+            <p className="text-xs text-gray-400">{t('Stock Management')}</p>
           </div>
         </div>
       </div>

@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Vault, ChevronDown, ChevronUp, Edit3, Check, X, BarChart2 } from 'lucide-react';
 import { getCashDrawer, setOpeningFloat, adjustDrawer } from '../../api/mahaprasad.api.js';
 import toast from 'react-hot-toast';
+import { useT } from '../../i18n/index.jsx';
 
 const DENOMS = [500, 200, 100, 50, 20, 10, 5, 2, 1];
 
@@ -10,6 +11,7 @@ function fmt(n) { return n.toLocaleString('en-IN'); }
 
 // ── Opening float form ────────────────────────────────────────────────────────
 function FloatForm({ date, currentCounts, onClose }) {
+  const t = useT();
   const qc = useQueryClient();
   const [counts, setCounts] = useState(
     Object.fromEntries(DENOMS.map((d) => [String(d), currentCounts?.[String(d)] ?? 0]))
@@ -19,17 +21,17 @@ function FloatForm({ date, currentCounts, onClose }) {
     mutationFn: () => setOpeningFloat({ date, counts }),
     onSuccess:  () => {
       qc.invalidateQueries({ queryKey: ['mahaprasad-cash-drawer', date] });
-      toast.success('Opening float saved');
+      toast.success(t('Opening float saved'));
       onClose();
     },
-    onError: (e) => toast.error(e.response?.data?.message || 'Failed to save float'),
+    onError: (e) => toast.error(e.response?.data?.message || t('Failed to save float')),
   });
 
   const total = DENOMS.reduce((s, d) => s + d * (Number(counts[String(d)]) || 0), 0);
 
   return (
     <div className="border border-blue-200 bg-blue-50 rounded-xl p-3 sm:p-4 space-y-3">
-      <p className="text-xs font-semibold text-blue-700 uppercase tracking-wide">Set Opening Float</p>
+      <p className="text-xs font-semibold text-blue-700 uppercase tracking-wide">{t('Set Opening Float')}</p>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
         {DENOMS.map((d) => (
           <div key={d} className="flex items-center gap-2">
@@ -39,7 +41,7 @@ function FloatForm({ date, currentCounts, onClose }) {
               type="number" inputMode="numeric" min={0} max={999}
               value={counts[String(d)]}
               onChange={(e) => setCounts((c) => ({ ...c, [String(d)]: Math.max(0, parseInt(e.target.value) || 0) }))}
-              aria-label={`₹${d} notes`}
+              aria-label={t('₹{d} notes', { d })}
               className="input text-sm text-center w-16 max-sm:w-20 py-1"
             />
             <span className="text-xs text-gray-400 w-14 max-sm:w-auto max-sm:ml-auto max-sm:text-sm tabular-nums">= ₹{fmt(d * (Number(counts[String(d)]) || 0))}</span>
@@ -47,14 +49,14 @@ function FloatForm({ date, currentCounts, onClose }) {
         ))}
       </div>
       <div className="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-blue-200">
-        <span className="text-sm font-bold text-blue-800">Total: ₹{fmt(total)}</span>
+        <span className="text-sm font-bold text-blue-800">{t('Total: ₹{amount}', { amount: fmt(total) })}</span>
         <div className="flex gap-2 max-sm:w-full max-sm:[&>*]:flex-1">
           <button onClick={onClose} className="btn btn-ghost border text-sm px-3 py-1.5 max-sm:py-2.5 flex items-center gap-1">
-            <X className="h-3.5 w-3.5" /> Cancel
+            <X className="h-3.5 w-3.5" /> {t('Cancel')}
           </button>
           <button onClick={() => mut.mutate()} disabled={mut.isPending}
             className="btn bg-blue-600 hover:bg-blue-700 text-white text-sm px-4 py-1.5 max-sm:py-2.5 flex items-center gap-1.5 disabled:opacity-50">
-            <Check className="h-3.5 w-3.5" /> Save Float
+            <Check className="h-3.5 w-3.5" /> {t('Save Float')}
           </button>
         </div>
       </div>
@@ -64,6 +66,7 @@ function FloatForm({ date, currentCounts, onClose }) {
 
 // ── Main CashDrawer component ─────────────────────────────────────────────────
 const CashDrawer = forwardRef(function CashDrawer({ date }, ref) {
+  const t = useT();
   const qc = useQueryClient();
   // Starts collapsed on phones (the header still shows the drawer total) so the issue
   // form isn't buried under nine denomination rows.
@@ -102,7 +105,7 @@ const CashDrawer = forwardRef(function CashDrawer({ date }, ref) {
   const adjustMut = useMutation({
     mutationFn: ({ denomination, delta }) => adjustDrawer({ date, denomination, delta }),
     onSuccess:  () => qc.invalidateQueries({ queryKey: ['mahaprasad-cash-drawer', date] }),
-    onError:    (e) => toast.error(e.response?.data?.message || 'Failed to adjust'),
+    onError:    (e) => toast.error(e.response?.data?.message || t('Failed to adjust')),
   });
 
   if (isLoading) return null;
@@ -114,10 +117,10 @@ const CashDrawer = forwardRef(function CashDrawer({ date }, ref) {
         className="w-full flex items-center justify-between gap-2 px-4 sm:px-5 py-3 max-sm:min-h-[48px] text-sm font-semibold text-gray-700 hover:bg-gray-50 transition-colors">
         <span className="flex flex-wrap items-center gap-x-2 gap-y-1 min-w-0">
           <Vault className="h-4 w-4 text-green-600" />
-          Cash Drawer
+          {t('Cash Drawer')}
           {!drawer?.isFloatSet && (
             <span className="text-xs font-normal text-amber-600 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded">
-              Float not set
+              {t('Float not set')}
             </span>
           )}
         </span>
@@ -138,7 +141,7 @@ const CashDrawer = forwardRef(function CashDrawer({ date }, ref) {
             <button onClick={() => setShowFloat(true)}
               className="flex items-center gap-1.5 text-xs text-blue-600 hover:text-blue-700 font-medium max-sm:py-2 max-sm:text-sm">
               <Edit3 className="h-3 w-3" />
-              {drawer?.isFloatSet ? 'Reset opening float' : 'Set opening float'}
+              {drawer?.isFloatSet ? t('Reset opening float') : t('Set opening float')}
             </button>
           )}
 
@@ -155,7 +158,7 @@ const CashDrawer = forwardRef(function CashDrawer({ date }, ref) {
                     <button
                       onClick={() => adjustMut.mutate({ denomination: d, delta: -1 })}
                       disabled={count === 0 || adjustMut.isPending}
-                      aria-label={`One less ₹${d} note`}
+                      aria-label={t('One less ₹{d} note', { d })}
                       className="w-6 h-6 max-sm:w-10 max-sm:h-10 max-sm:rounded-lg max-sm:text-base rounded border border-gray-200 text-gray-500 hover:border-red-300 hover:text-red-600 hover:bg-red-50 transition-colors disabled:opacity-30 text-sm font-bold flex items-center justify-center">
                       −
                     </button>
@@ -165,7 +168,7 @@ const CashDrawer = forwardRef(function CashDrawer({ date }, ref) {
                     <button
                       onClick={() => adjustMut.mutate({ denomination: d, delta: 1 })}
                       disabled={adjustMut.isPending}
-                      aria-label={`One more ₹${d} note`}
+                      aria-label={t('One more ₹{d} note', { d })}
                       className="w-6 h-6 max-sm:w-10 max-sm:h-10 max-sm:rounded-lg max-sm:text-base rounded border border-gray-200 text-gray-500 hover:border-green-300 hover:text-green-600 hover:bg-green-50 transition-colors text-sm font-bold flex items-center justify-center">
                       +
                     </button>
@@ -180,7 +183,7 @@ const CashDrawer = forwardRef(function CashDrawer({ date }, ref) {
 
           {/* Total bar */}
           <div className="flex items-center justify-between pt-2 border-t border-gray-100">
-            <span className="text-xs text-gray-500">Total in drawer</span>
+            <span className="text-xs text-gray-500">{t('Total in drawer')}</span>
             <span className="text-lg font-black text-green-700">₹{fmt(total)}</span>
           </div>
 
@@ -189,8 +192,8 @@ const CashDrawer = forwardRef(function CashDrawer({ date }, ref) {
             className="w-full flex items-center justify-between pt-1 max-sm:py-2.5 text-xs max-sm:text-sm font-semibold text-blue-600 hover:text-blue-700">
             <span className="flex items-center gap-1.5">
               <BarChart2 className="h-3.5 w-3.5" />
-              Day Summary
-              {!hasAnySummary && <span className="font-normal text-gray-400">(no transactions yet)</span>}
+              {t('Day Summary')}
+              {!hasAnySummary && <span className="font-normal text-gray-400">{t('(no transactions yet)')}</span>}
             </span>
             {showSummary ? <ChevronUp className="h-3.5 w-3.5 text-gray-400" /> : <ChevronDown className="h-3.5 w-3.5 text-gray-400" />}
           </button>
@@ -203,10 +206,10 @@ const CashDrawer = forwardRef(function CashDrawer({ date }, ref) {
                 {/* Phones get short headings so the five columns fit */}
                 <div className="grid grid-cols-[3rem_1fr_1fr_1fr_1fr] gap-0 bg-gray-50 px-3 py-1.5 text-gray-500 font-semibold uppercase tracking-wide">
                   <span></span>
-                  <span className="text-right"><span className="sm:hidden">Open</span><span className="hidden sm:inline">Opening</span></span>
-                  <span className="text-right text-green-700"><span className="sm:hidden">+ In</span><span className="hidden sm:inline">+ Received</span></span>
-                  <span className="text-right text-red-600"><span className="sm:hidden">− Out</span><span className="hidden sm:inline">− Change</span></span>
-                  <span className="text-right text-blue-700">Net</span>
+                  <span className="text-right"><span className="sm:hidden">{t('Open')}</span><span className="hidden sm:inline">{t('Opening')}</span></span>
+                  <span className="text-right text-green-700"><span className="sm:hidden">{t('+ In')}</span><span className="hidden sm:inline">{t('+ Received')}</span></span>
+                  <span className="text-right text-red-600"><span className="sm:hidden">{t('− Out')}</span><span className="hidden sm:inline">{t('− Change')}</span></span>
+                  <span className="text-right text-blue-700">{t('Net')}</span>
                 </div>
                 {DENOMS.map((d) => {
                   const opening  = openingCounts[String(d)]  || 0;
@@ -231,14 +234,14 @@ const CashDrawer = forwardRef(function CashDrawer({ date }, ref) {
                   );
                 })}
                 {!hasAnySummary && (
-                  <div className="px-3 py-3 text-center text-gray-400 border-t border-gray-50">No cash transactions recorded today</div>
+                  <div className="px-3 py-3 text-center text-gray-400 border-t border-gray-50">{t('No cash transactions recorded today')}</div>
                 )}
               </div>
 
               {/* Collection totals */}
               <div className="grid grid-cols-3 gap-2">
                 <div className="rounded-lg bg-green-50 border border-green-100 px-3 max-sm:px-1.5 py-2 text-center min-w-0">
-                  <p className="text-[10px] text-green-600 font-semibold uppercase tracking-wide mb-0.5">Cash</p>
+                  <p className="text-[10px] text-green-600 font-semibold uppercase tracking-wide mb-0.5">{t('Cash')}</p>
                   <p className="text-base max-sm:text-sm font-black text-green-800 tabular-nums truncate">₹{fmt(cashTotal)}</p>
                 </div>
                 <div className="rounded-lg bg-blue-50 border border-blue-100 px-3 max-sm:px-1.5 py-2 text-center min-w-0">
@@ -246,7 +249,7 @@ const CashDrawer = forwardRef(function CashDrawer({ date }, ref) {
                   <p className="text-base max-sm:text-sm font-black text-blue-800 tabular-nums truncate">₹{fmt(upiTotal)}</p>
                 </div>
                 <div className="rounded-lg bg-gray-50 border border-gray-200 px-3 max-sm:px-1.5 py-2 text-center min-w-0">
-                  <p className="text-[10px] text-gray-500 font-semibold uppercase tracking-wide mb-0.5">Total</p>
+                  <p className="text-[10px] text-gray-500 font-semibold uppercase tracking-wide mb-0.5">{t('Total')}</p>
                   <p className="text-base max-sm:text-sm font-black text-gray-800 tabular-nums truncate">₹{fmt(cashTotal + upiTotal)}</p>
                 </div>
               </div>

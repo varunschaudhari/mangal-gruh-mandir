@@ -9,6 +9,7 @@ import PageHeader from '../../components/ui/PageHeader.jsx';
 import Badge from '../../components/ui/Badge.jsx';
 import toast from 'react-hot-toast';
 import { saveFile } from '../../utils/fileSaver.js';
+import { localDateStr } from '../../utils/formatters.js';
 
 const col = createColumnHelper();
 
@@ -106,7 +107,7 @@ const AssetReports = () => {
     setExporting(true);
     try {
       const res = await exportAssetExcel({ from: from || undefined, to: to || undefined });
-      downloadBlob(res.data, `asset-report-${new Date().toISOString().split('T')[0]}.xlsx`);
+      downloadBlob(res.data, `asset-report-${localDateStr()}.xlsx`);
     } catch { toast.error('Export failed'); }
     finally { setExporting(false); }
   };
@@ -115,7 +116,7 @@ const AssetReports = () => {
     setExporting(true);
     try {
       const res = await exportAssetPDF({ from: from || undefined, to: to || undefined });
-      downloadBlob(res.data, `asset-report-${new Date().toISOString().split('T')[0]}.pdf`);
+      downloadBlob(res.data, `asset-report-${localDateStr()}.pdf`);
     } catch { toast.error('Export failed'); }
     finally { setExporting(false); }
   };
@@ -146,7 +147,7 @@ const AssetReports = () => {
         </div>
         <div className="flex items-center gap-2">
           <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">To</label>
-          <input type="date" value={to} max={new Date().toISOString().split('T')[0]} onChange={(e) => setTo(e.target.value)} className="input text-sm py-1.5" />
+          <input type="date" value={to} max={localDateStr()} onChange={(e) => setTo(e.target.value)} className="input text-sm py-1.5" />
         </div>
         {(from || to) && (
           <button onClick={() => { setFrom(''); setTo(''); }} className="text-xs text-gray-400 hover:text-gray-600 underline">Clear</button>

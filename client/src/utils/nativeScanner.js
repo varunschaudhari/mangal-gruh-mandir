@@ -31,11 +31,18 @@ async function ensureAndroidModule() {
   }
 }
 
+// Printed shop barcodes on packaged goods, plus QR codes.
+const PRODUCT_FORMATS = [
+  BarcodeFormat.QrCode, BarcodeFormat.Ean13, BarcodeFormat.Ean8, BarcodeFormat.UpcA,
+  BarcodeFormat.UpcE, BarcodeFormat.Code128, BarcodeFormat.Code39, BarcodeFormat.DataMatrix,
+];
+
 /**
- * Open the native full-screen QR scanner (ML Kit).
+ * Open the native full-screen scanner (ML Kit).
  * Resolves with the scanned text, or null if the user closed the scanner.
+ * @param {{ barcodes?: boolean }} options  barcodes: also read shop barcodes (EAN/UPC/Code 128…)
  */
-export async function scanQrCode() {
+export async function scanQrCode({ barcodes = false } = {}) {
   if (platform === 'android') {
     await ensureAndroidModule();
   } else {
@@ -45,8 +52,8 @@ export async function scanQrCode() {
     }
   }
   try {
-    const { barcodes } = await BarcodeScanner.scan({ formats: [BarcodeFormat.QrCode] });
-    return barcodes[0]?.rawValue?.trim() || null;
+    const result = await BarcodeScanner.scan({ formats: barcodes ? PRODUCT_FORMATS : [BarcodeFormat.QrCode] });
+    return result.barcodes[0]?.rawValue?.trim() || null;
   } catch (err) {
     if (/cancel/i.test(err?.message || '')) return null;
     throw err;

@@ -1,5 +1,6 @@
 import api from './axios.js';
 import { saveFile } from '../utils/fileSaver.js';
+import { localDateStr } from '../utils/formatters.js';
 
 export const getDailyReport    = (params) => api.get('/reports/daily', { params });
 export const getDailyWhatsApp  = (params) => api.get('/reports/daily/whatsapp', { params });
@@ -13,7 +14,7 @@ async function downloadReport(path, params, filename) {
   await saveFile(new Blob([response.data]), filename);
 }
 
-const d = () => new Date().toISOString().split('T')[0];
+const d = () => localDateStr();
 
 export const downloadDailyPDF        = (params, date)   => downloadReport('/reports/daily/pdf',          params, `daily-report-${date}.pdf`);
 export const downloadDailyExcel      = (params, date)   => downloadReport('/reports/daily/excel',        params, `daily-report-${date}.xlsx`);

@@ -7,8 +7,11 @@ import PageHeader from '../../components/ui/PageHeader.jsx';
 import { FormField, FormRow, FormSection, FormActions } from '../../components/ui/FormField.jsx';
 import { ROLE_LABELS } from '../../utils/permissions.js';
 import toast from 'react-hot-toast';
+import AppLockSetting from '../../components/AppLockSetting.jsx';
+import { useT, LanguageSwitch } from '../../i18n/index.jsx';
 
 const Profile = () => {
+  const t = useT();
   const { user, setUser } = useAuth();
 
   const { register, handleSubmit, reset, formState: { errors, isDirty } } = useForm();
@@ -79,6 +82,13 @@ const Profile = () => {
           </div>
         </form>
       </div>
+
+      <div className="card mt-4 flex items-center justify-between gap-4 p-4">
+        <p className="font-medium text-gray-900">{t('Language')}</p>
+        <LanguageSwitch />
+      </div>
+
+      <AppLockSetting />
     </div>
   );
 };

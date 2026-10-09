@@ -51,6 +51,15 @@ export const getUnitsByAsset = asyncHandler(async (req, res) => {
 });
 
 // ── GET /api/asset-units/:id ─────────────────────────────────────────────────
+// ── GET /api/asset-units/lookup?code=MGM-AST-007-01 — find a unit by the code on its sticker
+export const lookupUnit = asyncHandler(async (req, res) => {
+  const code = String(req.query.code || '').trim().toUpperCase();
+  if (!code) throw new ApiError(400, 'code is required');
+  const unit = await AssetUnit.findOne({ unitCode: code }).populate('asset', 'name assetCode');
+  if (!unit) throw new ApiError(404, `No asset unit with code "${code}"`);
+  res.json(new ApiResponse(200, unit));
+});
+
 export const getUnit = asyncHandler(async (req, res) => {
   const unit = await AssetUnit.findById(req.params.id).populate('asset', 'name assetCode');
   if (!unit) throw new ApiError(404, 'Unit not found');

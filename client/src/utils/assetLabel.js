@@ -1,6 +1,6 @@
 import QRCode from 'qrcode/lib/browser.js';
 import { printHtml } from './printHtml.js';
-import { isNative } from './platform.js';
+import { isNative, publicUrl } from './platform.js';
 
 const fmt = (d) => d
   ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
@@ -128,7 +128,7 @@ export async function printAssetLabels(assets) {
 
   const qrMap = {};
   for (const asset of assets) {
-    const url = `${window.location.origin}/assets/${asset._id}/history`;
+    const url = publicUrl(`/assets/${asset._id}/history`);
     try {
       qrMap[asset._id] = await QRCode.toDataURL(url, {
         width: 120, margin: 1, errorCorrectionLevel: 'M',

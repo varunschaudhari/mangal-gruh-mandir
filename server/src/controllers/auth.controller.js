@@ -5,16 +5,16 @@ import ApiResponse from '../utils/ApiResponse.js';
 import asyncHandler from '../utils/asyncHandler.js';
 import { logAction, logLoginFailure } from '../services/audit.service.js';
 import { getPermissionsForRole } from '../middleware/authorize.js';
+import { createSession, endAllSessions, endSession, isSessionToken, useSession } from '../services/session.service.js';
 
-const signToken = (id, role) =>
-  jwt.sign({ id, role }, process.env.JWT_SECRET, {
+// Access tokens carry the device's session id (sid) so sign-out can end just that session.
+const signToken = (id, role, sid) =>
+  jwt.sign({ id, role, sid, typ: 'access' }, process.env.JWT_SECRET, {
     expiresIn: process.env.JWT_EXPIRES_IN || '1d',
   });
 
-const signRefreshToken = (id) =>
-  jwt.sign({ id }, process.env.JWT_SECRET, {
-    expiresIn: process.env.JWT_REFRESH_EXPIRES_IN || '7d',
-  });
+// 'app' = the Android/iOS app (long rolling session); anything else is a browser/desktop.
+const clientType = (req) => (req.body?.client === 'app' ? 'app' : 'web');
 
 export const login = asyncHandler(async (req, res) => {
   const { email, password } = req.body;
@@ -30,10 +30,11 @@ export const login = asyncHandler(async (req, res) => {
     throw new ApiError(401, 'Invalid credentials');
   }
 
-  const accessToken = signToken(user._id, user.role);
-  const refreshToken = signRefreshToken(user._id);
+  const { session, refreshToken } = await createSession(user._id, {
+    client: clientType(req), userAgent: req.get('user-agent'),
+  });
+  const accessToken = signToken(user._id, user.role, session._id);
 
-  user.refreshToken = refreshToken;
   user.lastLogin = new Date();
   await user.save({ validateBeforeSave: false });
 
@@ -65,24 +66,41 @@ export const refreshToken = asyncHandler(async (req, res) => {
   const { refreshToken: token } = req.body;
   if (!token) throw new ApiError(401, 'Refresh token required');
 
+  // Per-device session token ("<session id>.<secret>")
+  if (isSessionToken(token)) {
+    const session = await useSession(token);
+    const user = session && await User.findById(session.user);
+    if (!user || !user.isActive) throw new ApiError(401, 'Invalid refresh token');
+    return res.json(new ApiResponse(200, { accessToken: signToken(user._id, user.role, session._id) }, 'Token refreshed'));
+  }
+
+  // Refresh token from before per-device sessions (a JWT stored on the user): accept it
+  // once and move this device onto its own session, so nobody is signed out by the upgrade.
   let decoded;
   try {
     decoded = jwt.verify(token, process.env.JWT_SECRET);
   } catch {
     throw new ApiError(401, 'Invalid refresh token');
   }
-
   const user = await User.findById(decoded.id).select('+refreshToken');
   if (!user || user.refreshToken !== token || !user.isActive) {
     throw new ApiError(401, 'Invalid refresh token');
   }
-
-  const accessToken = signToken(user._id, user.role);
-  res.json(new ApiResponse(200, { accessToken }, 'Token refreshed'));
+  const { session, refreshToken: newRefreshToken } = await createSession(user._id, {
+    client: clientType(req), userAgent: req.get('user-agent'),
+  });
+  user.refreshToken = undefined;
+  await user.save({ validateBeforeSave: false });
+  res.json(new ApiResponse(200, {
+    accessToken: signToken(user._id, user.role, session._id),
+    refreshToken: newRefreshToken,
+  }, 'Token refreshed'));
 });
 
 export const logout = asyncHandler(async (req, res) => {
-  await User.findByIdAndUpdate(req.user._id, { refreshToken: null });
+  // Ends only this device's session; tokens from before sessions existed have no sid.
+  if (req.auth?.sid) await endSession(req.auth.sid);
+  else await User.findByIdAndUpdate(req.user._id, { refreshToken: null });
   logAction(req, {
     action: 'auth.logout', entity: 'User',
     entityId: req.user.email, entityRef: req.user._id,
@@ -128,6 +146,8 @@ export const changePassword = asyncHandler(async (req, res) => {
 
   user.password = newPassword;
   await user.save();
+  // Sign out every other device; this one stays signed in.
+  await endAllSessions(user._id, { exceptSessionId: req.auth?.sid });
   logAction(req, {
     action: 'auth.password_change', entity: 'User',
     entityId: req.user.email, entityRef: req.user._id,

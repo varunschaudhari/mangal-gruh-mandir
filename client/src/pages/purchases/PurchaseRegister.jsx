@@ -11,6 +11,7 @@ import PageHeader from '../../components/ui/PageHeader.jsx';
 import MobileCard from '../../components/ui/MobileCard.jsx';
 import { fDate, fCurrency } from '../../utils/formatters.js';
 import { usePermissions } from '../../hooks/usePermissions.js';
+import { useT } from '../../i18n/index.jsx';
 
 const STATUS_CONFIG = {
   unpaid:          { label: 'Unpaid',   icon: Clock,        cls: 'bg-red-100 text-red-700' },
@@ -26,18 +27,20 @@ const STATUS_TABS = [
 ];
 
 function StatusBadge({ status, isOverdue }) {
+  const t = useT();
   const cfg = STATUS_CONFIG[status] || STATUS_CONFIG.unpaid;
   const Icon = cfg.icon;
   return (
     <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium ${cfg.cls}`}>
       <Icon size={11} />
-      {cfg.label}
+      {t(cfg.label)}
       {isOverdue && status !== 'paid' && <AlertTriangle size={11} className="ml-0.5 text-orange-500" />}
     </span>
   );
 }
 
 function EntryRow({ entry }) {
+  const t = useT();
   const [open, setOpen] = useState(false);
 
   return (
@@ -54,11 +57,11 @@ function EntryRow({ entry }) {
             {entry.entryNumber || '—'}
           </Link>
           {entry.invoiceNumber && (
-            <div className="text-xs text-gray-400 font-mono mt-0.5">Inv: {entry.invoiceNumber}</div>
+            <div className="text-xs text-gray-400 font-mono mt-0.5">{t('Inv: {n}', { n: entry.invoiceNumber })}</div>
           )}
           {entry.isOverdue && entry.paymentStatus !== 'paid' && (
             <div className="text-xs text-orange-600 font-medium mt-0.5">
-              Due {fDate(entry.dueDate)}
+              {t('Due {date}', { date: fDate(entry.dueDate) })}
             </div>
           )}
         </td>
@@ -82,16 +85,16 @@ function EntryRow({ entry }) {
       {open && (
         <tr className="bg-gray-50 border-b">
           <td colSpan={9} className="px-4 py-4">
-            <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Line Items</div>
+            <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">{t('Line Items')}</div>
             <table className="w-full text-sm">
               <thead>
                 <tr className="text-xs text-gray-400 uppercase">
-                  <th className="text-left py-1 font-semibold">Product</th>
-                  <th className="text-right py-1 font-semibold">Qty</th>
-                  <th className="text-right py-1 font-semibold">Rate</th>
-                  <th className="text-right py-1 font-semibold">Total</th>
-                  <th className="text-left py-1 font-semibold">Expiry</th>
-                  <th className="text-left py-1 font-semibold">Batch</th>
+                  <th className="text-left py-1 font-semibold">{t('Product')}</th>
+                  <th className="text-right py-1 font-semibold">{t('Qty')}</th>
+                  <th className="text-right py-1 font-semibold">{t('Rate')}</th>
+                  <th className="text-right py-1 font-semibold">{t('Total')}</th>
+                  <th className="text-left py-1 font-semibold">{t('Expiry')}</th>
+                  <th className="text-left py-1 font-semibold">{t('Batch')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
@@ -111,7 +114,7 @@ function EntryRow({ entry }) {
               <Link
                 to={`/purchases/${entry._id}`}
                 className="text-xs text-primary-600 hover:underline font-medium">
-                View full details →
+                {t('View full details →')}
               </Link>
             </div>
           </td>
@@ -123,6 +126,7 @@ function EntryRow({ entry }) {
 
 // Phones: one card per entry; tapping it opens the full entry.
 function EntryCard({ entry, onOpen }) {
+  const t = useT();
   const overdue = entry.isOverdue && entry.paymentStatus !== 'paid';
   return (
     <MobileCard
@@ -131,21 +135,21 @@ function EntryCard({ entry, onOpen }) {
       subtitle={
         <>
           <span className="text-gray-600">{entry.supplier?.name || '—'}</span>
-          {entry.invoiceNumber && <span className="font-mono"> · Inv {entry.invoiceNumber}</span>}
+          {entry.invoiceNumber && <span className="font-mono"> · {t('Inv {n}', { n: entry.invoiceNumber })}</span>}
         </>
       }
       aside={<StatusBadge status={entry.paymentStatus} isOverdue={entry.isOverdue} />}
       fields={[
-        { label: 'Invoice date', value: fDate(entry.invoiceDate) },
-        { label: 'Items', value: entry.items?.length || 0 },
-        { label: 'Total', value: <span className="font-semibold text-gray-900">{fCurrency(entry.totalValue)}</span> },
+        { label: t('Invoice date'), value: fDate(entry.invoiceDate) },
+        { label: t('Items'), value: entry.items?.length || 0 },
+        { label: t('Total'), value: <span className="font-semibold text-gray-900">{fCurrency(entry.totalValue)}</span> },
         {
-          label: entry.remaining > 0 ? 'Remaining' : 'Paid',
+          label: entry.remaining > 0 ? t('Remaining') : t('Paid'),
           value: entry.remaining > 0
             ? <span className="font-semibold text-red-600">{fCurrency(entry.remaining)}</span>
             : fCurrency(entry.paidSoFar),
         },
-        overdue && { label: 'Due', value: <span className="font-medium text-orange-600">{fDate(entry.dueDate)} · Overdue</span>, full: true },
+        overdue && { label: t('Due'), value: <span className="font-medium text-orange-600">{fDate(entry.dueDate)} · {t('Overdue')}</span>, full: true },
       ]}
     />
   );
@@ -154,6 +158,7 @@ function EntryCard({ entry, onOpen }) {
 export default function PurchaseRegister() {
   const { can } = usePermissions();
   const navigate = useNavigate();
+  const t = useT();
   const [activeTab,   setActiveTab]   = useState('');
   const [search,      setSearch]      = useState('');
   const [suppFilter,  setSuppFilter]  = useState('');
@@ -196,8 +201,8 @@ export default function PurchaseRegister() {
           can('transactions:create') && (
             <Link to="/purchases/new" className="btn-primary flex items-center gap-1.5 text-sm">
               <Plus className="h-4 w-4" />
-              <span className="sm:hidden">New Entry</span>
-              <span className="hidden sm:inline">New Purchase Entry</span>
+              <span className="sm:hidden">{t('New Entry')}</span>
+              <span className="hidden sm:inline">{t('New Purchase Entry')}</span>
             </Link>
           )
         }
@@ -206,15 +211,15 @@ export default function PurchaseRegister() {
       {/* Summary cards */}
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
         <div className="card p-3 sm:p-4">
-          <p className="text-xs text-gray-400 uppercase tracking-wide">Total (shown)</p>
+          <p className="text-xs text-gray-400 uppercase tracking-wide">{t('Total (shown)')}</p>
           <p className="text-base sm:text-lg font-bold text-gray-900 mt-1">{fCurrency(stats.totalValue)}</p>
         </div>
         <div className="card p-3 sm:p-4">
-          <p className="text-xs text-gray-400 uppercase tracking-wide">Outstanding</p>
+          <p className="text-xs text-gray-400 uppercase tracking-wide">{t('Outstanding')}</p>
           <p className="text-base sm:text-lg font-bold text-red-600 mt-1">{fCurrency(stats.unpaidValue)}</p>
         </div>
         <div className="card p-3 sm:p-4 col-span-2 sm:col-span-1">
-          <p className="text-xs text-gray-400 uppercase tracking-wide">Overdue</p>
+          <p className="text-xs text-gray-400 uppercase tracking-wide">{t('Overdue')}</p>
           <p className="text-base sm:text-lg font-bold text-orange-600 mt-1">{fCurrency(stats.overdueValue)}</p>
         </div>
       </div>
@@ -230,7 +235,7 @@ export default function PurchaseRegister() {
                 ? 'border-primary-500 text-primary-600'
                 : 'border-transparent text-gray-500 hover:text-gray-700'
             }`}>
-            {tab.label}
+            {t(tab.label)}
           </button>
         ))}
       </div>
@@ -246,7 +251,7 @@ export default function PurchaseRegister() {
               onChange={(e) => { setSearch(e.target.value); setPage(1); }}
               type="search"
               enterKeyHint="search"
-              placeholder="Search entry # or invoice #…"
+              placeholder={t('Search entry # or invoice #…')}
               className="input text-sm flex-1 pl-9 sm:pl-3" />
           </div>
           <button
@@ -255,7 +260,7 @@ export default function PurchaseRegister() {
             aria-expanded={showFilters}
             className={`btn-secondary relative shrink-0 px-3 sm:hidden ${showFilters ? 'bg-gray-100' : ''}`}>
             <SlidersHorizontal className="h-4 w-4" />
-            <span className="sr-only">Filters</span>
+            <span className="sr-only">{t('Filters')}</span>
             {activeFilterCount > 0 && (
               <span className="absolute -right-1.5 -top-1.5 flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-primary-600 px-1 text-[11px] font-semibold text-white">
                 {activeFilterCount}
@@ -268,23 +273,23 @@ export default function PurchaseRegister() {
             value={suppFilter}
             onChange={(e) => { setSuppFilter(e.target.value); setPage(1); }}
             className="input text-sm col-span-2 sm:w-48">
-            <option value="">All suppliers</option>
+            <option value="">{t('All suppliers')}</option>
             {suppliers.map((s) => <option key={s._id} value={s._id}>{s.name}</option>)}
           </select>
           <label className="min-w-0 sm:contents">
-            <span className="mb-1 block text-xs text-gray-500 sm:hidden">From</span>
-            <input value={from} onChange={(e) => { setFrom(e.target.value); setPage(1); }} type="date" className="input text-sm sm:w-36" title="From date" />
+            <span className="mb-1 block text-xs text-gray-500 sm:hidden">{t('From')}</span>
+            <input value={from} onChange={(e) => { setFrom(e.target.value); setPage(1); }} type="date" className="input text-sm sm:w-36" title={t('From date')} />
           </label>
           <label className="min-w-0 sm:contents">
-            <span className="mb-1 block text-xs text-gray-500 sm:hidden">To</span>
-            <input value={to}   onChange={(e) => { setTo(e.target.value); setPage(1); }}   type="date" className="input text-sm sm:w-36" title="To date" />
+            <span className="mb-1 block text-xs text-gray-500 sm:hidden">{t('To')}</span>
+            <input value={to}   onChange={(e) => { setTo(e.target.value); setPage(1); }}   type="date" className="input text-sm sm:w-36" title={t('To date')} />
           </label>
           {activeFilterCount > 0 && (
             <button
               type="button"
               onClick={() => { setSuppFilter(''); setFrom(''); setTo(''); setPage(1); }}
               className="btn-ghost col-span-2 text-sm sm:hidden">
-              Clear filters
+              {t('Clear filters')}
             </button>
           )}
         </div>
@@ -293,11 +298,11 @@ export default function PurchaseRegister() {
       {/* Phones: card list */}
       <div className="md:hidden">
         {isLoading ? (
-          <div className="py-16 text-center text-gray-400 text-sm">Loading…</div>
+          <div className="py-16 text-center text-gray-400 text-sm">{t('Loading…')}</div>
         ) : entries.length === 0 ? (
           <div className="card py-12 text-center">
             <ShoppingCart className="h-10 w-10 text-gray-200 mx-auto mb-3" />
-            <p className="text-gray-500 text-sm">No purchase entries found</p>
+            <p className="text-gray-500 text-sm">{t('No purchase entries found')}</p>
           </div>
         ) : (
           <div className="space-y-2.5">
@@ -312,11 +317,11 @@ export default function PurchaseRegister() {
       <div className={`card overflow-hidden ${pagination.totalPages > 1 ? '' : 'hidden md:block'}`}>
         <div className="hidden md:block">
           {isLoading ? (
-            <div className="py-16 text-center text-gray-400 text-sm">Loading…</div>
+            <div className="py-16 text-center text-gray-400 text-sm">{t('Loading…')}</div>
           ) : entries.length === 0 ? (
             <div className="py-16 text-center">
               <ShoppingCart className="h-10 w-10 text-gray-200 mx-auto mb-3" />
-              <p className="text-gray-500 text-sm">No purchase entries found</p>
+              <p className="text-gray-500 text-sm">{t('No purchase entries found')}</p>
             </div>
           ) : (
             <div className="overflow-x-auto">
@@ -324,14 +329,14 @@ export default function PurchaseRegister() {
                 <thead>
                   <tr className="border-b bg-gray-50 text-xs font-semibold text-gray-500 uppercase tracking-wider">
                     <th className="py-3 px-3 w-8"></th>
-                    <th className="py-3 px-3 text-left">Entry / Invoice</th>
-                    <th className="py-3 px-3 text-left">Supplier</th>
-                    <th className="py-3 px-3 text-left">Invoice Date</th>
-                    <th className="py-3 px-3 text-center">Items</th>
-                    <th className="py-3 px-3 text-right">Total</th>
-                    <th className="py-3 px-3 text-right">Paid</th>
-                    <th className="py-3 px-3 text-right">Remaining</th>
-                    <th className="py-3 px-3 text-left">Status</th>
+                    <th className="py-3 px-3 text-left">{t('Entry / Invoice')}</th>
+                    <th className="py-3 px-3 text-left">{t('Supplier')}</th>
+                    <th className="py-3 px-3 text-left">{t('Invoice Date')}</th>
+                    <th className="py-3 px-3 text-center">{t('Items')}</th>
+                    <th className="py-3 px-3 text-right">{t('Total')}</th>
+                    <th className="py-3 px-3 text-right">{t('Paid')}</th>
+                    <th className="py-3 px-3 text-right">{t('Remaining')}</th>
+                    <th className="py-3 px-3 text-left">{t('Status')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -348,20 +353,20 @@ export default function PurchaseRegister() {
         {pagination.totalPages > 1 && (
           <div className="flex items-center justify-between gap-3 px-4 py-3 md:border-t">
             <p className="text-xs text-gray-500">
-              {pagination.total} entries · Page {pagination.page} of {pagination.totalPages}
+              {t('{total} entries · Page {page} of {pages}', { total: pagination.total, page: pagination.page, pages: pagination.totalPages })}
             </p>
             <div className="flex gap-2">
               <button
                 disabled={page <= 1}
                 onClick={() => setPage((p) => p - 1)}
                 className="btn-secondary text-xs disabled:opacity-40">
-                ← Prev
+                ← {t('Prev')}
               </button>
               <button
                 disabled={page >= pagination.totalPages}
                 onClick={() => setPage((p) => p + 1)}
                 className="btn-secondary text-xs disabled:opacity-40">
-                Next →
+                {t('Next')} →
               </button>
             </div>
           </div>

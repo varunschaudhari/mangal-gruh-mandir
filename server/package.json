@@ -21,7 +21,9 @@
     "seed:occasions": "node src/seeds/donationOccasions.seed.js",
     "reset:admin": "node src/seeds/resetAdminPassword.js",
     "backfill:asset-codes": "node src/seeds/backfillAssetCodes.js",
-    "backfill:asset-units": "node src/seeds/backfillAssetUnits.js"
+    "backfill:asset-units": "node src/seeds/backfillAssetUnits.js",
+    "lint": "eslint .",
+    "test": "node --test"
   },
   "dependencies": {
     "axios": "^1.17.0",
@@ -32,6 +34,7 @@
     "express": "^5.2.1",
     "express-rate-limit": "^8.5.1",
     "express-validator": "^7.3.2",
+    "firebase-admin": "^14.5.0",
     "helmet": "^8.1.0",
     "jsonwebtoken": "^9.0.3",
     "mongoose": "^9.6.2",
@@ -41,6 +44,9 @@
     "qrcode": "^1.5.4"
   },
   "devDependencies": {
+    "@eslint/js": "^9.39.5",
+    "eslint": "^9.39.5",
+    "globals": "^17.13.0",
     "nodemon": "^3.1.14"
   }
 }

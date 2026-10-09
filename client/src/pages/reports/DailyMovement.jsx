@@ -5,7 +5,7 @@ import { getDepartments } from '../../api/department.api.js';
 import PageHeader from '../../components/ui/PageHeader.jsx';
 import Badge from '../../components/ui/Badge.jsx';
 import { PageLoader } from '../../components/ui/Spinner.jsx';
-import { fDate } from '../../utils/formatters.js';
+import { fDate, localDateStr } from '../../utils/formatters.js';
 import { FileText, Sheet, MessageCircle, Copy, Check } from 'lucide-react';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
@@ -43,7 +43,7 @@ const DailyMovement = () => {
   const { data: deptsRes } = useQuery({ queryKey: ['departments'], queryFn: () => getDepartments() });
   const departments = deptsRes?.data?.data || [];
 
-  const dateStr = date ? date.toISOString().split('T')[0] : '';
+  const dateStr = date ? localDateStr(date) : '';
   const params = { date: dateStr, ...(deptId && { department: deptId }) };
 
   const { data, isLoading } = useQuery({

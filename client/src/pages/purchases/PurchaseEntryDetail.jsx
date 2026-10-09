@@ -12,6 +12,7 @@ import EntityAuditTrail from '../../components/ui/EntityAuditTrail.jsx';
 import { fDate, fDateTime, fCurrency } from '../../utils/formatters.js';
 import { usePermissions } from '../../hooks/usePermissions.js';
 import toast from 'react-hot-toast';
+import { useT } from '../../i18n/index.jsx';
 
 const STATUS_CONFIG = {
   unpaid:         { label: 'Unpaid',   icon: Clock,        cls: 'bg-red-100 text-red-700' },
@@ -20,12 +21,13 @@ const STATUS_CONFIG = {
 };
 
 function StatusBadge({ status, isOverdue }) {
+  const t = useT();
   const cfg = STATUS_CONFIG[status] || STATUS_CONFIG.unpaid;
   const Icon = cfg.icon;
   return (
     <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-medium ${cfg.cls}`}>
       <Icon size={14} />
-      {cfg.label}
+      {t(cfg.label)}
       {isOverdue && status !== 'paid' && <AlertTriangle size={13} className="ml-0.5 text-orange-500" />}
     </span>
   );
@@ -38,6 +40,7 @@ export default function PurchaseEntryDetail() {
   const navigate     = useNavigate();
   const qc           = useQueryClient();
   const { can }      = usePermissions();
+  const t            = useT();
   const [showVoid, setShowVoid]   = useState(false);
   const [voidReason, setVoidReason] = useState('');
 
@@ -51,17 +54,17 @@ export default function PurchaseEntryDetail() {
   const voidMutation = useMutation({
     mutationFn: () => voidPurchaseEntry(id, { voidReason }),
     onSuccess: () => {
-      toast.success('Purchase entry voided');
+      toast.success(t('Purchase entry voided'));
       qc.invalidateQueries({ queryKey: ['purchase-entry', id] });
       qc.invalidateQueries({ queryKey: ['purchase-entries'] });
       setShowVoid(false);
     },
-    onError: (e) => toast.error(e.response?.data?.message || 'Failed to void'),
+    onError: (e) => toast.error(e.response?.data?.message || t('Failed to void')),
   });
 
-  if (isLoading) return <div className="py-16 text-center text-gray-400">Loading…</div>;
+  if (isLoading) return <div className="py-16 text-center text-gray-400">{t('Loading…')}</div>;
   if (isError || !entry) return (
-    <div className="py-16 text-center text-gray-400">Entry not found.</div>
+    <div className="py-16 text-center text-gray-400">{t('Entry not found.')}</div>
   );
 
   const paymentStatus = entry.paymentStatus || 'unpaid';
@@ -78,14 +81,14 @@ export default function PurchaseEntryDetail() {
       <div className="hidden lg:block mb-5">
         <button onClick={() => navigate('/purchases')}
           className="inline-flex items-center gap-1.5 text-sm text-gray-400 hover:text-gray-700 transition-colors">
-          <ArrowLeft className="h-4 w-4" /> Purchase Register
+          <ArrowLeft className="h-4 w-4" /> {t('Purchase Register')}
         </button>
       </div>
 
       <div className="space-y-4 sm:space-y-5">
         <PageHeader
           title={entry.entryNumber || 'Purchase Entry'}
-          subtitle={`${entry.supplier?.name || ''} · Invoice: ${entry.invoiceNumber || 'N/A'}`}
+          subtitle={`${entry.supplier?.name || ''} · ${t('Invoice: {n}', { n: entry.invoiceNumber || t('N/A') })}`}
           breadcrumbs={[{ label: 'Purchases', to: '/purchases' }, { label: entry.entryNumber || 'Detail' }]}
           actions={
             (canEdit || canVoid) && (
@@ -94,14 +97,14 @@ export default function PurchaseEntryDetail() {
                   <button
                     onClick={() => navigate(`/purchases/${id}/edit`)}
                     className="btn-secondary flex items-center gap-1.5 text-sm">
-                    <Pencil className="h-4 w-4" /> Edit
+                    <Pencil className="h-4 w-4" /> {t('Edit')}
                   </button>
                 )}
                 {canVoid && (
                   <button
                     onClick={() => setShowVoid(true)}
                     className="btn-danger flex items-center gap-1.5 text-sm">
-                    <XCircle className="h-4 w-4" /> Void<span className="hidden sm:inline"> Entry</span>
+                    <XCircle className="h-4 w-4" /><span className="sm:hidden">{t('Void')}</span><span className="hidden sm:inline">{t('Void Entry')}</span>
                   </button>
                 )}
               </div>
@@ -114,9 +117,9 @@ export default function PurchaseEntryDetail() {
           <div className="rounded-xl border border-blue-200 bg-blue-50 p-4 flex items-start gap-3">
             <CreditCard className="h-5 w-5 text-blue-500 shrink-0 mt-0.5" />
             <div>
-              <p className="text-sm font-semibold text-blue-800">Entry locked — approved payment exists</p>
+              <p className="text-sm font-semibold text-blue-800">{t('Entry locked — approved payment exists')}</p>
               <p className="text-xs text-blue-600 mt-0.5">
-                This entry has been partially or fully settled. To correct it, void the linked payment(s) first.
+                {t('This entry has been partially or fully settled. To correct it, void the linked payment(s) first.')}
               </p>
             </div>
           </div>
@@ -127,9 +130,9 @@ export default function PurchaseEntryDetail() {
           <div className="rounded-xl border border-red-200 bg-red-50 p-4 flex items-start gap-3">
             <XCircle className="h-5 w-5 text-red-500 shrink-0 mt-0.5" />
             <div>
-              <p className="text-sm font-semibold text-red-800">Entry Voided</p>
+              <p className="text-sm font-semibold text-red-800">{t('Entry Voided')}</p>
               <p className="text-xs text-red-600 mt-0.5">
-                By {entry.voidedBy?.name || 'Unknown'} on {fDateTime(entry.voidedAt)}
+                {t('By {name} on {date}', { name: entry.voidedBy?.name || t('Unknown'), date: fDateTime(entry.voidedAt) })}
                 {entry.voidReason && ` · "${entry.voidReason}"`}
               </p>
             </div>
@@ -140,27 +143,27 @@ export default function PurchaseEntryDetail() {
         <div className="card p-4 sm:hidden">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
-              <p className="text-[11px] uppercase tracking-wide text-gray-400">Invoice total</p>
+              <p className="text-[11px] uppercase tracking-wide text-gray-400">{t('Invoice total')}</p>
               <p className="text-2xl font-bold text-gray-900">{fCurrency(entry.totalValue)}</p>
             </div>
             <StatusBadge status={paymentStatus} isOverdue={entry.isOverdue} />
           </div>
           <div className="mt-3 grid grid-cols-2 gap-3 border-t border-gray-100 pt-3">
             <div>
-              <p className="text-[11px] uppercase tracking-wide text-gray-400">Paid</p>
+              <p className="text-[11px] uppercase tracking-wide text-gray-400">{t('Paid')}</p>
               <p className="text-base font-semibold text-green-600">{fCurrency(entry.paidSoFar)}</p>
             </div>
             <div>
-              <p className="text-[11px] uppercase tracking-wide text-gray-400">Remaining</p>
+              <p className="text-[11px] uppercase tracking-wide text-gray-400">{t('Remaining')}</p>
               <p className={`text-base font-semibold ${entry.remaining > 0 ? 'text-red-600' : 'text-gray-400'}`}>
                 {fCurrency(entry.remaining)}
               </p>
             </div>
             {entry.dueDate && (
               <div className="col-span-2">
-                <p className="text-[11px] uppercase tracking-wide text-gray-400">Due date</p>
+                <p className="text-[11px] uppercase tracking-wide text-gray-400">{t('Due date')}</p>
                 <p className={`text-sm ${overdue ? 'font-semibold text-orange-600' : 'text-gray-800'}`}>
-                  {fDate(entry.dueDate)}{overdue && ' · Overdue'}
+                  {fDate(entry.dueDate)}{overdue && ` · ${t('Overdue')}`}
                 </p>
               </div>
             )}
@@ -170,7 +173,7 @@ export default function PurchaseEntryDetail() {
         {/* Header info */}
         <div className="card p-4 sm:p-5 space-y-4">
           <div className="flex items-center justify-between flex-wrap gap-3">
-            <h3 className="text-sm font-semibold text-gray-700">Entry Details</h3>
+            <h3 className="text-sm font-semibold text-gray-700">{t('Entry Details')}</h3>
             <span className="hidden sm:inline">
               <StatusBadge status={paymentStatus} isOverdue={entry.isOverdue} />
             </span>
@@ -191,7 +194,7 @@ export default function PurchaseEntryDetail() {
             <InfoItem label="Due Date">
               <span className={entry.isOverdue && paymentStatus !== 'paid' ? 'text-orange-600 font-semibold' : ''}>
                 {fDate(entry.dueDate)}
-                {entry.isOverdue && paymentStatus !== 'paid' && ' · Overdue'}
+                {entry.isOverdue && paymentStatus !== 'paid' && ` · ${t('Overdue')}`}
               </span>
             </InfoItem>
             <InfoItem label="Created By">{entry.createdBy?.name}</InfoItem>
@@ -203,15 +206,15 @@ export default function PurchaseEntryDetail() {
         {/* Payment summary */}
         <div className="hidden sm:grid grid-cols-3 gap-3">
           <div className="card p-4 text-center">
-            <p className="text-xs text-gray-400 uppercase tracking-wide mb-1">Invoice Total</p>
+            <p className="text-xs text-gray-400 uppercase tracking-wide mb-1">{t('Invoice Total')}</p>
             <p className="text-lg font-bold text-gray-900">{fCurrency(entry.totalValue)}</p>
           </div>
           <div className="card p-4 text-center">
-            <p className="text-xs text-gray-400 uppercase tracking-wide mb-1">Paid</p>
+            <p className="text-xs text-gray-400 uppercase tracking-wide mb-1">{t('Paid')}</p>
             <p className="text-lg font-bold text-green-600">{fCurrency(entry.paidSoFar)}</p>
           </div>
           <div className="card p-4 text-center">
-            <p className="text-xs text-gray-400 uppercase tracking-wide mb-1">Remaining</p>
+            <p className="text-xs text-gray-400 uppercase tracking-wide mb-1">{t('Remaining')}</p>
             <p className={`text-lg font-bold ${entry.remaining > 0 ? 'text-red-600' : 'text-gray-400'}`}>
               {fCurrency(entry.remaining)}
             </p>
@@ -222,7 +225,7 @@ export default function PurchaseEntryDetail() {
         <div className="card overflow-hidden">
           <div className="px-4 sm:px-5 py-3 sm:py-4 border-b bg-gray-50">
             <h3 className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-              <Package className="h-4 w-4" /> Items Received ({entry.items?.length || 0})
+              <Package className="h-4 w-4" /> {t('Items Received')} ({entry.items?.length || 0})
             </h3>
           </div>
 
@@ -239,15 +242,15 @@ export default function PurchaseEntryDetail() {
                 </p>
                 {(item.expiryDate || item.batchRef) && (
                   <p className="mt-0.5 text-xs text-gray-400">
-                    {item.expiryDate && <>Exp {fDate(item.expiryDate)}</>}
+                    {item.expiryDate && <>{t('Exp {date}', { date: fDate(item.expiryDate) })}</>}
                     {item.expiryDate && item.batchRef && ' · '}
-                    {item.batchRef && <span className="font-mono">Batch {item.batchRef}</span>}
+                    {item.batchRef && <span className="font-mono">{t('Batch {ref}', { ref: item.batchRef })}</span>}
                   </p>
                 )}
               </li>
             ))}
             <li className="flex items-center justify-between bg-orange-50 px-4 py-3">
-              <span className="text-sm font-semibold text-gray-700">Grand Total</span>
+              <span className="text-sm font-semibold text-gray-700">{t('Grand Total')}</span>
               <span className="text-base font-bold text-gray-900">{fCurrency(entry.totalValue)}</span>
             </li>
           </ul>
@@ -256,12 +259,12 @@ export default function PurchaseEntryDetail() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="text-xs text-gray-400 uppercase tracking-wide border-b bg-gray-50">
-                  <th className="py-2 px-4 text-left font-semibold">Product</th>
-                  <th className="py-2 px-4 text-right font-semibold">Qty</th>
-                  <th className="py-2 px-4 text-right font-semibold">Rate</th>
-                  <th className="py-2 px-4 text-right font-semibold">Total</th>
-                  <th className="py-2 px-4 text-left font-semibold">Expiry</th>
-                  <th className="py-2 px-4 text-left font-semibold">Batch</th>
+                  <th className="py-2 px-4 text-left font-semibold">{t('Product')}</th>
+                  <th className="py-2 px-4 text-right font-semibold">{t('Qty')}</th>
+                  <th className="py-2 px-4 text-right font-semibold">{t('Rate')}</th>
+                  <th className="py-2 px-4 text-right font-semibold">{t('Total')}</th>
+                  <th className="py-2 px-4 text-left font-semibold">{t('Expiry')}</th>
+                  <th className="py-2 px-4 text-left font-semibold">{t('Batch')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
@@ -278,7 +281,7 @@ export default function PurchaseEntryDetail() {
               </tbody>
               <tfoot>
                 <tr className="border-t bg-orange-50">
-                  <td colSpan={3} className="py-3 px-4 text-sm font-semibold text-gray-700 text-right">Grand Total</td>
+                  <td colSpan={3} className="py-3 px-4 text-sm font-semibold text-gray-700 text-right">{t('Grand Total')}</td>
                   <td className="py-3 px-4 text-right text-base font-bold text-gray-900">{fCurrency(entry.totalValue)}</td>
                   <td colSpan={2}></td>
                 </tr>
@@ -292,7 +295,7 @@ export default function PurchaseEntryDetail() {
           <div className="card overflow-hidden">
             <div className="px-4 sm:px-5 py-3 sm:py-4 border-b bg-gray-50">
               <h3 className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-                <CreditCard className="h-4 w-4" /> Payments Against This Entry
+                <CreditCard className="h-4 w-4" /> {t('Payments Against This Entry')}
               </h3>
             </div>
             <div className="divide-y">
@@ -303,7 +306,7 @@ export default function PurchaseEntryDetail() {
                       {pmt.paymentNumber}
                     </Link>
                     <p className="text-xs text-gray-400 mt-0.5">
-                      {fDate(pmt.paymentDate)} · {PM_LABELS[pmt.paymentMode] || pmt.paymentMode}
+                      {fDate(pmt.paymentDate)} · {t(PM_LABELS[pmt.paymentMode]) || pmt.paymentMode}
                       {pmt.createdBy?.name && ` · ${pmt.createdBy.name}`}
                     </p>
                   </div>
@@ -316,7 +319,7 @@ export default function PurchaseEntryDetail() {
                         : pmt.status === 'pending_approval' ? 'bg-yellow-100 text-yellow-700'
                         : 'bg-gray-100 text-gray-500'
                     }`}>
-                      {pmt.status === 'approved' ? 'Approved' : pmt.status === 'pending_approval' ? 'Pending' : pmt.status}
+                      {pmt.status === 'approved' ? t('Approved') : pmt.status === 'pending_approval' ? t('Pending') : pmt.status}
                     </span>
                   </div>
                 </div>
@@ -326,34 +329,34 @@ export default function PurchaseEntryDetail() {
         )}
 
         {/* Audit trail */}
-        {entry._id && <EntityAuditTrail entityRef={entry._id} title="Entry History" />}
+        {entry._id && <EntityAuditTrail entityRef={entry._id} title={t('Entry History')} />}
 
         {/* Void modal */}
-        <Modal open={showVoid} onClose={() => setShowVoid(false)} title="Void Purchase Entry" size="sm">
+        <Modal open={showVoid} onClose={() => setShowVoid(false)} title={t('Void Purchase Entry')} size="sm">
           <div className="space-y-4">
             <div className="rounded-lg bg-red-50 border border-red-200 p-3 text-sm text-red-700 flex items-start gap-2">
               <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
               <div>
-                <p className="font-semibold">This will void all stock transactions for this entry.</p>
-                <p className="text-xs mt-1">Stock balances and FIFO batches will be reversed. This cannot be undone.</p>
+                <p className="font-semibold">{t('This will void all stock transactions for this entry.')}</p>
+                <p className="text-xs mt-1">{t('Stock balances and FIFO batches will be reversed. This cannot be undone.')}</p>
               </div>
             </div>
             <div>
-              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Reason *</label>
+              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">{t('Reason')} *</label>
               <textarea
                 value={voidReason}
                 onChange={(e) => setVoidReason(e.target.value)}
                 rows={3}
                 className="input"
-                placeholder="Why is this entry being voided?" />
+                placeholder={t('Why is this entry being voided?')} />
             </div>
             <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-              <button onClick={() => setShowVoid(false)} className="btn-secondary">Cancel</button>
+              <button onClick={() => setShowVoid(false)} className="btn-secondary">{t('Cancel')}</button>
               <button
-                onClick={() => { if (!voidReason.trim()) { toast.error('Reason is required'); return; } voidMutation.mutate(); }}
+                onClick={() => { if (!voidReason.trim()) { toast.error(t('Reason is required')); return; } voidMutation.mutate(); }}
                 disabled={voidMutation.isPending}
                 className="btn-danger">
-                {voidMutation.isPending ? 'Voiding…' : 'Confirm Void'}
+                {voidMutation.isPending ? t('Voiding…') : t('Confirm Void')}
               </button>
             </div>
           </div>
@@ -364,9 +367,10 @@ export default function PurchaseEntryDetail() {
 }
 
 function InfoItem({ label, children, className = '' }) {
+  const t = useT();
   return (
     <div className={className}>
-      <p className="text-xs text-gray-400 uppercase tracking-wide font-semibold mb-0.5">{label}</p>
+      <p className="text-xs text-gray-400 uppercase tracking-wide font-semibold mb-0.5">{t(label)}</p>
       <p className="text-sm text-gray-800">{children || '—'}</p>
     </div>
   );

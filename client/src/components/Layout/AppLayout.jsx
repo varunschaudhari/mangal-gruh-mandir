@@ -1,9 +1,10 @@
-import { useEffect, useRef, useState } from 'react';
+import { Suspense, useEffect, useRef, useState } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { App } from '@capacitor/app';
 import { RefreshCw, CloudOff } from 'lucide-react';
 import Sidebar from './Sidebar.jsx';
+import { PageLoader } from '../ui/Spinner.jsx';
 import Navbar from './Navbar.jsx';
 import MobileTabBar from './MobileTabBar.jsx';
 import MoreSheet from './MoreSheet.jsx';
@@ -12,7 +13,9 @@ import { AppBarProvider } from './AppBarContext.jsx';
 import { isTaskRoute } from './navConfig.js';
 import { usePullToRefresh } from '../../hooks/usePullToRefresh.js';
 import { useMediaQuery } from '../../hooks/useMediaQuery.js';
+import { usePushNotifications } from '../../hooks/usePushNotifications.jsx';
 import { isNative } from '../../utils/platform.js';
+import { useT } from '../../i18n/index.jsx';
 
 const RESUME_REFRESH_AFTER_MS = 60 * 1000;
 
@@ -50,7 +53,9 @@ const AppLayout = () => {
   const queryClient = useQueryClient();
   const isTouchLayout = useMediaQuery('(max-width: 1023px)');
   const online = useOnline();
+  const t = useT();
   useRefreshOnResume(queryClient);
+  usePushNotifications();
 
   // <main> is the scroll container, so reset it on navigation like a page load would.
   useEffect(() => { mainRef.current?.scrollTo(0, 0); }, [pathname]);
@@ -72,7 +77,7 @@ const AppLayout = () => {
           <Navbar />
           {!online && (
             <div className="flex shrink-0 items-center justify-center gap-2 bg-amber-100 px-4 py-1.5 text-xs font-medium text-amber-800">
-              <CloudOff className="h-3.5 w-3.5" /> You're offline — check your internet connection
+              <CloudOff className="h-3.5 w-3.5" /> {t("You're offline — check your internet connection")}
             </div>
           )}
           <main
@@ -94,7 +99,10 @@ const AppLayout = () => {
               </div>
             )}
             <div style={pull > 0 ? { transform: `translateY(${pull}px)` } : undefined} className={pull > 0 ? '' : 'transition-transform'}>
-              <Outlet />
+              {/* Keeps the app bar and tabs on screen while a page's code loads */}
+              <Suspense fallback={<PageLoader />}>
+                <Outlet />
+              </Suspense>
             </div>
           </main>
         </div>
