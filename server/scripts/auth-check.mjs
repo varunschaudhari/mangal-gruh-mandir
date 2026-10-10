@@ -35,6 +35,8 @@ check('browser stays signed in after the phone signs in', (await refresh(web.ref
 check('phone session refreshes', (await refresh(app.refreshToken)).status === 200);
 check('refresh token is rejected as an access token', (await me(app.refreshToken)).status === 401);
 check('access token works', (await me(app.accessToken)).status === 200);
+const meBody = (await (await me(app.accessToken)).json()).data || {};
+check('"who am I" never returns the password hash or refresh token', meBody.email && !('password' in meBody) && !('refreshToken' in meBody));
 
 await post('/auth/logout', {}, app.accessToken);
 check('sign-out ends the phone session', (await refresh(app.refreshToken)).status === 401);

@@ -1,7 +1,8 @@
 import mongoose from 'mongoose';
 
-// Everyone whose attendance is tracked — including staff who never log in to the app
-// (cooks, cleaners, guards, pujaris). Linked to a User only if they also use the app.
+// Attendance & payroll profile of a User who is "on attendance & payroll": machine number,
+// shifts, weekly off, salary, PF/ESI, bank. People are always added in Users; name, phone,
+// department and active are copied here from the user (services/staffProfile.service.js).
 const staffSchema = new mongoose.Schema(
   {
     staffCode:   { type: String, required: true, unique: true, uppercase: true, trim: true }, // STF-001
@@ -12,7 +13,8 @@ const staffSchema = new mongoose.Schema(
     department:  { type: mongoose.Schema.Types.ObjectId, ref: 'Department' },
     joinDate:    { type: Date },
     leftOn:      { type: Date },                              // last working day (after leaving)
-    isActive:    { type: Boolean, default: true },
+    isActive:    { type: Boolean, default: true },     // = user active AND on payroll
+    onPayroll:   { type: Boolean, default: true },     // the "on attendance & payroll" tick on the user
     user:        { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
 
     // Attendance
@@ -39,5 +41,6 @@ const staffSchema = new mongoose.Schema(
 );
 
 staffSchema.index({ machineId: 1 }, { unique: true, partialFilterExpression: { machineId: { $type: 'string', $gt: '' } } });
+staffSchema.index({ user: 1 }, { unique: true, partialFilterExpression: { user: { $type: 'objectId' } } });
 
 export default mongoose.model('Staff', staffSchema);

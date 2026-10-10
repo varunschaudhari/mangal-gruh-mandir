@@ -55,9 +55,19 @@ function createWindow() {
   mainWindow.on('closed', () => { mainWindow = null; });
   Menu.setApplicationMenu(null);
 
-  // Open new-window links in the system browser instead of Electron
+  // The app's own print windows (receipts, labels — opened blank and written into) and PDF
+  // previews (blob:) open inside the app; every other link goes to the system browser.
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
-    shell.openExternal(url);
+    if (!url || url === 'about:blank' || url.startsWith('blob:')) {
+      return {
+        action: 'allow',
+        overrideBrowserWindowOptions: {
+          width: 860, height: 900, autoHideMenuBar: true, parent: mainWindow,
+          webPreferences: { contextIsolation: true, nodeIntegration: false, sandbox: true },
+        },
+      };
+    }
+    if (/^(https?|mailto|tel):/i.test(url)) shell.openExternal(url);
     return { action: 'deny' };
   });
 

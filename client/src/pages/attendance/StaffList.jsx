@@ -25,6 +25,8 @@ export default function StaffList() {
   const navigate = useNavigate();
   const { can } = usePermissions();
   const canManage = can('attendance:manage');
+  // People are added and changed in Users — that needs user management as well
+  const canEditPeople = canManage && can('users:write');
   const [view, setView] = useState('active');
   const [search, setSearch] = useState('');
 
@@ -48,7 +50,7 @@ export default function StaffList() {
       cell: ({ row: { original: s } }) => (
         <div>
           <p className="font-medium text-gray-900">{s.name}</p>
-          <p className="text-xs text-gray-500">{[s.staffCode, s.designation].filter(Boolean).join(' · ')}</p>
+          <p className="text-xs text-gray-500">{[s.staffCode, s.designation, s.user?.email].filter(Boolean).join(' · ')}</p>
         </div>
       ),
     },
@@ -83,8 +85,8 @@ export default function StaffList() {
         title="Staff Register"
         subtitle={t('{n} staff', { n: staff.length })}
         breadcrumbs={[{ label: 'Attendance' }, { label: 'Staff Register' }]}
-        actions={canManage && (
-          <Link to="/attendance/staff/new" className="btn-primary flex items-center gap-2"><Plus className="h-4 w-4" />{t('Add staff')}</Link>
+        actions={canEditPeople && (
+          <Link to="/admin/users/new?payroll=1&from=staff" className="btn-primary flex items-center gap-2"><Plus className="h-4 w-4" />{t('Add staff')}</Link>
         )}
       />
 
@@ -93,7 +95,7 @@ export default function StaffList() {
           <p className="mb-2 flex items-center gap-1.5 font-medium"><AlertCircle className="h-4 w-4" />{t('The machine has punches for numbers not given to anyone:')}</p>
           <div className="flex flex-wrap gap-1.5">
             {unmapped.map((u) => (
-              <Link key={u.machineId} to={`/attendance/staff/new?machineId=${encodeURIComponent(u.machineId)}`}
+              <Link key={u.machineId} to={`/admin/users/new?payroll=1&from=staff&machineId=${encodeURIComponent(u.machineId)}`}
                 className="rounded-full border border-blue-200 bg-white px-2.5 py-1 text-xs" title={t('Last punch {time}', { time: fDateTime(u.last) })}>
                 <b className="font-mono">{u.machineId}</b> · {u.count === 1 ? t('1 punch') : t('{n} punches', { n: u.count })} · <span className="text-blue-600">{t('Add')}</span>
               </Link>
@@ -122,7 +124,7 @@ export default function StaffList() {
         data={filtered}
         loading={isLoading}
         pageSize={25}
-        onRowClick={canManage ? (s) => navigate(`/attendance/staff/${s._id}/edit`) : undefined}
+        onRowClick={canEditPeople ? (s) => s.user?._id && navigate(`/admin/users/${s.user._id}/edit?from=staff`) : undefined}
       />
     </div>
   );

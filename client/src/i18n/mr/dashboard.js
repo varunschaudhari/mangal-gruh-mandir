@@ -34,6 +34,7 @@ export default {
   'View P&L →': 'नफा-तोटा पहा →',
   'Income': 'उत्पन्न',
   '{n} donations': '{n} देणग्या',
+  '{n} donations · {b} bookings': '{n} देणग्या · {b} बुकिंग',
   '{n} pending': '{n} प्रलंबित',
   'Surplus': 'शिल्लक',
   'Deficit': 'तूट',

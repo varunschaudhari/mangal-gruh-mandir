@@ -309,7 +309,11 @@ const Dashboard = () => {
               <div className="min-w-0">
                 <p className="text-xs text-green-700 font-medium">{t('Income')}</p>
                 <p className="text-lg sm:text-xl font-bold text-green-700"><Amount value={pnl.income.total} /></p>
-                <p className="text-xs text-green-600">{t('{n} donations', { n: pnl.income.donationCount })}</p>
+                <p className="text-xs text-green-600">
+                  {pnl.income.bookingCount
+                    ? t('{n} donations · {b} bookings', { n: pnl.income.donationCount, b: pnl.income.bookingCount })
+                    : t('{n} donations', { n: pnl.income.donationCount })}
+                </p>
               </div>
             </Link>
             <Link to="/expenses" className="rounded-xl border border-orange-200 bg-orange-50 px-3 py-2.5 sm:px-4 sm:py-3 flex items-center gap-2.5 sm:gap-3 hover:bg-orange-100 transition-colors">

@@ -13,7 +13,7 @@ import { logAction } from '../services/audit.service.js';
 import ApiError from '../utils/ApiError.js';
 import ApiResponse from '../utils/ApiResponse.js';
 import asyncHandler from '../utils/asyncHandler.js';
-import { getPermissionsForRole } from '../middleware/authorize.js';
+import { SALARY_HIDDEN, userCan } from '../services/staffProfile.service.js';
 
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 const MONTH = /^\d{4}-\d{2}$/;
@@ -87,50 +87,14 @@ export const updateAttendanceSettings = asyncHandler(async (req, res) => {
 });
 
 // ── Staff register ───────────────────────────────────────────────────────────
-
-const STAFF_FIELDS = ['name', 'phone', 'designation', 'gender', 'department', 'joinDate', 'leftOn', 'isActive', 'user', 'machineId',
-  'defaultShift', 'nightOnly', 'weeklyOffDay', 'doubleShiftEligible', 'monthlySalary', 'basicSalary', 'paidLeavePerMonth',
-  'pfApplicable', 'esiApplicable', 'ptApplicable', 'uan', 'esicNo', 'bankAccount', 'ifsc', 'notes'];
-// Pay and bank details: only shown to salary:read, only changed by salary:manage
-const SALARY_FIELDS = ['monthlySalary', 'basicSalary', 'pfApplicable', 'esiApplicable', 'ptApplicable', 'uan', 'esicNo', 'bankAccount', 'ifsc'];
-const SALARY_HIDDEN = SALARY_FIELDS.map((f) => `-${f}`).join(' ');
-
-const userCan = async (req, perm) => {
-  const perms = await getPermissionsForRole(req.user.role);
-  return perms.includes('*') || perms.includes(perm);
-};
-const withoutSalary = (data) => Object.fromEntries(Object.entries(data).filter(([k]) => !SALARY_FIELDS.includes(k)));
-
-const pickStaff = (body) => {
-  const out = {};
-  for (const k of STAFF_FIELDS) if (body[k] !== undefined) out[k] = body[k] === '' && ['department', 'user', 'defaultShift', 'joinDate', 'leftOn', 'paidLeavePerMonth', 'basicSalary'].includes(k) ? null : body[k];
-  // '' (not undefined — Mongoose drops undefined from updates) clears it; the unique index skips ''.
-  if (out.machineId !== undefined) out.machineId = String(out.machineId ?? '').trim();
-  return out;
-};
-
-async function assertMachineIdFree(machineId, exceptId) {
-  if (!machineId) return;
-  const other = await Staff.findOne({ machineId, _id: { $ne: exceptId } }).select('name staffCode').lean();
-  if (other) throw new ApiError(409, `Machine number ${machineId} is already given to ${other.name} (${other.staffCode})`);
-}
-
-async function nextStaffCode() {
-  const last = await Staff.findOne({ staffCode: /^STF-\d+$/ }).sort({ createdAt: -1 }).select('staffCode').lean();
-  const n = last ? parseInt(last.staffCode.split('-')[1], 10) + 1 : 1;
-  return `STF-${String(n).padStart(3, '0')}`;
-}
-
-// Punches that arrived before the machine number was entered get linked now.
-const linkPunches = (staff) => (staff.machineId
-  ? Punch.updateMany({ machineId: staff.machineId, staff: null }, { $set: { staff: staff._id } })
-  : null);
+// People are added and changed in Users (with their attendance & payroll details); this is
+// the list of those on attendance.
 
 export const listStaff = asyncHandler(async (req, res) => {
   const filter = {};
   if (req.query.active !== undefined) filter.isActive = req.query.active === 'true';
   const hide = (await userCan(req, 'salary:read')) ? '' : SALARY_HIDDEN;
-  const staff = await Staff.find(filter).select(hide).populate('department', 'name').populate('user', 'name email').sort({ name: 1 }).lean();
+  const staff = await Staff.find(filter).select(hide).populate('department', 'name').populate('user', 'name email isActive').sort({ name: 1 }).lean();
   res.json(new ApiResponse(200, staff));
 });
 
@@ -139,39 +103,6 @@ export const getStaff = asyncHandler(async (req, res) => {
   const staff = await Staff.findById(req.params.id).select(hide).populate('department', 'name').populate('user', 'name email');
   if (!staff) throw new ApiError(404, 'Staff not found');
   res.json(new ApiResponse(200, staff));
-});
-
-export const createStaff = asyncHandler(async (req, res) => {
-  let data = pickStaff(req.body || {});
-  if (!(await userCan(req, 'salary:manage'))) data = withoutSalary(data);
-  if (!data.name?.trim()) throw new ApiError(400, 'Name is required');
-  await assertMachineIdFree(data.machineId);
-  let staff;
-  for (let attempt = 0; !staff; attempt += 1) {
-    try {
-      staff = await Staff.create({ ...data, staffCode: await nextStaffCode() });
-    } catch (err) {
-      // Two people added at the same moment can get the same code — take the next one.
-      if (err.code !== 11000 || !err.keyValue?.staffCode || attempt >= 3) throw err;
-    }
-  }
-  await linkPunches(staff);
-  logAction(req, { action: 'staff.create', entity: 'Staff', entityId: staff.staffCode, entityRef: staff._id, meta: { name: staff.name } });
-  res.status(201).json(new ApiResponse(201, staff, 'Staff added'));
-});
-
-export const updateStaff = asyncHandler(async (req, res) => {
-  let data = pickStaff(req.body || {});
-  if (!(await userCan(req, 'salary:manage'))) data = withoutSalary(data);
-  if (data.name !== undefined && !String(data.name).trim()) throw new ApiError(400, 'Name is required');
-  await assertMachineIdFree(data.machineId, req.params.id);
-  const staff = await Staff.findByIdAndUpdate(req.params.id, data, { returnDocument: 'after', runValidators: true }).select(
-    (await userCan(req, 'salary:read')) ? '' : SALARY_HIDDEN,
-  );
-  if (!staff) throw new ApiError(404, 'Staff not found');
-  await linkPunches(staff);
-  logAction(req, { action: 'staff.update', entity: 'Staff', entityId: staff.staffCode, entityRef: staff._id });
-  res.json(new ApiResponse(200, staff, 'Staff updated'));
 });
 
 // Machine numbers that have punches but no staff record yet.

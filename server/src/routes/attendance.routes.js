@@ -3,7 +3,7 @@ import protect from '../middleware/auth.js';
 import authorize from '../middleware/authorize.js';
 import {
   getAttendanceSettings, updateAttendanceSettings,
-  listStaff, getStaff, createStaff, updateStaff, unmappedMachineIds,
+  listStaff, getStaff, unmappedMachineIds,
   getRoster, saveRoster, copyRosterWeek,
   getAttendanceDays, getStaffDay, exportRegister, getMonth,
   addManualPunch, ignorePunch, setOverride, removeOverride,
@@ -12,7 +12,7 @@ import {
 
 // attendance:read   — see attendance, roster and staff
 // attendance:write  — plan the roster and fix attendance (supervisors)
-// attendance:manage — staff register, shift timings, rules and machines
+// attendance:manage — attendance details of people (in Users), shift timings, rules and machines
 // attendance:approve — double-shift rewards and overtime amounts (management)
 const router = Router();
 router.use(protect);
@@ -23,8 +23,6 @@ router.put('/settings', authorize('attendance:manage'), updateAttendanceSettings
 router.get('/staff', authorize('attendance:read'), listStaff);
 router.get('/staff/unmapped', authorize('attendance:manage'), unmappedMachineIds);
 router.get('/staff/:id', authorize('attendance:read'), getStaff);
-router.post('/staff', authorize('attendance:manage'), createStaff);
-router.put('/staff/:id', authorize('attendance:manage'), updateStaff);
 
 router.get('/roster', authorize('attendance:read'), getRoster);
 router.put('/roster', authorize('attendance:write'), saveRoster);

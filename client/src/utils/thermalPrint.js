@@ -24,11 +24,20 @@ async function printViaElectron(coupon, settings) {
 
 let connectPromise = null;
 
+// When QZ Tray isn't running, qz's connect can stay pending for a long time — give up after
+// 10 s with a clear message so a counter never freezes waiting for the printer.
+const QZ_TIMEOUT_MS = 10000;
+
 async function ensureConnected() {
   if (qz.websocket.isActive()) return;
   if (connectPromise) return connectPromise;
-  connectPromise = qz.websocket.connect({ retries: 2, delay: 1000 })
-    .finally(() => { connectPromise = null; });
+  let timer;
+  connectPromise = Promise.race([
+    qz.websocket.connect({ retries: 1, delay: 1 }),
+    new Promise((_, reject) => {
+      timer = setTimeout(() => reject(new Error('QZ Tray is not running on this computer — start QZ Tray and try again.')), QZ_TIMEOUT_MS);
+    }),
+  ]).finally(() => { clearTimeout(timer); connectPromise = null; });
   return connectPromise;
 }
 
@@ -323,4 +332,47 @@ export async function printThermalCoupon(coupon, settings) {
     format: 'hex',
     data:   hex,
   }]);
+}
+
+// ── Images (any script, including Marathi) ────────────────────────────────────
+// Thermal printers have no Devanagari font, so text that may be Marathi is drawn on a
+// canvas in the browser and sent as a 1-bit raster image, in bands of 200 rows (some
+// printers drop very tall single images).
+
+export function canvasToEscPos(canvas, { cut = true } = {}) {
+  const widthBytes = Math.ceil(canvas.width / 8);
+  const { data: px } = canvas.getContext('2d').getImageData(0, 0, widthBytes * 8, canvas.height);
+  const bytes = [...init(), ...align(1)];
+  const BAND = 200;
+  for (let top = 0; top < canvas.height; top += BAND) {
+    const rows = Math.min(BAND, canvas.height - top);
+    bytes.push(GS, 0x76, 0x30, 0x00, widthBytes & 0xFF, (widthBytes >> 8) & 0xFF, rows & 0xFF, (rows >> 8) & 0xFF);
+    for (let row = top; row < top + rows; row++) {
+      for (let b = 0; b < widthBytes; b++) {
+        let byte = 0;
+        for (let bit = 0; bit < 8; bit++) {
+          const o = (row * widthBytes * 8 + b * 8 + bit) * 4;
+          const gray = 0.299 * px[o] + 0.587 * px[o + 1] + 0.114 * px[o + 2];
+          if (px[o + 3] > 0 && gray < 140) byte |= (0x80 >> bit);
+        }
+        bytes.push(byte);
+      }
+    }
+  }
+  return cut ? [...bytes, ...feedN(4), ...partCut()] : bytes;
+}
+
+/** Sends ESC/POS bytes to the desktop app's printer, or through QZ Tray in the browser. */
+export async function printRawBytes(bytes, printerName) {
+  const hex = bytes.map((b) => b.toString(16).padStart(2, '0')).join('');
+  if (window.electronAPI?.isElectron) {
+    const electronSettings = await window.electronAPI.getSettings();
+    const name = electronSettings?.printerName || printerName;
+    if (!name) throw new Error('Printer not set. Open ⚙ Settings (bottom-right gear) and choose a printer.');
+    await window.electronAPI.printRaw(hex, name);
+    return;
+  }
+  if (!printerName) throw new Error('Thermal printer not set (Bookings → Setup → Settings).');
+  await ensureConnected();
+  await qz.print(qz.configs.create(printerName), [{ type: 'raw', format: 'hex', data: hex }]);
 }

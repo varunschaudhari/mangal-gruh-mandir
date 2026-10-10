@@ -53,6 +53,7 @@ export function generatePnLReport(res, { data, templeName = 'Mangal Grah Mandir,
   const incomeRows = [
     ['Cash Donations',           fmtD(income.cash),  `${income.donationCount} entries`],
     ['Kind Donations (est. val)', fmtD(income.kind), ''],
+    ['Abhishek / Puja Bookings', fmtD(income.bookings || 0), `${income.bookingCount || 0} bookings`],
   ];
   incomeRows.forEach(([label, amount, note], i) => {
     const bg = i % 2 === 0 ? C.lgray : C.white;

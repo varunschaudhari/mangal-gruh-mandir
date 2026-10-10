@@ -5,6 +5,7 @@ import {
   Armchair, ClipboardList, Settings2, BarChart2, TrendingUp, Heart, CreditCard, Plus,
   ShoppingCart, BookTemplate, FileText, Utensils, ScanLine, BarChart3, Receipt, PiggyBank, Bug,
   Fingerprint, CalendarDays, CalendarRange, UsersRound, Clock3, CalendarHeart, Wallet, HandCoins, IndianRupee,
+  CalendarCheck, ListOrdered, ClipboardList as DaySheetIcon,
 } from 'lucide-react';
 
 // Single source of truth for navigation: the desktop sidebar, the mobile bottom tab bar,
@@ -86,6 +87,18 @@ export const navConfig = [
     children: [
       { label: 'History',   to: '/donations',     icon: History, permission: 'donations:read'  },
       { label: 'New Entry', to: '/donations/new', icon: Heart,   permission: 'donations:write' },
+    ],
+  },
+  {
+    label: 'Bookings',
+    icon: CalendarCheck,
+    permission: 'bookings:read',
+    children: [
+      { label: 'New Booking',      to: '/bookings/new',     icon: Plus,         permission: 'bookings:create' },
+      { label: 'All Bookings',     to: '/bookings',         icon: ListOrdered,  permission: 'bookings:read'   },
+      { label: 'Day Sheet',        to: '/bookings/day',     icon: DaySheetIcon, permission: 'bookings:read'   },
+      { label: 'Booking Reports',  to: '/bookings/reports', icon: BarChart3,    permission: 'bookings:read'   },
+      { label: 'Booking Setup',    to: '/bookings/setup',   icon: Settings2,    permission: 'bookings:manage' },
     ],
   },
   {
@@ -180,6 +193,8 @@ export const MOBILE_TABS = {
   reports:    { label: 'Reports',    to: '/reports',            icon: BarChart3,    permission: 'reports:read',      match: ['/reports'] },
   attendance: { label: 'Attendance', to: '/attendance',         icon: Fingerprint,  permission: 'attendance:read',   match: ['/attendance'] },
   roster:     { label: 'Roster',     to: '/attendance/roster',  icon: CalendarRange, permission: 'attendance:read',  match: ['/attendance/roster'] },
+  bookings:   { label: 'Bookings',   to: '/bookings',           icon: CalendarCheck, permission: 'bookings:read',    match: ['/bookings'] },
+  daySheet:   { label: 'Day Sheet',  to: '/bookings/day',       icon: DaySheetIcon,  permission: 'bookings:read',    match: ['/bookings/day'] },
 };
 
 // Tabs per built-in role, most-used first. Custom roles fall back to TAB_PRIORITY.
@@ -195,6 +210,7 @@ const ROLE_TABS = {
   accountant:         ['payments', 'reports', 'donations'],
   cashier:            ['payments', 'expenses', 'reports'],
   attendance_supervisor: ['attendance', 'roster'],
+  booking_counter:    ['bookings', 'daySheet'],
 };
 const TAB_PRIORITY = ['stock', 'scan', 'coupons', 'payments', 'purchases', 'donations', 'reports', 'prasad', 'expenses', 'attendance'];
 
@@ -211,6 +227,7 @@ export const getMobileTabs = (role, can, max) => {
 
 // ── Quick actions (centre "+" button on mobile) ───────────────────────────────
 export const QUICK_ACTIONS = [
+  { label: 'New Booking',    to: '/bookings/new',           icon: CalendarCheck,   permission: 'bookings:create',     tone: 'orange' },
   { label: 'Scan Coupon',    to: '/mahaprasad/redeem',      icon: ScanLine,        permission: 'mahaprasad:redeem',   tone: 'orange' },
   { label: 'Issue Coupons',  to: '/mahaprasad',             icon: Utensils,        permission: 'mahaprasad:issue',    tone: 'orange' },
   { label: 'New Purchase',   to: '/purchases/new',          icon: ShoppingCart,    permission: 'transactions:create', tone: 'blue'   },

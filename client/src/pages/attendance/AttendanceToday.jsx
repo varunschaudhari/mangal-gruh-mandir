@@ -132,7 +132,7 @@ export default function AttendanceToday() {
         <div className="card px-4 py-12 text-center">
           <Fingerprint className="mx-auto mb-2 h-8 w-8 text-gray-300" />
           <p className="text-sm text-gray-500">{t('No staff added yet.')}</p>
-          {can('attendance:manage') && <Link to="/attendance/staff/new" className="btn-primary mt-4 inline-flex">{t('Add staff')}</Link>}
+          {can('attendance:manage') && can('users:write') && <Link to="/admin/users/new?payroll=1&from=staff" className="btn-primary mt-4 inline-flex">{t('Add staff')}</Link>}
         </div>
       ) : shown.length === 0 ? (
         <div className="card px-4 py-10 text-center text-sm text-gray-400">{t('Nobody in this list.')}</div>

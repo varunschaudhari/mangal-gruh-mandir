@@ -151,7 +151,8 @@ export default function MonthlyPnL() {
               <div className="mt-2 space-y-1 text-xs text-gray-500">
                 <div className="flex justify-between"><span>Cash donations</span><span className="font-medium">{fCurrency(pnl.income.cash)}</span></div>
                 <div className="flex justify-between"><span>Kind donations</span><span className="font-medium">{fCurrency(pnl.income.kind)}</span></div>
-                <div className="text-gray-400">{pnl.income.donationCount} donation entries</div>
+                <div className="flex justify-between"><span>Abhishek / puja bookings</span><span className="font-medium">{fCurrency(pnl.income.bookings || 0)}</span></div>
+                <div className="text-gray-400">{pnl.income.donationCount} donation entries · {pnl.income.bookingCount || 0} bookings</div>
               </div>
             </div>
 

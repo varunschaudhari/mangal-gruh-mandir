@@ -5,8 +5,6 @@ export const updateAttendanceSettings = (data)         => api.put('/attendance/s
 
 export const getStaffList     = (params)     => api.get('/attendance/staff', { params });
 export const getStaff         = (id)         => api.get(`/attendance/staff/${id}`);
-export const createStaff      = (data)       => api.post('/attendance/staff', data);
-export const updateStaff      = (id, data)   => api.put(`/attendance/staff/${id}`, data);
 export const getUnmappedIds   = ()           => api.get('/attendance/staff/unmapped');
 
 export const getRoster        = (params)     => api.get('/attendance/roster', { params });

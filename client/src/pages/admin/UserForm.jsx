@@ -1,10 +1,10 @@
 import { useEffect } from 'react';
 import { useForm, Controller } from 'react-hook-form';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   User, Mail, Phone, Lock, Shield, Building2,
-  MessageCircle, MessageSquare, Bell, CheckCircle2, Key, CreditCard, IndianRupee,
+  MessageCircle, MessageSquare, Bell, CheckCircle2, Key, CreditCard,
 } from 'lucide-react';
 import { getUser, createUser, updateUser } from '../../api/user.api.js';
 import { getDepartments } from '../../api/department.api.js';
@@ -13,6 +13,8 @@ import SearchableSelect from '../../components/ui/SearchableSelect.jsx';
 import PageHeader from '../../components/ui/PageHeader.jsx';
 import { PageLoader } from '../../components/ui/Spinner.jsx';
 import { ROLE_LABELS } from '../../utils/permissions.js';
+import { usePermissions } from '../../hooks/usePermissions.js';
+import StaffProfileSection, { profileFromForm, profileToForm } from './StaffProfileSection.jsx';
 import toast from 'react-hot-toast';
 
 const Section = ({ icon: Icon, title, subtitle, children, color = 'text-gray-600', bg = 'bg-gray-50' }) => (
@@ -69,14 +71,19 @@ const UserForm = () => {
   const isEdit = Boolean(id);
   const navigate = useNavigate();
   const qc = useQueryClient();
+  const { can } = usePermissions();
+  const [params] = useSearchParams();
+  // Opened from Attendance → Staff Register ("Add staff" / an unknown machine number)
+  const forPayroll = params.get('payroll') === '1';
+  const backTo = params.get('from') === 'staff' ? '/attendance/staff' : '/admin/users';
 
   const { register, handleSubmit, reset, watch, setValue, control, formState: { errors } } = useForm({
     defaultValues: {
-      role: 'staff', isActive: true,
+      role: forPayroll ? 'employee' : 'staff', isActive: true, departments: [],
       whatsappAlertsEnabled: false, smsAlertsEnabled: false,
       canApproveAssets:    false,
       canApprovePayments:  false,
-      monthlySalary:       0,
+      staffProfile: profileToForm(null, { machineId: params.get('machineId') || '', onPayroll: forPayroll }),
     },
   });
 
@@ -96,16 +103,23 @@ const UserForm = () => {
   useEffect(() => {
     if (userRes?.data?.data) {
       const u = userRes.data.data;
-      reset({ ...u, departments: u.departments?.map((d) => d._id || d) });
+      reset({ ...u, departments: u.departments?.map((d) => d._id || d), staffProfile: profileToForm(u.staffProfile, { oldSalary: u.monthlySalary }) });
     }
   }, [userRes]);
 
   const mutation = useMutation({
-    mutationFn: (data) => isEdit ? updateUser(id, data) : createUser(data),
+    mutationFn: ({ staffProfile, monthlySalary: _old, ...form }) => {
+      // An untouched checkbox group gives `false` (or one value) instead of a list
+      const data = { ...form, departments: [].concat(form.departments || []).filter((d) => typeof d === 'string' && d) };
+      // Attendance & salary details go with the user — only the parts this person may change
+      const body = can('attendance:manage') ? { ...data, staffProfile: profileFromForm(staffProfile, { canSalary: can('salary:manage') }) } : data;
+      return isEdit ? updateUser(id, body) : createUser(body);
+    },
     onSuccess: () => {
       toast.success(isEdit ? 'User updated' : 'User created');
       qc.invalidateQueries({ queryKey: ['users'] });
-      navigate('/admin/users');
+      qc.invalidateQueries({ queryKey: ['attendance'] });
+      navigate(backTo);
     },
     onError: (err) => toast.error(err.response?.data?.message || 'Failed'),
   });
@@ -213,20 +227,6 @@ const UserForm = () => {
             </Field>
           )}
 
-          <Field label="Monthly Salary (₹)" hint="Used for auto-fill when recording salary expenses. Leave 0 if not on payroll.">
-            <div className="relative">
-              <IndianRupee className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-300" />
-              <input
-                type="number"
-                min="0"
-                step="100"
-                {...register('monthlySalary', { min: { value: 0, message: 'Cannot be negative' }, valueAsNumber: true })}
-                className="input pl-9"
-                placeholder="0"
-              />
-            </div>
-          </Field>
-
           <label className="flex items-center gap-2 text-sm cursor-pointer">
             <input type="checkbox" {...register('isActive')} className="h-4 w-4 rounded text-primary-600" />
             <CheckCircle2 className="h-4 w-4 text-gray-400" />
@@ -269,6 +269,9 @@ const UserForm = () => {
             </div>
           </label>
         </Section>
+
+        {/* ── Attendance & payroll (machine number, shifts, salary, PF/ESI, bank) ── */}
+        {can('attendance:read') && <StaffProfileSection register={register} watch={watch} isActive={watch('isActive')} />}
 
         {/* ── Notifications ── */}
         <Section
@@ -325,7 +328,7 @@ const UserForm = () => {
           <button type="submit" disabled={mutation.isPending} className="btn-primary px-6">
             {mutation.isPending ? 'Saving…' : isEdit ? 'Update User' : 'Create User'}
           </button>
-          <button type="button" onClick={() => navigate('/admin/users')} className="btn-secondary">
+          <button type="button" onClick={() => navigate(backTo)} className="btn-secondary">
             Cancel
           </button>
         </div>

@@ -74,6 +74,8 @@ jobs:
         run: node scripts/smoke.mjs
       - name: Sign-in sessions (multi-device, sign-out, old-token upgrade)
         run: node scripts/auth-check.mjs
+      - name: Bookings (seat limits under parallel load, void, reports, P&L, public receipt)
+        run: node scripts/booking-check.mjs
       - name: Server log
         if: always()
         run: cat server.log || true

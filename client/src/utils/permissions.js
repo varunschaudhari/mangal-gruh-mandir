@@ -11,6 +11,7 @@ export const ROLE_PERMISSIONS = {
     'mahaprasad:read', 'mahaprasad:issue', 'mahaprasad:redeem',
     'attendance:read', 'attendance:write', 'attendance:manage', 'attendance:approve',
     'salary:read', 'salary:manage',
+    'bookings:read', 'bookings:create', 'bookings:void', 'bookings:manage',
   ],
   store_manager: [
     'masters:read', 'masters:write',
@@ -25,6 +26,7 @@ export const ROLE_PERMISSIONS = {
     'donations:read',
     'payments:read', 'payments:write',
     'mahaprasad:read', 'mahaprasad:issue', 'mahaprasad:redeem',
+    'bookings:read', 'bookings:create',
   ],
   viewer: [
     'masters:read',
@@ -32,13 +34,16 @@ export const ROLE_PERMISSIONS = {
     'donations:read',
     'payments:read',
     'mahaprasad:read',
+    'bookings:read',
   ],
   mahaprasad_counter: ['mahaprasad:read', 'mahaprasad:issue'],
   mahaprasad_redeem:  ['mahaprasad:redeem'],
+  booking_counter:    ['bookings:read', 'bookings:create'],
   donation_desk:      ['donations:read', 'donations:write'],
-  accountant:         ['reports:read', 'transactions:read', 'donations:read', 'payments:read', 'salary:read'],
-  cashier:            ['payments:read', 'payments:write', 'payments:approve', 'reports:read'],
+  accountant:         ['reports:read', 'transactions:read', 'donations:read', 'payments:read', 'bookings:read', 'salary:read'],
+  cashier:            ['payments:read', 'payments:write', 'payments:approve', 'reports:read', 'bookings:read'],
   attendance_supervisor: ['attendance:read', 'attendance:write'],
+  employee: [],
 };
 
 export const ROLE_LABELS = {
@@ -49,8 +54,10 @@ export const ROLE_LABELS = {
   viewer:             'Viewer',
   mahaprasad_counter: 'Mahaprasad Counter',
   mahaprasad_redeem:  'Mahaprasad Redeem',
+  booking_counter:    'Booking Counter',
   donation_desk:      'Donation Desk',
   accountant:         'Accountant',
   cashier:            'Cashier',
   attendance_supervisor: 'Attendance Supervisor',
+  employee: 'Employee',
 };

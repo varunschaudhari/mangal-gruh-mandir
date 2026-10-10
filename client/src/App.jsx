@@ -89,12 +89,17 @@ const AttendanceToday = lazyPage(() => import('./pages/attendance/AttendanceToda
 const AttendanceRoster = lazyPage(() => import('./pages/attendance/Roster.jsx'));
 const AttendanceRegister = lazyPage(() => import('./pages/attendance/Register.jsx'));
 const StaffList = lazyPage(() => import('./pages/attendance/StaffList.jsx'));
-const StaffForm = lazyPage(() => import('./pages/attendance/StaffForm.jsx'));
 const AttendanceSettings = lazyPage(() => import('./pages/attendance/AttendanceSettings.jsx'));
 const LeaveOvertime = lazyPage(() => import('./pages/attendance/LeaveOvertime.jsx'));
 const SalaryMonth = lazyPage(() => import('./pages/salary/SalaryMonth.jsx'));
 const SalaryAdvances = lazyPage(() => import('./pages/salary/Advances.jsx'));
 const SalarySettings = lazyPage(() => import('./pages/salary/SalarySettings.jsx'));
+const BookingCounter = lazyPage(() => import('./pages/bookings/BookingCounter.jsx'));
+const BookingList = lazyPage(() => import('./pages/bookings/BookingList.jsx'));
+const BookingDaySheet = lazyPage(() => import('./pages/bookings/BookingDaySheet.jsx'));
+const BookingReports = lazyPage(() => import('./pages/bookings/BookingReports.jsx'));
+const BookingSetup = lazyPage(() => import('./pages/bookings/BookingSetup.jsx'));
+const PublicReceipt = lazyPage(() => import('./pages/bookings/PublicReceipt.jsx'));
 
 const App = () => (
   <>
@@ -104,6 +109,8 @@ const App = () => (
   <Suspense fallback={<PageLoader />}>
   <Routes>
     <Route path="/login" element={<Login />} />
+    {/* Booking receipt link sent to devotees — no sign-in */}
+    <Route path="/r/:token" element={<PublicReceipt />} />
 
     <Route element={<PrivateRoute />}>
       <Route element={<AppLayout />}>
@@ -212,11 +219,17 @@ const App = () => (
         <Route path="/attendance/register"       element={<AttendanceRegister />} />
         <Route path="/attendance/leave"          element={<LeaveOvertime />} />
         <Route path="/attendance/staff"          element={<StaffList />} />
-        <Route path="/attendance/staff/new"      element={<StaffForm />} />
-        <Route path="/attendance/staff/:id/edit" element={<StaffForm />} />
+        {/* Staff are added and edited in Users now */}
+        <Route path="/attendance/staff/new"      element={<Navigate to="/admin/users/new?payroll=1&from=staff" replace />} />
+        <Route path="/attendance/staff/:id/edit" element={<Navigate to="/attendance/staff" replace />} />
         <Route path="/attendance/settings"       element={<AttendanceSettings />} />
 
         {/* Salary */}
+        <Route path="/bookings/new" element={<BookingCounter />} />
+        <Route path="/bookings" element={<BookingList />} />
+        <Route path="/bookings/day" element={<BookingDaySheet />} />
+        <Route path="/bookings/reports" element={<BookingReports />} />
+        <Route path="/bookings/setup" element={<BookingSetup />} />
         <Route path="/salary"          element={<SalaryMonth />} />
         <Route path="/salary/advances" element={<SalaryAdvances />} />
         <Route path="/salary/settings" element={<SalarySettings />} />

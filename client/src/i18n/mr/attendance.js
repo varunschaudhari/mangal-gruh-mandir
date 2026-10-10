@@ -288,6 +288,10 @@ export default {
   'e.g. Dasara': 'उदा. दसरा',
   'Paid days off for everyone. Anyone rostered on a holiday works as usual. Leave empty if staff use their leaves instead.': 'सर्वांसाठी पगारी सुट्टी. सुट्टीच्या दिवशी ड्युटी तक्त्यात असलेले नेहमीप्रमाणे काम करतात. कर्मचारी आपल्या रजा वापरत असतील तर रिकामे ठेवा.',
   'Last working day': 'शेवटचा कामाचा दिवस',
+  'Attendance & payroll': 'हजेरी व पगार',
+  'On attendance & payroll': 'हजेरी व पगारात आहे',
+  'For temple workers who punch the attendance machine and get a salary': 'हजेरी मशीनवर पंच करणाऱ्या व पगार घेणाऱ्या मंदिर कर्मचाऱ्यांसाठी',
+  'Shows in the attendance registers and in monthly salary.': 'हजेरी पत्रकात व मासिक पगारात दिसेल.',
   'Days before this are not counted.': 'याआधीचे दिवस धरले जात नाहीत.',
   'Days after this are not counted.': 'यानंतरचे दिवस धरले जात नाहीत.',
 };

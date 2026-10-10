@@ -12,6 +12,9 @@ import { departments } from './departments.seed.js';
 import { categories } from './categories.seed.js';
 import { units } from './units.seed.js';
 import { rolesSeed } from './roles.seed.js';
+import SevaType from '../models/SevaType.js';
+import BookingBatch from '../models/BookingBatch.js';
+import { sevaTypesSeed, batchesSeed } from './booking.seed.js';
 
 const OCCASIONS = [
   { name: 'Hundi',               sortOrder: 1 },
@@ -53,6 +56,11 @@ const seed = async () => {
     await Role.updateOne({ slug: r.slug }, { $set: r }, { upsert: true });
   }
   console.log(`✓ ${rolesSeed.length} roles`);
+
+  // Abhishek / puja bookings — only on a fresh database (Setup edits are never overwritten)
+  if (await SevaType.estimatedDocumentCount() === 0) await SevaType.insertMany(sevaTypesSeed);
+  if (await BookingBatch.estimatedDocumentCount() === 0) await BookingBatch.insertMany(batchesSeed);
+  console.log('✓ booking seva types and batches');
 
   // Donation Occasions
   for (const o of OCCASIONS) {

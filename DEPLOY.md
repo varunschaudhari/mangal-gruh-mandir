@@ -248,9 +248,17 @@ Then remove the `TEST` entry it creates under **Attendance → Shifts & Machine*
 2. Within a minute it appears under **Attendance → Shifts & Machine** as *waiting for approval*.
    Name it (e.g. "Main gate"), tick **Approved**, Save. Punches are refused until then — the machine
    keeps them and resends after approval, so nothing is lost.
-3. Enrol each person's finger/face on the machine and enter the same **Machine number** in
-   **Attendance → Staff Register**. Punches that arrived before the number was entered are linked
-   automatically; unknown numbers are listed on the Staff Register page.
+3. Enrol each person's finger/face on the machine and enter the same **Machine number** on their user
+   (**Admin → Users**, section *Attendance & payroll*). Punches that arrived before the number was
+   entered are linked automatically; unknown numbers are listed on the Staff Register page with an
+   "Add" link.
+
+**People are always added in Admin → Users.** Every worker gets a login; give workers the
+**Employee** role (no access to other modules). Tick **On attendance & payroll** to fill in their
+machine number, shift, weekly off, joining date and — for `salary:read` — pay, PF/ESI and bank.
+**Attendance → Staff Register** lists those users and opens the same form. `npm run migrate:attendance`
+also turns any staff entered in the old Staff Register into users (matched by phone number, otherwise a
+placeholder login `stf-…@staff.mandir` to be given a real email and password).
 
 **Testing without the machine:** `server/scripts/simulate-device.mjs` talks to the server like a machine:
 
@@ -261,7 +269,7 @@ BASE_URL=http://localhost:5000 SN=MGM-TEST node scripts/simulate-device.mjs --to
 
 **Leave, late penalty and double shifts** (Attendance → Leave & Overtime) need the
 `attendance:approve` permission for management decisions — run `npm run migrate:attendance` again
-after deploying this (safe to repeat; it only adds what's missing). Before entering staff, set each
+after deploying this (safe to repeat; it only adds what's missing). When adding people, set each
 person's **joining date**: days before it are not counted, otherwise they show as absences.
 
 **Salary** (Salary menu) needs `salary:read` / `salary:manage` — the same `npm run migrate:attendance`
@@ -269,13 +277,58 @@ adds them (admin gets both, accountant gets read). Pay and bank details are hidd
 without `salary:read`. Before the first salary month:
 1. **Salary → Salary Settings:** PF establishment code and ESI employer code; check the PF / ESI rates
    and the Professional Tax slabs (Maharashtra is filled in).
-2. **Attendance → Staff Register:** for each person — monthly salary, basic salary (PF is on basic),
+2. **Admin → Users → (person) → Attendance & payroll:** monthly salary, basic salary (PF is on basic),
    gender (PT slabs), PF / ESI applicable with UAN / ESIC number, bank account and IFSC.
 3. Each month: **Salary → Monthly Salary → Work out salary**, adjust, **Finalise**, download the bank
    sheet / ECR / ESI files and payslips, then **Mark as paid** (records it in Expenses).
 
 The bank sheet uses standard columns (name, account, IFSC, amount, narration); banks with their own
 bulk-upload layout need that format added.
+
+**Demo data** (for showing the module before real staff are entered): 12 demo staff with codes
+`DEMO-01…12` and machine numbers 9001+, with punches from the 1st of last month, double shifts,
+corrections, planned leave and an advance. It changes no settings, writes no expenses and saves no
+salary month. Remove it before real use — only `DEMO-` staff and their records are deleted:
+
+```bash
+docker compose exec server npm run seed:attendance-demo            # add
+docker compose exec server npm run seed:attendance-demo -- --fresh # replace with a fresh copy
+docker compose exec server npm run seed:attendance-demo:remove     # remove
+```
+
+---
+
+## 12. Abhishek / puja bookings
+
+**One-time, after deploying:**
+
+```bash
+docker compose exec server npm run migrate:bookings
+```
+
+This adds the `bookings:*` permissions to the existing roles, creates the **Booking Counter**
+role, and — only the first time — the 6 seva types and 14 batches from the temple website.
+Running it again never overwrites changes made in the app.
+
+Then, in **Bookings → Booking Setup**:
+1. **Batches:** set the real capacity of each batch. 50 is a placeholder; the website didn't publish
+   the number. Choose under Settings whether capacity counts bookings or people.
+2. **Settings:** printer name and paper width for the counter's thermal slip (blank = the Mahaprasad
+   printer), receipt footer.
+3. **Users:** give counter staff the *Booking Counter* role (or Staff), each with their own login, so
+   the reports show who took which booking and how much cash each person should hand over.
+
+**Receipts to the devotee's phone** link to `https://<domain>/r/<code>`. The address comes from
+`PUBLIC_APP_URL` in `server/.env`, or else the first `CLIENT_URL`.
+- **Automatic WhatsApp:** needs WhatsApp set up in Settings, plus a Meta-approved template named
+  `booking_confirmation` with this body:
+  `Namaste {{1}}, your {{2}} at Shri Mangal Grah Mandir, Amalner is booked for {{3}}. Receipt {{4}}: {{5}}`.
+  Until then, the counter's **Send on WhatsApp** button opens WhatsApp with the message ready.
+- **Automatic SMS (optional):** an MSG91 flow with a DLT-approved template using `##name##`, `##seva##`,
+  `##when##`, `##receipt##` and `##link##`. Its id goes in Booking Setup → Settings.
+
+Booking income is counted in **Monthly P&L** on the day it's paid. The old admin panel at
+admin.mangalagrahmandir.in stays as it is for older bookings.
 
 ## Operations cheatsheet
 

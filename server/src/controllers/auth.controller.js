@@ -110,7 +110,8 @@ export const logout = asyncHandler(async (req, res) => {
 
 export const getMe = asyncHandler(async (req, res) => {
   const [user, permissions] = await Promise.all([
-    User.findById(req.user._id).populate('departments', 'name code'),
+    // toObject() skips the model's toJSON (which strips these), so leave them out of the query.
+    User.findById(req.user._id).select('-password -refreshToken').populate('departments', 'name code'),
     getPermissionsForRole(req.user.role),
   ]);
   const userData = user.toObject();

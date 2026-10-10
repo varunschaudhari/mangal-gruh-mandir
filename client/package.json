@@ -1,6 +1,9 @@
 {
   "name": "mgm-client",
   "version": "1.0.0",
+  "engines": {
+    "node": ">=20.19.0"
+  },
   "type": "module",
   "scripts": {
     "dev": "vite",

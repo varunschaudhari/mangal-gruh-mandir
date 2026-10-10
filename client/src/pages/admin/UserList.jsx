@@ -46,7 +46,10 @@ const UserList = () => {
               </span>
             )}
           </div>
-          <p className="text-xs text-gray-400">{i.row.original.email}</p>
+          <p className="text-xs text-gray-400">
+            {i.row.original.email}
+            {i.row.original.onPayroll && <span className="ml-1.5 rounded bg-teal-50 px-1.5 py-0.5 font-medium text-teal-700">{i.row.original.staffCode}</span>}
+          </p>
         </div>
       ),
     }),

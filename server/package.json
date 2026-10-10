@@ -1,6 +1,9 @@
 {
   "name": "mgm-server",
   "version": "1.0.0",
+  "engines": {
+    "node": ">=20.19.0"
+  },
   "type": "module",
   "description": "Mangal Grah Mandir - Stock Management API",
   "main": "src/index.js",
@@ -15,6 +18,9 @@
     "migrate:assets": "node src/migrations/addAssetPermissions.js",
     "migrate:mahaprasad": "node src/migrations/addMahaprasadPermissions.js",
     "migrate:attendance": "node src/migrations/addAttendancePermissions.js",
+    "seed:attendance-demo": "node src/seeds/attendanceDemo.seed.js",
+    "seed:attendance-demo:remove": "node src/seeds/attendanceDemo.seed.js --remove",
+    "migrate:bookings": "node src/migrations/addBookingModule.js",
     "migrate:roles": "node src/migrations/syncRoles.js",
     "seed:mahaprasad-occasions": "node src/seeds/mahaprasadOccasions.seed.js",
     "add:supplier": "node src/seeds/addSupplier.js",

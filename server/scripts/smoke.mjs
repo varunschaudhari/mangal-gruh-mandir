@@ -31,6 +31,7 @@ const CORE = [
   '/assets', '/asset-transactions', '/asset-transactions/counts', '/borrow-groups',
   '/asset-reports/utilization', '/users', '/roles', '/settings', '/audit-logs', '/payment-templates',
   '/client-errors',
+  '/bookings/options', '/bookings', '/booking-setup', '/bookings/reports/summary', `/bookings/reports/day-sheet?date=${today}`,
   '/attendance/settings', '/attendance/staff', '/attendance/staff/unmapped',
   '/salary/settings', '/salary/runs', '/salary/advances', '/salary/runs/2099-12',
   `/attendance/roster?from=${today}&to=${today}`, `/attendance/days?from=${monthStart}&to=${today}`,
@@ -125,17 +126,28 @@ async function attendanceFlow(auth, failures) {
   check('attendance settings have a day shift', Boolean(day));
   if (!day) return count;
 
-  // Joined three days ago, so earlier days don't count as absences
+  // People are added in Users; "on attendance & payroll" gives them an attendance profile.
+  // Joined three days ago, so earlier days don't count as absences.
   const joined = new Date(y.getFullYear(), y.getMonth(), y.getDate() - 2);
-  const staff = await api('POST', '/attendance/staff', {
-    name: 'Smoke Test Staff', designation: 'Guard', machineId: pin, weeklyOffDay: (y.getDay() + 3) % 7, doubleShiftEligible: true,
-    joinDate: `${joined.getFullYear()}-${pad(joined.getMonth() + 1)}-${pad(joined.getDate())}`,
+  const stamp = Date.now();
+  const person = { name: 'Smoke Test Staff', phone: '', role: 'employee', departments: [], isActive: true };
+  const staff = await api('POST', '/users', {
+    ...person, email: `smoke-${stamp}@test.local`, password: 'Smoke-Pass-123!',
+    staffProfile: {
+      onPayroll: true, designation: 'Guard', machineId: pin, weeklyOffDay: (y.getDay() + 3) % 7, doubleShiftEligible: true,
+      joinDate: `${joined.getFullYear()}-${pad(joined.getMonth() + 1)}-${pad(joined.getDate())}`,
+    },
   });
-  check(`${staff.status} POST /attendance/staff`, staff.status === 201, JSON.stringify(staff.body).slice(0, 200));
-  const staffId = staff.body.data?._id;
+  const staffId = staff.body.data?.staffProfile?._id;
+  const userId = staff.body.data?._id;
+  check(`${staff.status} user added with attendance profile`, staff.status === 201 && Boolean(staffId) && staff.body.data.staffProfile.staffCode?.startsWith('STF-'),
+    JSON.stringify(staff.body).slice(0, 200));
   if (!staffId) return count;
-  const dupe = await api('POST', '/attendance/staff', { name: 'Duplicate', machineId: pin });
-  check(`${dupe.status} duplicate machine number refused`, dupe.status === 409);
+  const dupeEmail = `smoke-dupe-${stamp}@test.local`;
+  const dupe = await api('POST', '/users', { ...person, name: 'Duplicate', email: dupeEmail, password: 'Smoke-Pass-123!', staffProfile: { onPayroll: true, machineId: pin } });
+  const users = (await api('GET', '/users')).body.data || [];
+  check(`${dupe.status} duplicate machine number refused (no user left behind)`, dupe.status === 409 && !users.some((u) => u.email === dupeEmail));
+  check('user list shows who is on payroll', users.some((u) => u._id === userId && u.onPayroll && u.staffCode));
 
   const roster = await api('PUT', '/attendance/roster', { entries: [{ staff: staffId, date: yesterday, shifts: [day._id] }] });
   check(`${roster.status} PUT /attendance/roster`, roster.status === 200);
@@ -203,10 +215,14 @@ async function attendanceFlow(auth, failures) {
 
   // Salary — worked out for a far-future month so no real month is touched
   const M = '2099-12';
-  await api('PUT', `/attendance/staff/${staffId}`, {
-    monthlySalary: 15500, basicSalary: 9000, gender: 'male', pfApplicable: true, esiApplicable: true,
-    uan: '100900800700', esicNo: '3199999999', bankAccount: '001234567890', ifsc: 'SBIN0000001',
+  const pay = await api('PUT', `/users/${userId}`, {
+    ...person,
+    staffProfile: {
+      onPayroll: true, monthlySalary: 15500, basicSalary: 9000, gender: 'male', pfApplicable: true, esiApplicable: true,
+      uan: '100900800700', esicNo: '3199999999', bankAccount: '001234567890', ifsc: 'SBIN0000001',
+    },
   });
+  check(`${pay.status} salary details saved on the user`, pay.body.data?.staffProfile?.monthlySalary === 15500 && pay.body.data.staffProfile.machineId === pin);
   const adv = await api('POST', '/salary/advances', { staff: staffId, date: yesterday, amount: 1000, installment: 500, mode: 'cash', recordExpense: false });
   check(`${adv.status} salary advance recorded`, adv.status === 201);
   const prep = await api('POST', `/salary/runs/${M}/prepare`);
@@ -237,7 +253,7 @@ async function attendanceFlow(auth, failures) {
   check(`${delAdv.status} advance deleted`, delAdv.status === 200);
 
   // Leave the database tidy for the next run
-  await api('PUT', '/attendance/staff/' + staffId, { isActive: false, machineId: '' });
+  await api('PUT', `/users/${userId}`, { ...person, isActive: false, staffProfile: { onPayroll: false, machineId: '' } });
   await api('PUT', '/attendance/settings', { devices: devices.filter((d) => d.serial !== sn) });
   return count;
 }

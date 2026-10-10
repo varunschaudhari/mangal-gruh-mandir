@@ -5,12 +5,13 @@ import Settings from '../models/Settings.js';
 import ApiResponse from '../utils/ApiResponse.js';
 import asyncHandler from '../utils/asyncHandler.js';
 import { generatePnLReport } from '../services/pnlPdf.service.js';
+import { incomeBetween as bookingIncomeBetween } from '../services/booking/reports.js';
 
 export const buildPnLData = async (y, m) => {
   const from = new Date(y, m - 1, 1);
   const to   = new Date(y, m, 0, 23, 59, 59, 999);
 
-  const [expenseRows, pendingAgg, budgets, donationAgg] = await Promise.all([
+  const [expenseRows, pendingAgg, budgets, donationAgg, bookingIncome] = await Promise.all([
     Expense.aggregate([
       { $match: { expenseDate: { $gte: from, $lte: to }, status: 'approved' } },
       { $group: { _id: '$category', actual: { $sum: '$amount' }, count: { $sum: 1 } } },
@@ -29,6 +30,7 @@ export const buildPnLData = async (y, m) => {
         count:     { $sum: 1 },
       }},
     ]),
+    bookingIncomeBetween(from, to),
   ]);
 
   const budgetMap = {};
@@ -48,7 +50,8 @@ export const buildPnLData = async (y, m) => {
   const income      = donationAgg[0] || {};
   const incomeCash  = income.cashTotal || 0;
   const incomeKind  = income.kindTotal || 0;
-  const incomeTotal = incomeCash + incomeKind;
+  const incomeBookings = bookingIncome.amount;
+  const incomeTotal = incomeCash + incomeKind + incomeBookings;
   const expenseTotal = byCategory.reduce((s, r) => s + r.actual, 0);
   const budgetTotal  = byCategory.reduce((s, r) => s + r.budget, 0);
   const pending      = pendingAgg[0] || { count: 0, amount: 0 };
@@ -60,6 +63,8 @@ export const buildPnLData = async (y, m) => {
       kind:          incomeKind,
       total:         incomeTotal,
       donationCount: income.count || 0,
+      bookings:      incomeBookings,          // abhishek / puja bookings, by date paid
+      bookingCount:  bookingIncome.count,
     },
     expenses: {
       byCategory,

@@ -8,8 +8,24 @@ import asyncHandler from '../utils/asyncHandler.js';
 import ApiResponse from '../utils/ApiResponse.js';
 import { APP_TIMEZONE, localDateStr } from '../utils/dates.js';
 import { getStockAlertCounts } from '../services/stockAlerts.service.js';
+import { getPermissionsForRole } from '../middleware/authorize.js';
+
+// Logins without access to stock, assets or reports (e.g. temple workers with the Employee
+// role) get an empty dashboard rather than the store's figures.
+const EMPTY = {
+  counts: { productCount: 0, deptCount: 0, supplierCount: 0, userCount: 0, lowStockItems: 0, outOfStockItems: 0, reorderItems: 0 },
+  assetCounts: { checkedOut: 0, overdue: 0, dueThisWeek: 0 },
+  today: { STOCK_IN: 0, STOCK_OUT: 0, WASTAGE: 0, TRANSFER: 0 },
+  recentTransactions: [],
+  weeklyMovement: [],
+  topProducts: [],
+};
 
 export const getDashboardStats = asyncHandler(async (req, res) => {
+  const perms = await getPermissionsForRole(req.user.role);
+  const allowed = perms.includes('*') || ['masters:read', 'transactions:read', 'assets:read', 'reports:read'].some((p) => perms.includes(p));
+  if (!allowed) return res.json(new ApiResponse(200, EMPTY));
+
   // ── Counts ─────────────────────────────────────────────────────────────
   const [productCount, deptCount, supplierCount, userCount] = await Promise.all([
     Product.countDocuments({ isActive: true }),

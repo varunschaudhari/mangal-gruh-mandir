@@ -22,6 +22,12 @@ describe('getMobileTabs', () => {
     expect(tabsFor('super_admin').map((t) => t.key)).toEqual(['stock', 'payments']);
   });
 
+  it('gives the booking counter its bookings and the day sheet', () => {
+    expect(tabsFor('booking_counter').map((t) => t.key)).toEqual(['bookings', 'daySheet']);
+    const can = canFor('booking_counter');
+    expect(QUICK_ACTIONS.filter((a) => can(a.permission)).map((a) => a.label)).toEqual(['New Booking']);
+  });
+
   it('gives the redeem counter only the scanner', () => {
     expect(tabsFor('mahaprasad_redeem').map((t) => t.key)).toEqual(['scan']);
   });
