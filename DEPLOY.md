@@ -218,6 +218,65 @@ Do a `verify` every month or two — an untested backup isn't a backup.
 
 ---
 
+## 11. Attendance module (biometric machine)
+
+**First deploy of the attendance module** — this release changes `nginx/conf.d/app.conf` (a new
+`/iclock/` route for the machine), so follow the nginx note at the bottom of this file:
+
+```bash
+cd ~/mangal-gruh-mandir
+git checkout -- nginx/conf.d/app.conf          # undo the local domain edit so pull works
+git pull
+sed -i "s/yourdomain.com/mandir.aumora.io/g" nginx/conf.d/app.conf
+docker compose up -d --build
+docker compose exec server npm run migrate:attendance   # admin permissions + "Attendance Supervisor" role
+docker compose restart nginx
+```
+
+Check the machine endpoint answers (a 403 "Device not approved" is the expected reply):
+
+```bash
+curl -i "http://mandir.aumora.io/iclock/cdata?SN=TEST"
+```
+
+Then remove the `TEST` entry it creates under **Attendance → Shifts & Machine**.
+
+**Setting up the machine** (ZKTeco / eSSL with "ADMS" / "Cloud Server" support):
+1. On the machine: **Menu → Comm. → Cloud Server Setting** — Server address `mandir.aumora.io`,
+   Port `80`, Domain name **ON**, HTTPS **OFF** (most machines can't do HTTPS; nginx serves
+   `/iclock/` on port 80 for this). Set the machine's date/time to India time.
+2. Within a minute it appears under **Attendance → Shifts & Machine** as *waiting for approval*.
+   Name it (e.g. "Main gate"), tick **Approved**, Save. Punches are refused until then — the machine
+   keeps them and resends after approval, so nothing is lost.
+3. Enrol each person's finger/face on the machine and enter the same **Machine number** in
+   **Attendance → Staff Register**. Punches that arrived before the number was entered are linked
+   automatically; unknown numbers are listed on the Staff Register page.
+
+**Testing without the machine:** `server/scripts/simulate-device.mjs` talks to the server like a machine:
+
+```bash
+BASE_URL=http://localhost:5000 SN=MGM-TEST node scripts/simulate-device.mjs            # first run: shows up for approval
+BASE_URL=http://localhost:5000 SN=MGM-TEST node scripts/simulate-device.mjs --today 101 102
+```
+
+**Leave, late penalty and double shifts** (Attendance → Leave & Overtime) need the
+`attendance:approve` permission for management decisions — run `npm run migrate:attendance` again
+after deploying this (safe to repeat; it only adds what's missing). Before entering staff, set each
+person's **joining date**: days before it are not counted, otherwise they show as absences.
+
+**Salary** (Salary menu) needs `salary:read` / `salary:manage` — the same `npm run migrate:attendance`
+adds them (admin gets both, accountant gets read). Pay and bank details are hidden from anyone
+without `salary:read`. Before the first salary month:
+1. **Salary → Salary Settings:** PF establishment code and ESI employer code; check the PF / ESI rates
+   and the Professional Tax slabs (Maharashtra is filled in).
+2. **Attendance → Staff Register:** for each person — monthly salary, basic salary (PF is on basic),
+   gender (PT slabs), PF / ESI applicable with UAN / ESIC number, bank account and IFSC.
+3. Each month: **Salary → Monthly Salary → Work out salary**, adjust, **Finalise**, download the bank
+   sheet / ECR / ESI files and payslips, then **Mark as paid** (records it in Expenses).
+
+The bank sheet uses standard columns (name, account, IFSC, amount, narration); banks with their own
+bulk-upload layout need that format added.
+
 ## Operations cheatsheet
 
 ```bash

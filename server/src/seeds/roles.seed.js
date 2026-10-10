@@ -19,6 +19,8 @@ export const rolesSeed = [
       'donations:read', 'donations:write',
       'payments:read', 'payments:write', 'payments:approve',
       'mahaprasad:read', 'mahaprasad:issue', 'mahaprasad:redeem',
+      'attendance:read', 'attendance:write', 'attendance:manage', 'attendance:approve',
+      'salary:read', 'salary:manage',
     ],
     isSystem: true,
   },
@@ -80,7 +82,7 @@ export const rolesSeed = [
     slug: 'accountant',
     name: 'Accountant',
     description: 'Read-only access to reports, transactions, donations and payments',
-    permissions: ['reports:read', 'transactions:read', 'donations:read', 'payments:read'],
+    permissions: ['reports:read', 'transactions:read', 'donations:read', 'payments:read', 'salary:read'],
     isSystem: true,
   },
   {
@@ -88,6 +90,13 @@ export const rolesSeed = [
     name: 'Cashier',
     description: 'Manage and approve payments',
     permissions: ['payments:read', 'payments:write', 'payments:approve', 'reports:read'],
+    isSystem: true,
+  },
+  {
+    slug: 'attendance_supervisor',
+    name: 'Attendance Supervisor',
+    description: 'Plan the weekly roster and correct staff attendance',
+    permissions: ['attendance:read', 'attendance:write'],
     isSystem: true,
   },
 ];

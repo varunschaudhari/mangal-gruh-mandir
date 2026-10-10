@@ -9,6 +9,8 @@ export const ROLE_PERMISSIONS = {
     'donations:read', 'donations:write',
     'payments:read', 'payments:write', 'payments:approve',
     'mahaprasad:read', 'mahaprasad:issue', 'mahaprasad:redeem',
+    'attendance:read', 'attendance:write', 'attendance:manage', 'attendance:approve',
+    'salary:read', 'salary:manage',
   ],
   store_manager: [
     'masters:read', 'masters:write',
@@ -34,8 +36,9 @@ export const ROLE_PERMISSIONS = {
   mahaprasad_counter: ['mahaprasad:read', 'mahaprasad:issue'],
   mahaprasad_redeem:  ['mahaprasad:redeem'],
   donation_desk:      ['donations:read', 'donations:write'],
-  accountant:         ['reports:read', 'transactions:read', 'donations:read', 'payments:read'],
+  accountant:         ['reports:read', 'transactions:read', 'donations:read', 'payments:read', 'salary:read'],
   cashier:            ['payments:read', 'payments:write', 'payments:approve', 'reports:read'],
+  attendance_supervisor: ['attendance:read', 'attendance:write'],
 };
 
 export const ROLE_LABELS = {
@@ -49,4 +52,5 @@ export const ROLE_LABELS = {
   donation_desk:      'Donation Desk',
   accountant:         'Accountant',
   cashier:            'Cashier',
+  attendance_supervisor: 'Attendance Supervisor',
 };

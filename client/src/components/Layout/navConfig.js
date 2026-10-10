@@ -4,6 +4,7 @@ import {
   FlameKindling, History, AlertTriangle, BookOpen, CalendarClock,
   Armchair, ClipboardList, Settings2, BarChart2, TrendingUp, Heart, CreditCard, Plus,
   ShoppingCart, BookTemplate, FileText, Utensils, ScanLine, BarChart3, Receipt, PiggyBank, Bug,
+  Fingerprint, CalendarDays, CalendarRange, UsersRound, Clock3, CalendarHeart, Wallet, HandCoins, IndianRupee,
 } from 'lucide-react';
 
 // Single source of truth for navigation: the desktop sidebar, the mobile bottom tab bar,
@@ -88,6 +89,29 @@ export const navConfig = [
     ],
   },
   {
+    label: 'Attendance',
+    icon: Fingerprint,
+    permission: 'attendance:read',
+    children: [
+      { label: 'Daily Attendance', to: '/attendance',          icon: Clock3,        permission: 'attendance:read'   },
+      { label: 'Weekly Roster',    to: '/attendance/roster',   icon: CalendarRange, permission: 'attendance:read'   },
+      { label: 'Monthly Register', to: '/attendance/register', icon: CalendarDays,  permission: 'attendance:read'   },
+      { label: 'Leave & Overtime', to: '/attendance/leave',    icon: CalendarHeart, permission: 'attendance:read'   },
+      { label: 'Staff Register',   to: '/attendance/staff',    icon: UsersRound,    permission: 'attendance:read'   },
+      { label: 'Shifts & Machine', to: '/attendance/settings', icon: Settings2,     permission: 'attendance:manage' },
+    ],
+  },
+  {
+    label: 'Salary',
+    icon: Wallet,
+    permission: 'salary:read',
+    children: [
+      { label: 'Monthly Salary',  to: '/salary',          icon: IndianRupee, permission: 'salary:read'   },
+      { label: 'Salary Advances', to: '/salary/advances', icon: HandCoins,   permission: 'salary:read'   },
+      { label: 'Salary Settings', to: '/salary/settings', icon: Settings2,   permission: 'salary:manage' },
+    ],
+  },
+  {
     label: 'Assets',
     icon: Armchair,
     permission: 'assets:read',
@@ -154,6 +178,8 @@ export const MOBILE_TABS = {
   prasad:     { label: 'Mahaprasad', to: '/mahaprasad/history', icon: Utensils,     permission: 'mahaprasad:read',   match: ['/mahaprasad'] },
   donations:  { label: 'Donations',  to: '/donations',          icon: Heart,        permission: 'donations:read',    match: ['/donations'] },
   reports:    { label: 'Reports',    to: '/reports',            icon: BarChart3,    permission: 'reports:read',      match: ['/reports'] },
+  attendance: { label: 'Attendance', to: '/attendance',         icon: Fingerprint,  permission: 'attendance:read',   match: ['/attendance'] },
+  roster:     { label: 'Roster',     to: '/attendance/roster',  icon: CalendarRange, permission: 'attendance:read',  match: ['/attendance/roster'] },
 };
 
 // Tabs per built-in role, most-used first. Custom roles fall back to TAB_PRIORITY.
@@ -168,8 +194,9 @@ const ROLE_TABS = {
   donation_desk:      ['donations'],
   accountant:         ['payments', 'reports', 'donations'],
   cashier:            ['payments', 'expenses', 'reports'],
+  attendance_supervisor: ['attendance', 'roster'],
 };
-const TAB_PRIORITY = ['stock', 'scan', 'coupons', 'payments', 'purchases', 'donations', 'reports', 'prasad', 'expenses'];
+const TAB_PRIORITY = ['stock', 'scan', 'coupons', 'payments', 'purchases', 'donations', 'reports', 'prasad', 'expenses', 'attendance'];
 
 // Returns the middle tabs (Home and More are always present).
 // With a quick-action button there is room for 2 tabs, otherwise 3.

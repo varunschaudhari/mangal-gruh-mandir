@@ -11,6 +11,7 @@ import morgan from 'morgan';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 import connectDB from './config/db.js';
 import routes from './routes/index.js';
+import iclockRoutes from './routes/iclock.routes.js';
 import errorHandler from './middleware/errorHandler.js';
 import { processAssetReminders } from './services/assetReminder.service.js';
 import { processOverdueInvoiceAlerts } from './services/overdueInvoiceAlert.service.js';
@@ -45,6 +46,10 @@ app.use(cors({
   credentials: true,
 }));
 
+// The attendance machine polls every ~10 s; only its uploads and errors are worth a log line.
+const quietPoll = (req, res) => req.path === '/api/health'
+  || (req.originalUrl.startsWith('/iclock/') && req.method === 'GET' && res.statusCode < 400);
+
 // ── HTTP access logging ───────────────────────────────────────────────────────
 morgan.token('user', (req) => req.user?.email || '-');
 morgan.token('user-id', (req) => req.user?._id?.toString() || '-');
@@ -69,15 +74,16 @@ if (IS_PROD) {
     if (ms > 3000) entry.slow = true;
     return JSON.stringify(entry);
   }, {
-    // Skip health-check polling to keep logs clean
-    skip: (req) => req.path === '/api/health',
+    // Skip health-check and machine polling to keep logs clean
+    skip: quietPoll,
   }));
 } else {
   // Development: terse coloured output
-  app.use(morgan('dev', {
-    skip: (req) => req.path === '/api/health',
-  }));
+  app.use(morgan('dev', { skip: quietPoll }));
 }
+
+// Attendance machine (ADMS protocol) — before the JSON/form parsers, it reads raw text bodies.
+app.use('/iclock', iclockRoutes);
 
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));

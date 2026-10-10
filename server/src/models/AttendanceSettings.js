@@ -1,0 +1,60 @@
+import mongoose from 'mongoose';
+
+// Single document with the attendance rules, shift timings and the biometric machine(s).
+// Edited from Settings → Attendance.
+
+const HHMM = /^([01]\d|2[0-3]):[0-5]\d$/;
+
+const shiftSchema = new mongoose.Schema({
+  name:  { type: String, required: true, trim: true },          // "Day", "Night", "Morning aarti"
+  start: { type: String, required: true, match: HHMM },         // "08:00"
+  end:   { type: String, required: true, match: HHMM },         // "17:00" — earlier than start = next morning
+  kind:  { type: String, enum: ['day', 'night'], default: 'day' },
+  short: { type: String, trim: true, maxlength: 3, default: '' }, // roster cell label, e.g. "D", "N"
+  color: { type: String, default: '#f97316' },
+});
+
+const deviceSchema = new mongoose.Schema({
+  serial:     { type: String, required: true, trim: true },
+  name:       { type: String, trim: true, default: '' },
+  approved:   { type: Boolean, default: false },  // punches are only accepted from approved machines
+  lastSeenAt: { type: Date },
+  lastIp:     { type: String, default: '' },
+}, { _id: false });
+
+// Paid days off for everyone (festival holidays…). Someone rostered on that day works as usual.
+const holidaySchema = new mongoose.Schema({
+  date: { type: String, required: true, match: /^\d{4}-\d{2}-\d{2}$/ },
+  name: { type: String, trim: true, default: '' },
+}, { _id: false });
+
+const attendanceSettingsSchema = new mongoose.Schema(
+  {
+    shifts: {
+      type: [shiftSchema],
+      default: () => [
+        { name: 'Day', start: '08:00', end: '17:00', kind: 'day', short: 'D', color: '#f59e0b' },
+        { name: 'Night', start: '20:00', end: '05:00', kind: 'night', short: 'N', color: '#6366f1' },
+      ],
+    },
+    graceMinutes:      { type: Number, default: 15, min: 0, max: 120 },
+    halfDayBelowHours: { type: Number, default: 7, min: 0, max: 24 },  // worked less → half day
+    absentBelowHours:  { type: Number, default: 4, min: 0, max: 24 },  // worked less → absent
+    punchMergeMinutes: { type: Number, default: 2, min: 0, max: 30 },  // repeated punches within this are one
+    latePenalty: {
+      enabled:      { type: Boolean, default: false },
+      freeLates:    { type: Number, default: 3, min: 0, max: 31 },     // per month, then each late = ½ day
+    },
+    defaultPaidLeavePerMonth: { type: Number, default: 3, min: 0, max: 31 },
+    extraLeaveValidDays:      { type: Number, default: 60, min: 1, max: 366 },
+    devices: { type: [deviceSchema], default: [] },
+    holidays: { type: [holidaySchema], default: [] },
+  },
+  { timestamps: true },
+);
+
+attendanceSettingsSchema.statics.getOrCreate = async function getOrCreate() {
+  return (await this.findOne()) || this.create({});
+};
+
+export default mongoose.model('AttendanceSettings', attendanceSettingsSchema);

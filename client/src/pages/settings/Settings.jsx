@@ -1,14 +1,17 @@
 import { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Building2, MessageCircle, MessageSquare, Bell, Armchair,
-  Save, Eye, EyeOff, CheckCircle2, Send, FileCheck2, Utensils, Printer,
+  Save, Eye, EyeOff, CheckCircle2, Send, FileCheck2, Utensils, Printer, Fingerprint,
 } from 'lucide-react';
 import { getSettings, updateSettings, testWhatsApp } from '../../api/settings.api.js';
 import { connectToQzTray, getPrinters } from '../../utils/thermalPrint.js';
 import PageHeader from '../../components/ui/PageHeader.jsx';
 import { PageLoader } from '../../components/ui/Spinner.jsx';
+import AttendanceSettingsPanel from '../attendance/AttendanceSettingsPanel.jsx';
+import { usePermissions } from '../../hooks/usePermissions.js';
 import toast from 'react-hot-toast';
 
 // ── Reusable primitives ───────────────────────────────────────────────────────
@@ -69,6 +72,8 @@ const TABS = [
   { id: 'tax80g',     label: '80G',        icon: FileCheck2,    accent: 'emerald' },
   { id: 'assets',     label: 'Assets',     icon: Armchair,      accent: 'purple'  },
   { id: 'mahaprasad', label: 'Mahaprasad', icon: Utensils,      accent: 'orange'  },
+  // Has its own data and save button (AttendanceSettingsPanel)
+  { id: 'attendance', label: 'Attendance', icon: Fingerprint,   accent: 'orange', permission: 'attendance:manage' },
 ];
 
 const TAB_FIELDS = {
@@ -107,7 +112,10 @@ const Settings = () => {
   const qc = useQueryClient();
   const { register, reset, watch, setValue, getValues } = useForm();
 
-  const [activeTab,       setActiveTab]       = useState('temple');
+  const { can } = usePermissions();
+  const [searchParams] = useSearchParams();
+  const tabs = TABS.filter((tab) => !tab.permission || can(tab.permission));
+  const [activeTab,       setActiveTab]       = useState(() => (tabs.some((tab) => tab.id === searchParams.get('tab')) ? searchParams.get('tab') : 'temple'));
   const [savedTabId,      setSavedTabId]      = useState(null);
   const [testPhone,       setTestPhone]       = useState('');
   const [testLoading,     setTestLoading]     = useState(false);
@@ -176,7 +184,7 @@ const Settings = () => {
       {/* ── Tab bar ── */}
       <div className="border-b border-gray-200 mb-6">
         <div className="flex gap-1 overflow-x-auto">
-          {TABS.map(({ id, label, icon: Icon }) => {
+          {tabs.map(({ id, label, icon: Icon }) => {
             const active = activeTab === id;
             return (
               <button
@@ -195,6 +203,8 @@ const Settings = () => {
           })}
         </div>
       </div>
+
+      {activeTab === 'attendance' && <AttendanceSettingsPanel />}
 
       {/* ── Tab content ── */}
       <div className="max-w-2xl space-y-5">

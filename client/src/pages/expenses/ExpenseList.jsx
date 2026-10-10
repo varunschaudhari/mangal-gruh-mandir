@@ -23,7 +23,7 @@ const CATEGORY_LABELS = {
 
 const CATEGORIES = Object.entries(CATEGORY_LABELS).map(([value, label]) => ({ value, label }));
 
-const PM_LABELS = { cash: 'Cash', upi: 'UPI', cheque: 'Cheque' };
+const PM_LABELS = { cash: 'Cash', upi: 'UPI', cheque: 'Cheque', bank: 'Bank transfer' };
 
 const STATUS_OPTIONS = [
   { value: 'pending_approval', label: 'Pending Approval' },

@@ -26,7 +26,7 @@ const CATEGORY_LABELS = {
   printing: 'Printing & Stationery', miscellaneous: 'Miscellaneous',
 };
 
-const PM_LABELS = { cash: 'Cash', upi: 'UPI / Online Transfer', cheque: 'Cheque' };
+const PM_LABELS = { cash: 'Cash', upi: 'UPI / Online Transfer', cheque: 'Cheque', bank: 'Bank transfer' };
 
 const STATUS_CONFIG = {
   pending_approval: { label: 'Pending Approval', icon: Clock,         cls: 'bg-yellow-100 text-yellow-700' },

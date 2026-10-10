@@ -33,6 +33,8 @@ import budgetRoutes from './budget.routes.js';
 import pnlRoutes from './pnl.routes.js';
 import deviceRoutes from './device.routes.js';
 import clientErrorRoutes from './clientError.routes.js';
+import attendanceRoutes from './attendance.routes.js';
+import salaryRoutes from './salary.routes.js';
 
 const router = Router();
 
@@ -71,5 +73,7 @@ router.use('/budgets',             budgetRoutes);
 router.use('/pnl',                 pnlRoutes);
 router.use('/devices',             deviceRoutes);
 router.use('/client-errors',       clientErrorRoutes);
+router.use('/attendance',          attendanceRoutes);
+router.use('/salary',              salaryRoutes);
 
 export default router;

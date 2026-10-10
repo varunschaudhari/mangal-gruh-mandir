@@ -10,7 +10,7 @@ const CATEGORY_LABELS = {
   priest_fees: 'Priest Fees', maintenance: 'Maintenance', decoration: 'Decoration',
   printing: 'Printing & Stationery', miscellaneous: 'Miscellaneous',
 };
-const PM_LABELS   = { cash: 'Cash', upi: 'UPI', cheque: 'Cheque' };
+const PM_LABELS   = { cash: 'Cash', upi: 'UPI', cheque: 'Cheque', bank: 'Bank transfer' };
 const STATUS_LABELS = { pending_approval: 'Pending', approved: 'Approved', rejected: 'Rejected', voided: 'Voided' };
 
 export function generateExpenseReport(res, { expenses, from, to, templeName = 'Mangal Grah Mandir, Amalner' }) {

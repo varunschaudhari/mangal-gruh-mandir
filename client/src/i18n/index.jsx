@@ -3,6 +3,8 @@ import common from './mr/common.js';
 import mahaprasad from './mr/mahaprasad.js';
 import stock from './mr/stock.js';
 import dashboard from './mr/dashboard.js';
+import attendance from './mr/attendance.js';
+import salary from './mr/salary.js';
 
 // English / मराठी. The English text *is* the key — t('Save') looks it up in the Marathi
 // dictionary and falls back to the English when there's no entry yet, so screens can be
@@ -17,7 +19,7 @@ export const LANGUAGES = [
 ];
 
 const DICTIONARIES = {
-  mr: { ...common, ...mahaprasad, ...stock, ...dashboard },
+  mr: { ...common, ...mahaprasad, ...stock, ...dashboard, ...attendance, ...salary },
 };
 
 const STORAGE_KEY = 'mgm-lang';

@@ -85,6 +85,16 @@ const MahaprasadReport = lazyPage(() => import('./pages/mahaprasad/MahaprasadRep
 const MahaprasadOccasionList = lazyPage(() => import('./pages/mahaprasad/MahaprasadOccasionList.jsx'));
 const OccasionsManager = lazyPage(() => import('./pages/admin/OccasionsManager.jsx'));
 const AssetUnitList = lazyPage(() => import('./pages/assets/AssetUnitList.jsx'));
+const AttendanceToday = lazyPage(() => import('./pages/attendance/AttendanceToday.jsx'));
+const AttendanceRoster = lazyPage(() => import('./pages/attendance/Roster.jsx'));
+const AttendanceRegister = lazyPage(() => import('./pages/attendance/Register.jsx'));
+const StaffList = lazyPage(() => import('./pages/attendance/StaffList.jsx'));
+const StaffForm = lazyPage(() => import('./pages/attendance/StaffForm.jsx'));
+const AttendanceSettings = lazyPage(() => import('./pages/attendance/AttendanceSettings.jsx'));
+const LeaveOvertime = lazyPage(() => import('./pages/attendance/LeaveOvertime.jsx'));
+const SalaryMonth = lazyPage(() => import('./pages/salary/SalaryMonth.jsx'));
+const SalaryAdvances = lazyPage(() => import('./pages/salary/Advances.jsx'));
+const SalarySettings = lazyPage(() => import('./pages/salary/SalarySettings.jsx'));
 
 const App = () => (
   <>
@@ -195,6 +205,21 @@ const App = () => (
         <Route path="/mahaprasad/history" element={<MahaprasadHistory />} />
         <Route path="/mahaprasad/report"    element={<MahaprasadReport />} />
         <Route path="/mahaprasad/occasions" element={<MahaprasadOccasionList />} />
+
+        {/* Attendance */}
+        <Route path="/attendance"                element={<AttendanceToday />} />
+        <Route path="/attendance/roster"         element={<AttendanceRoster />} />
+        <Route path="/attendance/register"       element={<AttendanceRegister />} />
+        <Route path="/attendance/leave"          element={<LeaveOvertime />} />
+        <Route path="/attendance/staff"          element={<StaffList />} />
+        <Route path="/attendance/staff/new"      element={<StaffForm />} />
+        <Route path="/attendance/staff/:id/edit" element={<StaffForm />} />
+        <Route path="/attendance/settings"       element={<AttendanceSettings />} />
+
+        {/* Salary */}
+        <Route path="/salary"          element={<SalaryMonth />} />
+        <Route path="/salary/advances" element={<SalaryAdvances />} />
+        <Route path="/salary/settings" element={<SalarySettings />} />
 
         {/* Settings */}
         <Route path="/settings" element={<Settings />} />

@@ -24,7 +24,7 @@ const expenseSchema = new mongoose.Schema(
     amount:          { type: Number, required: true, min: 0 },
     payee:           { type: String, trim: true },
     expenseDate:     { type: Date, required: true },
-    paymentMode:     { type: String, required: true, enum: ['cash', 'upi', 'cheque'] },
+    paymentMode:     { type: String, required: true, enum: ['cash', 'upi', 'cheque', 'bank'] },
     referenceNumber: { type: String, trim: true },
     receiptPath:     { type: String },
     notes:           { type: String },
