@@ -10,6 +10,10 @@ export const createBooking      = (data)           => api.post('/bookings', data
 export const getBookings        = (params)         => api.get('/bookings', { params });
 export const getBooking         = (id)             => api.get(`/bookings/${id}`);
 export const voidBooking        = (id, reason)     => api.patch(`/bookings/${id}/void`, { reason });
+// Fix details { devotee?, peopleCount?, notes?, paymentMode?, paymentRef?, reason? } — receipt no. and amount stay
+export const updateBooking      = (id, data)       => api.patch(`/bookings/${id}`, data);
+// Another batch / date { date, batch?, reason? } — new serial, same receipt
+export const moveBooking        = (id, data)       => api.post(`/bookings/${id}/move`, data);
 export const resendReceipt      = (id)             => api.post(`/bookings/${id}/send`);
 export const exportBookingsExcel = (params)        => api.get('/bookings/export/excel', { params, responseType: 'blob' });
 
@@ -17,6 +21,14 @@ export const exportBookingsExcel = (params)        => api.get('/bookings/export/
 export const getBookingSummary   = (params) => api.get('/bookings/reports/summary', { params });
 export const getBookingSummaryPdf = (params) => api.get('/bookings/reports/summary/pdf', { params, responseType: 'blob' });
 export const getDaySheet         = (date)   => api.get('/bookings/reports/day-sheet', { params: { date } });
+
+// ── Shift close & cash handover (/booking-shifts) ─────────────────────────────
+export const getCurrentShift = ()           => api.get('/booking-shifts/current');
+// { countedCash | denominations: { 500: n, … }, openingFloat?, notes? } — a difference needs notes
+export const closeShift      = (data)       => api.post('/booking-shifts/close', data);
+export const getShifts       = (params)     => api.get('/booking-shifts', { params });
+export const getShift        = (id)         => api.get(`/booking-shifts/${id}`);
+export const verifyShift     = (id, note)   => api.patch(`/booking-shifts/${id}/verify`, { note });
 
 // ── Setup (/booking-setup) ────────────────────────────────────────────────────
 export const getBookingSetup      = ()         => api.get('/booking-setup');

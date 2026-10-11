@@ -6,15 +6,23 @@ import User from '../models/User.js';
 import ApiError from '../utils/ApiError.js';
 import ApiResponse from '../utils/ApiResponse.js';
 import asyncHandler from '../utils/asyncHandler.js';
+import { getPermissionsForRole } from '../middleware/authorize.js';
 import { logAction } from '../services/audit.service.js';
-import { createBooking, getAvailability, lookupDevotee, voidBooking } from '../services/booking/booking.service.js';
+import {
+  createBooking, editBooking, getAvailability, lookupDevotee, moveBooking, voidBooking,
+} from '../services/booking/booking.service.js';
 import { receiptUrl, sendReceipt } from '../services/booking/notify.js';
 import { buildFilter, daySheet, summary } from '../services/booking/reports.js';
 import { bookingsExcel, summaryPdf } from '../services/booking/exports.js';
 import { dateKeyOf, isDateKey } from '../services/booking/rules.js';
 
 const withUrl = (b) => (b ? { ...b, receiptUrl: receiptUrl(b) } : b);
-const POPULATE = [{ path: 'createdBy', select: 'name' }, { path: 'voidedBy', select: 'name' }];
+const POPULATE = [{ path: 'createdBy', select: 'name' }, { path: 'voidedBy', select: 'name' }, { path: 'history.by', select: 'name' }];
+
+const can = async (req, perm) => {
+  const perms = await getPermissionsForRole(req.user.role);
+  return perms.includes('*') || perms.includes(perm);
+};
 
 // GET /bookings/options — what the counter and the register need to start
 export const getOptions = asyncHandler(async (req, res) => {
@@ -97,6 +105,31 @@ export const voidOne = asyncHandler(async (req, res) => {
   });
   const populated = await Booking.findById(booking._id).populate(POPULATE).lean();
   res.json(new ApiResponse(200, withUrl(populated), 'Booking voided'));
+});
+
+// PATCH /bookings/:id { devotee?, peopleCount?, notes?, paymentMode?, paymentRef?, reason? } — fix details
+export const update = asyncHandler(async (req, res) => {
+  const { booking, changes } = await editBooking(req.params.id, req.body || {}, req.user, { canVoid: await can(req, 'bookings:void') });
+  const changed = Object.keys(changes).length > 0;
+  if (changed) {
+    logAction(req, {
+      action: 'booking.edit', entity: 'Booking', entityId: booking.receiptNo, entityRef: booking._id,
+      meta: { changes, reason: req.body?.reason || '' },
+    });
+  }
+  const populated = await Booking.findById(booking._id).populate(POPULATE).lean();
+  res.json(new ApiResponse(200, withUrl(populated), changed ? 'Booking updated' : 'Nothing changed'));
+});
+
+// POST /bookings/:id/move { date, batch?, reason? } — another batch / date, same receipt
+export const move = asyncHandler(async (req, res) => {
+  const { booking, changes } = await moveBooking(req.params.id, req.body || {}, req.user);
+  logAction(req, {
+    action: 'booking.move', entity: 'Booking', entityId: booking.receiptNo, entityRef: booking._id,
+    meta: { changes, reason: req.body?.reason || '' },
+  });
+  const populated = await Booking.findById(booking._id).populate(POPULATE).lean();
+  res.json(new ApiResponse(200, withUrl(populated), 'Booking moved'));
 });
 
 // POST /bookings/:id/send — resend the receipt by WhatsApp / SMS

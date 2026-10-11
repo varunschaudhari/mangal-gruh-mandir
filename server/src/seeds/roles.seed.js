@@ -21,7 +21,7 @@ export const rolesSeed = [
       'mahaprasad:read', 'mahaprasad:issue', 'mahaprasad:redeem',
       'attendance:read', 'attendance:write', 'attendance:manage', 'attendance:approve',
       'salary:read', 'salary:manage',
-      'bookings:read', 'bookings:create', 'bookings:void', 'bookings:manage',
+      'bookings:read', 'bookings:create', 'bookings:void', 'bookings:manage', 'bookings:cash',
     ],
     isSystem: true,
   },
@@ -91,7 +91,7 @@ export const rolesSeed = [
     slug: 'cashier',
     name: 'Cashier',
     description: 'Manage and approve payments',
-    permissions: ['payments:read', 'payments:write', 'payments:approve', 'reports:read', 'bookings:read'],
+    permissions: ['payments:read', 'payments:write', 'payments:approve', 'reports:read', 'bookings:read', 'bookings:cash'],
     isSystem: true,
   },
   {

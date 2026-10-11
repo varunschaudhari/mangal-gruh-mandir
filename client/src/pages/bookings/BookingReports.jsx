@@ -223,7 +223,7 @@ export default function BookingReports() {
       <PageHeader
         title="Booking Reports"
         subtitle={rangeText}
-        breadcrumbs={[{ label: 'Bookings' }, { label: 'Booking Reports' }]}
+        breadcrumbs={[{ label: 'Pooja Booking' }, { label: 'Booking Reports' }]}
         actions={(
           <>
             <button onClick={() => download('pdf')} disabled={!!downloading || empty} className="btn-secondary whitespace-nowrap">

@@ -308,7 +308,9 @@ docker compose exec server npm run migrate:bookings
 
 This adds the `bookings:*` permissions to the existing roles, creates the **Booking Counter**
 role, and — only the first time — the 6 seva types and 14 batches from the temple website.
-Running it again never overwrites changes made in the app.
+Running it again never overwrites changes made in the app. **Run it again after updating to the
+version with shift close / cash handover** — that adds `bookings:cash` (see and verify everyone's
+cash handovers) to Admin and Cashier.
 
 Then, in **Bookings → Booking Setup**:
 1. **Batches:** set the real capacity of each batch. 50 is a placeholder; the website didn't publish
@@ -326,6 +328,19 @@ Then, in **Bookings → Booking Setup**:
   Until then, the counter's **Send on WhatsApp** button opens WhatsApp with the message ready.
 - **Automatic SMS (optional):** an MSG91 flow with a DLT-approved template using `##name##`, `##seva##`,
   `##when##`, `##receipt##` and `##link##`. Its id goes in Booking Setup → Settings.
+
+**Fixing mistakes:** a booking's details (name, gotra, people, address, notes) can be edited and it
+can be moved to another batch or date from its details sheet; the receipt number and amount stay
+the same and every change is kept in the booking's history and the audit log. The payment mode can
+be corrected only by the person who took the booking (or someone who can void) and only until their
+shift is closed. The counter warns before booking the same seva for the same mobile number twice
+on one day.
+
+**Shift close & cash handover:** at the end of a shift each counter person closes their shift from
+the counter (count the cash by notes or as one total; a shortfall or excess needs a note) and prints
+the handover slip. A cashier or admin checks the cash and marks it verified in
+**Bookings → Cash Handover**. A person's first ever close counts their bookings from the start of
+that day; after that, each close covers everything since their previous one.
 
 Booking income is counted in **Monthly P&L** on the day it's paid. The old admin panel at
 admin.mangalagrahmandir.in stays as it is for older bookings.

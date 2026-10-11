@@ -35,7 +35,8 @@ import deviceRoutes from './device.routes.js';
 import clientErrorRoutes from './clientError.routes.js';
 import attendanceRoutes from './attendance.routes.js';
 import salaryRoutes from './salary.routes.js';
-import { bookingRouter, bookingSetupRouter } from './booking.routes.js';
+import pincodeRoutes from './pincode.routes.js';
+import { bookingRouter, bookingSetupRouter, bookingShiftRouter } from './booking.routes.js';
 import { publicReceipt } from '../controllers/booking.controller.js';
 
 const router = Router();
@@ -77,8 +78,10 @@ router.use('/devices',             deviceRoutes);
 router.use('/client-errors',       clientErrorRoutes);
 router.use('/attendance',          attendanceRoutes);
 router.use('/salary',              salaryRoutes);
+router.use('/pincode',             pincodeRoutes);
 router.use('/bookings',            bookingRouter);
 router.use('/booking-setup',       bookingSetupRouter);
+router.use('/booking-shifts',      bookingShiftRouter);
 // No sign-in: the receipt link sent to devotees on WhatsApp / SMS
 router.get('/public/receipts/:token', publicReceipt);
 

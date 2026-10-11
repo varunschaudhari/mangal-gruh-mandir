@@ -8,6 +8,7 @@ import { PageLoader } from '../../../components/ui/Spinner.jsx';
 import Badge from '../../../components/ui/Badge.jsx';
 import { usePermissions } from '../../../hooks/usePermissions.js';
 import { useSetAppBarTitle } from '../../../components/Layout/AppBarContext.jsx';
+import { formatAddress } from '../../../utils/address.js';
 
 const fmt     = (d)  => d ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
 const fmtAmt  = (n)  => n != null ? `₹${Number(n).toLocaleString('en-IN')}` : '—';
@@ -113,10 +114,10 @@ export default function SupplierDetail() {
               <a href={`mailto:${supplier.email}`} className="text-primary-600 hover:underline">{supplier.email}</a>
             </div>
           )}
-          {supplier.address && (
+          {formatAddress(supplier) && (
             <div className="flex items-start gap-2 text-sm">
               <MapPin className="h-3.5 w-3.5 text-gray-300 mt-0.5 shrink-0" />
-              <span className="text-gray-600">{[supplier.address, supplier.city].filter(Boolean).join(', ')}</span>
+              <span className="text-gray-600">{formatAddress(supplier)}</span>
             </div>
           )}
           {supplier.gstin  && <div className="text-sm"><span className="text-gray-400 w-20 inline-block">GSTIN</span> <span className="font-mono text-xs">{supplier.gstin}</span></div>}

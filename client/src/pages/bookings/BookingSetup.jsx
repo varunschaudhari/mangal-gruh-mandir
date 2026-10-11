@@ -39,7 +39,7 @@ export default function BookingSetup() {
       <PageHeader
         title="Booking Setup"
         subtitle="Sevas and prices, batches, closed dates and receipts"
-        breadcrumbs={[{ label: 'Bookings', to: '/bookings' }, { label: 'Booking Setup' }]}
+        breadcrumbs={[{ label: 'Pooja Booking', to: '/bookings' }, { label: 'Booking Setup' }]}
       />
 
       {/* Tabs: four equal buttons on phones, an underlined row from `sm` up */}

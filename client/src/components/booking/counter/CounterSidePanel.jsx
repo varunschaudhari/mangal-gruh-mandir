@@ -1,12 +1,12 @@
-import { Banknote, CreditCard, FileText, MessageCircle, Printer, RefreshCw, Smartphone } from 'lucide-react';
+import { Banknote, CreditCard, FileText, MessageCircle, Printer, RefreshCw, Smartphone, Vault } from 'lucide-react';
 import { useLanguage, useT } from '../../../i18n/index.jsx';
 import { isNative } from '../../../utils/platform.js';
 import { fmtMoney } from './counterUtils.js';
 import { Toggle } from './bits.jsx';
 import { sevaNames } from './SevaTiles.jsx';
 
-/** My bookings today: count, amount and the cash / UPI / card split. */
-export function MyCollection({ query, compact = false }) {
+/** My bookings today: count, amount and the cash / UPI / card split, and "Close shift" (onCloseShift). */
+export function MyCollection({ query, compact = false, onCloseShift }) {
   const t = useT();
   const s = query.data;
   const mode = (m) => s?.byMode?.[m] || { count: 0, amount: 0 };
@@ -46,6 +46,12 @@ export function MyCollection({ query, compact = false }) {
         ))}
       </div>
       {query.isError && <p className="mt-2 text-xs text-red-500">{t('Could not load your totals')}</p>}
+      {onCloseShift && (
+        <button type="button" onClick={onCloseShift}
+          className="btn-secondary mt-3 min-h-[40px] w-full max-lg:min-h-[44px]">
+          <Vault className="h-4 w-4 text-green-700" /> {t('Close shift')}
+        </button>
+      )}
     </div>
   );
 }

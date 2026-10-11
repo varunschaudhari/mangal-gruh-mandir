@@ -268,7 +268,7 @@ export default function BookingList() {
       <PageHeader
         title="All Bookings"
         subtitle="Abhishek and puja receipts"
-        breadcrumbs={[{ label: 'Bookings' }, { label: 'All Bookings' }]}
+        breadcrumbs={[{ label: 'Pooja Booking' }, { label: 'All Bookings' }]}
         actions={(
           <>
             <button onClick={doExport} disabled={exporting || !total} className="btn-secondary whitespace-nowrap">

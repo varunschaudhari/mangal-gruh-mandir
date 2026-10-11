@@ -1,4 +1,5 @@
 // Pure helpers for the booking counter (no React, no browser-only imports) — see counterUtils.test.js.
+import { isPincode } from '../../../utils/address.js';
 
 // ── Sankalp lists ─────────────────────────────────────────────────────────────
 // The value saved on the booking is the English (transliterated) name; Marathi is the display label.
@@ -131,7 +132,7 @@ export const isValidPhone = (p) => /^[6-9]\d{9}$/.test(String(p || ''));
 
 // ── Devotee form ──────────────────────────────────────────────────────────────
 export const EMPTY_DEVOTEE = Object.freeze({
-  name: '', email: '', address: '', dob: '', maritalStatus: '',
+  name: '', email: '', address: '', pincode: '', area: '', city: '', district: '', state: '', dob: '', maritalStatus: '',
   gotra: '', familyNames: [], rashi: '', nakshatra: '', birthTime: '', birthPlace: '',
 });
 const DEVOTEE_KEYS = Object.keys(EMPTY_DEVOTEE);
@@ -174,6 +175,8 @@ export function validateBooking({ seva, phone, devotee, date, batchId, availabil
   if (!seva) { e.seva = 'Choose a seva type'; return e; }
   if (!String(devotee.name || '').trim()) e.name = 'Enter the devotee name';
   if (seva.needsPostalAddress && !String(devotee.address || '').trim()) e.address = 'Postal address is needed for this seva';
+  else if (seva.needsPostalAddress && !isPincode(devotee.pincode)) e.address = 'PIN code is needed for the postal address';
+  else if (devotee.pincode && !isPincode(devotee.pincode)) e.address = 'Enter a valid 6-digit PIN code';
   if (seva.maxPeople && peopleCount > seva.maxPeople) e.people = `${seva.name} allows at most ${seva.maxPeople} people`;
   if (devotee.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(devotee.email.trim())) e.email = 'Enter a valid email address';
   if (seva.schedule === 'none') return e;
@@ -205,6 +208,11 @@ export function buildBookingBody({ seva, phone, devotee, date, batchId, peopleCo
       phone,
       email: trim(devotee.email),
       address: trim(devotee.address),
+      pincode: trim(devotee.pincode),
+      area: trim(devotee.area),
+      city: trim(devotee.city),
+      district: trim(devotee.district),
+      state: trim(devotee.state),
       dob: trim(devotee.dob),
       maritalStatus: devotee.maritalStatus || '',
       gotra: trim(devotee.gotra),

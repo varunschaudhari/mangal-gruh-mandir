@@ -98,6 +98,7 @@ const BookingCounter = lazyPage(() => import('./pages/bookings/BookingCounter.js
 const BookingList = lazyPage(() => import('./pages/bookings/BookingList.jsx'));
 const BookingDaySheet = lazyPage(() => import('./pages/bookings/BookingDaySheet.jsx'));
 const BookingReports = lazyPage(() => import('./pages/bookings/BookingReports.jsx'));
+const BookingShifts = lazyPage(() => import('./pages/bookings/BookingShifts.jsx'));
 const BookingSetup = lazyPage(() => import('./pages/bookings/BookingSetup.jsx'));
 const PublicReceipt = lazyPage(() => import('./pages/bookings/PublicReceipt.jsx'));
 
@@ -229,6 +230,7 @@ const App = () => (
         <Route path="/bookings" element={<BookingList />} />
         <Route path="/bookings/day" element={<BookingDaySheet />} />
         <Route path="/bookings/reports" element={<BookingReports />} />
+        <Route path="/bookings/shifts" element={<BookingShifts />} />
         <Route path="/bookings/setup" element={<BookingSetup />} />
         <Route path="/salary"          element={<SalaryMonth />} />
         <Route path="/salary/advances" element={<SalaryAdvances />} />

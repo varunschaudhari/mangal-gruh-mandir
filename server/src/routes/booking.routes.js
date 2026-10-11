@@ -2,9 +2,10 @@ import { Router } from 'express';
 import protect from '../middleware/auth.js';
 import authorize from '../middleware/authorize.js';
 import {
-  availability, create, devotee, exportExcel, getOne, getOptions, list, reportDaySheet,
-  reportSummary, reportSummaryPdf, resend, voidOne,
+  availability, create, devotee, exportExcel, getOne, getOptions, list, move, reportDaySheet,
+  reportSummary, reportSummaryPdf, resend, update, voidOne,
 } from '../controllers/booking.controller.js';
+import * as shifts from '../controllers/bookingShift.controller.js';
 import {
   createBatch, createClosure, createSevaType, deleteBatch, deleteClosure, deleteSevaType,
   getSetup, updateBatch, updateSettings, updateSevaType,
@@ -23,7 +24,10 @@ bookingRouter.get('/reports/day-sheet',    authorize('bookings:read'),   reportD
 bookingRouter.route('/')
   .get(authorize('bookings:read'), list)
   .post(authorize('bookings:create'), create);
-bookingRouter.get('/:id',                  authorize('bookings:read'),   getOne);
+bookingRouter.route('/:id')
+  .get(authorize('bookings:read'), getOne)
+  .patch(authorize('bookings:create'), update);
+bookingRouter.post('/:id/move',            authorize('bookings:create'), move);
 bookingRouter.patch('/:id/void',           authorize('bookings:void'),   voidOne);
 bookingRouter.post('/:id/send',            authorize('bookings:create'), resend);
 
@@ -39,3 +43,12 @@ bookingSetupRouter.route('/batches/:id').put(updateBatch).delete(deleteBatch);
 bookingSetupRouter.post('/closures', createClosure);
 bookingSetupRouter.delete('/closures/:id', deleteClosure);
 bookingSetupRouter.put('/settings', updateSettings);
+
+// /booking-shifts — counter shift close and cash handover
+export const bookingShiftRouter = Router();
+bookingShiftRouter.use(protect);
+bookingShiftRouter.get('/current',      authorize('bookings:create'), shifts.current);
+bookingShiftRouter.post('/close',       authorize('bookings:create'), shifts.close);
+bookingShiftRouter.get('/',             authorize('bookings:read'),   shifts.list);
+bookingShiftRouter.get('/:id',          authorize('bookings:read'),   shifts.getOne);
+bookingShiftRouter.patch('/:id/verify', authorize('bookings:cash'),   shifts.verify);

@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import {
   Printer, FileText, MessageCircle, Send, Ban, Phone, MapPin, Mail, Users, AlertTriangle, CheckCircle2, Clock,
+  PencilLine, CalendarClock,
 } from 'lucide-react';
 import Sheet from '../ui/Sheet.jsx';
 import Modal from '../ui/Modal.jsx';
@@ -13,8 +14,12 @@ import { printBookingReceipt, printBookingSlip, whatsappShareUrl, fmtPujaDate } 
 import { usePermissions } from '../../hooks/usePermissions.js';
 import { localDateStr } from '../../utils/formatters.js';
 import haptics from '../../utils/haptics.js';
+import { formatAddress } from '../../utils/address.js';
 import { useLanguage, useT, rich } from '../../i18n/index.jsx';
 import { MODE_BADGE, MODE_LABEL, fmtDateTime, fmtDay, nPeople, rupees } from './registerUtils.js';
+import EditBookingSheet from './EditBookingSheet.jsx';
+import MoveBookingSheet from './MoveBookingSheet.jsx';
+import BookingHistory from './BookingHistory.jsx';
 
 const QUICK_REASONS = ['Devotee cancelled', 'Entered by mistake', 'Wrong seva or date', 'Payment not received'];
 
@@ -36,7 +41,7 @@ const Item = ({ label, children, full }) => {
 };
 
 /**
- * Everything about one booking, with print / WhatsApp / resend / void.
+ * Everything about one booking, with print / WhatsApp / resend / edit / move / void.
  * `booking` may be a full register row or a lighter day-sheet row — the full record is fetched.
  */
 export default function BookingDetailSheet({ booking: initial, onClose }) {
@@ -69,19 +74,48 @@ export default function BookingDetailSheet({ booking: initial, onClose }) {
   const noticeRef = useRef(null);
   const [voidOpen, setVoidOpen] = useState(false);
   const [reason, setReason] = useState('');
+  const [editOpen, setEditOpen] = useState(false);
+  const [moveOpen, setMoveOpen] = useState(false);
+  const [reprint, setReprint] = useState(false); // details changed — offer a fresh slip
 
   // The notice sits at the bottom of the sheet — bring it into view when it appears.
   useEffect(() => {
     if (notSetUp) noticeRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }, [notSetUp]);
 
-  const close = () => { setNotSetUp(false); setVoidOpen(false); setReason(''); onClose(); };
+  const close = () => {
+    setNotSetUp(false); setVoidOpen(false); setReason('');
+    setEditOpen(false); setMoveOpen(false); setReprint(false);
+    onClose();
+  };
 
   const refresh = () => {
     qc.invalidateQueries({ queryKey: ['booking', id] });
     qc.invalidateQueries({ queryKey: ['bookings'] });
     qc.invalidateQueries({ queryKey: ['booking-day-sheet'] });
     qc.invalidateQueries({ queryKey: ['booking-summary'] });
+    qc.invalidateQueries({ queryKey: ['booking-availability'] });
+    qc.invalidateQueries({ queryKey: ['booking-devotee'] });
+  };
+
+  // Edit / move answer with the full booking: show it at once (printing then uses the new details).
+  const applyChange = (res) => {
+    if (res?.data?.data) qc.setQueryData(['booking', id], res);
+    refresh();
+  };
+  const onEdited = (res) => {
+    setEditOpen(false);
+    if (res?.data?.message === 'Nothing changed') { toast(t('Nothing changed')); return; }
+    toast.success(t('Booking updated'));
+    applyChange(res);
+    setReprint(true);
+  };
+  const onMoved = (res) => {
+    setMoveOpen(false);
+    const n = res?.data?.data?.serialNo;
+    toast.success(n != null ? t('Moved — new serial {n}', { n }) : t('Booking moved'));
+    applyChange(res);
+    setReprint(true);
   };
 
   const print = async (kind) => {
@@ -137,6 +171,8 @@ export default function BookingDetailSheet({ booking: initial, onClose }) {
   const seva = (options?.sevaTypes || []).find((s) => String(s._id) === String(b.sevaType) || s.name === b.sevaName);
   const sevaName = (lang === 'mr' && seva?.nameMr) || b.sevaName;
   const waUrl = whatsappShareUrl(b);
+  // Edit / move need the full record (all devotee fields, batch, shift, who took it).
+  const canFix = Boolean(full) && !voided && can('bookings:create');
 
   const footer = ready && (
     <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:justify-end">
@@ -156,6 +192,17 @@ export default function BookingDetailSheet({ booking: initial, onClose }) {
           {resendMut.isPending ? <Spinner size="sm" /> : <Send className="h-4 w-4" />} {t('Resend')}
         </button>
       )}
+      {/* Fix without voiding: same receipt number and amount */}
+      {canFix && (
+        <button onClick={() => setEditOpen(true)} className={`btn-secondary ${b.dateKey ? '' : 'col-span-2'}`}>
+          <PencilLine className="h-4 w-4" /> {t('Edit details')}
+        </button>
+      )}
+      {canFix && b.dateKey && (
+        <button onClick={() => setMoveOpen(true)} className="btn-secondary">
+          <CalendarClock className="h-4 w-4" /> {t('Move')}
+        </button>
+      )}
       {!voided && can('bookings:void') && (
         <button onClick={() => { haptics.warning(); setVoidOpen(true); }} className="btn col-span-2 border border-red-200 bg-white text-red-600 hover:bg-red-50 focus:ring-red-400">
           <Ban className="h-4 w-4" /> {t('Void')}
@@ -167,6 +214,16 @@ export default function BookingDetailSheet({ booking: initial, onClose }) {
   return (
     <>
       <Sheet open={!!initial} onClose={close} title={t('Booking details')} size="lg" footer={footer} full>
+        {reprint && !voided && (
+          <div className="mb-4 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl border border-green-200 bg-green-50 px-3 py-2.5 text-sm text-green-800">
+            <CheckCircle2 className="h-4 w-4 shrink-0" />
+            <span className="min-w-[12rem] flex-1">{t('Saved. Print a new slip so the devotee has the right details.')}</span>
+            <button onClick={() => print('slip')} disabled={!!printing} className="btn-secondary shrink-0">
+              {printing === 'slip' ? <Spinner size="sm" /> : <Printer className="h-4 w-4" />} {t('Print slip')}
+            </button>
+          </div>
+        )}
+
         {/* Who and what */}
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
@@ -242,11 +299,11 @@ export default function BookingDetailSheet({ booking: initial, onClose }) {
           <Item label={t('People')}>{b.peopleCount}</Item>
         </Section>
 
-        {(d.email || d.address || b.notes) && (
+        {(d.email || formatAddress(d) || b.notes) && (
           <Section title={t('Contact & notes')}>
             <Item label={t('Email')} full>{d.email && <span className="inline-flex items-center gap-1"><Mail className="h-3.5 w-3.5 text-gray-400" />{d.email}</span>}</Item>
             <Item label={b.schedule === 'none' ? t('Postal address') : t('Address')} full>
-              {d.address && <span className="inline-flex items-start gap-1"><MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-gray-400" />{d.address}</span>}
+              {formatAddress(d) && <span className="inline-flex items-start gap-1"><MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-gray-400" />{formatAddress(d)}</span>}
             </Item>
             <Item label={t('Notes')} full>{b.notes}</Item>
           </Section>
@@ -289,7 +346,23 @@ export default function BookingDetailSheet({ booking: initial, onClose }) {
             )}
           </section>
         )}
+
+        {/* Edits and moves after booking */}
+        <BookingHistory history={b.history} />
       </Sheet>
+
+      {editOpen && full && (
+        <EditBookingSheet
+          booking={full} seva={seva} sevaTypes={options?.sevaTypes || []}
+          onClose={() => setEditOpen(false)} onSaved={onEdited}
+        />
+      )}
+      {moveOpen && full && (
+        <MoveBookingSheet
+          booking={full} seva={seva} sevaTypes={options?.sevaTypes || []} settings={settings}
+          onClose={() => setMoveOpen(false)} onMoved={onMoved}
+        />
+      )}
 
       {/* Void: reason is required; the seat goes back on sale */}
       <Modal open={voidOpen} onClose={() => setVoidOpen(false)} title={t('Void booking')} size="sm">

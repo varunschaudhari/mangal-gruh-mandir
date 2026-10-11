@@ -17,8 +17,12 @@ const supplierSchema = new mongoose.Schema(
     contactPerson: { type: String, default: '' },
     phone:         { type: String, default: '' },
     email:         { type: String, default: '', lowercase: true, trim: true },
-    address:       { type: String, default: '' },
-    city:          { type: String, default: '' },
+    address:       { type: String, default: '' },   // house / street
+    pincode:       { type: String, default: '' },
+    area:          { type: String, default: '' },   // village / locality
+    city:          { type: String, default: '' },   // taluka / town
+    district:      { type: String, default: '' },
+    state:         { type: String, default: '' },
     gstin:         { type: String, default: '' },
     panNumber:     { type: String, default: '' },
     notes:         { type: String, default: '' },

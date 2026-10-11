@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 import { useBackHandler } from '../../hooks/useBackHandler.js';
@@ -9,8 +9,15 @@ const widths = { sm: 'sm:max-w-sm', md: 'sm:max-w-lg', lg: 'sm:max-w-2xl', xl: '
 // Bottom sheet on phones, centred dialog from `sm` up.
 // Closes on backdrop tap, Escape, and the Android back button.
 const Sheet = ({ open, onClose, title, children, size = 'md', footer, full = false, bodyClassName = '' }) => {
+  const panelRef = useRef(null);
   useEffect(() => {
-    const handler = (e) => { if (e.key === 'Escape') onClose?.(); };
+    const handler = (e) => {
+      if (e.key !== 'Escape') return;
+      // Sheets opened over another sheet: only the one on top closes (it is the last in the page).
+      const dialogs = document.querySelectorAll('[role="dialog"]');
+      if (panelRef.current && dialogs.length && dialogs[dialogs.length - 1] !== panelRef.current) return;
+      onClose?.();
+    };
     if (open) document.addEventListener('keydown', handler);
     return () => document.removeEventListener('keydown', handler);
   }, [open, onClose]);
@@ -24,6 +31,7 @@ const Sheet = ({ open, onClose, title, children, size = 'md', footer, full = fal
     <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center sm:p-4">
       <div className="absolute inset-0 bg-black/40 animate-fade-in" onClick={onClose} />
       <div
+        ref={panelRef}
         role="dialog"
         aria-modal="true"
         className={`relative flex w-full flex-col bg-white shadow-xl rounded-t-2xl sm:rounded-xl

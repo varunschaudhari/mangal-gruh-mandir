@@ -2,6 +2,7 @@
 // Text is drawn by the browser (canvas / HTML), so Marathi names print correctly.
 import QRCode from 'qrcode/lib/browser.js';
 import { printHtml } from './printHtml.js';
+import { formatAddress } from './address.js';
 import { canvasToEscPos, printRawBytes } from './thermalPrint.js';
 import { isNative, isElectron } from './platform.js';
 
@@ -125,7 +126,7 @@ export async function drawSlip(b, settings = {}) {
   if (b.devotee?.gotra) text(`Gotra: ${b.devotee.gotra}`, 22, { gap: 2 });
   if (b.devotee?.familyNames?.length) text(`Family: ${b.devotee.familyNames.join(', ')}`, 21, { gap: 2 });
   if (b.peopleCount > 1) text(`People: ${b.peopleCount}`, 22, { gap: 2 });
-  if (b.schedule === 'none' && b.devotee?.address) text(`Post to: ${b.devotee.address}`, 20, { gap: 2 });
+  if (b.schedule === 'none' && formatAddress(b.devotee)) text(`Post to: ${formatAddress(b.devotee)}`, 20, { gap: 2 });
   rule();
   font(24); ctx.fillText(MODE[b.paymentMode] || b.paymentMode, M, y + 10 * s);
   font(40, 800); const amt = rupees(b.amount); ctx.fillText(amt, W - M - ctx.measureText(amt).width, y);
@@ -176,7 +177,7 @@ export async function bookingReceiptHtml(b, settings = {}, { autoPrint = true } 
     b.serialNo && ['Serial no.', `<b>${esc(b.serialNo)}</b>`],
     ['Devotee', `<b>${esc(d.name)}</b>`],
     d.phone && ['Mobile', esc(d.phone)],
-    d.address && [b.schedule === 'none' ? 'Postal address' : 'Address', esc(d.address)],
+    formatAddress(d) && [b.schedule === 'none' ? 'Postal address' : 'Address', esc(formatAddress(d))],
     d.gotra && ['Gotra', esc(d.gotra)],
     d.familyNames?.length && ['Family names', esc(d.familyNames.join(', '))],
     (d.rashi || d.nakshatra) && ['Rashi / Nakshatra', esc([d.rashi, d.nakshatra].filter(Boolean).join(' / '))],

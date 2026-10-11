@@ -19,6 +19,7 @@ const PERMISSION_GROUPS = {
   Mahaprasad:   ['mahaprasad:read', 'mahaprasad:issue', 'mahaprasad:redeem'],
   Attendance:   ['attendance:read', 'attendance:write', 'attendance:manage', 'attendance:approve'],
   Salary:       ['salary:read', 'salary:manage'],
+  Bookings:     ['bookings:read', 'bookings:create', 'bookings:void', 'bookings:manage', 'bookings:cash'],
 };
 
 const PERMISSION_LABELS = {
@@ -32,6 +33,9 @@ const PERMISSION_LABELS = {
   'mahaprasad:read': 'View mahaprasad', 'mahaprasad:issue': 'Issue coupons', 'mahaprasad:redeem': 'Redeem coupons',
   'attendance:read': 'View attendance & roster', 'attendance:write': 'Plan roster & correct attendance', 'attendance:manage': 'Staff register, shifts & machine', 'attendance:approve': 'Decide double-shift rewards & overtime',
   'salary:read': 'View salary, payslips & files', 'salary:manage': 'Prepare, finalise & pay salary; advances',
+  'bookings:read': 'View pooja bookings & reports', 'bookings:create': 'Book at the counter, fix details, close own shift',
+  'bookings:void': 'Void bookings', 'bookings:manage': 'Booking setup (sevas, batches, closed dates)',
+  'bookings:cash': 'See all cash handovers & verify them',
 };
 
 const ALL_PERMISSIONS = Object.values(PERMISSION_GROUPS).flat();

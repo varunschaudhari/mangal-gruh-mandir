@@ -20,7 +20,9 @@ import { DevoteeMore, PhoneAndName } from '../../components/booking/counter/Devo
 import SankalpPanel from '../../components/booking/counter/SankalpPanel.jsx';
 import PaymentPicker, { PaymentModes, PaymentRefInput } from '../../components/booking/counter/PaymentPicker.jsx';
 import SuccessSheet from '../../components/booking/counter/SuccessSheet.jsx';
+import DuplicateSheet from '../../components/booking/counter/DuplicateSheet.jsx';
 import { CounterOptions, MyCollection, SessionBookings, ShortcutLegend } from '../../components/booking/counter/CounterSidePanel.jsx';
+import CloseShiftSheet from '../../components/booking/shift/CloseShiftSheet.jsx';
 import { HallBadge, SectionTitle, playBeep } from '../../components/booking/counter/bits.jsx';
 import { useCounterPrefs, useReceiptActions, useSessionBookings, useToday } from '../../components/booking/counter/hooks.js';
 import {
@@ -56,7 +58,8 @@ export default function BookingCounter() {
   // ── Setup from the server ───────────────────────────────────────────────────
   const optionsQ = useQuery({
     queryKey: ['booking-options'],
-    queryFn: () => getBookingOptions().then((r) => r.data.data),
+    queryFn: getBookingOptions,             // same cache shape as the register, day sheet and reports
+    select: (r) => r.data.data,
     staleTime: 5 * 60_000,
   });
   const sevaTypes = useMemo(() => optionsQ.data?.sevaTypes || [], [optionsQ.data]);
@@ -77,7 +80,9 @@ export default function BookingCounter() {
   const [errors, setErrors] = useState({});
   const [notice, setNotice] = useState(null);   // the kept batch filled up
   const [booked, setBooked] = useState(null);   // success sheet
+  const [duplicate, setDuplicate] = useState(null); // { booking, body } — already booked that day; ask first
   const [stripOpen, setStripOpen] = useState(false);
+  const [shiftOpen, setShiftOpen] = useState(false); // close shift & hand over cash
 
   const seva = sevaTypes.find((s) => s._id === sevaId) || sevaTypes[0] || null;
   const needsDate = Boolean(seva && seva.schedule !== 'none');
@@ -262,9 +267,17 @@ export default function BookingCounter() {
       qc.invalidateQueries({ queryKey: ['bookings'] });
       if (prefs.autoPrint && !isNative) printSlip(booking);
     },
-    onError: (err) => {
-      haptics.error();
+    onError: (err, body) => {
       const res = err?.response;
+      // Same mobile number already has this seva that day: nothing was saved — ask before booking again.
+      const dup = res?.status === 409 && res.data?.errors?.[0]?.code === 'DUPLICATE' ? res.data.errors[0].booking : null;
+      if (dup) {
+        haptics.warning();
+        toast.dismiss('booking-error');
+        setDuplicate({ booking: dup, body });
+        return;
+      }
+      haptics.error();
       const msg = serverText(t, res?.data?.message, { sevaTypes, lang });
       if (!res) {
         toast.error(t('No answer from the server. Press Book again — it will not be booked twice.'), { id: 'booking-error', duration: 7000 });
@@ -316,7 +329,7 @@ export default function BookingCounter() {
   // One document listener; it reads the latest handlers from a ref.
   const keys = useRef({});
   keys.current = {
-    open: Boolean(booked),
+    open: Boolean(booked || duplicate || shiftOpen),
     submit,
     chooseSeva: (i) => chooseSeva(sevaTypes[i]),
     pay: choosePayment,
@@ -434,7 +447,7 @@ export default function BookingCounter() {
               </button>
               {stripOpen && (
                 <div className="space-y-4 border-t border-gray-100 px-4 py-3">
-                  <MyCollection query={summaryQ} compact />
+                  <MyCollection query={summaryQ} compact onCloseShift={() => setShiftOpen(true)} />
                   <SessionBookings list={session} sevaTypes={sevaTypes} compact {...receiptProps} />
                 </div>
               )}
@@ -447,7 +460,7 @@ export default function BookingCounter() {
               phone={phone} onPhone={onPhone} phoneRef={phoneRef} lookup={lookupQ}
               errors={{ phone: errorText('phone'), name: errorText('name') }}
               name={devotee.name} onName={(v) => setField('name', v)} nameRef={nameRef}
-              sevaTypes={sevaTypes}
+              sevaTypes={sevaTypes} sevaId={seva?._id} date={needsDate ? date : ''}
             />
           </section>
 
@@ -537,7 +550,7 @@ export default function BookingCounter() {
 
         {isDesktop && (
           <aside className="space-y-3 lg:sticky lg:top-0">
-            <MyCollection query={summaryQ} />
+            <MyCollection query={summaryQ} onCloseShift={() => setShiftOpen(true)} />
             <SessionBookings list={session} sevaTypes={sevaTypes} {...receiptProps} />
             <CounterOptions prefs={prefs} setPref={setPref} />
             <ShortcutLegend />
@@ -556,6 +569,8 @@ export default function BookingCounter() {
         </button>
       </StickyActionBar>
 
+      <CloseShiftSheet open={shiftOpen} onClose={() => setShiftOpen(false)} settings={settings} />
+
       <SuccessSheet
         booking={booked}
         sevaTypes={sevaTypes}
@@ -563,6 +578,17 @@ export default function BookingCounter() {
         onNew={(digit) => resetForNext(digit)}
         onSameDevotee={sameDevotee}
         {...receiptProps}
+      />
+
+      <DuplicateSheet
+        booking={duplicate?.booking}
+        sevaTypes={sevaTypes}
+        onCancel={() => setDuplicate(null)}
+        onBookAgain={() => {
+          const body = duplicate?.body;
+          setDuplicate(null);
+          if (body && !bookMut.isPending) bookMut.mutate({ ...body, allowDuplicate: true });
+        }}
       />
     </>
   );

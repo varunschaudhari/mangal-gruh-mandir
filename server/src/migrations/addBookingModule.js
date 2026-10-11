@@ -1,7 +1,7 @@
 /**
  * Migration: abhishek / puja booking module
  *
- * - adds bookings:* permissions to existing roles
+ * - adds bookings:* permissions to existing roles (bookings:cash = verify counter cash handovers)
  * - creates the "Booking Counter" role
  * - first run only: adds the seva types and batches from the temple website
  *
@@ -23,11 +23,11 @@ import { rolesSeed } from '../seeds/roles.seed.js';
 import { sevaTypesSeed, batchesSeed, DEFAULT_BATCH_CAPACITY } from '../seeds/booking.seed.js';
 
 const PATCHES = [
-  { slug: 'admin', add: ['bookings:read', 'bookings:create', 'bookings:void', 'bookings:manage'] },
+  { slug: 'admin', add: ['bookings:read', 'bookings:create', 'bookings:void', 'bookings:manage', 'bookings:cash'] },
   { slug: 'staff', add: ['bookings:read', 'bookings:create'] },
   { slug: 'viewer', add: ['bookings:read'] },
   { slug: 'accountant', add: ['bookings:read'] },
-  { slug: 'cashier', add: ['bookings:read'] },
+  { slug: 'cashier', add: ['bookings:read', 'bookings:cash'] }, // verifies counter cash handovers
   // super_admin — already has '*'
 ];
 const NEW_ROLES = ['booking_counter'];

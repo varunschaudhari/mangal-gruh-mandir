@@ -3,6 +3,16 @@ import mongoose from 'mongoose';
 export const PAYMENT_MODES = ['cash', 'upi', 'card', 'online'];
 export const BOOKING_STATUSES = ['confirmed', 'voided'];
 
+// One correction made after booking (details edited, moved to another batch/date, payment fixed).
+// `changes` maps a field to [before, after]. The receipt number and amount never change.
+const historySchema = new mongoose.Schema({
+  at:      { type: Date, default: Date.now },
+  by:      { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  action:  { type: String, enum: ['edit', 'move'], required: true },
+  changes: { type: mongoose.Schema.Types.Mixed, default: {} },
+  reason:  { type: String, trim: true, default: '' },
+}, { _id: false });
+
 // One abhishek / puja booking. Names, prices and batch times are copied in at booking time,
 // so later changes in Setup never alter an issued receipt.
 const bookingSchema = new mongoose.Schema(
@@ -29,7 +39,12 @@ const bookingSchema = new mongoose.Schema(
       name:          { type: String, required: true, trim: true },
       phone:         { type: String, required: true, trim: true, index: true },
       email:         { type: String, trim: true, default: '' },
-      address:       { type: String, trim: true, default: '' },
+      address:       { type: String, trim: true, default: '' },   // house / street (or the whole address, older bookings)
+      pincode:       { type: String, trim: true, default: '' },
+      area:          { type: String, trim: true, default: '' },   // village / locality
+      city:          { type: String, trim: true, default: '' },   // taluka / town
+      district:      { type: String, trim: true, default: '' },
+      state:         { type: String, trim: true, default: '' },
       dob:           { type: String, default: '' },               // YYYY-MM-DD
       maritalStatus: { type: String, enum: ['', 'married', 'unmarried'], default: '' },
       gotra:         { type: String, trim: true, default: '' },
@@ -57,6 +72,10 @@ const bookingSchema = new mongoose.Schema(
     whatsappSentAt: { type: Date },
     smsSentAt:      { type: Date },
 
+    history:   { type: [historySchema], default: [] },
+    // The counter shift this booking was handed over in (set when the shift is closed).
+    shift:     { type: mongoose.Schema.Types.ObjectId, ref: 'BookingShift', default: null },
+
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   },
   { timestamps: true },
@@ -65,6 +84,8 @@ const bookingSchema = new mongoose.Schema(
 bookingSchema.index({ dateKey: 1, batch: 1, status: 1 });
 bookingSchema.index({ status: 1, paidAt: -1 });
 bookingSchema.index({ createdBy: 1, paidAt: -1 });
+bookingSchema.index({ createdBy: 1, shift: 1, paidAt: 1 });
+bookingSchema.index({ 'devotee.phone': 1, dateKey: 1 });
 bookingSchema.index({ clientRequestId: 1 }, { unique: true, sparse: true });
 
 export default mongoose.model('Booking', bookingSchema);

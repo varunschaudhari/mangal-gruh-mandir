@@ -86,3 +86,32 @@ export const normalisePhone = (s) => {
   const ten = digits.length === 12 && digits.startsWith('91') ? digits.slice(2) : digits;
   return /^[6-9]\d{9}$/.test(ten) ? ten : '';
 };
+
+// ── Shift cash ────────────────────────────────────────────────────────────────
+
+export const DENOMINATIONS = [500, 200, 100, 50, 20, 10, 5, 2, 1];
+
+/** Total of a note/coin count, e.g. { 500: 3, 100: 2 } → 1700. Unknown notes are ignored. */
+export const denominationTotal = (counts = {}) => DENOMINATIONS
+  .reduce((sum, d) => sum + d * Math.max(0, Math.floor(Number(counts[d] ?? counts[String(d)]) || 0)), 0);
+
+/** Cash the counter should hand over and how far the count is off (negative = short). */
+export const shiftCash = ({ cash = 0 }, openingFloat = 0, countedCash = 0) => {
+  const expectedCash = Math.round((Number(openingFloat) || 0) + (Number(cash) || 0));
+  return { expectedCash, difference: Math.round(Number(countedCash) || 0) - expectedCash };
+};
+
+// ── Corrections ───────────────────────────────────────────────────────────────
+
+const same = (a, b) => JSON.stringify(a ?? '') === JSON.stringify(b ?? '');
+
+/** { field: [before, after] } for the fields that differ ('devotee.name' style paths). */
+export function diffFields(before, after, fields) {
+  const get = (obj, path) => path.split('.').reduce((o, k) => (o == null ? o : o[k]), obj);
+  const changes = {};
+  for (const f of fields) {
+    const a = get(before, f); const b = get(after, f);
+    if (!same(a, b)) changes[f] = [a ?? '', b ?? ''];
+  }
+  return changes;
+}

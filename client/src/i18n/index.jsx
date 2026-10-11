@@ -8,6 +8,8 @@ import salary from './mr/salary.js';
 import booking from './mr/booking.js';
 import bookingRegister from './mr/bookingRegister.js';
 import bookingSetup from './mr/bookingSetup.js';
+import bookingFix from './mr/bookingFix.js';
+import bookingShift from './mr/bookingShift.js';
 
 // English / मराठी. The English text *is* the key — t('Save') looks it up in the Marathi
 // dictionary and falls back to the English when there's no entry yet, so screens can be
@@ -22,7 +24,7 @@ export const LANGUAGES = [
 ];
 
 const DICTIONARIES = {
-  mr: { ...common, ...mahaprasad, ...stock, ...dashboard, ...attendance, ...salary, ...booking, ...bookingRegister, ...bookingSetup },
+  mr: { ...common, ...mahaprasad, ...stock, ...dashboard, ...attendance, ...salary, ...booking, ...bookingRegister, ...bookingSetup, ...bookingFix, ...bookingShift },
 };
 
 const STORAGE_KEY = 'mgm-lang';

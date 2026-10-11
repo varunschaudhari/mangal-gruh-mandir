@@ -1,7 +1,10 @@
-import { Loader2, Minus, Phone, Plus, UserCheck, UserPlus } from 'lucide-react';
+import { useCallback } from 'react';
+import { AlertTriangle, CalendarCheck, Loader2, Minus, Phone, Plus, UserCheck, UserPlus } from 'lucide-react';
+import PincodeFields from '../../ui/PincodeFields.jsx';
 import { useLanguage, useT } from '../../../i18n/index.jsx';
 import haptics from '../../../utils/haptics.js';
 import { fmtDay, isValidPhone, toKey } from './counterUtils.js';
+import { bookingWhere } from '../bookingFixUtils.js';
 import { Kbd } from './bits.jsx';
 
 const Label = ({ htmlFor, children, required, right }) => (
@@ -12,8 +15,13 @@ const Label = ({ htmlFor, children, required, right }) => (
 );
 const Err = ({ children }) => (children ? <p className="mt-1 text-xs font-medium text-red-600">{children}</p> : null);
 
-/** Mobile number (looked up as soon as it has 10 digits) and the devotee's name. */
-export function PhoneAndName({ phone, onPhone, phoneRef, lookup, errors, name, onName, nameRef, sevaTypes }) {
+const UPCOMING_SHOWN = 3;
+
+/**
+ * Mobile number (looked up as soon as it has 10 digits) and the devotee's name. A returning
+ * devotee's bookings still ahead are listed; the one matching the chosen seva + date stands out.
+ */
+export function PhoneAndName({ phone, onPhone, phoneRef, lookup, errors, name, onName, nameRef, sevaTypes, sevaId, date }) {
   const t = useT();
   const { lang } = useLanguage();
   const valid = isValidPhone(phone);
@@ -21,6 +29,11 @@ export function PhoneAndName({ phone, onPhone, phoneRef, lookup, errors, name, o
   const last = found?.lastBooking;
   const lastSeva = last && (lang === 'mr' ? sevaTypes.find((s) => s.name === last.sevaName)?.nameMr : null) || last?.sevaName;
   const lastDay = last ? (last.dateKey || (last.paidAt && toKey(new Date(last.paidAt)))) : '';
+  const upcoming = found?.upcoming || [];
+  const isMatch = (u) => Boolean(sevaId && date) && String(u.sevaType) === String(sevaId) && u.dateKey === date;
+  // The matching booking is always shown, even when it isn't among the first few.
+  const shown = upcoming.filter((u, i) => i < UPCOMING_SHOWN || isMatch(u)).slice(0, UPCOMING_SHOWN + 1);
+  const seva = (u) => (lang === 'mr' && sevaTypes.find((s) => String(s._id) === String(u.sevaType))?.nameMr) || u.sevaName;
 
   return (
     <div className="grid gap-3 sm:grid-cols-[minmax(0,5fr)_minmax(0,6fr)]">
@@ -64,6 +77,25 @@ export function PhoneAndName({ phone, onPhone, phoneRef, lookup, errors, name, o
             ) : null}
           </div>
         )}
+        {shown.length > 0 && (
+          <ul className="mt-1.5 space-y-1 text-xs" aria-label={t('Already booked')}>
+            {shown.map((u) => {
+              const match = isMatch(u);
+              return (
+                <li key={u._id} className={`flex items-start gap-1.5 rounded-md px-2 py-1 ${match ? 'bg-amber-100 font-semibold text-amber-900 ring-1 ring-amber-400' : 'bg-amber-50 text-amber-800'}`}>
+                  {match ? <AlertTriangle className="mt-px h-3.5 w-3.5 shrink-0" /> : <CalendarCheck className="mt-px h-3.5 w-3.5 shrink-0" />}
+                  <span className="min-w-0 break-words">
+                    {t('Already booked: {booking}', { booking: [seva(u), bookingWhere(u, lang)].filter(Boolean).join(' · ') })}
+                    {match && <span className="ml-1 whitespace-nowrap rounded bg-amber-600 px-1 py-px text-[10px] font-bold uppercase text-white">{t('Same seva & date')}</span>}
+                  </span>
+                </li>
+              );
+            })}
+            {upcoming.length > shown.length && (
+              <li className="px-2 text-amber-700">{t('+{n} more', { n: upcoming.length - shown.length })}</li>
+            )}
+          </ul>
+        )}
       </div>
       <div>
         <Label htmlFor="bk-name" required>{t('Devotee name')}</Label>
@@ -91,6 +123,8 @@ export function DevoteeMore({ seva, devotee, setField, peopleCount, setPeopleCou
   const t = useT();
   const postal = Boolean(seva?.needsPostalAddress);
   const max = seva?.maxPeople || 0;
+  // The PIN fills city, district and state (several fields at once)
+  const setPlace = useCallback((patch) => Object.entries(patch).forEach(([k, v]) => setField(k, v)), [setField]);
   const step = (d) => {
     haptics.tap();
     setPeopleCount(Math.max(1, Math.min(max || 99, peopleCount + d)));
@@ -107,7 +141,7 @@ export function DevoteeMore({ seva, devotee, setField, peopleCount, setPeopleCou
             rows={2}
             value={devotee.address}
             onChange={(e) => setField('address', e.target.value)}
-            placeholder={t('House, street, village / city, district, PIN')}
+            placeholder={t('House / building, street')}
             maxLength={400}
             aria-invalid={Boolean(errors.address)}
             className={`input resize-y ${errors.address ? 'border-red-400 focus:border-red-500 focus:ring-red-500' : ''}`}
@@ -125,6 +159,7 @@ export function DevoteeMore({ seva, devotee, setField, peopleCount, setPeopleCou
         )}
         {postal && !errors.address && <p className="mt-1 text-xs text-gray-400">{t('Prasad is sent to this address.')}</p>}
         <Err>{errors.address}</Err>
+        <PincodeFields value={devotee} onChange={setPlace} required={postal} className="mt-2" />
       </div>
       <div>
         <Label htmlFor="bk-email">{t('Email')} <span className="font-normal normal-case tracking-normal text-gray-400">{t('(optional)')}</span></Label>

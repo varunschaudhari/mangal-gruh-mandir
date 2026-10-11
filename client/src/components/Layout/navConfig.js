@@ -5,7 +5,7 @@ import {
   Armchair, ClipboardList, Settings2, BarChart2, TrendingUp, Heart, CreditCard, Plus,
   ShoppingCart, BookTemplate, FileText, Utensils, ScanLine, BarChart3, Receipt, PiggyBank, Bug,
   Fingerprint, CalendarDays, CalendarRange, UsersRound, Clock3, CalendarHeart, Wallet, HandCoins, IndianRupee,
-  CalendarCheck, ListOrdered, ClipboardList as DaySheetIcon,
+  CalendarCheck, ListOrdered, ClipboardList as DaySheetIcon, Vault,
 } from 'lucide-react';
 
 // Single source of truth for navigation: the desktop sidebar, the mobile bottom tab bar,
@@ -90,7 +90,7 @@ export const navConfig = [
     ],
   },
   {
-    label: 'Bookings',
+    label: 'Pooja Booking',
     icon: CalendarCheck,
     permission: 'bookings:read',
     children: [
@@ -98,6 +98,7 @@ export const navConfig = [
       { label: 'All Bookings',     to: '/bookings',         icon: ListOrdered,  permission: 'bookings:read'   },
       { label: 'Day Sheet',        to: '/bookings/day',     icon: DaySheetIcon, permission: 'bookings:read'   },
       { label: 'Booking Reports',  to: '/bookings/reports', icon: BarChart3,    permission: 'bookings:read'   },
+      { label: 'Cash Handover',    to: '/bookings/shifts',  icon: Vault,        permission: 'bookings:read'   },
       { label: 'Booking Setup',    to: '/bookings/setup',   icon: Settings2,    permission: 'bookings:manage' },
     ],
   },
@@ -193,7 +194,7 @@ export const MOBILE_TABS = {
   reports:    { label: 'Reports',    to: '/reports',            icon: BarChart3,    permission: 'reports:read',      match: ['/reports'] },
   attendance: { label: 'Attendance', to: '/attendance',         icon: Fingerprint,  permission: 'attendance:read',   match: ['/attendance'] },
   roster:     { label: 'Roster',     to: '/attendance/roster',  icon: CalendarRange, permission: 'attendance:read',  match: ['/attendance/roster'] },
-  bookings:   { label: 'Bookings',   to: '/bookings',           icon: CalendarCheck, permission: 'bookings:read',    match: ['/bookings'] },
+  bookings:   { label: 'Pooja',      to: '/bookings',           icon: CalendarCheck, permission: 'bookings:read',    match: ['/bookings'] },
   daySheet:   { label: 'Day Sheet',  to: '/bookings/day',       icon: DaySheetIcon,  permission: 'bookings:read',    match: ['/bookings/day'] },
 };
 

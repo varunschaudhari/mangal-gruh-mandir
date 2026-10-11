@@ -71,6 +71,8 @@ export default {
   'Monthly P&L': 'मासिक नफा-तोटा',
   // Bookings (navigation, mobile tabs, quick action, role)
   'Bookings': 'बुकिंग',
+  'Pooja Booking': 'पूजा बुकिंग',
+  'Pooja': 'पूजा',
   'New Booking': 'नवीन बुकिंग',
   'All Bookings': 'सर्व बुकिंग',
   'Day Sheet': 'दिवसाची यादी',
@@ -323,4 +325,18 @@ export default {
   'Settings Updated': 'सेटिंग्ज बदलल्या',
   'Purchase Entry Created': 'खरेदी नोंद केली',
   'Purchase Entry Voided': 'खरेदी नोंद रद्दबातल',
+
+  // ── Address with PIN code (components/ui/PincodeFields.jsx) ──────────────
+  'PIN code': 'पिन कोड',
+  'Village / area': 'गाव / परिसर',
+  'Choose area ({n})': 'परिसर निवडा ({n})',
+  'City / taluka': 'शहर / तालुका',
+  'District': 'जिल्हा',
+  'State': 'राज्य',
+  'House / building, street': 'घर / इमारत, रस्ता',
+  'PIN code not found — please check it': 'पिन कोड सापडला नाही — कृपया तपासा',
+  'Could not look up the PIN code — fill in the city and state by hand': 'पिन कोड शोधता आला नाही — शहर व राज्य स्वतः भरा',
+  'Type all 6 digits to fill city and state': 'शहर व राज्य भरण्यासाठी सर्व 6 अंक टाका',
+  'PIN code is needed for the postal address': 'टपाल पत्त्यासाठी पिन कोड आवश्यक आहे',
+  'Enter a valid 6-digit PIN code': 'योग्य 6 अंकी पिन कोड टाका',
 };

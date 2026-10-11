@@ -1,4 +1,6 @@
+import { useCallback } from 'react';
 import { useForm, useFieldArray } from 'react-hook-form';
+import PincodeFields from '../../../components/ui/PincodeFields.jsx';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Plus, Trash2, Star } from 'lucide-react';
@@ -32,6 +34,7 @@ const SupplierForm = () => {
   });
 
   const { fields: bankFields, append: appendBank, remove: removeBank } = useFieldArray({ control, name: 'bankAccounts' });
+  const setPlace = useCallback((patch) => Object.entries(patch).forEach(([k, v]) => setValue(k, v, { shouldDirty: true })), [setValue]);
 
   const mutation = useMutation({
     mutationFn: (data) => isEdit ? updateSupplier(id, data) : createSupplier(data),
@@ -99,13 +102,15 @@ const SupplierForm = () => {
             <FormField label="Email">
               <input {...register('email')} className="input" type="email" />
             </FormField>
-            <FormField label="City">
-              <input {...register('city')} className="input" placeholder="e.g. Amalner" />
-            </FormField>
           </FormRow>
-          <FormField label="Address">
+          <FormField label="Address" hint="House / building, street">
             <textarea {...register('address')} rows={2} className="input" />
           </FormField>
+          {/* PIN fills city, district and state */}
+          <PincodeFields
+            value={{ pincode: watch('pincode'), area: watch('area'), city: watch('city'), district: watch('district'), state: watch('state') }}
+            onChange={setPlace}
+          />
         </FormSection>
 
         <FormSection title="Business Details">

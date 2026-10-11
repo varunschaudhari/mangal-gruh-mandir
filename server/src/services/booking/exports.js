@@ -1,4 +1,5 @@
 import ExcelJS from 'exceljs';
+import { formatAddress } from '../../utils/address.js';
 import PDFDocument from 'pdfkit';
 import { localDateStr } from '../../utils/dates.js';
 
@@ -48,7 +49,7 @@ export async function bookingsExcel(res, { bookings, title }) {
     ws.addRow({
       receiptNo: b.receiptNo, paidOn: fmtDate(b.paidAt), paidTime: fmtTime(b.paidAt), seva: b.sevaName,
       pujaDate: fmtDate(b.performDate), batch: b.batchLabel, hall: b.hall, serial: b.serialNo ?? '',
-      name: b.devotee?.name, phone: b.devotee?.phone, address: b.devotee?.address, gotra: b.devotee?.gotra,
+      name: b.devotee?.name, phone: b.devotee?.phone, address: formatAddress(b.devotee), gotra: b.devotee?.gotra,
       family: (b.devotee?.familyNames || []).join(', '), rashi: b.devotee?.rashi, nakshatra: b.devotee?.nakshatra,
       email: b.devotee?.email, notes: b.notes, channel: b.channel === 'online' ? 'Online' : 'Counter', people: b.peopleCount,
       amount: b.amount, mode: MODE[b.paymentMode] || b.paymentMode, ref: b.paymentRef,

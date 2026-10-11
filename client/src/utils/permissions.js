@@ -11,7 +11,7 @@ export const ROLE_PERMISSIONS = {
     'mahaprasad:read', 'mahaprasad:issue', 'mahaprasad:redeem',
     'attendance:read', 'attendance:write', 'attendance:manage', 'attendance:approve',
     'salary:read', 'salary:manage',
-    'bookings:read', 'bookings:create', 'bookings:void', 'bookings:manage',
+    'bookings:read', 'bookings:create', 'bookings:void', 'bookings:manage', 'bookings:cash',
   ],
   store_manager: [
     'masters:read', 'masters:write',
@@ -41,7 +41,7 @@ export const ROLE_PERMISSIONS = {
   booking_counter:    ['bookings:read', 'bookings:create'],
   donation_desk:      ['donations:read', 'donations:write'],
   accountant:         ['reports:read', 'transactions:read', 'donations:read', 'payments:read', 'bookings:read', 'salary:read'],
-  cashier:            ['payments:read', 'payments:write', 'payments:approve', 'reports:read', 'bookings:read'],
+  cashier:            ['payments:read', 'payments:write', 'payments:approve', 'reports:read', 'bookings:read', 'bookings:cash'],
   attendance_supervisor: ['attendance:read', 'attendance:write'],
   employee: [],
 };

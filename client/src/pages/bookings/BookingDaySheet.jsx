@@ -186,7 +186,7 @@ export default function BookingDaySheet() {
       <PageHeader
         title="Day Sheet"
         subtitle="Devotees for each batch, in serial order"
-        breadcrumbs={[{ label: 'Bookings' }, { label: 'Day Sheet' }]}
+        breadcrumbs={[{ label: 'Pooja Booking' }, { label: 'Day Sheet' }]}
         actions={(
           <>
             <button onClick={() => refetch()} disabled={isFetching} className="btn-secondary max-sm:hidden" aria-label={t('Refresh')}>

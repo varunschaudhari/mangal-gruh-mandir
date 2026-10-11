@@ -80,3 +80,22 @@ test('date keys', () => {
   assert.equal(isDateKey('2026-02-30'), false);
   assert.equal(isDateKey('13-10-2026'), false);
 });
+
+test('shift cash: expected, short and excess', async () => {
+  const { shiftCash, denominationTotal } = await import('./rules.js');
+  assert.deepEqual(shiftCash({ cash: 8100 }, 500, 8600), { expectedCash: 8600, difference: 0 });
+  assert.deepEqual(shiftCash({ cash: 8100 }, 0, 7900), { expectedCash: 8100, difference: -200 });
+  assert.deepEqual(shiftCash({}, 0, 50), { expectedCash: 0, difference: 50 });
+  assert.equal(denominationTotal({ 500: 3, 100: '2', 10: 1, 2000: 4 }), 1710); // 2000 notes aren't counted
+  assert.equal(denominationTotal({ 500: -1 }), 0);
+});
+
+test('diffFields lists only what changed', async () => {
+  const { diffFields } = await import('./rules.js');
+  const before = { devotee: { name: 'Prachi', gotra: '', familyNames: ['A'] }, peopleCount: 2 };
+  const after = { devotee: { name: 'Prachi Shinde', gotra: '', familyNames: ['A', 'B'] }, peopleCount: 2 };
+  assert.deepEqual(diffFields(before, after, ['devotee.name', 'devotee.gotra', 'devotee.familyNames', 'peopleCount']), {
+    'devotee.name': ['Prachi', 'Prachi Shinde'],
+    'devotee.familyNames': [['A'], ['A', 'B']],
+  });
+});
