@@ -100,6 +100,27 @@ export function pickShown(groups = [], now = new Date()) {
   return { shown: b.untimed, kind: b.untimed.length ? 'today' : '' };
 }
 
+/**
+ * The biggest tiles that fit `n` of them in a width × height box (the hall screen shows a whole
+ * batch at once, no scrolling): tries every column count and keeps the one with the largest
+ * tile side, capped at `max`. Returns { cols, rows, w, h } in pixels (h ≤ w), or null.
+ */
+export function fitGrid(n, width, height, gap = 8, max = Infinity) {
+  if (!n || width <= 0 || height <= 0) return null;
+  const options = [];
+  for (let cols = 1; cols <= n; cols += 1) {
+    const rows = Math.ceil(n / cols);
+    const w = (width - gap * (cols - 1)) / cols;
+    const h = (height - gap * (rows - 1)) / rows;
+    if (w > 0 && h > 0) options.push({ cols, rows, side: Math.min(w, h, max), w: Math.min(w, max * 1.25) });
+  }
+  if (!options.length) return null;
+  // The largest tiles; among equal sizes (e.g. capped) the fewest rows, so a short batch reads across
+  const top = Math.max(...options.map((o) => o.side));
+  const best = options.filter((o) => o.side >= top - 0.5).sort((a, b) => a.rows - b.rows)[0];
+  return { cols: best.cols, rows: best.rows, w: Math.floor(best.w), h: Math.floor(best.side) };
+}
+
 /** Whole minutes until a batch starts (0 once it has). */
 export const minutesUntil = (label, now = new Date()) => {
   const start = startMinutes(label);

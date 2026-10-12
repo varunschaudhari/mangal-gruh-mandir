@@ -83,6 +83,22 @@ describe('pickBoard (hall screen)', () => {
     expect(pickShown([g('Early morning – 7:00 AM', '')], new Date(2026, 9, 13, 9, 0)).kind).toBe('today');
     expect(pickShown([], new Date()).kind).toBe('');
   });
+  it('fits a whole batch on the screen with the biggest tiles', async () => {
+    const { fitGrid } = await import('./checkInUtils.js');
+    // 150 serials on a TV board area: about 15 columns × 10 rows, tiles ~ 80 px
+    const big = fitGrid(150, 1380, 760, 8);
+    expect(big.cols * big.rows).toBeGreaterThanOrEqual(150);
+    expect(big.cols).toBeGreaterThanOrEqual(13);
+    expect(big.cols).toBeLessThanOrEqual(17);
+    expect(big.h).toBeGreaterThan(70);
+    expect(big.cols * big.w + (big.cols - 1) * 8).toBeLessThanOrEqual(1380);
+    expect(big.rows * big.h + (big.rows - 1) * 8).toBeLessThanOrEqual(760);
+    // A few serials get big tiles, but not wall-sized ones
+    const few = fitGrid(3, 1380, 760, 8, 240);
+    expect([few.cols, few.h]).toEqual([3, 240]);
+    expect(fitGrid(0, 1000, 500)).toBe(null);
+    expect(fitGrid(10, 0, 500)).toBe(null);
+  });
   it('counts down and sizes tiles', async () => {
     const { minutesUntil, tileSize } = await import('./checkInUtils.js');
     expect(minutesUntil('8:30 AM – 9:45 AM', new Date(2026, 9, 13, 7, 40))).toBe(50);
