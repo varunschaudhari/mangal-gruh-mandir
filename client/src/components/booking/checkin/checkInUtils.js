@@ -77,6 +77,29 @@ export function pickBoard(groups = [], now = new Date()) {
   };
 }
 
+// End of a "7:00 AM – 8:15 AM" label; null without times.
+const endMinutes = (label) => {
+  const m = /\d{1,2}:\d{2}\s*(?:AM|PM)\s*[–-]\s*(\d{1,2}):(\d{2})\s*(AM|PM)/i.exec(label || '');
+  return m ? minutesOf(m[1], m[2], m[3]) : null;
+};
+
+/**
+ * The one batch the hall screen shows at `now`: the one running; between batches (and before
+ * the first) the next one; after the day's last batch, that last one. A day with only
+ * fixed-time sevas shows those. More than one only when several halls share the same time
+ * (all-halls screen). Returns { shown: [groups], kind: 'now' | 'next' | 'over' | 'today' | '' }.
+ */
+export function pickShown(groups = [], now = new Date()) {
+  const b = pickBoard(groups, now);
+  if (b.current.length) return { shown: b.current, kind: 'now' };
+  if (b.next.length) return { shown: b.next, kind: 'next' };
+  if (b.over.length) {
+    const lastEnd = Math.max(...b.over.map((g) => endMinutes(g.label) ?? 0));
+    return { shown: b.over.filter((g) => (endMinutes(g.label) ?? 0) === lastEnd), kind: 'over' };
+  }
+  return { shown: b.untimed, kind: b.untimed.length ? 'today' : '' };
+}
+
 /** Whole minutes until a batch starts (0 once it has). */
 export const minutesUntil = (label, now = new Date()) => {
   const start = startMinutes(label);

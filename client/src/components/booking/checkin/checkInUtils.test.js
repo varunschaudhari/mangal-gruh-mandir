@@ -71,6 +71,18 @@ describe('pickBoard (hall screen)', () => {
     expect(b.next).toEqual([]);
     expect(b.over).toHaveLength(5);
   });
+  it('shows one batch: running, else the next, else the last one of the day', async () => {
+    const { pickShown } = await import('./checkInUtils.js');
+    const h1 = [g('7:00 AM – 8:15 AM'), g('8:30 AM – 9:45 AM'), g('10:00 AM – 11:15 AM')];
+    const at = (h, m) => pickShown(h1, new Date(2026, 9, 13, h, m));
+    expect([at(6, 30).kind, at(6, 30).shown[0].label]).toEqual(['next', '7:00 AM – 8:15 AM']);
+    expect([at(8, 14).kind, at(8, 14).shown[0].label]).toEqual(['now', '7:00 AM – 8:15 AM']);
+    // At its end time the batch makes way for the next one
+    expect([at(8, 15).kind, at(8, 15).shown[0].label]).toEqual(['next', '8:30 AM – 9:45 AM']);
+    expect([at(14, 0).kind, at(14, 0).shown.map((x) => x.label)]).toEqual(['over', ['10:00 AM – 11:15 AM']]);
+    expect(pickShown([g('Early morning – 7:00 AM', '')], new Date(2026, 9, 13, 9, 0)).kind).toBe('today');
+    expect(pickShown([], new Date()).kind).toBe('');
+  });
   it('counts down and sizes tiles', async () => {
     const { minutesUntil, tileSize } = await import('./checkInUtils.js');
     expect(minutesUntil('8:30 AM – 9:45 AM', new Date(2026, 9, 13, 7, 40))).toBe(50);

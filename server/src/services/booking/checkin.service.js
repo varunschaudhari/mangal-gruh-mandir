@@ -7,7 +7,7 @@ import Settings from '../../models/Settings.js';
 import ApiError from '../../utils/ApiError.js';
 import { hallNames, sortHallCodes } from './halls.js';
 import {
-  addDays, batchLabel, batchStateAt, checkInVerdict, dateKeyOf, financialYear, isDateKey, labelTimes, receiptTokenOf, weekdayOf,
+  batchLabel, batchStateAt, checkInVerdict, dateKeyOf, financialYear, isDateKey, labelTimes, receiptTokenOf, weekdayOf,
 } from './rules.js';
 
 // Hall check-in: staff scan the QR on the devotee's slip (or type the receipt number) at the
@@ -139,33 +139,6 @@ const closedForAll = (date) => BookingClosure.findOne({ date, $or: [{ sevaTypes:
   .select('reason').lean();
 
 /**
- * The day after `dateKey` for the hall screen (shown once the day's batches are over): its
- * batches on the timetable, the first one, and how many are booked so far.
- */
-async function dayAhead(dateKey, hallFilter, batches) {
-  const date = addDays(dateKey, 1);
-  const [closed, booked] = await Promise.all([
-    closedForAll(date),
-    Booking.aggregate([
-      { $match: { dateKey: date, status: 'confirmed', ...hallFilter } },
-      { $group: { _id: null, bookings: { $sum: 1 }, people: { $sum: { $ifNull: ['$peopleCount', 1] } } } },
-    ]),
-  ]);
-  const weekday = weekdayOf(date);
-  const timed = closed ? [] : batches
-    .filter((b) => !b.weekdays?.length || b.weekdays.includes(weekday))
-    .sort((a, b) => a.start.localeCompare(b.start));
-  return {
-    date,
-    closed: closed ? { reason: closed.reason || '' } : null,
-    batches: timed.length,
-    first: timed[0] ? batchLabel(timed[0].start, timed[0].end) : '',
-    bookings: booked[0]?.bookings || 0,
-    people: booked[0]?.people || 0,
-  };
-}
-
-/**
  * The hall screen (a TV at the hall): the day's batches for one hall (or all) from the
  * timetable — including batches nobody has booked yet — each with its serials and who has
  * arrived, and where it stands now ('now' / 'later' / 'over'); sevas without a batch (fixed
@@ -188,7 +161,6 @@ export async function hallBoard({ hall, date } = {}) {
     Settings.getOrCreate(),
     hallNames(),
   ]);
-  const tomorrow = await dayAhead(dateKey, hallFilter, batches);
   // Marathi seva names for the screen (hall staff can't read the seva list themselves).
   const sevas = await SevaType.find({ _id: { $in: [...new Set(bookings.map((b) => String(b.sevaType)))] } }).select('nameMr').lean();
   const nameMr = new Map([...batchSevas, ...sevas].map((s) => [String(s._id), s.nameMr]));
@@ -243,7 +215,6 @@ export async function hallBoard({ hall, date } = {}) {
     hall: hall ? String(hall) : '',
     templeName: temple?.templeName || '',
     closed: closedAllDay ? { reason: closedAllDay.reason || '' } : null,   // closed for every seva that day
-    tomorrow,
     halls: sortHallCodes(halls, names),
     hallNames: names,
     recent,
