@@ -15,6 +15,8 @@ const userSchema = new mongoose.Schema(
     smsAlertsEnabled: { type: Boolean, default: false },
     canApproveAssets:    { type: Boolean, default: false },
     canApprovePayments:  { type: Boolean, default: false },
+    // Set when someone else chose the password (new login, admin reset): the app asks for a new one first
+    mustChangePassword:  { type: Boolean, default: false },
     monthlySalary:       { type: Number, default: 0, min: 0 },
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   },

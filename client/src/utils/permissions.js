@@ -44,6 +44,9 @@ export const ROLE_PERMISSIONS = {
   accountant:         ['reports:read', 'transactions:read', 'donations:read', 'payments:read', 'bookings:read', 'salary:read'],
   cashier:            ['payments:read', 'payments:write', 'payments:approve', 'reports:read', 'bookings:read', 'bookings:cash'],
   attendance_supervisor: ['attendance:read', 'attendance:write'],
+  attendance_manager: ['attendance:read', 'attendance:write', 'attendance:manage', 'attendance:approve'],
+  payroll:            ['salary:read', 'salary:manage', 'attendance:read'],
+  booking_manager:    ['bookings:read', 'bookings:create', 'bookings:void', 'bookings:manage', 'bookings:cash', 'bookings:checkin'],
   employee: [],
 };
 
@@ -61,5 +64,8 @@ export const ROLE_LABELS = {
   accountant:         'Accountant',
   cashier:            'Cashier',
   attendance_supervisor: 'Attendance Supervisor',
+  attendance_manager: 'Attendance Manager',
+  payroll:            'Payroll',
+  booking_manager:    'Booking Manager',
   employee: 'Employee',
 };

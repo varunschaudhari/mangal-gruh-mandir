@@ -116,6 +116,27 @@ export const rolesSeed = [
     isSystem: true,
   },
   {
+    slug: 'payroll',
+    name: 'Payroll',
+    description: 'Work out and pay monthly salary, advances, bank sheet and PF/ESI files; sees attendance',
+    permissions: ['salary:read', 'salary:manage', 'attendance:read'],
+    isSystem: true,
+  },
+  {
+    slug: 'attendance_manager',
+    name: 'Attendance Manager',
+    description: 'Roster and corrections, plus shifts, the attendance machine and leave / overtime approval',
+    permissions: ['attendance:read', 'attendance:write', 'attendance:manage', 'attendance:approve'],
+    isSystem: true,
+  },
+  {
+    slug: 'booking_manager',
+    name: 'Booking Manager',
+    description: 'Pooja bookings, voids, booking setup and checking the counter cash',
+    permissions: ['bookings:read', 'bookings:create', 'bookings:void', 'bookings:manage', 'bookings:cash', 'bookings:checkin'],
+    isSystem: true,
+  },
+  {
     slug: 'employee',
     name: 'Employee',
     description: 'Temple worker — on attendance & payroll, no access to other modules',

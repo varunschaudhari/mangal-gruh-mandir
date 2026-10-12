@@ -1,5 +1,7 @@
 import { useForm } from 'react-hook-form';
 import { useMutation } from '@tanstack/react-query';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../../context/AuthContext.jsx';
 import { changePassword } from '../../api/auth.api.js';
 import PageHeader from '../../components/ui/PageHeader.jsx';
 import { FormField, FormSection } from '../../components/ui/FormField.jsx';
@@ -10,12 +12,21 @@ const ChangePassword = () => {
   const t = useT();
   const { register, handleSubmit, watch, reset, formState: { errors } } = useForm();
   const newPassword = watch('newPassword');
+  const { user, setUser } = useAuth();
+  const navigate = useNavigate();
+  const mustChange = Boolean(user?.mustChangePassword);
 
   const mutation = useMutation({
     mutationFn: changePassword,
     onSuccess: () => {
       toast.success(t('Password changed successfully'));
       reset();
+      if (mustChange) {
+        const next = { ...user, mustChangePassword: false };
+        try { localStorage.setItem('user', JSON.stringify(next)); } catch { /* ignore */ }
+        setUser(next);
+        navigate('/dashboard', { replace: true });
+      }
     },
     onError: (err) => toast.error(err.response?.data?.message || t('Failed to change password')),
   });
@@ -27,6 +38,11 @@ const ChangePassword = () => {
         breadcrumbs={[{ label: 'Change Password' }]}
       />
 
+      {mustChange && (
+        <p className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          {t('You signed in with a temporary password. Choose your own password to continue.')}
+        </p>
+      )}
       <form onSubmit={handleSubmit((d) => mutation.mutate(d))} className="card p-6 space-y-6">
         <FormSection title={t('Update Your Password')}>
           <FormField label={t('Current Password')} required error={errors.currentPassword?.message}>

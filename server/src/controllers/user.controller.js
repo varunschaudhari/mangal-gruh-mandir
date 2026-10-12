@@ -144,6 +144,7 @@ export const resetUserPassword = asyncHandler(async (req, res) => {
 
   user.password = newPassword;
   user.refreshToken = undefined;
+  user.mustChangePassword = true;   // the admin knows it — the person picks their own at next sign-in
   await user.save();
   await endAllSessions(user._id); // the old password's sessions must not keep working
   logAction(req, {

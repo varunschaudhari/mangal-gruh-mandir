@@ -57,6 +57,7 @@ export const login = asyncHandler(async (req, res) => {
         departments: user.departments,
         canApproveAssets:   user.canApproveAssets,
         canApprovePayments: user.canApprovePayments,
+        mustChangePassword: user.mustChangePassword,
       },
     }, 'Login successful')
   );
@@ -146,6 +147,7 @@ export const changePassword = asyncHandler(async (req, res) => {
   if (!(await user.matchPassword(currentPassword))) throw new ApiError(401, 'Current password is incorrect');
 
   user.password = newPassword;
+  user.mustChangePassword = false;
   await user.save();
   // Sign out every other device; this one stays signed in.
   await endAllSessions(user._id, { exceptSessionId: req.auth?.sid });

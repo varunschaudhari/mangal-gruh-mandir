@@ -108,6 +108,10 @@ export default {
   'Donation Desk': 'देणगी कक्ष',
   'Accountant': 'लेखापाल',
   'Cashier': 'रोखपाल',
+  'Attendance Manager': 'हजेरी व्यवस्थापक',
+  'Payroll': 'पगार विभाग',
+  'Booking Manager': 'बुकिंग व्यवस्थापक',
+  'You signed in with a temporary password. Choose your own password to continue.': 'तुम्ही तात्पुरत्या पासवर्डने लॉगिन केले आहे. पुढे जाण्यासाठी स्वतःचा पासवर्ड ठरवा.',
 
   // ── Account ──────────────────────────────────────────────────────────────
   'My Profile': 'माझे प्रोफाइल',

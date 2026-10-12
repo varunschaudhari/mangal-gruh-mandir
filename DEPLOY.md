@@ -293,6 +293,22 @@ docker compose exec server npm run seed:attendance-demo -- --fresh # replace wit
 docker compose exec server npm run seed:attendance-demo:remove     # remove
 ```
 
+**A whole demo day (all modules):** `npm run seed:demo` adds a busy day today plus the last 30 days
+(bookings, Mahaprasad, donations, stock, payments, expenses, lending, attendance) on top of the real
+setup; `npm run seed:demo:remove` takes it all out again, including stock, seat counts and numbering.
+Run it the morning of the demo — today's entries stop at the moment it runs.
+
+**Logins per job (salary, attendance, pooja booking):**
+
+```bash
+docker compose exec server npm run migrate:roles      # adds Payroll, Attendance Manager, Booking Manager roles
+docker compose exec server npm run users:modules      # salary@, attendance@, booking@, hall@, booking.manager@
+```
+
+The passwords are printed once; each person must choose their own at first sign-in. Running it
+again skips logins that exist. Salary amounts and shift details of staff are still edited by an
+admin in Users (that screen needs user rights).
+
 ---
 
 ## 12. Abhishek / puja bookings

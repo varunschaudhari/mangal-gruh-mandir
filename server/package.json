@@ -22,6 +22,7 @@
     "seed:attendance-demo:remove": "node src/seeds/attendanceDemo.seed.js --remove",
     "seed:demo": "node src/seeds/demoDay.seed.js",
     "seed:demo:remove": "node src/seeds/demoDay.seed.js --remove",
+    "users:modules": "node src/seeds/moduleLogins.js",
     "migrate:bookings": "node src/migrations/addBookingModule.js",
     "migrate:roles": "node src/migrations/syncRoles.js",
     "seed:mahaprasad-occasions": "node src/seeds/mahaprasadOccasions.seed.js",
