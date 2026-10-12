@@ -2,10 +2,16 @@
 # writes the result to /etc/nginx/conf.d/app.conf. Edit this file, never a copy on the server.
 # Only variables set in the container's environment are replaced; nginx's own $host, $uri etc. stay.
 
+# The app containers are looked up through Docker's DNS on every request (cached 10 s) rather
+# than once when nginx starts: a rebuild gives them new addresses, and nginx would otherwise
+# keep calling the old ones — 502 Bad Gateway until nginx was restarted.
+resolver 127.0.0.11 valid=10s ipv6=off;
+
 # Redirect HTTP to HTTPS
 server {
     listen 80;
     server_name _;
+    set $server_app http://server:5000;
 
     location /.well-known/acme-challenge/ {
         root /var/www/certbot;
@@ -15,7 +21,7 @@ server {
     # path is served over plain HTTP too. The server only accepts machines approved in
     # Settings → Attendance.
     location /iclock/ {
-        proxy_pass http://server:5000;
+        proxy_pass $server_app;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -31,6 +37,8 @@ server {
 server {
     listen 443 ssl;
     server_name ${DOMAIN};
+    set $client_app http://client:80;
+    set $server_app http://server:5000;
 
     ssl_certificate     /etc/letsencrypt/live/${DOMAIN}/fullchain.pem;
     ssl_certificate_key /etc/letsencrypt/live/${DOMAIN}/privkey.pem;
@@ -55,14 +63,14 @@ server {
 
     # React app (served by nginx inside client container)
     location / {
-        proxy_pass http://client:80;
+        proxy_pass $client_app;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
     }
 
     # Biometric attendance machine (same as on port 80, for machines that use HTTPS)
     location /iclock/ {
-        proxy_pass http://server:5000;
+        proxy_pass $server_app;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -71,7 +79,7 @@ server {
 
     # API proxy to Node.js server
     location /api/ {
-        proxy_pass http://server:5000;
+        proxy_pass $server_app;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection 'upgrade';

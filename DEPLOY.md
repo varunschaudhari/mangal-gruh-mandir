@@ -398,6 +398,12 @@ See them under **Admin → App Errors** (grouped, with a count, the screen, app 
   nginx container fills it in from `DOMAIN` in the root `.env` each time it starts. Nothing on the
   server is edited, so `git pull` never conflicts. Change the domain = edit `.env`, then
   `docker compose up -d nginx`.
+- **Rebuilding the app doesn't need an nginx restart**: nginx looks the `client` / `server`
+  containers up on each request (Docker's DNS, cached 10 s), so new container addresses after
+  `docker compose up -d --build` are picked up by themselves. (Before this, a rebuild could leave
+  nginx calling the old address — **502 Bad Gateway** until `docker compose restart nginx`.)
+  nginx itself reads the template only when it starts: after pulling a change to
+  `nginx/templates/`, run `docker compose restart nginx` once.
 - **One-time step when first pulling the template change** (servers set up before it had the domain
   written into `nginx/conf.d/app.conf`, which blocks the pull):
   ```bash
