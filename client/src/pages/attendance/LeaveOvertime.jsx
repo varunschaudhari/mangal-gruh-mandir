@@ -11,7 +11,7 @@ import { usePermissions } from '../../hooks/usePermissions.js';
 import { fCurrency, fDate, localDateStr } from '../../utils/formatters.js';
 import { useT } from '../../i18n/index.jsx';
 import {
-  DayDetailSheet, DoubleDecision, LEAVE_TYPES, codeCell, coverText, dayCode, fDays, fMinutes, shiftMonth, thisMonth,
+  DayDetailSheet, DoubleDecision, LEAVE_TYPES, MonthLockNote, codeCell, coverText, dayCode, fDays, fMinutes, shiftMonth, thisMonth,
 } from './attendanceUi.jsx';
 
 // Leave balances, late penalties, double-shift rewards and overtime for one month — what
@@ -198,7 +198,6 @@ function MarkLeaveSheet({ staffOptions, onClose }) {
 export default function LeaveOvertime() {
   const t = useT();
   const { can } = usePermissions();
-  const canApprove = can('attendance:approve');
   const [month, setMonth] = useState(thisMonth());
   const [search, setSearch] = useState('');
   const [openStaff, setOpenStaff] = useState(null);
@@ -207,6 +206,7 @@ export default function LeaveOvertime() {
 
   const { data, isLoading } = useQuery({ queryKey: ['attendance', 'month', month], queryFn: () => getMonth({ month }) });
   const res = data?.data?.data;
+  const canApprove = can('attendance:approve') && !res?.locked;   // a month with finalised salary is frozen
   const q = search.trim().toLowerCase();
   const staff = useMemo(() => (res?.staff || []).filter((s) => !q || s.name.toLowerCase().includes(q) || s.staffCode.toLowerCase().includes(q)), [res, q]);
   const pending = useMemo(() => (res?.staff || []).flatMap((s) => Object.values(res.days[s._id] || {})
@@ -231,6 +231,7 @@ export default function LeaveOvertime() {
           <button onClick={() => setMarking(true)} className="btn-primary flex items-center gap-1.5"><CalendarPlus className="h-4 w-4" />{t('Mark leave')}</button>
         )}
       />
+      <MonthLockNote locked={res?.locked} />
 
       <div className="card flex items-center gap-2 p-2">
         <button onClick={() => setMonth(shiftMonth(month, -1))} className="btn-ghost p-2" aria-label={t('Previous month')}><ChevronLeft className="h-5 w-5" /></button>

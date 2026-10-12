@@ -11,8 +11,10 @@ const staffSchema = new mongoose.Schema(
     designation: { type: String, trim: true, default: '' },  // Pujari, Cook, Guard, Store…
     gender:      { type: String, enum: ['', 'male', 'female'], default: '' },   // Professional Tax slabs differ
     department:  { type: mongoose.Schema.Types.ObjectId, ref: 'Department' },
-    joinDate:    { type: Date },
+    joinDate:    { type: Date },                              // start of the current stint
     leftOn:      { type: Date },                              // last working day (after leaving)
+    // Earlier stints of someone who left and was taken back — their old days stay counted
+    pastPeriods: { type: [{ _id: false, joinDate: Date, leftOn: Date }], default: [] },
     isActive:    { type: Boolean, default: true },     // = user active AND on payroll
     onPayroll:   { type: Boolean, default: true },     // the "on attendance & payroll" tick on the user
     user:        { type: mongoose.Schema.Types.ObjectId, ref: 'User' },

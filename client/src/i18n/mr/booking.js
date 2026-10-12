@@ -57,8 +57,8 @@ export default {
   'Anything the priest or office should know': 'पुरोहित किंवा कार्यालयाला सांगायचे असल्यास',
 
   // ── Counter: payment and booking ─────────────────────────────────────────
-  'UPI reference (optional)': 'UPI संदर्भ क्र. (ऐच्छिक)',
-  'Card last 4 digits (optional)': 'कार्डचे शेवटचे 4 अंक (ऐच्छिक)',
+  'UPI reference (UTR)': 'UPI संदर्भ क्र. (UTR)',
+  'Card last 4 digits / approval code': 'कार्डचे शेवटचे 4 अंक / मंजुरी कोड',
   'Book': 'बुक करा',
   'Book · ₹{amount}': 'बुक करा · ₹{amount}',
   'Booking…': 'बुकिंग होत आहे…',
@@ -141,4 +141,7 @@ export default {
   'This booking was cancelled (voided)': 'हे बुकिंग रद्दबातल झाले आहे',
   'This receipt is no longer valid. Please contact the temple office.': 'ही पावती आता वैध नाही. कृपया मंदिर कार्यालयाशी संपर्क साधा.',
   'Questions? Call the temple office:': 'काही शंका? मंदिर कार्यालयाला फोन करा:',
+  // ── UPI / card references ──
+  'Enter the UPI reference (UTR) from the devotee’s payment screen — at least the last 4 digits': 'भाविकाच्या पेमेंट स्क्रीनवरील UPI संदर्भ क्र. (UTR) टाका — किमान शेवटचे 4 अंक',
+  'Enter the card’s last 4 digits or the approval code from the card slip': 'कार्डचे शेवटचे 4 अंक किंवा कार्ड स्लिपवरील मंजुरी कोड टाका',
 };

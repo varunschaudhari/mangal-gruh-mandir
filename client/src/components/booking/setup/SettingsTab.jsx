@@ -3,10 +3,10 @@ import { Controller, useForm } from 'react-hook-form';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { Copy, MessageCircle, MessageSquare, Printer, Receipt, Save, Search, Settings2, TriangleAlert } from 'lucide-react';
+import { Copy, MessageCircle, MessageSquare, Printer, Receipt, RefreshCw, Save, Search, Settings2, TriangleAlert } from 'lucide-react';
 import StickyActionBar from '../../ui/StickyActionBar.jsx';
 import { FormField } from '../../ui/FormField.jsx';
-import { updateBookingSettings } from '../../../api/booking.api.js';
+import { recountBookingSeats, updateBookingSettings } from '../../../api/booking.api.js';
 import { getSettings } from '../../../api/settings.api.js';
 import { connectToQzTray, getPrinters } from '../../../utils/thermalPrint.js';
 import { printBookingSlip } from '../../../utils/bookingReceipt.js';
@@ -66,6 +66,35 @@ const Section = ({ icon: Icon, title, intro, children }) => (
     {children}
   </section>
 );
+
+/**
+ * Seat counts: put them back in line with the bookings (also done every night). For when a
+ * batch shows "full" but has free seats, e.g. after the server stopped in the middle of booking.
+ */
+function SeatRecount() {
+  const t = useT();
+  const refresh = useRefreshBookings();
+  const mut = useMutation({
+    mutationFn: recountBookingSeats,
+    onSuccess: (res) => {
+      const n = res.data.data.fixed.length;
+      toast.success(n ? t('Seat counts corrected for {n} batches', { n }) : t('Seat counts were already right'));
+      refresh();
+    },
+    onError: (err) => toast.error(errText(t, err)),
+  });
+  return (
+    <div className="card flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-6">
+      <div>
+        <p className="text-sm font-medium text-gray-800">{t('Seat counts')}</p>
+        <p className="text-xs text-gray-500">{t('If a batch shows full but has free seats, recount the seats from the bookings. This also happens every night.')}</p>
+      </div>
+      <button type="button" onClick={() => mut.mutate()} disabled={mut.isPending} className="btn-secondary shrink-0">
+        <RefreshCw className={`h-4 w-4 ${mut.isPending ? 'animate-spin' : ''}`} />{mut.isPending ? t('Recounting…') : t('Recount seats')}
+      </button>
+    </div>
+  );
+}
 
 function CopyBox({ text, children }) {
   const t = useT();
@@ -373,6 +402,8 @@ export default function SettingsTab({ setup, canManage }) {
           <Printer className="h-4 w-4" />{printing ? t('Printing…') : t('Print test slip')}
         </button>
       </div>
+
+      {canManage && <SeatRecount />}
 
       {canManage && (
         <StickyActionBar>

@@ -8,6 +8,7 @@ import SevaType from '../../models/SevaType.js';
 import SlotCounter from '../../models/SlotCounter.js';
 import ApiError from '../../utils/ApiError.js';
 import { isPincode } from '../pincode.service.js';
+import { cleanPaymentRef, paymentRefProblem } from '../../../../shared/payment.js';
 import {
   batchEnded, batchLabel, batchesFor, closedReason, dateKeyOf, dateKeyToDate, diffFields, financialYear,
   formatReceiptNo, isDateKey, normalisePhone, seatsFor, slotKey,
@@ -46,6 +47,60 @@ export async function reserveSeats(key, dateKey, seats, capacity, { serial = tru
 }
 
 export const releaseSeats = (key, seats) => SlotCounter.updateOne({ key }, { $inc: { booked: -seats } });
+
+const sleep = (ms) => new Promise((r) => { setTimeout(r, ms); });
+
+/**
+ * Puts the seat counters for today and later back in line with the confirmed bookings. A
+ * counter can drift if the server stops between taking a seat and saving the booking, or a
+ * seat release after a void / move fails — then a batch shows "full" while seats are free.
+ * Safe while the counter is booking: counters are read first, the bookings counted a moment
+ * later (so a booking saved in between is included), and a counter is only corrected if it
+ * hasn't moved since it was read. Serial numbers are never lowered.
+ * Returns [{ key, date, before, after }] for the counters it corrected.
+ */
+export async function recountSeats({ from = dateKeyOf(), settleMs = 1500 } = {}) {
+  const counters = await SlotCounter.find({ date: { $gte: from } }).lean();
+  await sleep(settleMs);
+  const rows = await Booking.aggregate([
+    { $match: { status: 'confirmed', dateKey: { $gte: from }, seats: { $gt: 0 } } },
+    {
+      $group: {
+        _id: { batch: '$batch', sevaType: '$sevaType', schedule: '$schedule', dateKey: '$dateKey' },
+        seats: { $sum: '$seats' }, maxSerial: { $max: '$serialNo' },
+      },
+    },
+  ]);
+  const actual = new Map();
+  for (const r of rows) {
+    const key = counterKeyOf({ ...r._id, seats: r.seats });
+    if (!key) continue;
+    const a = actual.get(key) || { seats: 0, maxSerial: 0, date: r._id.dateKey };
+    a.seats += r.seats;
+    a.maxSerial = Math.max(a.maxSerial, r.maxSerial || 0);
+    actual.set(key, a);
+  }
+
+  const fixed = [];
+  const seen = new Set();
+  for (const c of counters) {
+    seen.add(c.key);
+    const a = actual.get(c.key) || { seats: 0, maxSerial: 0 };
+    const set = {};
+    if (c.booked !== a.seats) set.booked = a.seats;
+    if ((c.seq || 0) < a.maxSerial) set.seq = a.maxSerial;
+    if (!Object.keys(set).length) continue;
+    const res = await SlotCounter.updateOne({ _id: c._id, booked: c.booked, seq: c.seq }, { $set: set });
+    if (res.modifiedCount) fixed.push({ key: c.key, date: c.date, before: c.booked, after: set.booked ?? c.booked });
+  }
+  // Bookings whose counter is missing altogether: create it
+  for (const [key, a] of actual) {
+    if (seen.has(key)) continue;
+    const res = await SlotCounter.updateOne({ key }, { $setOnInsert: { key, date: a.date, booked: a.seats, seq: a.maxSerial } }, { upsert: true });
+    if (res.upsertedCount) fixed.push({ key, date: a.date, before: 0, after: a.seats });
+  }
+  return fixed;
+}
 
 // ── Availability ──────────────────────────────────────────────────────────────
 
@@ -213,6 +268,9 @@ export async function createBooking(input, user) {
   const devotee = sanitiseDevotee(input.devotee, sevaType);
   const peopleCount = checkPeople(input.peopleCount, sevaType);
   if (!['cash', 'upi', 'card'].includes(input.paymentMode)) throw new ApiError(400, 'Choose cash, UPI or card');
+  // UPI / card must carry a reference the cashier can match with the bank or card-machine statement
+  const refProblem = paymentRefProblem(input.paymentMode, input.paymentRef);
+  if (refProblem) throw new ApiError(400, refProblem);
 
   const { dateKey, batch, label, hall, counterKey, capacity } = await resolveSlot(sevaType, input.date, input.batch, ctx);
 
@@ -241,7 +299,7 @@ export async function createBooking(input, user) {
       peopleCount,
       notes: clean(input.notes, 500),
       paymentMode: input.paymentMode,
-      paymentRef: clean(input.paymentRef, 80),
+      paymentRef: input.paymentMode === 'cash' ? '' : cleanPaymentRef(input.paymentRef),
       paidAt: now,
       channel: 'counter',
       receiptToken: crypto.randomBytes(12).toString('base64url'),
@@ -303,9 +361,10 @@ export async function editBooking(id, input = {}, user, { canVoid = false } = {}
       : booking.devotee,
     peopleCount: input.peopleCount !== undefined ? checkPeople(input.peopleCount, sevaType) : booking.peopleCount,
     notes: input.notes !== undefined ? clean(input.notes, 500) : booking.notes,
-    paymentRef: input.paymentRef !== undefined ? clean(input.paymentRef, 80) : booking.paymentRef,
     paymentMode: input.paymentMode || booking.paymentMode,
   };
+  next.paymentRef = next.paymentMode === 'cash' ? ''
+    : input.paymentRef !== undefined ? cleanPaymentRef(input.paymentRef) : booking.paymentRef;
 
   const modeChanged = next.paymentMode !== booking.paymentMode;
   if (modeChanged) {
@@ -314,6 +373,11 @@ export async function editBooking(id, input = {}, user, { canVoid = false } = {}
       throw new ApiError(403, 'Only the person who took this booking can change how it was paid');
     }
     if (booking.shift) throw new ApiError(400, 'This booking is in a closed shift — its payment mode can no longer be changed');
+  }
+  // A changed payment (mode or reference) to UPI / card needs a reference that can be checked
+  if ((modeChanged || next.paymentRef !== booking.paymentRef) && booking.channel === 'counter') {
+    const refProblem = paymentRefProblem(next.paymentMode, next.paymentRef);
+    if (refProblem) throw new ApiError(400, refProblem);
   }
 
   const changes = diffFields(booking, next, EDIT_FIELDS);

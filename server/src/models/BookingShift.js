@@ -27,6 +27,8 @@ const bookingShiftSchema = new mongoose.Schema(
     verifiedBy:   { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
     verifiedAt:   { type: Date },
     verifyNote:   { type: String, trim: true, default: '' },
+    // The verifier matched the UPI and card payments with the bank / UPI app / card-machine statement
+    digitalChecked: { type: Boolean, default: false },
   },
   { timestamps: true },
 );

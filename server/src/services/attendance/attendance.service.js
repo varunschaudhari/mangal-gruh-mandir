@@ -4,13 +4,46 @@ import AttendanceMonth from '../../models/AttendanceMonth.js';
 import DoubleShift from '../../models/DoubleShift.js';
 import Punch from '../../models/Punch.js';
 import RosterDay from '../../models/RosterDay.js';
+import SalaryRun from '../../models/SalaryRun.js';
 import Staff from '../../models/Staff.js';
+import ApiError from '../../utils/ApiError.js';
 import { localDateStr } from '../../utils/dates.js';
 import { addDays, atLocal, computeRange, datesBetween, summarise } from './compute.js';
-import { allocateLeave, extraAvailable } from './leave.js';
+import { allocateLeave, extraAvailable, leaveChainStart } from './leave.js';
 
 const weekday = (date) => atLocal(date, 0).getDay();
+
+// ── Months frozen by salary ───────────────────────────────────────────────────
+// Once a month's salary is finalised (or paid) its attendance is frozen: the payslips were made
+// from it, and the leave carried into later months depends on it. Reopening the salary (draft
+// again) unfreezes it; a paid month stays frozen.
+
+/** 'finalized' | 'paid' | null — the salary state that freezes this month's attendance. */
+export async function salaryLock(month) {
+  const run = await SalaryRun.findOne({ month, status: { $in: ['finalized', 'paid'] } }).select('status').lean();
+  return run?.status || null;
+}
+
+/** Refuses (409) a change touching any of `dates` (YYYY-MM-DD or YYYY-MM) in a frozen month. */
+export async function assertAttendanceOpen(dates) {
+  const months = [...new Set(dates.filter(Boolean).map((d) => String(d).slice(0, 7)))];
+  if (!months.length) return;
+  const run = await SalaryRun.findOne({ month: { $in: months }, status: { $in: ['finalized', 'paid'] } })
+    .select('month status').sort({ month: 1 }).lean();
+  if (!run) return;
+  throw new ApiError(409, run.status === 'paid'
+    ? 'Salary for this month is already paid — its attendance can no longer be changed'
+    : 'Salary for this month is finalised — reopen it in Salary → Monthly Salary to change its attendance',
+  [{ code: 'MONTH_LOCKED', month: run.month, status: run.status }]);
+}
 const dayStr = (d) => (d ? localDateStr(new Date(d)) : null);
+
+/** date → was this person employed that day (the current stint or an earlier one)? */
+export function employment(staff) {
+  const stints = [{ joinDate: staff.joinDate, leftOn: staff.leftOn }, ...(staff.pastPeriods || [])]
+    .map((p) => [dayStr(p.joinDate), dayStr(p.leftOn)]);
+  return (date) => stints.some(([joined, left]) => (!joined || date >= joined) && (!left || date <= left));
+}
 
 export const monthRange = (month) => {
   const [y, m] = month.split('-').map(Number);
@@ -38,10 +71,9 @@ export async function resolvePlans(staffList, from, to, settings) {
   const plans = new Map();
   for (const staff of staffList) {
     const fallback = defaultShiftFor(staff, settings.shifts);
-    const joined = dayStr(staff.joinDate);
-    const left = dayStr(staff.leftOn);
+    const employedOn = employment(staff);
     plans.set(String(staff._id), dates.map((date) => {
-      const employed = (!joined || date >= joined) && (!left || date <= left);
+      const employed = employedOn(date);
       const holiday = holidays.get(date) || '';
       const e = byKey.get(`${staff._id}|${date}`);
       if (e) return { date, shifts: e.shifts.map(String), off: e.off, planned: true, holiday, employed };
@@ -52,13 +84,25 @@ export async function resolvePlans(staffList, from, to, settings) {
   return plans;
 }
 
-/** Staff whose attendance matters in [from, to]: active ones, plus anyone who left during it. */
-const staffFilter = (from, to) => ({
-  $and: [
-    { $or: [{ isActive: true }, { leftOn: { $gte: atLocal(from, 0) } }] },
-    { $or: [{ joinDate: null }, { joinDate: { $lt: atLocal(addDays(to, 1), 0) } }] },
-  ],
-});
+/**
+ * Staff whose attendance matters in [from, to]: active ones, anyone who left during it, and
+ * anyone with an earlier stint in it (taken back later).
+ */
+const staffFilter = (from, to) => {
+  const start = atLocal(from, 0);
+  const end = atLocal(addDays(to, 1), 0);
+  return {
+    $or: [
+      {
+        $and: [
+          { $or: [{ isActive: true }, { leftOn: { $gte: start } }] },
+          { $or: [{ joinDate: null }, { joinDate: { $lt: end } }] },
+        ],
+      },
+      { pastPeriods: { $elemMatch: { joinDate: { $lt: end }, leftOn: { $gte: start } } } },
+    ],
+  };
+};
 
 /**
  * Attendance for staff over [from, to]: per-day results and per-person totals.
@@ -121,9 +165,14 @@ export async function computeAttendance({ from, to, staffIds, includeInactive = 
 export async function computeMonth({ month, staffIds, now = new Date(), withRaw = false }) {
   const settings = await AttendanceSettings.getOrCreate();
   const { from, to } = monthRange(month);
-  // Extra leave earned up to `extraLeaveValidDays` before this month can still be used in it,
-  // and how much of it is left depends on the months in between — so the sums start there.
-  const chainFrom = `${addDays(from, -(settings.extraLeaveValidDays || 60)).slice(0, 7)}-01`;
+  // Extra leave earned before this month can still be used in it, and how much of it is left
+  // depends on absences before — so the sums start early enough to know (leaveChainStart).
+  const valid = settings.extraLeaveValidDays || 60;
+  const earned = await DoubleShift.find({
+    decision: 'extra_leave', date: { $gte: addDays(from, -valid * 8), $lt: from },
+    ...(staffIds?.length ? { staff: { $in: staffIds } } : {}),
+  }).select('date').lean();
+  const chainFrom = leaveChainStart(from, valid, earned.map((d) => d.date));
   const base = await computeAttendance({ from: chainFrom, to, staffIds, now, withRaw, settings });
   const ids = base.staff.map((s) => s._id);
   const [decisions, adjustments] = await Promise.all([
@@ -139,7 +188,8 @@ export async function computeMonth({ month, staffIds, now = new Date(), withRaw 
   const planned = {};
   const leave = {};
   // The sums start before the month — leave out anyone who had already left by its start
-  const staff = staffIds?.length ? base.staff : base.staff.filter((s) => !s.leftOn || dayStr(s.leftOn) >= from);
+  const staff = staffIds?.length ? base.staff
+    : base.staff.filter((s) => !s.leftOn || dayStr(s.leftOn) >= from || (s.pastPeriods || []).some((p) => dayStr(p.leftOn) >= from));
 
   for (const s of staff) {
     const k = String(s._id);

@@ -8,7 +8,7 @@ import {
 import * as shifts from '../controllers/bookingShift.controller.js';
 import {
   createBatch, createClosure, createHall, createSevaType, deleteBatch, deleteClosure, deleteHall, deleteSevaType,
-  getSetup, updateBatch, updateHall, updateSettings, updateSevaType,
+  getSetup, recountSeatCounters, updateBatch, updateHall, updateSettings, updateSevaType,
 } from '../controllers/bookingSetup.controller.js';
 
 // /bookings — counter, register, reports
@@ -54,6 +54,7 @@ bookingSetupRouter.route('/batches/:id').put(updateBatch).delete(deleteBatch);
 bookingSetupRouter.post('/closures', createClosure);
 bookingSetupRouter.delete('/closures/:id', deleteClosure);
 bookingSetupRouter.put('/settings', updateSettings);
+bookingSetupRouter.post('/recount-seats', recountSeatCounters);
 
 // /booking-shifts — counter shift close and cash handover
 export const bookingShiftRouter = Router();

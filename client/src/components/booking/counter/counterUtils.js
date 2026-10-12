@@ -1,5 +1,6 @@
 // Pure helpers for the booking counter (no React, no browser-only imports) — see counterUtils.test.js.
 import { isPincode } from '../../../utils/address.js';
+import { paymentRefProblem } from '../../../utils/payment.js';
 
 // ── Sankalp lists ─────────────────────────────────────────────────────────────
 // The value saved on the booking is the English (transliterated) name; Marathi is the display label.
@@ -169,8 +170,10 @@ export function addFamilyNames(list, text) {
  * Checks the form before booking. Returns { field: English message } (empty = OK).
  * `availability` is the server's answer for the chosen seva + date (undefined while loading).
  */
-export function validateBooking({ seva, phone, devotee, date, batchId, availability, peopleCount, capacityUnit }) {
+export function validateBooking({ seva, phone, devotee, date, batchId, availability, peopleCount, capacityUnit, paymentMode, paymentRef }) {
   const e = {};
+  const payProblem = paymentRefProblem(paymentMode, paymentRef);
+  if (payProblem) e.payment = payProblem;
   if (!isValidPhone(phone)) e.phone = 'Enter a valid 10-digit mobile number';
   if (!seva) { e.seva = 'Choose a seva type'; return e; }
   if (!String(devotee.name || '').trim()) e.name = 'Enter the devotee name';

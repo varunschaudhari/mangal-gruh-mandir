@@ -283,4 +283,12 @@ export default {
   'Hall code: up to 8 capital letters or digits, like H1': 'हॉल कोड: जास्तीत जास्त 8 कॅपिटल अक्षरे किंवा अंक, उदा. H1',
   'The hall code can’t be changed — slips already carry it. Change the name instead.': 'हॉल कोड बदलता येत नाही — तो आधीच पावत्यांवर आहे. त्याऐवजी नाव बदला.',
   'Hall not found': 'हॉल सापडला नाही',
+  // ── Seat counts ──
+  'Seat counts': 'जागांची संख्या',
+  'If a batch shows full but has free seats, recount the seats from the bookings. This also happens every night.': 'एखादी बॅच भरलेली दिसत असेल पण जागा रिकाम्या असतील, तर बुकिंगवरून जागा पुन्हा मोजा. हे दररोज रात्रीही आपोआप होते.',
+  'Recount seats': 'जागा पुन्हा मोजा',
+  'Recounting…': 'मोजत आहे…',
+  'Seat counts corrected for {n} batches': '{n} बॅचच्या जागांची संख्या दुरुस्त केली',
+  'Seat counts were already right': 'जागांची संख्या आधीच बरोबर होती',
+  'Seat counts corrected': 'जागांची संख्या दुरुस्त केली',
 };

@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import { formatAddress, isPincode } from './address.js';
 import { dayCode } from './attendanceCodes.js';
 import { localDateStr } from './dates.js';
+import { cleanPaymentRef, paymentRefProblem } from './payment.js';
 
 test('address: parts joined, repeated names once, PIN last', () => {
   assert.equal(
@@ -36,4 +37,16 @@ test('local date: the India calendar day, not the UTC one', () => {
   // 00:30 local time on 1 Oct (in IST still 30 Sep in UTC)
   assert.equal(localDateStr(new Date(2026, 9, 1, 0, 30)), '2026-10-01');
   assert.equal(localDateStr('2026-10-12T12:00:00'), '2026-10-12');
+});
+
+test('payment reference: UPI and card need one the cashier can match, cash none', () => {
+  assert.equal(paymentRefProblem('cash', ''), '');
+  assert.match(paymentRefProblem('upi', ''), /UTR/);
+  assert.match(paymentRefProblem('upi', ' 12 '), /UTR/);           // too short to match anything
+  assert.equal(paymentRefProblem('upi', '4123 5678 9012'), '');    // a full UTR, spaces and all
+  assert.equal(paymentRefProblem('upi', '9012'), '');              // its last 4 digits
+  assert.match(paymentRefProblem('card', '--'), /last 4 digits/);
+  assert.equal(paymentRefProblem('card', '4242'), '');
+  assert.equal(paymentRefProblem('card', 'A1B2C3'), '');           // approval code
+  assert.equal(cleanPaymentRef(' 4123 5678 9012 '), '412356789012');
 });

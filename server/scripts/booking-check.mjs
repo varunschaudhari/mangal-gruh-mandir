@@ -77,7 +77,7 @@ async function main() {
 
   // 2 seats used. Fire 20 at once: exactly 3 must get in, with unique serials.
   const burst = await Promise.all(Array.from({ length: 20 }, (_, i) => api('POST', '/bookings', {
-    sevaType: abhishek._id, date: tomorrow, batch: batch._id, paymentMode: 'upi',
+    sevaType: abhishek._id, date: tomorrow, batch: batch._id, paymentMode: 'upi', paymentRef: `UTR${700100 + i}`,
     devotee: { name: `Devotee ${i}`, phone: `98${String(10000000 + i).slice(-8)}` },
   })));
   const ok = burst.filter((r) => r.status === 201);
@@ -105,8 +105,8 @@ async function main() {
   });
   check(postOk.status === 201 && !postOk.body.data.dateKey && postOk.body.data.devotee?.pincode === '411004', 'Post Abhishek books without a date (address with PIN kept)');
 
-  const p1 = await api('POST', '/bookings', { sevaType: panch._id, date: nextTuesday, devotee: { name: 'Family A', phone: '9822000001' }, paymentMode: 'card' });
-  const p2 = await api('POST', '/bookings', { sevaType: panch._id, date: nextTuesday, devotee: { name: 'Family B', phone: '9822000002' }, paymentMode: 'card' });
+  const p1 = await api('POST', '/bookings', { sevaType: panch._id, date: nextTuesday, devotee: { name: 'Family A', phone: '9822000001' }, paymentMode: 'card', paymentRef: '4242' });
+  const p2 = await api('POST', '/bookings', { sevaType: panch._id, date: nextTuesday, devotee: { name: 'Family B', phone: '9822000002' }, paymentMode: 'card', paymentRef: '5151' });
   check(p1.status === 201 && p2.status === 409, 'Panchamrit: one family per Tuesday');
   const wrongDay = await api('POST', '/bookings', { sevaType: panch._id, date: notTuesday, devotee: { name: 'X', phone: '9822000003' }, paymentMode: 'cash' });
   check(wrongDay.status === 400, 'Panchamrit cannot be booked on other days');
@@ -189,6 +189,17 @@ async function main() {
     'payment mode can be fixed before the shift is closed');
   await api('PATCH', `/bookings/${t._id}`, { paymentMode: 'cash', paymentRef: '' });
 
+  // UPI / card need a reference the cashier can match; a cash → UPI change and a repeated UTR are flagged
+  const upiNoRef = await api('POST', '/bookings', { sevaType: abhishek._id, date: tomorrow, batch: other._id, devotee: { name: 'No Ref', phone: '9822000111' }, paymentMode: 'upi' });
+  check(upiNoRef.status === 400 && /UTR/.test(upiNoRef.body.message), 'UPI without a reference (UTR) is refused', upiNoRef.body.message);
+  const cardShort = await api('POST', '/bookings', { sevaType: abhishek._id, date: tomorrow, batch: other._id, devotee: { name: 'Short Ref', phone: '9822000112' }, paymentMode: 'card', paymentRef: '12' });
+  check(cardShort.status === 400, 'card needs its last 4 digits or the approval code');
+  const switched = (await api('POST', '/bookings', { sevaType: abhishek._id, date: tomorrow, batch: other._id, devotee: { name: 'Paid Later', phone: '9822000113' }, paymentMode: 'cash' })).body.data;
+  check((await api('PATCH', `/bookings/${switched._id}`, { paymentMode: 'upi' })).status === 400, 'changing to UPI needs the reference too');
+  const reusedRef = ok[0].body.data.paymentRef;
+  const switchedUpi = await api('PATCH', `/bookings/${switched._id}`, { paymentMode: 'upi', paymentRef: ` ${reusedRef} ` });
+  check(switchedUpi.status === 200 && switchedUpi.body.data.paymentRef === reusedRef, 'cash → UPI with a reference is saved (spaces dropped)');
+
   // ── Shift close and cash handover ───────────────────────────────────────────
   const sum2 = (await api('GET', '/bookings/reports/summary')).body.data;
   const cur = (await api('GET', '/booking-shifts/current')).body.data;
@@ -212,8 +223,16 @@ async function main() {
   const byNotes = await api('POST', '/booking-shifts/close', { denominations: { 500: 1, 200: 1, 100: 1, 10: 1 } });
   check(byNotes.status === 201 && byNotes.body.data.countedCash === 810 && byNotes.body.data.difference === 0, 'count by notes adds up the denominations');
 
-  const verified = await api('PATCH', `/booking-shifts/${sh._id}/verify`, { note: 'Checked' });
-  check(verified.status === 200 && verified.body.data.status === 'verified' && Boolean(verified.body.data.verifiedBy?.name), 'supervisor verifies the handover');
+  const detail = (await api('GET', `/booking-shifts/${sh._id}`)).body.data;
+  const flagsOf = (id) => detail.bookings.find((b) => String(b._id) === String(id))?.flags || [];
+  check(detail.digital?.modeChanged === 1 && flagsOf(switched._id).includes('mode-changed') && flagsOf(switched._id).includes('ref-reused')
+    && flagsOf(ok[0].body.data._id).includes('ref-reused') && detail.digital.upi.count >= 4,
+  'the handover flags the cash → UPI change and the UTR used twice', JSON.stringify(detail.digital));
+  const unticked = await api('PATCH', `/booking-shifts/${sh._id}/verify`, { note: 'Checked' });
+  check(unticked.status === 400, 'verifying a shift with UPI / card needs the statement tick');
+  const verified = await api('PATCH', `/booking-shifts/${sh._id}/verify`, { note: 'Checked', digitalChecked: true });
+  check(verified.status === 200 && verified.body.data.status === 'verified' && Boolean(verified.body.data.verifiedBy?.name) && verified.body.data.digitalChecked,
+    'supervisor verifies the handover, UPI and card matched with the statement');
   check((await api('PATCH', `/booking-shifts/${sh._id}/verify`, {})).status === 400, 'a verified handover cannot be verified again');
 
   // Counter staff: their own shift only, no verifying, no changing someone else's payment
@@ -239,7 +258,7 @@ async function main() {
   // Bhomyag (date fixed with the office, no batch) can be booked for today at any hour.
   const today = key(new Date());
   const bhom = setup.sevaTypes.find((s) => s.code === 'BHOM');
-  const visit = await api('POST', '/bookings', { sevaType: bhom._id, date: today, devotee: { name: 'Hall Visitor', phone: '9822000055' }, paymentMode: 'upi', peopleCount: 3 });
+  const visit = await api('POST', '/bookings', { sevaType: bhom._id, date: today, devotee: { name: 'Hall Visitor', phone: '9822000055' }, paymentMode: 'upi', paymentRef: 'UTR990055', peopleCount: 3 });
   const vb = visit.body.data;
   const ci = await api('POST', '/bookings/check-in', { code: vb.receiptUrl });
   check(visit.status === 201 && ci.status === 200 && ci.body.data.result === 'ok' && ci.body.data.checkedIn && Boolean(ci.body.data.booking.checkedInBy?.name),
@@ -318,6 +337,10 @@ async function main() {
     && (await api('POST', '/booking-setup/batches', { ...slot, hall: 'H4' })).status === 400, 'a switched-off hall cannot get new batches');
   check((await api('DELETE', `/booking-setup/halls/${h4.body.data._id}`)).status === 200, 'an unused hall can be deleted');
   await api('PUT', `/booking-setup/halls/${h1._id}`, { name: '', nameMr: '' });
+
+  // After every booking, void and move above, the seat counts still match the bookings
+  const recount = await api('POST', '/booking-setup/recount-seats', {});
+  check(recount.status === 200 && recount.body.data.fixed.length === 0, 'seat counts match the bookings after voids and moves (recount finds nothing to fix)', JSON.stringify(recount.body.data?.fixed));
 
   await api('PUT', `/booking-setup/batches/${batch._id}`, { capacity: 50 });
   console.log(failed ? `\n${failed} booking check(s) failed` : '\nBooking checks OK');

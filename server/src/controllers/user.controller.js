@@ -76,7 +76,7 @@ export const createUser = asyncHandler(async (req, res) => {
   }
 
   if (await User.findOne({ email })) throw new ApiError(409, 'Email already in use');
-  await validateProfile(req, null, staffProfile);
+  await validateProfile(req, null, staffProfile, { nextActive: true });
 
   const user = await User.create({
     name, email, password, phone, role, departments: departmentIds(departments),
@@ -116,7 +116,7 @@ export const updateUser = asyncHandler(async (req, res) => {
   if (changes.role && changes.role !== target.role && !(await Role.exists({ slug: changes.role }))) {
     throw new ApiError(400, `Unknown role "${changes.role}"`);
   }
-  await validateProfile(req, target, staffProfile);
+  await validateProfile(req, target, staffProfile, { nextActive: changes.isActive ?? target.isActive });
 
   const before = { role: target.role, isActive: target.isActive, canApprovePayments: target.canApprovePayments, canApproveAssets: target.canApproveAssets };
   Object.assign(target, changes);

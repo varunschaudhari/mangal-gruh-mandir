@@ -235,18 +235,9 @@ async function attendanceFlow(auth, failures) {
   check(`${edit.status} hand change to a salary line`, edited?.gross === 15800 && edited.otherEarningNote === 'Festival bonus');
   const early = await fetch(`${BASE}/api/salary/runs/${M}/files/ecr.txt`, { headers: auth });
   check(`${early.status} PF file refused while still a draft`, early.status === 400);
+  // A month that isn't over can't be finalised (finalising and the files: scripts/attendance-check.mjs)
   const fin = await api('POST', `/salary/runs/${M}/finalize`);
-  check(`${fin.status} salary finalised`, fin.body.data?.run?.status === 'finalized');
-  for (const kind of ['register.xlsx', 'bank.xlsx', 'bank.csv', 'ecr.txt', 'esi.xlsx']) {
-    const r = await fetch(`${BASE}/api/salary/runs/${M}/files/${kind}`, { headers: auth });
-    const text = kind.endsWith('.txt') || kind.endsWith('.csv') ? await r.text() : '';
-    const ok = r.status === 200 && (kind !== 'ecr.txt' || text.includes('100900800700#~#SMOKE TEST STAFF#~#15800#~#9000#~#9000#~#9000#~#1080#~#750#~#330#~#0#~#0'))
-      && (kind !== 'bank.csv' || text.includes('001234567890'));
-    check(`${r.status} salary file ${kind}`, ok, text.slice(0, 200));
-  }
-  const locked = await api('PATCH', `/salary/runs/${M}/lines/${staffId}`, { otherEarning: 0 });
-  check(`${locked.status} finalised salary cannot be changed`, locked.status === 400);
-  await api('POST', `/salary/runs/${M}/reopen`);
+  check(`${fin.status} a month that isn't over can't be finalised`, fin.status === 400 && /isn’t over/.test(fin.body.message || ''), fin.body.message);
   const del = await api('DELETE', `/salary/runs/${M}`);
   check(`${del.status} draft deleted`, del.status === 200);
   const delAdv = await api('DELETE', `/salary/advances/${adv.body.data?._id}`);

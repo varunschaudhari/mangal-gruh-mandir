@@ -146,11 +146,23 @@ describe('Pooja Booking counter', () => {
     await user.type(screen.getByLabelText(/Mobile number/), '9876543210');
     await user.type(screen.getByLabelText(/Devotee name/), 'Ramesh Patil');
     await user.click(screen.getByRole('radio', { name: /UPI/ }));
-    await user.type(screen.getByLabelText('UPI reference (optional)'), 'UTR998877');
+    await user.type(screen.getByLabelText('UPI reference (UTR)'), 'UTR998877');
     await waitFor(() => expect(screen.getByText(/Chosen/)).toBeInTheDocument());
     await user.click(bookButton());
     await waitFor(() => expect(createBooking).toHaveBeenCalled());
     expect(sentBody()).toMatchObject({ paymentMode: 'upi', paymentRef: 'UTR998877' });
+  });
+
+  it('UPI without a reference is stopped at the counter, nothing is sent', async () => {
+    const user = setup();
+    await waitFor(() => expect(bookButton()).toBeInTheDocument());
+    await user.type(screen.getByLabelText(/Mobile number/), '9876543210');
+    await user.type(screen.getByLabelText(/Devotee name/), 'Ramesh Patil');
+    await user.click(screen.getByRole('radio', { name: /UPI/ }));
+    await waitFor(() => expect(screen.getByText(/Chosen/)).toBeInTheDocument());
+    await user.click(bookButton());
+    await waitFor(() => expect(lastError()).toMatch(/UTR/));
+    expect(createBooking).not.toHaveBeenCalled();
   });
 
   it('shows the server\'s reason when the booking is refused', async () => {

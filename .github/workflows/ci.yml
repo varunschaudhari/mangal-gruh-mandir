@@ -78,6 +78,8 @@ jobs:
         run: node scripts/booking-check.mjs
       - name: Stock FIFO, supplier payment approval, donations and 80G
         run: node scripts/rules-check.mjs
+      - name: Attendance (joining / leaving / rejoining, month frozen once salary is finalised)
+        run: node scripts/attendance-check.mjs
       - name: Request validation accepts what the screens send, refuses bad input
         run: node scripts/validation-check.mjs
       - name: Server log

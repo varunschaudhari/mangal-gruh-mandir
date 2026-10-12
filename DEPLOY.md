@@ -245,6 +245,12 @@ Then remove the `TEST` entry it creates under **Attendance → Shifts & Machine*
 2. Within a minute it appears under **Attendance → Shifts & Machine** as *waiting for approval*.
    Name it (e.g. "Main gate"), tick **Approved**, Save. Punches are refused until then — the machine
    keeps them and resends after approval, so nothing is lost.
+   Then fill **Allowed network addresses** (the **Use …** button puts in the address the machine
+   connected from): punches are accepted only from the temple's internet connection, so someone
+   who reads the serial number off the machine can't send punches from elsewhere. If the temple's
+   address changes (some broadband connections do), the machine is refused and the screen shows
+   the new address — add it. The machine endpoint also refuses floods (over 120 requests a minute
+   from one address; `DEVICE_RATE_LIMIT` changes that).
 3. Enrol each person's finger/face on the machine and enter the same **Machine number** on their user
    (**Admin → Users**, section *Attendance & payroll*). Punches that arrived before the number was
    entered are linked automatically; unknown numbers are listed on the Staff Register page with an

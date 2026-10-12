@@ -11,6 +11,8 @@
 //    and "unpaid" uses no leave at all.
 //  • With the late penalty on, each late mark after the free ones in a month cuts half a day.
 
+import { addDays } from './compute.js';
+
 const UNITS = { absent: 1, half_day: 0.5, leave: 1 };
 
 const emptyMonth = (entitlement) => ({ paidEntitled: entitlement, paidUsed: 0, extraUsed: 0, unpaid: 0, lateMarks: 0, lateCut: 0 });
@@ -73,3 +75,25 @@ export function allocateLeave({ days, entitlement, credits = [], latePenalty = {
 export const extraAvailable = (credits, date) => credits
   .filter((c) => c.date <= date && c.expiresOn >= date && c.amount - c.used > 0)
   .reduce((sum, c) => sum + c.amount - c.used, 0);
+
+/**
+ * Where the leave sums for a month must start so the extra leave carried into it is right.
+ * Extra leave still usable on a day was earned in the validity period before it — and how much
+ * of it is left depends on absences in that period, which may first have used even older extra
+ * leave. So step back one validity period at a time while extra leave was earned in the period
+ * before; once a period has none, nothing older can matter. Starts on the 1st of a month (paid
+ * leave goes by month). `maxSteps` bounds the work for someone earning extra leave all year.
+ * @param from         'YYYY-MM-DD' — the first day of the month being worked out
+ * @param validDays    how long extra leave lasts
+ * @param creditDates  dates extra leave was earned (any order)
+ * @returns 'YYYY-MM-01'
+ */
+export function leaveChainStart(from, validDays, creditDates, maxSteps = 6) {
+  let start = addDays(from, -validDays);
+  for (let i = 0; i < maxSteps; i += 1) {
+    const before = addDays(start, -validDays);
+    if (!creditDates.some((d) => d >= before && d < start)) break;
+    start = before;
+  }
+  return `${start.slice(0, 7)}-01`;
+}

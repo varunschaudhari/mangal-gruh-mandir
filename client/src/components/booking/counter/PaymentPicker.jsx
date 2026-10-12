@@ -38,31 +38,40 @@ export function PaymentModes({ mode, onMode, compact = false }) {
   );
 }
 
-/** Optional UPI reference / card digits. */
-export function PaymentRefInput({ mode, value, onChange, className = '' }) {
+/**
+ * UPI reference (UTR) / card last 4 digits — needed for UPI and card, so the cashier can match
+ * the payment with the bank or card-machine statement. `error` = message to show under it.
+ */
+export function PaymentRefInput({ mode, value, onChange, className = '', error }) {
   const t = useT();
   if (mode === 'cash') return null;
-  const label = mode === 'upi' ? t('UPI reference (optional)') : t('Card last 4 digits (optional)');
+  const label = mode === 'upi' ? t('UPI reference (UTR)') : t('Card last 4 digits / approval code');
   return (
-    <input
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      maxLength={80}
-      autoComplete="off"
-      inputMode={mode === 'card' ? 'numeric' : 'text'}
-      placeholder={label}
-      aria-label={label}
-      className={`input ${className}`}
-    />
+    <div>
+      <input
+        id="bk-payref"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        maxLength={40}
+        autoComplete="off"
+        inputMode={mode === 'card' ? 'numeric' : 'text'}
+        placeholder={`${label} *`}
+        aria-label={label}
+        aria-required="true"
+        aria-invalid={Boolean(error)}
+        className={`input ${error ? 'border-red-400 focus:border-red-500 focus:ring-red-200' : ''} ${className}`}
+      />
+      {error && <p className="mt-1 text-xs text-red-600" role="alert">{error}</p>}
+    </div>
   );
 }
 
 /** Phone layout: the modes and the reference stacked in the form. */
-export default function PaymentPicker({ mode, onMode, paymentRef, onRef }) {
+export default function PaymentPicker({ mode, onMode, paymentRef, onRef, error }) {
   return (
     <div className="space-y-2">
       <PaymentModes mode={mode} onMode={onMode} />
-      <PaymentRefInput mode={mode} value={paymentRef} onChange={onRef} className="h-12" />
+      <PaymentRefInput mode={mode} value={paymentRef} onChange={onRef} className="h-12" error={error} />
     </div>
   );
 }

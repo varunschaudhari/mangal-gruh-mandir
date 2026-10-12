@@ -3,6 +3,7 @@ import Staff from '../models/Staff.js';
 import ApiError from '../utils/ApiError.js';
 import { getPermissionsForRole } from '../middleware/authorize.js';
 import { nextNumber } from './sequence.service.js';
+import { localDateStr } from '../../../shared/dates.js';
 
 // Everyone is a User. A user who is "on attendance & payroll" also has an attendance profile
 // (the Staff document): machine number, shifts, weekly off, salary, PF/ESI, bank. Punches,
@@ -47,13 +48,55 @@ export async function pickProfile(req, body = {}) {
   return { data: out, canAttendance: att };
 }
 
-/** Checks a profile can be saved, before the user is created or changed. */
-export async function validateProfile(req, user, body) {
-  if (!body?.onPayroll) return;
+const day = (v) => (v ? String(v).slice(0, 10) : '');                 // 'YYYY-MM-DD' from the form
+const dayOf = (d) => (d ? localDateStr(new Date(d)) : '');             // a saved Date → 'YYYY-MM-DD'
+
+/**
+ * Checks a profile can be saved, before the user is created or changed. `nextActive` = whether
+ * the user will be active after this save.
+ * - On payroll needs a joining date (days before it are "not employed", so a default of today
+ *   would wrongly drop the start of the month).
+ * - Switching off (or taking off payroll) someone with attendance needs their last working day,
+ *   so their last month's salary and the old registers stay right.
+ * - Someone who left and is active again either rejoins (a joining date after the old last
+ *   working day — the old stint is kept) or never left (the last working day is cleared).
+ */
+export async function validateProfile(req, user, body, { nextActive } = {}) {
+  const existing = user?._id ? await Staff.findOne({ user: user._id }).select('_id joinDate leftOn onPayroll').lean() : null;
+  const active = nextActive ?? user?.isActive ?? true;
+  const wasOn = Boolean(existing?.onPayroll);
+
+  if (!body) {
+    // The form had no attendance part (no attendance rights): leaving needs someone who can enter the date
+    if (wasOn && !active && user?.isActive && !existing.leftOn) {
+      throw new ApiError(400, 'This person is on attendance & payroll — someone with attendance rights must enter their last working day before switching them off');
+    }
+    return;
+  }
+  if (!body.onPayroll) {
+    if (!wasOn) return;
+    if (!(await userCan(req, 'attendance:manage'))) throw new ApiError(403, 'You cannot take people off attendance');
+    if (!day(body.leftOn) && !existing.leftOn && await Punch.exists({ staff: existing._id })) {
+      throw new ApiError(400, 'Enter their last working day before taking them off attendance & payroll');
+    }
+    return;
+  }
   if (!(await userCan(req, 'attendance:manage'))) throw new ApiError(403, 'You cannot put people on attendance');
-  const existing = user?._id ? await Staff.findOne({ user: user._id }).select('_id').lean() : null;
   const machineId = typeof body.machineId === 'string' ? body.machineId.trim() : '';
   await assertMachineIdFree(machineId, existing?._id);
+
+  // A save that leaves a date out keeps the stored one
+  const join = 'joinDate' in body ? day(body.joinDate) : dayOf(existing?.joinDate);
+  const left = 'leftOn' in body ? day(body.leftOn) : dayOf(existing?.leftOn);
+  if (!join) throw new ApiError(400, 'Enter the joining date — for someone already working here, the date they first joined');
+  const oldLeft = dayOf(existing?.leftOn);
+  const leftEarlier = active && oldLeft && oldLeft < localDateStr() && left === oldLeft;   // active again, old last day still there
+  if (leftEarlier && join <= oldLeft) {
+    throw new ApiError(400, 'They left earlier — set the joining date to the day they rejoin, or clear the last working day if they never left');
+  }
+  // (rejoining: the old last working day is before the new joining date — it goes to the earlier stint)
+  if (left && left < join && !leftEarlier) throw new ApiError(400, 'The last working day cannot be before the joining date');
+  if (!active && !left) throw new ApiError(400, 'Enter the last working day before switching off someone on attendance & payroll');
 }
 
 const identity = (user, onPayroll) => ({
@@ -98,6 +141,12 @@ export async function saveStaffProfile(req, user, body) {
     }
     staff = created;
   } else {
+    // Taken back after leaving: keep the old stint, start a new one from the new joining date
+    const oldLeft = dayOf(staff.leftOn);
+    if (user.isActive && oldLeft && oldLeft < localDateStr() && data.joinDate && day(data.joinDate) > oldLeft) {
+      staff.pastPeriods.push({ joinDate: staff.joinDate, leftOn: staff.leftOn });
+      data.leftOn = null;
+    }
     Object.assign(staff, data, identity(user, onPayroll));
     await staff.save();
   }

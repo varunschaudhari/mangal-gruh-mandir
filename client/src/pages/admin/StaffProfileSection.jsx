@@ -18,7 +18,7 @@ export const profileToForm = (p, { oldSalary = 0, machineId = '', onPayroll = fa
   staffCode: p?.staffCode || '',
   designation: p?.designation || '',
   gender: p?.gender || '',
-  joinDate: p?.joinDate ? String(p.joinDate).slice(0, 10) : localDateStr(),
+  joinDate: p?.joinDate ? String(p.joinDate).slice(0, 10) : '',
   leftOn: p?.leftOn ? String(p.leftOn).slice(0, 10) : '',
   machineId: p?.machineId ?? machineId,
   defaultShift: p?.defaultShift || '',
@@ -90,7 +90,10 @@ export default function StaffProfileSection({ register, watch, isActive }) {
   const pf = watch('staffProfile.pfApplicable');
   const esi = watch('staffProfile.esiApplicable');
   const code = watch('staffProfile.staffCode');
+  const leftOn = watch('staffProfile.leftOn');
   const p = (name) => `staffProfile.${name}`;
+  // Left earlier and active again: rejoining (new joining date) or never left (clear the date)
+  const backAgain = isActive && leftOn && leftOn < localDateStr();
 
   return (
     <div className="overflow-hidden rounded-xl border border-gray-100">
@@ -104,6 +107,11 @@ export default function StaffProfileSection({ register, watch, isActive }) {
       </div>
       <fieldset disabled={!canAttendance} className="space-y-4 bg-white p-5">
         <Tick label={t('On attendance & payroll')} hint={t('Shows in the attendance registers and in monthly salary.')} {...register(p('onPayroll'))} />
+        {!on && code && (
+          <Field label={t('Last working day')} hint={t('Needed when taking someone who has attendance off payroll — days after it are not counted.')}>
+            <input {...register(p('leftOn'))} className="input sm:w-60" type="date" />
+          </Field>
+        )}
 
         {on && (
           <>
@@ -124,8 +132,8 @@ export default function StaffProfileSection({ register, watch, isActive }) {
               <Field label={t('Machine number')} hint={t('The number this person is enrolled with on the biometric machine.')}>
                 <input {...register(p('machineId'))} className="input font-mono" inputMode="numeric" autoComplete="off" />
               </Field>
-              <Field label={t('Joining date')} hint={t('Days before this are not counted.')}>
-                <input {...register(p('joinDate'))} className="input" type="date" />
+              <Field label={`${t('Joining date')} *`} hint={t('Days before this are not counted. For someone already working here, the date they first joined.')}>
+                <input {...register(p('joinDate'))} className="input" type="date" required />
               </Field>
               <Field label={t('Usual shift')} hint={t('Used for days without a roster.')}>
                 <select {...register(p('defaultShift'))} className="input">
@@ -141,9 +149,12 @@ export default function StaffProfileSection({ register, watch, isActive }) {
               <Field label={t('Paid leaves per month')} hint={t('Leave empty to use the default ({n}).', { n: settings?.defaultPaidLeavePerMonth ?? 3 })}>
                 <input {...register(p('paidLeavePerMonth'))} className="input" type="number" min={0} max={31} inputMode="numeric" placeholder={String(settings?.defaultPaidLeavePerMonth ?? 3)} />
               </Field>
-              {!isActive && (
-                <Field label={t('Last working day')} hint={t('Days after this are not counted.')}>
-                  <input {...register(p('leftOn'))} className="input" type="date" />
+              {(!isActive || leftOn) && (
+                <Field label={!isActive ? `${t('Last working day')} *` : t('Last working day')}
+                  hint={backAgain
+                    ? t('Rejoining? Set the joining date to the day they come back — their earlier days stay counted. Never left? Clear this date.')
+                    : t('Days after this are not counted.')}>
+                  <input {...register(p('leftOn'))} className="input" type="date" required={!isActive} />
                 </Field>
               )}
             </div>

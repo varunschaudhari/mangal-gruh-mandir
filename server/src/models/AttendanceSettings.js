@@ -13,6 +13,9 @@ const shiftSchema = new mongoose.Schema({
   kind:  { type: String, enum: ['day', 'night'], default: 'day' },
   short: { type: String, trim: true, maxlength: 3, default: '' }, // roster cell label, e.g. "D", "N"
   color: { type: String, default: '#f97316' },
+  // Earlier timings, oldest first: each applied up to and including `until`. Changing the timing
+  // never rewrites days already worked.
+  past: { type: [{ _id: false, until: String, start: String, end: String, kind: String }], default: [] },
 });
 
 const deviceSchema = new mongoose.Schema({
@@ -21,6 +24,11 @@ const deviceSchema = new mongoose.Schema({
   approved:   { type: Boolean, default: false },  // punches are only accepted from approved machines
   lastSeenAt: { type: Date },
   lastIp:     { type: String, default: '' },
+  // The temple's internet address(es): "49.36.12.7, 49.36.12.*". Empty = any address (the serial
+  // number alone is trusted — anyone who reads it off the machine could send punches).
+  allowedIps: { type: String, trim: true, default: '' },
+  blockedIp:  { type: String, default: '' },     // last refused attempt (approved serial, wrong address)
+  blockedAt:  { type: Date },
 }, { _id: false });
 
 // Paid days off for everyone (festival holidays…). Someone rostered on that day works as usual.
@@ -48,6 +56,11 @@ const attendanceSettingsSchema = new mongoose.Schema(
     },
     defaultPaidLeavePerMonth: { type: Number, default: 3, min: 0, max: 31 },
     extraLeaveValidDays:      { type: Number, default: 60, min: 1, max: 366 },
+    // Earlier values of the day rules, oldest first: each applied up to and including `until`
+    rulesPast: {
+      type: [{ _id: false, until: String, graceMinutes: Number, halfDayBelowHours: Number, absentBelowHours: Number, punchMergeMinutes: Number }],
+      default: [],
+    },
     devices: { type: [deviceSchema], default: [] },
     holidays: { type: [holidaySchema], default: [] },
   },

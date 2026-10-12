@@ -103,4 +103,15 @@ export default {
   'This shift is already verified': 'ही शिफ्ट आधीच पडताळली आहे',
   'Shift not found': 'शिफ्ट सापडली नाही',
   'QZ Tray is not running on this computer — start QZ Tray and try again.': 'या संगणकावर QZ Tray चालू नाही — QZ Tray सुरू करून पुन्हा प्रयत्न करा.',
+  // ── UPI / card check at handover ──
+  'No reference': 'संदर्भ क्र. नाही',
+  'Payment changed after booking': 'बुकिंगनंतर पेमेंट पद्धत बदलली',
+  'Same reference on another booking': 'हाच संदर्भ क्र. दुसऱ्या बुकिंगवरही',
+  'UPI and card': 'UPI व कार्ड',
+  '{n} to check': '{n} तपासायचे',
+  'Match these with the bank / UPI app / card machine statement before verifying.': 'पडताळणीपूर्वी हे बँक / UPI ॲप / कार्ड मशीनच्या स्टेटमेंटशी जुळवा.',
+  'Matched with the statement by {name}': '{name} यांनी स्टेटमेंटशी जुळवले',
+  'UPI {upi} and card {card} match the bank / card statement.': 'UPI {upi} व कार्ड {card} बँक / कार्ड स्टेटमेंटशी जुळतात.',
+  '{n} payments are flagged — check them first.': '{n} पेमेंटवर खूण आहे — आधी ते तपासा.',
+  'Tick that the UPI and card payments match the bank / card statement': 'UPI व कार्ड पेमेंट बँक / कार्ड स्टेटमेंटशी जुळतात यावर खूण करा',
 };

@@ -93,5 +93,6 @@ bookingSchema.index({ createdBy: 1, paidAt: -1 });
 bookingSchema.index({ createdBy: 1, shift: 1, paidAt: 1 });
 bookingSchema.index({ 'devotee.phone': 1, dateKey: 1 });
 bookingSchema.index({ clientRequestId: 1 }, { unique: true, sparse: true });
+bookingSchema.index({ paymentRef: 1 }, { partialFilterExpression: { paymentRef: { $gt: '' } } });   // same UTR on two bookings
 
 export default mongoose.model('Booking', bookingSchema);

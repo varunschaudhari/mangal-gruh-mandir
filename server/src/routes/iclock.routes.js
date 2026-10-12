@@ -1,13 +1,16 @@
 import express, { Router } from 'express';
 import AttendanceSettings from '../models/AttendanceSettings.js';
-import { handshake, ingestPunches, parseAttlog } from '../services/attendance/adms.js';
+import { cleanIp, handshake, ingestPunches, ipAllowed, parseAttlog } from '../services/attendance/adms.js';
+import { deviceLimiter } from '../middleware/rateLimiter.js';
 import asyncHandler from '../utils/asyncHandler.js';
 import { logger } from '../utils/logger.js';
 
 // Endpoint the biometric machine talks to (ZKTeco/eSSL ADMS protocol) — mounted at /iclock,
 // outside /api, because that path is fixed in the machines' firmware. A machine is only
-// trusted once an admin approves its serial number in Settings → Attendance.
+// trusted once an admin approves its serial number in Settings → Attendance — and, when the
+// machine has allowed addresses set, only from those (the serial is printed on the machine).
 const router = Router();
+router.use(deviceLimiter);
 router.use(express.text({ type: () => true, limit: '2mb' }));
 
 const plain = (res, status, text) => res.status(status).type('text/plain').send(text);
@@ -28,16 +31,29 @@ async function knownDevice(req) {
     if (settings.devices.filter((d) => !d.approved).length >= 10) return null;
     await AttendanceSettings.updateOne(
       { _id: settings._id, 'devices.serial': { $ne: serial } },
-      { $push: { devices: { serial, approved: false, lastSeenAt: now, lastIp: req.ip } } },
+      { $push: { devices: { serial, approved: false, lastSeenAt: now, lastIp: cleanIp(req.ip) } } },
     );
     logger.info('New attendance machine waiting for approval', { serial });
+    return null;
+  }
+  const ip = cleanIp(req.ip);
+  if (device.approved && !ipAllowed(ip, device.allowedIps)) {
+    // Right serial, wrong place: refused (noted for the settings screen, at most once a minute)
+    if (now - (lastSeenWrite.get(`x:${serial}`) || 0) > 60 * 1000) {
+      lastSeenWrite.set(`x:${serial}`, now);
+      logger.warn('Attendance machine refused: not from an allowed address', { serial, ip });
+      await AttendanceSettings.updateOne(
+        { _id: settings._id, 'devices.serial': serial },
+        { $set: { 'devices.$.blockedIp': ip, 'devices.$.blockedAt': now } },
+      );
+    }
     return null;
   }
   if (now - (lastSeenWrite.get(serial) || 0) > 60 * 1000) {
     lastSeenWrite.set(serial, now);
     await AttendanceSettings.updateOne(
       { _id: settings._id, 'devices.serial': serial },
-      { $set: { 'devices.$.lastSeenAt': now, 'devices.$.lastIp': req.ip } },
+      { $set: { 'devices.$.lastSeenAt': now, 'devices.$.lastIp': ip } },
     );
   }
   return device.approved ? device : null;

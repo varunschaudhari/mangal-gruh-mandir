@@ -39,7 +39,7 @@ export const getCurrentShift = ()           => api.get('/booking-shifts/current'
 export const closeShift      = (data)       => api.post('/booking-shifts/close', data);
 export const getShifts       = (params)     => api.get('/booking-shifts', { params });
 export const getShift        = (id)         => api.get(`/booking-shifts/${id}`);
-export const verifyShift     = (id, note)   => api.patch(`/booking-shifts/${id}/verify`, { note });
+export const verifyShift     = (id, note, digitalChecked = false) => api.patch(`/booking-shifts/${id}/verify`, { note, digitalChecked });
 
 // ── Setup (/booking-setup) ────────────────────────────────────────────────────
 export const getBookingSetup      = ()         => api.get('/booking-setup');
@@ -55,6 +55,7 @@ export const deleteBookingBatch   = (id)       => api.delete(`/booking-setup/bat
 export const createClosure        = (data)     => api.post('/booking-setup/closures', data);
 export const deleteClosure        = (id)       => api.delete(`/booking-setup/closures/${id}`);
 export const updateBookingSettings = (data)    => api.put('/booking-setup/settings', data);
+export const recountBookingSeats  = ()         => api.post('/booking-setup/recount-seats');
 
 // ── Public receipt (no sign-in; plain axios so a stale login never interferes) ─
 export const getPublicReceipt = (token) => axios.get(serverUrl(`/api/public/receipts/${token}`));

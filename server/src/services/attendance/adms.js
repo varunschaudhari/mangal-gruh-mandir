@@ -57,3 +57,26 @@ export const handshake = (serial) => [
   'Realtime=1',
   'Encrypt=None',
 ].join('\n');
+
+// ── Which network addresses a machine may send from ─────────────────────────────
+
+/** "::ffff:49.36.12.7" → "49.36.12.7" */
+export const cleanIp = (ip) => String(ip || '').replace(/^::ffff:/, '');
+
+const IP_ENTRY = /^(\d{1,3}(\.\d{1,3}){3}|(\d{1,3}\.){1,3}\*|[0-9a-f]*:[0-9a-f:]*)$/i;   // IPv4, IPv4 range with *, IPv6
+
+/** The entries of an allowed-address list, or throws on a bad one. */
+export function parseAllowedIps(text) {
+  const entries = String(text || '').split(/[\s,]+/).filter(Boolean);
+  const bad = entries.find((e) => !IP_ENTRY.test(e));
+  if (bad) throw new Error(`"${bad}" is not an address — use e.g. 49.36.12.7 or 49.36.12.*`);
+  return entries;
+}
+
+/** Is `ip` in the list ("49.36.12.7", or "49.36.12.*" for the whole range)? An empty list allows any. */
+export function ipAllowed(ip, list) {
+  const entries = String(list || '').split(/[\s,]+/).filter(Boolean);
+  if (!entries.length) return true;
+  const addr = cleanIp(ip);
+  return entries.some((e) => (e.endsWith('*') ? addr.startsWith(e.slice(0, -1)) : addr === e));
+}

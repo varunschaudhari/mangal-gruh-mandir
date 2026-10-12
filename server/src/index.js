@@ -18,6 +18,7 @@ import { processOverdueInvoiceAlerts } from './services/overdueInvoiceAlert.serv
 import { logger } from './utils/logger.js';
 import { refreshTemple } from './services/temple.service.js';
 import { pushMorningDigest } from './services/pushAlerts.service.js';
+import { recountSeats } from './services/booking/booking.service.js';
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -125,6 +126,11 @@ app.listen(PORT, () => {
   startOverdueInvoiceAlertScheduler();
   // 08:30 IST — mobile app push: stock needing attention + approvals waiting
   scheduleDaily(8, 30, pushMorningDigest);
+  // 02:30 IST — no counter is booking: put booking seat counts back in line with the bookings
+  scheduleDaily(2, 30, async () => {
+    const fixed = await recountSeats({ settleMs: 0 });
+    if (fixed.length) logger.warn('Booking seat counts corrected', { fixed });
+  });
 });
 
 function scheduleDaily(hour, minute, fn) {

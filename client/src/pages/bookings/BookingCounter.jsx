@@ -35,7 +35,7 @@ import {
 // Touch screens: no focus jumps that would pop the on-screen keyboard unasked.
 const hasKeyboard = () => !isNative && Boolean(window.matchMedia?.('(hover: hover) and (pointer: fine)').matches);
 
-const ERROR_ORDER = ['phone', 'name', 'seva', 'when', 'address', 'email', 'people'];
+const ERROR_ORDER = ['phone', 'name', 'seva', 'when', 'address', 'email', 'people', 'payment'];
 
 export default function BookingCounter() {
   const t = useT();
@@ -299,6 +299,7 @@ export default function BookingCounter() {
     else if (key === 'when') whenRef.current?.scrollIntoView({ block: 'center', behavior: 'smooth' });
     else if (key === 'email') go(document.getElementById('bk-email'));
     else if (key === 'people') go(document.getElementById('bk-people'));
+    else if (key === 'payment') go(document.getElementById('bk-payref'));
   };
 
   const submit = () => {
@@ -308,7 +309,7 @@ export default function BookingCounter() {
     if (familyDraft.trim()) { setDevotee((d) => ({ ...d, familyNames })); setFamilyDraft(''); }
     const dv = { ...devotee, familyNames };
 
-    const errs = validateBooking({ seva, phone, devotee: dv, date, batchId, availability: avail, peopleCount, capacityUnit });
+    const errs = validateBooking({ seva, phone, devotee: dv, date, batchId, availability: avail, peopleCount, capacityUnit, paymentMode, paymentRef });
     const first = ERROR_ORDER.find((k) => errs[k]);
     if (first) {
       setErrors(errs);
@@ -514,7 +515,7 @@ export default function BookingCounter() {
           {!isWide && (
             <section className="card p-4">
               <SectionTitle>{t('Payment')}</SectionTitle>
-              <PaymentPicker mode={paymentMode} onMode={choosePayment} paymentRef={paymentRef} onRef={setPaymentRef} />
+              <PaymentPicker mode={paymentMode} onMode={choosePayment} paymentRef={paymentRef} onRef={setPaymentRef} error={errorText('payment')} />
             </section>
           )}
 
@@ -540,7 +541,7 @@ export default function BookingCounter() {
                   {bookMut.isPending && <Loader2 className="h-5 w-5 animate-spin" />} {bookLabel}
                 </button>
               </div>
-              {paymentMode !== 'cash' && <PaymentRefInput mode={paymentMode} value={paymentRef} onChange={setPaymentRef} className="h-11" />}
+              {paymentMode !== 'cash' && <PaymentRefInput mode={paymentMode} value={paymentRef} onChange={setPaymentRef} className="h-11" error={errorText('payment')} />}
               <p className="hidden text-[11px] text-gray-400 lg:block">
                 <kbd className="font-mono">Enter</kbd> {t('book')} · <kbd className="font-mono">Esc</kbd> {t('clear')} · <kbd className="font-mono">F2</kbd> {t('mobile no.')} · <kbd className="font-mono">Alt+C / U / K</kbd> {t('Cash / UPI / Card')}
               </p>

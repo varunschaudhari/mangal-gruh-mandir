@@ -119,16 +119,31 @@ export const editLine = asyncHandler(async (req, res) => {
   res.json(new ApiResponse(200, await runView(run, month), 'Saved'));
 });
 
+// A month is over once the night shift that starts on its last evening is done (10 AM on the 1st).
+const monthOverAt = (month) => { const [y, m] = month.split('-').map(Number); return new Date(y, m, 1, 10, 0); };
+
 export const finalize = asyncHandler(async (req, res) => {
   const month = monthParam(req.params.month);
   const run = await findRun(month, ['draft']);
+  if (new Date() < monthOverAt(month)) {
+    throw new ApiError(400, 'This month isn’t over yet — its salary can be finalised from 10 AM on the 1st of next month');
+  }
   if (!run.lines.length) throw new ApiError(400, 'Nobody to pay this month');
   if (run.lines.some((l) => l.netPay < 0)) throw new ApiError(400, 'Someone\'s deductions are more than their pay — fix that first');
+  // Missing punches are paid as full days and undecided double shifts get nothing — say so first
+  const open = await checklist(month);
+  if ((open.reviewDays > 0 || open.pendingDoubles > 0) && req.body?.confirmIssues !== true) {
+    throw new ApiError(400, 'Some days still have a missing punch or a double shift waiting for a decision — fix them, or finalise anyway',
+      [{ code: 'CHECKLIST', reviewDays: open.reviewDays, pendingDoubles: open.pendingDoubles }]);
+  }
   run.status = 'finalized';
   run.finalizedBy = req.user._id;
   run.finalizedAt = new Date();
   await run.save();
-  logAction(req, { action: 'salary.finalize', entity: 'SalaryRun', entityId: month, entityRef: run._id, meta: { netPay: runTotals(run.lines).netPay } });
+  logAction(req, {
+    action: 'salary.finalize', entity: 'SalaryRun', entityId: month, entityRef: run._id,
+    meta: { netPay: runTotals(run.lines).netPay, ...(req.body?.confirmIssues === true ? { finalisedWithOpenIssues: true } : {}) },
+  });
   res.json(new ApiResponse(200, await runView(run, month), 'Salary finalised'));
 });
 

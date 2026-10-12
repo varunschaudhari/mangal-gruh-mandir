@@ -164,4 +164,11 @@ export default {
   '{month} becomes the month, e.g. "Salary Oct 2026".': '{month} च्या जागी महिना येतो, उदा. "Salary Oct 2026".',
   'The bank sheet has the standard columns (name, account number, IFSC, amount, narration). Tell us your bank to match its exact upload format.':
     'बँक यादीत नेहमीचे कॉलम आहेत (नाव, खाते क्रमांक, IFSC, रक्कम, तपशील). बँकेचा नेमका अपलोड नमुना जुळवण्यासाठी बँकेचे नाव कळवा.',
+  // ── Finalising ──
+  'Can be finalised from {date}': '{date} पासून अंतिम करता येईल',
+  'This month isn’t over yet — the salary can be finalised from {date}.': 'हा महिना अजून संपलेला नाही — पगार {date} पासून अंतिम करता येईल.',
+  'This month isn’t over yet — its salary can be finalised from 10 AM on the 1st of next month': 'हा महिना अजून संपलेला नाही — पुढच्या महिन्याच्या 1 तारखेला सकाळी 10 पासून पगार अंतिम करता येईल',
+  'Some days still have a missing punch (paid as a full day) or a double shift without a decision (no reward) — see the list above.': 'काही दिवसांचा पंच अजून चुकलेला आहे (पूर्ण दिवस धरला जाईल) किंवा डबल शिफ्टचा निर्णय बाकी आहे (बक्षीस नाही) — वरची यादी पाहा.',
+  'Some days still have a missing punch or a double shift waiting for a decision — fix them, or finalise anyway': 'काही दिवसांचा पंच चुकलेला आहे किंवा डबल शिफ्टचा निर्णय बाकी आहे — ते दुरुस्त करा, किंवा तरीही अंतिम करा',
+  'Finalise anyway': 'तरीही अंतिम करा',
 };

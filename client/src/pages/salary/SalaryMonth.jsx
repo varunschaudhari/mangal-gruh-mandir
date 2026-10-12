@@ -15,7 +15,7 @@ import {
 } from '../../api/salary.api.js';
 import { usePermissions } from '../../hooks/usePermissions.js';
 import { useIsMobile } from '../../hooks/useMediaQuery.js';
-import { fCurrency, fDate, localDateStr } from '../../utils/formatters.js';
+import { fCurrency, fDate, fDateTime, localDateStr } from '../../utils/formatters.js';
 import { saveFile } from '../../utils/fileSaver.js';
 import { printHtml } from '../../utils/printHtml.js';
 import { payslipsHtml } from '../../utils/payslip.js';
@@ -221,9 +221,13 @@ export default function SalaryMonth() {
     if (msg) toast.success(t(msg));
     setConfirm(null);
   };
-  const fail = (err) => toast.error(err.response?.data?.message || t('Failed'));
+  const fail = (err) => toast.error(t(err.response?.data?.message || 'Failed'));
+  // The month is over once the night shift starting on its last evening is done: 10 AM on the 1st
+  const [yy, mm] = month.split('-').map(Number);
+  const overAt = new Date(yy, mm, 1, 10, 0);
+  const notOver = new Date() < overAt;
   const prep = useMutation({ mutationFn: () => prepareSalary(month), onSuccess: after('Salary worked out from attendance'), onError: fail });
-  const fin = useMutation({ mutationFn: () => finalizeSalary(month), onSuccess: after('Salary finalised'), onError: fail });
+  const fin = useMutation({ mutationFn: () => finalizeSalary(month, { confirmIssues: openIssues }), onSuccess: after('Salary finalised'), onError: fail });
   const reo = useMutation({ mutationFn: () => reopenSalary(month), onSuccess: after('Reopened for changes'), onError: fail });
   const del = useMutation({
     mutationFn: () => deleteSalaryDraft(month),
@@ -244,6 +248,7 @@ export default function SalaryMonth() {
     filename: forLines.length === 1 ? `Payslip-${forLines[0].staffCode}-${month}.pdf` : `Payslips-${month}.pdf`,
   });
   const cl = view?.checklist;
+  const openIssues = Boolean(cl && (cl.pendingDoubles > 0 || cl.reviewDays > 0));
 
   return (
     <div className="space-y-4">
@@ -283,7 +288,8 @@ export default function SalaryMonth() {
               )}
               {status === 'draft' && (
                 <>
-                  <button onClick={() => setConfirm('finalize')} className="btn-primary flex items-center gap-1.5"><Lock className="h-4 w-4" />{t('Finalise')}</button>
+                  <button onClick={() => setConfirm('finalize')} disabled={notOver} title={notOver ? t('Can be finalised from {date}', { date: fDateTime(overAt) }) : undefined}
+                    className="btn-primary flex items-center gap-1.5"><Lock className="h-4 w-4" />{t('Finalise')}</button>
                   <button onClick={() => prep.mutate()} disabled={prep.isPending} className="btn-secondary flex items-center gap-1.5"><RefreshCw className={`h-4 w-4 ${prep.isPending ? 'animate-spin' : ''}`} />{t('Recalculate from attendance')}</button>
                   <button onClick={() => setConfirm('delete')} className="btn-ghost flex items-center gap-1.5 text-red-600"><Trash2 className="h-4 w-4" />{t('Delete draft')}</button>
                 </>
@@ -295,6 +301,10 @@ export default function SalaryMonth() {
                 </>
               )}
             </div>
+          )}
+
+          {canManage && status === 'draft' && notOver && (
+            <p className="text-sm text-gray-500">{t('This month isn’t over yet — the salary can be finalised from {date}.', { date: fDateTime(overAt) })}</p>
           )}
 
           {status === 'none' && (
@@ -423,10 +433,13 @@ export default function SalaryMonth() {
         onConfirm={() => (confirm === 'finalize' ? fin : confirm === 'reopen' ? reo : del).mutate()}
         loading={fin.isPending || reo.isPending || del.isPending}
         title={confirm === 'finalize' ? 'Finalise salary' : confirm === 'reopen' ? 'Reopen salary' : 'Delete draft'}
-        message={t(confirm === 'finalize'
+        message={`${t(confirm === 'finalize'
           ? 'The salary will be locked. Bank, PF and ESI files and payslips can then be downloaded.'
-          : confirm === 'reopen' ? 'The salary can be changed again. Files already downloaded will be out of date.' : 'The draft and any amounts typed in by hand will be removed.')}
-        confirmLabel={confirm === 'finalize' ? 'Finalise' : confirm === 'reopen' ? 'Reopen' : 'Delete'}
+          : confirm === 'reopen' ? 'The salary can be changed again. Files already downloaded will be out of date.' : 'The draft and any amounts typed in by hand will be removed.')}${
+          confirm === 'finalize' && openIssues
+            ? ` ${t('Some days still have a missing punch (paid as a full day) or a double shift without a decision (no reward) — see the list above.')}`
+            : ''}`}
+        confirmLabel={confirm === 'finalize' ? (openIssues ? 'Finalise anyway' : 'Finalise') : confirm === 'reopen' ? 'Reopen' : 'Delete'}
         confirmClass={confirm === 'delete' ? 'btn-danger' : 'btn-primary'}
       />
     </div>

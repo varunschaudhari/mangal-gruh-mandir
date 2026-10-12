@@ -46,3 +46,15 @@ export const apiLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
 });
+
+// The biometric machine endpoint (/iclock, no sign-in): a machine polls every ~10 s and sends
+// punches in batches, so a few requests a minute is normal. Anything far above that from one
+// address is someone else — refused before the request body is even read.
+export const deviceLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: Number(process.env.DEVICE_RATE_LIMIT) || 120,
+  keyGenerator: (req) => ipKeyGenerator(req.ip),
+  handler: (req, res) => res.status(429).type('text/plain').send('Too many requests'),
+  standardHeaders: false,
+  legacyHeaders: false,
+});

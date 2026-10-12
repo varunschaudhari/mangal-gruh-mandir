@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Plus, Trash2, Moon, Sun, Fingerprint, CheckCircle2, Clock, Save, PartyPopper } from 'lucide-react';
+import { Plus, Trash2, Moon, Sun, Fingerprint, CheckCircle2, Clock, Save, PartyPopper, ShieldAlert, ShieldCheck } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { PageLoader } from '../../components/ui/Spinner.jsx';
 import StickyActionBar from '../../components/ui/StickyActionBar.jsx';
@@ -38,8 +38,9 @@ export default function AttendanceSettingsPanel() {
 
   const [shifts, setShifts] = useState(null);
   const [rules, setRules] = useState(null);
-  const [deviceEdits, setDeviceEdits] = useState({}); // serial → { name?, approved?, removed? }
+  const [deviceEdits, setDeviceEdits] = useState({}); // serial → { name?, approved?, removed?, allowedIps? }
   const [holidays, setHolidays] = useState(null);
+  const [effectiveFrom, setEffectiveFrom] = useState(localDateStr());
 
   // Local copy for editing, taken once — background refetches only refresh the machine list.
   useEffect(() => {
@@ -62,8 +63,9 @@ export default function AttendanceSettingsPanel() {
       shifts: shifts.map(({ _id, name, start, end, kind, short, color }) => ({ _id, name: name.trim(), start, end, kind, short: short.trim(), color })),
       ...Object.fromEntries(RULES.map((r) => [r.key, Number(rules[r.key])])),
       latePenalty: { enabled: Boolean(rules.lateEnabled), freeLates: Number(rules.freeLates) },
-      devices: devices.map(({ serial, name, approved }) => ({ serial, name, approved })),
+      devices: devices.map(({ serial, name, approved, allowedIps }) => ({ serial, name, approved, allowedIps: allowedIps ?? '' })),
       holidays: holidays.filter((h) => h.date),
+      effectiveFrom,
     }),
     onSuccess: (res) => {
       toast.success(t('Attendance settings saved'));
@@ -71,9 +73,10 @@ export default function AttendanceSettingsPanel() {
       setShifts(saved.shifts.map((s) => ({ ...s })));
       setHolidays(saved.holidays.map((h) => ({ ...h })));
       setDeviceEdits({});
+      setEffectiveFrom(localDateStr());
       qc.invalidateQueries({ queryKey: ['attendance'] });
     },
-    onError: (err) => toast.error(err.response?.data?.message || t('Failed')),
+    onError: (err) => toast.error(t(err.response?.data?.message || 'Failed')),
   });
 
   if (isLoading || !shifts || !rules || !holidays) return <PageLoader />;
@@ -88,6 +91,14 @@ export default function AttendanceSettingsPanel() {
   const editDevice = (serial, patch) => setDeviceEdits((cur) => ({ ...cur, [serial]: { ...cur[serial], ...patch } }));
   const host = new URL(publicUrl('/')).hostname;
   const invalid = shifts.some((s) => !s.name.trim() || !s.start || !s.end);
+  // Timings or day rules changed: they apply from a date, earlier days keep the old ones
+  const savedShift = new Map((server?.shifts || []).map((x) => [String(x._id), x]));
+  const timingsChanged = shifts.some((x) => {
+    const old = x._id && savedShift.get(String(x._id));
+    return old && (old.start !== x.start || old.end !== x.end || old.kind !== x.kind);
+  });
+  const rulesChanged = ['graceMinutes', 'halfDayBelowHours', 'absentBelowHours', 'punchMergeMinutes']
+    .some((k) => Number(rules[k]) !== Number(server?.[k]));
 
   return (
     <div className="max-w-3xl space-y-5">
@@ -121,6 +132,11 @@ export default function AttendanceSettingsPanel() {
               </button>
               {toMin(s.end) <= toMin(s.start) && <span className="text-xs text-indigo-600">{t('ends next morning')}</span>}
             </div>
+            {s.past?.length > 0 && (
+              <p className="mt-1.5 text-xs text-gray-400">
+                {t('Earlier timings:')} {s.past.map((p) => `${t('until {date}', { date: fDate(p.until, 'dd MMM yyyy') })} ${p.start}–${p.end}`).join(' · ')}
+              </p>
+            )}
           </div>
         ))}
         <button type="button" onClick={() => setShifts([...shifts, { ...NEW_SHIFT }])} className="btn-secondary flex items-center gap-1.5">
@@ -217,10 +233,39 @@ export default function AttendanceSettingsPanel() {
                   ? <span className="flex items-center gap-1 text-green-700"><CheckCircle2 className="h-4 w-4" />{t('Approved — punches are accepted')}</span>
                   : <span className="flex items-center gap-1 text-amber-700"><Clock className="h-4 w-4" />{t('Waiting for approval — tick to accept punches')}</span>}
               </label>
+              {/* Only accept punches from the temple's internet connection */}
+              {d.approved && (
+                <div className="mt-3 border-t border-gray-100 pt-3">
+                  <label className="block text-xs font-semibold uppercase tracking-wide text-gray-500" htmlFor={`ips-${d.serial}`}>{t('Allowed network addresses')}</label>
+                  <div className="mt-1 flex flex-wrap items-center gap-2">
+                    <input id={`ips-${d.serial}`} value={d.allowedIps || ''} onChange={(e) => editDevice(d.serial, { allowedIps: e.target.value })}
+                      placeholder="49.36.12.7, 49.36.12.*" className="input min-w-0 flex-1 font-mono text-sm" autoComplete="off" />
+                    {d.lastIp && !(d.allowedIps || '').includes(d.lastIp) && (
+                      <button type="button" onClick={() => editDevice(d.serial, { allowedIps: [d.allowedIps, d.lastIp].filter(Boolean).join(', ') })} className="btn-secondary text-sm">
+                        {t('Use {ip}', { ip: d.lastIp })}
+                      </button>
+                    )}
+                  </div>
+                  {d.allowedIps
+                    ? <p className="mt-1 flex items-start gap-1 text-xs text-green-700"><ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0" />{t('Punches are accepted only from these addresses.')}</p>
+                    : <p className="mt-1 flex items-start gap-1 text-xs text-amber-700"><ShieldAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" />{t('Any address is accepted — anyone who reads the serial number off the machine could send punches. Add the temple’s internet address (the one the machine last connected from is shown above).')}</p>}
+                  {d.blockedAt && (
+                    <p className="mt-1 text-xs text-red-600">{t('Refused a connection from {ip} at {time}', { ip: d.blockedIp, time: fDateTime(d.blockedAt) })}</p>
+                  )}
+                </div>
+              )}
             </div>
           );
         })}
       </section>
+
+      {(timingsChanged || rulesChanged) && (
+        <section className="card space-y-2 border-amber-200 bg-amber-50/60 p-4 sm:p-6">
+          <label className="block text-sm font-medium text-amber-900" htmlFor="effective-from">{t('Apply the new timings and rules from')}</label>
+          <input id="effective-from" type="date" value={effectiveFrom} onChange={(e) => setEffectiveFrom(e.target.value)} className="input w-44" />
+          <p className="text-xs text-amber-800">{t('Days before this keep the old timings and rules, so past attendance and salary don’t change.')}</p>
+        </section>
+      )}
 
       <StickyActionBar>
         <button type="button" onClick={() => mut.mutate()} disabled={mut.isPending || invalid} className="btn-primary flex items-center justify-center gap-2">

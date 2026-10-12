@@ -7,8 +7,10 @@ import Punch from '../models/Punch.js';
 import RosterDay from '../models/RosterDay.js';
 import Staff from '../models/Staff.js';
 import { addDays, atLocal, datesBetween } from '../services/attendance/compute.js';
-import { computeAttendance, computeMonth, resolvePlans } from '../services/attendance/attendance.service.js';
+import { assertAttendanceOpen, computeAttendance, computeMonth, resolvePlans, salaryLock } from '../services/attendance/attendance.service.js';
+import { localDateStr } from '../utils/dates.js';
 import { writeRegisterExcel } from '../services/attendance/registerExcel.js';
+import { parseAllowedIps } from '../services/attendance/adms.js';
 import { logAction } from '../services/audit.service.js';
 import ApiError from '../utils/ApiError.js';
 import ApiResponse from '../utils/ApiResponse.js';
@@ -39,26 +41,84 @@ const rangeParams = (q) => {
 
 // ── Settings (shift timings, rules, machines) ────────────────────────────────
 
+// The machine's serial number is what it signs in with — only those who manage attendance see it.
 export const getAttendanceSettings = asyncHandler(async (req, res) => {
-  res.json(new ApiResponse(200, await AttendanceSettings.getOrCreate()));
+  const settings = (await AttendanceSettings.getOrCreate()).toObject();
+  if (!(await userCan(req, 'attendance:manage'))) {
+    settings.devices = settings.devices.map((d) => ({
+      serial: `••••${String(d.serial).slice(-3)}`, name: d.name, approved: d.approved, lastSeenAt: d.lastSeenAt,
+    }));
+  }
+  res.json(new ApiResponse(200, settings));
 });
 
+const DAY_RULES = ['graceMinutes', 'halfDayBelowHours', 'absentBelowHours', 'punchMergeMinutes'];
+const timingKey = (s) => `${s.start}|${s.end}|${s.kind}`;
+const monthsFrom = (date, today) => {
+  const out = [];
+  for (let m = date.slice(0, 7); m <= today.slice(0, 7); m = addDays(`${m}-28`, 7).slice(0, 7)) out.push(m);
+  return out;
+};
+
+// A shift that days were worked on (roster, someone's usual shift, or the usual shift of those
+// who have none set) can't be removed — the days already worked would lose it.
+async function assertShiftUnused(shift, shifts) {
+  const used = await RosterDay.exists({ shifts: shift._id }) || await Staff.exists({ defaultShift: shift._id });
+  const fallbackFor = ['day', 'night'].filter((kind) => String(shifts.find((x) => x.kind === kind)?._id) === String(shift._id));
+  const asFallback = fallbackFor.length && await Staff.exists({
+    onPayroll: true, defaultShift: null, ...(fallbackFor.length === 1 ? { nightOnly: fallbackFor[0] === 'night' } : {}),
+  });
+  if (used || asFallback) {
+    throw new ApiError(400, 'A shift that is used in the roster or as someone’s usual shift can’t be removed — change its timings instead');
+  }
+}
+
+/**
+ * Shift timings and day rules apply from `effectiveFrom` (default today): the old ones are kept
+ * for the days before, so a summer timing or a new grace period never re-marks past days.
+ */
 export const updateAttendanceSettings = asyncHandler(async (req, res) => {
   const settings = await AttendanceSettings.getOrCreate();
   const b = req.body || {};
+  const today = localDateStr();
+  const effectiveFrom = b.effectiveFrom === undefined || b.effectiveFrom === '' ? today : dateParam(b.effectiveFrom, 'effectiveFrom');
+  const until = addDays(effectiveFrom, -1);
+  const laterThanLast = (past) => !past.length || until > past[past.length - 1].until;
+  let historyChanged = false;
 
   if (b.shifts !== undefined) {
     if (!Array.isArray(b.shifts) || !b.shifts.length) throw new ApiError(400, 'Keep at least one shift');
+    const before = new Map(settings.shifts.map((s) => [String(s._id), s]));
     // Keep existing shift ids so rosters and staff defaults still point at them.
-    settings.shifts = b.shifts.map((s) => ({
-      ...(s._id && mongoose.isValidObjectId(s._id) ? { _id: s._id } : {}),
-      name: s.name, start: s.start, end: s.end, kind: s.kind, short: s.short, color: s.color,
-    }));
+    const next = b.shifts.map((s) => {
+      const id = s._id && mongoose.isValidObjectId(s._id) ? s._id : null;
+      const old = id ? before.get(String(id)) : null;
+      const past = (old?.past || []).map((p) => ({ until: p.until, start: p.start, end: p.end, kind: p.kind }));
+      if (old && timingKey(old) !== timingKey(s)) {
+        if (!laterThanLast(past)) throw new ApiError(400, 'These timings were already changed from a later date — the new change must start after that');
+        past.push({ until, start: old.start, end: old.end, kind: old.kind });
+        historyChanged = true;
+      }
+      return { ...(id ? { _id: id } : {}), name: s.name, start: s.start, end: s.end, kind: s.kind, short: s.short, color: s.color, past };
+    });
+    for (const old of settings.shifts) {
+      if (!next.some((n) => n._id && String(n._id) === String(old._id))) await assertShiftUnused(old, settings.shifts);
+    }
+    settings.shifts = next;
   }
+  const oldRules = Object.fromEntries(DAY_RULES.map((k) => [k, settings[k]]));
   for (const k of ['graceMinutes', 'halfDayBelowHours', 'absentBelowHours', 'punchMergeMinutes',
     'defaultPaidLeavePerMonth', 'extraLeaveValidDays']) {
     if (b[k] !== undefined) settings[k] = Number(b[k]);
   }
+  if (DAY_RULES.some((k) => Number(settings[k]) !== Number(oldRules[k]))) {
+    const past = settings.rulesPast || [];
+    if (!laterThanLast(past)) throw new ApiError(400, 'These rules were already changed from a later date — the new change must start after that');
+    settings.rulesPast.push({ until, ...oldRules });
+    historyChanged = true;
+  }
+  // Changes from a past date reach back into those months: not into a month whose salary is done
+  if (historyChanged) await assertAttendanceOpen(monthsFrom(effectiveFrom, today));
   if (b.latePenalty) {
     if (b.latePenalty.enabled !== undefined) settings.latePenalty.enabled = Boolean(b.latePenalty.enabled);
     if (b.latePenalty.freeLates !== undefined) settings.latePenalty.freeLates = Number(b.latePenalty.freeLates);
@@ -68,7 +128,14 @@ export const updateAttendanceSettings = asyncHandler(async (req, res) => {
     const wanted = new Map(b.devices.map((d) => [d.serial, d]));
     settings.devices = settings.devices
       .filter((d) => wanted.has(d.serial))
-      .map((d) => ({ ...d.toObject(), name: wanted.get(d.serial).name ?? d.name, approved: Boolean(wanted.get(d.serial).approved) }));
+      .map((d) => {
+        const w = wanted.get(d.serial);
+        let allowedIps = d.allowedIps || '';
+        if (w.allowedIps !== undefined) {
+          try { allowedIps = parseAllowedIps(w.allowedIps).join(', '); } catch (err) { throw new ApiError(400, err.message); }
+        }
+        return { ...d.toObject(), name: w.name ?? d.name, approved: Boolean(w.approved), allowedIps };
+      });
   }
   if (Array.isArray(b.holidays)) {
     const byDate = new Map();
@@ -82,7 +149,10 @@ export const updateAttendanceSettings = asyncHandler(async (req, res) => {
     throw new ApiError(400, 'The absent threshold must be lower than the half-day threshold');
   }
   await settings.save();
-  logAction(req, { action: 'attendance.settings_update', entity: 'AttendanceSettings', entityId: 'attendance', entityRef: settings._id });
+  logAction(req, {
+    action: 'attendance.settings_update', entity: 'AttendanceSettings', entityId: 'attendance', entityRef: settings._id,
+    meta: historyChanged ? { effectiveFrom } : undefined,
+  });
   res.json(new ApiResponse(200, settings, 'Attendance settings saved'));
 });
 
@@ -132,6 +202,8 @@ export const saveRoster = asyncHandler(async (req, res) => {
   const entries = req.body?.entries;
   if (!Array.isArray(entries) || !entries.length) throw new ApiError(400, 'entries required');
   if (entries.length > 1000) throw new ApiError(400, 'Too many entries at once');
+  entries.forEach((e) => dateParam(e?.date, 'date'));
+  await assertAttendanceOpen(entries.map((e) => e.date));
   const settings = await AttendanceSettings.getOrCreate();
   const shiftIds = new Set(settings.shifts.map((s) => String(s._id)));
 
@@ -159,6 +231,7 @@ export const saveRoster = asyncHandler(async (req, res) => {
 export const copyRosterWeek = asyncHandler(async (req, res) => {
   const fromStart = dateParam(req.body?.fromWeekStart, 'fromWeekStart');
   const toStart = dateParam(req.body?.toWeekStart, 'toWeekStart');
+  await assertAttendanceOpen([toStart, addDays(toStart, 6)]);
   const settings = await AttendanceSettings.getOrCreate();
   const staff = await Staff.find({ isActive: true }).lean();
   const plans = await resolvePlans(staff, fromStart, addDays(fromStart, 6), settings);
@@ -199,9 +272,11 @@ const staffSummary = (s) => ({
 export const getMonth = asyncHandler(async (req, res) => {
   const month = monthParam(req.query.month);
   const staffIds = req.query.staff ? String(req.query.staff).split(',').filter(mongoose.isValidObjectId) : undefined;
-  const { settings, staff, from, to, days, totals, planned, leave } = await computeMonth({ month, staffIds });
+  const [{ settings, staff, from, to, days, totals, planned, leave }, locked] = await Promise.all([
+    computeMonth({ month, staffIds }), salaryLock(month),
+  ]);
   res.json(new ApiResponse(200, {
-    month, from, to, dates: datesBetween(from, to), shifts: settings.shifts,
+    month, from, to, dates: datesBetween(from, to), shifts: settings.shifts, locked,
     holidays: settings.holidays.filter((h) => h.date >= from && h.date <= to),
     latePenalty: settings.latePenalty,
     staff: staff.map(staffSummary),
@@ -232,23 +307,25 @@ export const getStaffDay = asyncHandler(async (req, res) => {
     }).populate('by', 'name').sort({ time: 1 }).lean(),
     AttendanceOverride.findOne({ staff: req.params.staffId, date }).populate('by', 'name').lean(),
   ]);
+  const locked = await salaryLock(date.slice(0, 7));
   // Only this day's punches (a night shift's morning punch belongs to the day before);
   // ignored ones are shown when they fall inside this day's window.
   const mine = new Set(raw.map((t) => t.getTime()));
   const punches = all.filter((p) => (p.ignored ? p.time >= window[0] && p.time <= window[1] : mine.has(p.time.getTime())));
-  res.json(new ApiResponse(200, { staff: staffSummary(staff[0]), day, punches, override, balance }));
+  res.json(new ApiResponse(200, { staff: staffSummary(staff[0]), day, punches, override, balance, locked }));
 });
 
 // ── Supervisor fixes ─────────────────────────────────────────────────────────
 
 export const addManualPunch = asyncHandler(async (req, res) => {
-  const { staff: staffId, time, reason } = req.body || {};
+  const { staff: staffId, time, reason, day } = req.body || {};
   if (!reason?.trim()) throw new ApiError(400, 'A reason is required');
   const staff = await Staff.findById(staffId);
   if (!staff) throw new ApiError(404, 'Staff not found');
   const when = new Date(time);
   if (Number.isNaN(when.getTime())) throw new ApiError(400, 'Invalid time');
   if (when > new Date(Date.now() + 5 * 60 * 1000)) throw new ApiError(400, 'Time cannot be in the future');
+  await assertAttendanceOpen([localDateStr(when), DATE.test(String(day || '')) ? day : null]);
   const punch = await Punch.create({
     machineId: staff.machineId || `manual:${staff._id}`, staff: staff._id, time: when,
     source: 'manual', reason: reason.trim(), by: req.user._id,
@@ -261,6 +338,8 @@ export const addManualPunch = asyncHandler(async (req, res) => {
 export const ignorePunch = asyncHandler(async (req, res) => {
   const punch = await Punch.findById(req.params.id);
   if (!punch) throw new ApiError(404, 'Punch not found');
+  const day = req.body?.day;
+  await assertAttendanceOpen([localDateStr(punch.time), DATE.test(String(day || '')) ? day : null]);
   if (punch.source === 'manual') {
     await punch.deleteOne();
     logAction(req, { action: 'attendance.punch_remove', entity: 'Punch', entityId: String(punch._id), entityRef: punch.staff });
@@ -284,6 +363,7 @@ export const setOverride = asyncHandler(async (req, res) => {
   if (status && !OVERRIDE_STATUSES.includes(status)) throw new ApiError(400, 'Invalid status');
   if (status === 'leave' && !LEAVE_TYPES.includes(leaveType || 'paid')) throw new ApiError(400, 'Invalid leave type');
   if (!note?.trim()) throw new ApiError(400, 'A note is required');
+  await assertAttendanceOpen([date]);
   if (!status && !waiveLate) {
     await AttendanceOverride.deleteOne({ staff, date });
     return res.json(new ApiResponse(200, null, 'Override removed'));
@@ -307,6 +387,7 @@ export const setOverride = asyncHandler(async (req, res) => {
 export const removeOverride = asyncHandler(async (req, res) => {
   dateParam(req.params.date, 'date');
   if (!mongoose.isValidObjectId(req.params.staffId)) throw new ApiError(400, 'Invalid staff');
+  await assertAttendanceOpen([req.params.date]);
   await AttendanceOverride.deleteOne({ staff: req.params.staffId, date: req.params.date });
   logAction(req, { action: 'attendance.override_remove', entity: 'Staff', entityId: req.params.date, entityRef: req.params.staffId });
   res.json(new ApiResponse(200, null, 'Override removed'));
@@ -323,6 +404,7 @@ export const setDoubleDecision = asyncHandler(async (req, res) => {
   if (!DOUBLE_DECISIONS.includes(decision)) throw new ApiError(400, 'Invalid decision');
   const rupees = Number(amount);
   if (decision === 'overtime' && !(rupees > 0)) throw new ApiError(400, 'Enter the overtime amount');
+  await assertAttendanceOpen([date]);
   const { settings, days } = await computeAttendance({ from: date, to: date, staffIds: [staff] });
   if (!days[staff]?.[date]?.double) throw new ApiError(400, 'That day is not a double shift');
 
@@ -347,6 +429,7 @@ export const setDoubleDecision = asyncHandler(async (req, res) => {
 export const clearDoubleDecision = asyncHandler(async (req, res) => {
   dateParam(req.params.date, 'date');
   if (!mongoose.isValidObjectId(req.params.staffId)) throw new ApiError(400, 'Invalid staff');
+  await assertAttendanceOpen([req.params.date]);
   await DoubleShift.deleteOne({ staff: req.params.staffId, date: req.params.date });
   logAction(req, { action: 'attendance.double_decision_clear', entity: 'Staff', entityId: req.params.date, entityRef: req.params.staffId });
   res.json(new ApiResponse(200, null, 'Decision removed'));
@@ -359,6 +442,7 @@ export const setMonthAdjustment = asyncHandler(async (req, res) => {
   if (!mongoose.isValidObjectId(staff)) throw new ApiError(400, 'Invalid staff');
   const rupees = Number(overtimeAmount) || 0;
   if (rupees < 0) throw new ApiError(400, 'Amount cannot be negative');
+  await assertAttendanceOpen([month]);
   const doc = await AttendanceMonth.findOneAndUpdate(
     { staff, month },
     { $set: { overtimeAmount: rupees, note: String(note || '').trim(), by: req.user._id } },
@@ -378,6 +462,7 @@ export const markLeave = asyncHandler(async (req, res) => {
   if (datesBetween(from, to).length > 31) throw new ApiError(400, 'At most 31 days at a time');
   if (!LEAVE_TYPES.includes(leaveType)) throw new ApiError(400, 'Invalid leave type');
   if (!note?.trim()) throw new ApiError(400, 'A note is required');
+  await assertAttendanceOpen([from, to]);
   const staff = mongoose.isValidObjectId(staffId) && await Staff.findById(staffId).lean();
   if (!staff) throw new ApiError(404, 'Staff not found');
 

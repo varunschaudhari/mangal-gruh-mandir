@@ -1,6 +1,7 @@
 // Pure helpers for fixing a booking without voiding it: edit details, move to another
 // batch / date, and the change history — see bookingFixUtils.test.js.
 import { isPincode } from '../../utils/address.js';
+import { paymentRefProblem } from '../../utils/payment.js';
 import { NAKSHATRAS, RASHIS, devoteeFormValues, fmtDay, isValidPhone } from './counter/counterUtils.js';
 import { MODE_LABEL } from './registerUtils.js';
 
@@ -84,6 +85,9 @@ export function validateEdit(form, { seva, initial } = {}) {
   else if (trim(d.pincode) && !isPincode(trim(d.pincode))) e.address = 'Enter a valid 6-digit PIN code';
   if (trim(d.email) && !EMAIL.test(trim(d.email))) e.email = 'Enter a valid email address';
   if (seva?.maxPeople && form.peopleCount > seva.maxPeople) e.people = `${seva.name} allows at most ${seva.maxPeople} people`;
+  // Like the server: a payment being changed to UPI / card needs a reference that can be checked
+  const payChanged = form.paymentMode !== initial?.paymentMode || trim(form.paymentRef) !== trim(initial?.paymentRef);
+  if (payChanged && paymentRefProblem(form.paymentMode, form.paymentRef)) e.payment = paymentRefProblem(form.paymentMode, form.paymentRef);
   return e;
 }
 

@@ -1,7 +1,7 @@
 import '../../config/timezone.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { computeRange, summarise, addDays, datesBetween } from './compute.js';
+import { computeRange, summarise, addDays, datesBetween, rulesOn, shiftInstance } from './compute.js';
 
 const DAY = { _id: 'day', name: 'Day', start: '08:00', end: '17:00', kind: 'day' };
 const NIGHT = { _id: 'night', name: 'Night', start: '20:00', end: '05:00', kind: 'night' };
@@ -157,4 +157,23 @@ test('summary totals for the register', () => {
   assert.equal(t.off, 1);
   assert.equal(t.late, 1);
   assert.equal(t.presentValue, 1.5);
+});
+
+test('a timing change applies from its date — days before keep the old timing', () => {
+  const day = { ...DAY, past: [{ until: '2026-09-30', start: '07:00', end: '15:00', kind: 'day' }] };
+  assert.equal(shiftInstance(day, '2026-09-30').start.getHours(), 7);
+  assert.equal(shiftInstance(day, '2026-09-30').minutes, 8 * 60);
+  assert.equal(shiftInstance(day, '2026-10-01').start.getHours(), 8);
+});
+
+test('a rule change applies from its date — earlier days keep the old rules', () => {
+  const s = { ...settings, graceMinutes: 5, rulesPast: [{ until: '2026-09-30', graceMinutes: 15, halfDayBelowHours: 7, absentBelowHours: 4, punchMergeMinutes: 2 }] };
+  assert.equal(rulesOn(s, '2026-09-15').graceMinutes, 15);
+  assert.equal(rulesOn(s, '2026-10-01').graceMinutes, 5);
+  // 08:10 in: not late in September (15 min grace), late in October (5 min)
+  const plans = [{ date: '2026-09-15', shifts: ['day'] }, { date: '2026-10-15', shifts: ['day'] }];
+  const times = [at('2026-09-15', '08:10'), at('2026-09-15', '17:05'), at('2026-10-15', '08:10'), at('2026-10-15', '17:05')];
+  const { days } = computeRange({ from: '2026-09-15', to: '2026-10-15', plans, times, shiftsById, settings: s, now: LATER });
+  assert.equal(days['2026-09-15'].lateMinutes, 0);
+  assert.equal(days['2026-10-15'].lateMinutes, 10);
 });

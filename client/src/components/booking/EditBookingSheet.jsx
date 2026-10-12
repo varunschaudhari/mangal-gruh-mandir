@@ -16,8 +16,8 @@ import { editFormValues, editPatch, paymentLock, validateEdit } from './bookingF
 import { MODE_LABEL, rupees } from './registerUtils.js';
 
 const QUICK_REASONS = ['Spelling mistake', 'Devotee asked', 'Wrong details entered'];
-const ERROR_ORDER = ['phone', 'name', 'address', 'email', 'people'];
-const FIELD_ID = { phone: 'eb-phone', name: 'eb-name', address: 'bk-address', email: 'bk-email', people: 'bk-people' };
+const ERROR_ORDER = ['phone', 'name', 'address', 'email', 'people', 'payment'];
+const FIELD_ID = { phone: 'eb-phone', name: 'eb-name', address: 'bk-address', email: 'bk-email', people: 'bk-people', payment: 'bk-payref' };
 
 const Label = ({ htmlFor, children, required }) => (
   <label htmlFor={htmlFor} className="mb-1 block text-xs font-semibold uppercase tracking-wider text-gray-500">
@@ -180,7 +180,7 @@ export default function EditBookingSheet({ booking: b, seva, sevaTypes = [], onC
           ) : (
             <div className="space-y-2">
               <PaymentModes compact mode={form.paymentMode} onMode={(m) => { haptics.select(); setPay({ paymentMode: m }); }} />
-              <PaymentRefInput mode={form.paymentMode} value={form.paymentRef} onChange={(v) => setPay({ paymentRef: v })} className="h-11" />
+              <PaymentRefInput mode={form.paymentMode} value={form.paymentRef} onChange={(v) => setPay({ paymentRef: v })} className="h-11" error={errorText('payment')} />
             </div>
           )}
         </div>

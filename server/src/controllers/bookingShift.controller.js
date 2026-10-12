@@ -35,7 +35,7 @@ export const getOne = asyncHandler(async (req, res) => {
   res.json(new ApiResponse(200, await getShift(req.params.id, req.user, { canSeeAll: await canSeeAll(req) })));
 });
 
-// PATCH /booking-shifts/:id/verify { note? }
+// PATCH /booking-shifts/:id/verify { note?, digitalChecked? } — digitalChecked is needed when the shift has UPI / card
 export const verify = asyncHandler(async (req, res) => {
   const shift = await verifyShift(req.params.id, req.body || {}, req.user);
   logAction(req, {

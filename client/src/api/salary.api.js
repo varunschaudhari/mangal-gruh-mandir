@@ -7,7 +7,7 @@ export const getSalaryRuns     = ()                   => api.get('/salary/runs')
 export const getSalaryRun      = (month)              => api.get(`/salary/runs/${month}`);
 export const prepareSalary     = (month)              => api.post(`/salary/runs/${month}/prepare`);
 export const editSalaryLine    = (month, staffId, data) => api.patch(`/salary/runs/${month}/lines/${staffId}`, data);
-export const finalizeSalary    = (month)              => api.post(`/salary/runs/${month}/finalize`);
+export const finalizeSalary    = (month, body = {})   => api.post(`/salary/runs/${month}/finalize`, body);
 export const reopenSalary      = (month)              => api.post(`/salary/runs/${month}/reopen`);
 export const markSalaryPaid    = (month, data)        => api.post(`/salary/runs/${month}/paid`, data);
 export const deleteSalaryDraft = (month)              => api.delete(`/salary/runs/${month}`);

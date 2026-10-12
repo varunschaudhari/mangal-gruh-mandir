@@ -37,10 +37,23 @@ export const datesBetween = (from, to) => {
   return out;
 };
 
+/** The shift's timing on `date`: the one it had then (`shift.past`, oldest first) or its current one. */
+export const timingOn = (shift, date) => (shift.past || []).find((p) => date <= p.until) || shift;
+
+/** The day rules in force on `date` — rules changed later don't rewrite days already worked. */
+export function rulesOn(settings, date) {
+  const r = (settings.rulesPast || []).find((p) => date <= p.until) || settings;
+  return {
+    graceMinutes: r.graceMinutes, halfDayBelowHours: r.halfDayBelowHours,
+    absentBelowHours: r.absentBelowHours, punchMergeMinutes: r.punchMergeMinutes,
+  };
+}
+
 /** When a shift worked on `date` actually starts and ends. A night shift ends next morning. */
 export function shiftInstance(shift, date) {
-  const s = toMinutes(shift.start);
-  const e = toMinutes(shift.end);
+  const timing = timingOn(shift, date);
+  const s = toMinutes(timing.start);
+  const e = toMinutes(timing.end);
   const start = atLocal(date, s);
   const end = atLocal(date, e <= s ? e + 1440 : e);
   return { shiftId: String(shift._id), name: shift.name, start, end, minutes: (end - start) / MIN };
@@ -189,7 +202,7 @@ export function computeRange({ from, to, plans, times, shiftsById, settings, ove
   const days = {};
   for (const block of blocks) {
     if (block.date < from || block.date > to) continue;
-    days[block.date] = computeDay(block, assigned.get(block.date) || [], settings, overrides.get(block.date), now);
+    days[block.date] = computeDay(block, assigned.get(block.date) || [], rulesOn(settings, block.date), overrides.get(block.date), now);
     // For the day-detail screen: every punch given to this day (before merging) and its window
     if (withRaw) Object.assign(days[block.date], { raw: assigned.get(block.date) || [], window: [block.winStart, block.winEnd] });
   }

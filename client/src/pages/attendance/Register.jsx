@@ -13,7 +13,7 @@ import { saveFile } from '../../utils/fileSaver.js';
 import { printHtml } from '../../utils/printHtml.js';
 import { useT } from '../../i18n/index.jsx';
 import {
-  DayDetailSheet, STATUS, codeCell, dayCode, fDays, fMinutes, shiftMonth, thisMonth, weekdayOf,
+  DayDetailSheet, MonthLockNote, STATUS, codeCell, dayCode, fDays, fMinutes, shiftMonth, thisMonth, weekdayOf,
 } from './attendanceUi.jsx';
 import { temple } from '../../utils/temple.js';
 
@@ -171,6 +171,7 @@ export default function Register() {
           </>
         )}
       />
+      <MonthLockNote locked={res?.locked} />
 
       <div className="card flex items-center gap-2 p-2">
         <button onClick={() => setMonth(shiftMonth(month, -1))} className="btn-ghost p-2" aria-label={t('Previous month')}><ChevronLeft className="h-5 w-5" /></button>

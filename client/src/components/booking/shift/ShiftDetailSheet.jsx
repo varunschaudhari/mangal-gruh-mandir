@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
-import { AlertTriangle, BadgeCheck, Clock, Loader2, Printer } from 'lucide-react';
+import { AlertTriangle, BadgeCheck, Clock, CreditCard, Loader2, Printer } from 'lucide-react';
 import Sheet from '../../ui/Sheet.jsx';
 import Modal from '../../ui/Modal.jsx';
 import Badge from '../../ui/Badge.jsx';
@@ -37,9 +37,32 @@ const Rows = ({ rows }) => (
   </dl>
 );
 
+// Why a UPI / card booking needs a look before the handover is verified.
+const FLAG_TEXT = {
+  'no-ref': /*t*/ 'No reference',
+  'mode-changed': /*t*/ 'Payment changed after booking',
+  'ref-reused': /*t*/ 'Same reference on another booking',
+};
+
+function Flags({ b }) {
+  const t = useT();
+  if (!b.flags?.length) return null;
+  return (
+    <span className="mt-1 flex flex-wrap gap-1">
+      {b.flags.map((f) => (
+        <span key={f} className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-800">
+          <AlertTriangle className="h-3 w-3" />{t(FLAG_TEXT[f] || f)}
+          {f === 'mode-changed' && b.modeChange && ` (${t(MODE_LABEL[b.modeChange.from] || b.modeChange.from)} → ${t(MODE_LABEL[b.modeChange.to] || b.modeChange.to)})`}
+        </span>
+      ))}
+    </span>
+  );
+}
+
 /**
- * One closed shift: the numbers, the note count, the bookings in it, the handover slip, and
- * the supervisor's "Verify" (bookings:cash). `shift` is a list row; the full record is fetched.
+ * One closed shift: the numbers, the note count, the UPI / card payments to match with the bank
+ * statement, the bookings in it, the handover slip, and the supervisor's "Verify"
+ * (bookings:cash). `shift` is a list row; the full record is fetched.
  */
 export default function ShiftDetailSheet({ shift: initial, onClose, settings }) {
   const t = useT();
@@ -48,6 +71,7 @@ export default function ShiftDetailSheet({ shift: initial, onClose, settings }) 
   const id = initial?._id;
   const [verifyOpen, setVerifyOpen] = useState(false);
   const [note, setNote] = useState('');
+  const [digitalOk, setDigitalOk] = useState(false);
   const { print, printing } = useShiftSlip(settings);
 
   const { data: full, isLoading, isError, error } = useQuery({
@@ -64,12 +88,13 @@ export default function ShiftDetailSheet({ shift: initial, onClose, settings }) 
   };
 
   const verifyMut = useMutation({
-    mutationFn: () => verifyShift(id, note.trim()),
+    mutationFn: () => verifyShift(id, note.trim(), digitalOk),
     onSuccess: () => {
       haptics.success();
       toast.success(t('Handover verified'));
       setVerifyOpen(false);
       setNote('');
+      setDigitalOk(false);
       refresh();
     },
     onError: (e) => {
@@ -80,7 +105,7 @@ export default function ShiftDetailSheet({ shift: initial, onClose, settings }) 
     },
   });
 
-  const close = () => { setVerifyOpen(false); setNote(''); onClose(); };
+  const close = () => { setVerifyOpen(false); setNote(''); setDigitalOk(false); onClose(); };
 
   if (!initial) return null;
   const s = full || initial;
@@ -92,6 +117,10 @@ export default function ShiftDetailSheet({ shift: initial, onClose, settings }) 
   const notes = denominationLines(s.denominations);
   const late = s.voidedAfterClose;
   const bookings = full?.bookings || [];
+  const digitalTotal = (totals.upi || 0) + (totals.card || 0);
+  const digital = full?.digital;
+  const digitalRows = bookings.filter((b) => b.status === 'confirmed' && ['upi', 'card'].includes(b.paymentMode));
+  const flagged = digital ? digital.noRef + digital.modeChanged + digital.reused : 0;
 
   const footer = (
     <div className={`grid gap-2 sm:flex sm:justify-end ${canVerify ? 'grid-cols-2' : 'grid-cols-1'}`}>
@@ -163,6 +192,41 @@ export default function ShiftDetailSheet({ shift: initial, onClose, settings }) 
           ]} />
         </Section>
 
+        {digitalTotal > 0 && (
+          <Section title={t('UPI and card')} right={flagged > 0 && <Badge variant="yellow">{t('{n} to check', { n: flagged })}</Badge>}>
+            <div className="rounded-xl border border-gray-100 bg-white">
+              <Rows rows={[
+                totals.upi > 0 && { label: `${t('UPI')} · ${digital?.upi.count ?? ''}`, value: rupees(totals.upi), strong: true },
+                totals.card > 0 && { label: `${t('Card')} · ${digital?.card.count ?? ''}`, value: rupees(totals.card), strong: true },
+              ]} />
+            </div>
+            <p className="mt-1.5 flex items-start gap-1.5 text-xs text-gray-500">
+              <CreditCard className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+              {t('Match these with the bank / UPI app / card machine statement before verifying.')}
+            </p>
+            {digitalRows.length > 0 && (
+              <ul className="mt-2 divide-y divide-gray-100 overflow-hidden rounded-xl border border-gray-100 bg-white text-sm">
+                {digitalRows.map((b) => (
+                  <li key={b._id || b.receiptNo} className={`flex items-start justify-between gap-3 px-3 py-2 ${b.flags?.length ? 'bg-amber-50/60' : ''}`}>
+                    <div className="min-w-0">
+                      <p className="font-mono text-sm text-gray-900">{b.paymentRef || '—'}</p>
+                      <p className="truncate text-xs text-gray-500">{b.receiptNo} · {b.devotee?.name || '—'} · {fmtTime(b.paidAt)}</p>
+                      <Flags b={b} />
+                    </div>
+                    <div className="shrink-0 text-right">
+                      <p className="font-semibold tabular-nums text-gray-900">{rupees(b.amount)}</p>
+                      <Badge variant={MODE_BADGE[b.paymentMode]}>{t(MODE_LABEL[b.paymentMode] || b.paymentMode)}</Badge>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+            {s.status === 'verified' && s.digitalChecked && (
+              <p className="mt-1.5 text-xs text-green-700">{t('Matched with the statement by {name}', { name: s.verifiedBy?.name || '—' })}</p>
+            )}
+          </Section>
+        )}
+
         {notes.length > 0 && (
           <Section title={t('Notes and coins')}>
             <div className="rounded-xl border border-gray-100 bg-white px-3 py-1 text-sm">
@@ -219,7 +283,8 @@ export default function ShiftDetailSheet({ shift: initial, onClose, settings }) 
                       <div className="min-w-0">
                         <p className={`truncate text-sm font-medium ${voided ? 'text-gray-500 line-through' : 'text-gray-900'}`}>{b.devotee?.name || '—'}</p>
                         <p className="truncate text-xs text-gray-500">{[b.sevaName, b.batchLabel].filter(Boolean).join(' · ')}</p>
-                        <p className="font-mono text-[11px] text-gray-400">{b.receiptNo} · {fmtTime(b.paidAt)}</p>
+                        <p className="font-mono text-[11px] text-gray-400">{b.receiptNo} · {fmtTime(b.paidAt)}{b.paymentRef ? ` · ${b.paymentRef}` : ''}</p>
+                        <Flags b={b} />
                       </div>
                       <div className="shrink-0 text-right">
                         <p className={`text-sm font-semibold tabular-nums ${voided ? 'text-red-500 line-through' : 'text-gray-900'}`}>{rupees(b.amount)}</p>
@@ -262,6 +327,18 @@ export default function ShiftDetailSheet({ shift: initial, onClose, settings }) 
               {t('{n} voided after close · {amount}', { n: late.count, amount: rupees(late.amount) })}
             </p>
           )}
+          {digitalTotal > 0 && (
+            <label className="flex cursor-pointer items-start gap-2.5 rounded-lg border border-gray-200 px-3 py-2.5 text-sm text-gray-700">
+              <input type="checkbox" className="mt-0.5 h-5 w-5 shrink-0 rounded" checked={digitalOk} onChange={(e) => setDigitalOk(e.target.checked)} />
+              <span>
+                {rich(t('UPI {upi} and card {card} match the bank / card statement.'), {
+                  upi: <strong className="tabular-nums">{rupees(totals.upi)}</strong>,
+                  card: <strong className="tabular-nums">{rupees(totals.card)}</strong>,
+                })}
+                {flagged > 0 && <span className="mt-0.5 block text-xs text-amber-700">{t('{n} payments are flagged — check them first.', { n: flagged })}</span>}
+              </span>
+            </label>
+          )}
           <div>
             <label className="label" htmlFor="verify-note">{t('Note (optional)')}</label>
             <textarea id="verify-note" rows={2} maxLength={300} value={note} onChange={(e) => setNote(e.target.value)}
@@ -269,7 +346,7 @@ export default function ShiftDetailSheet({ shift: initial, onClose, settings }) 
           </div>
           <div className="flex flex-col-reverse gap-2 pt-1 sm:flex-row sm:justify-end">
             <button type="button" onClick={() => setVerifyOpen(false)} className="btn-secondary">{t('Cancel')}</button>
-            <button type="button" onClick={() => verifyMut.mutate()} disabled={verifyMut.isPending} className="btn-primary">
+            <button type="button" onClick={() => verifyMut.mutate()} disabled={verifyMut.isPending || (digitalTotal > 0 && !digitalOk)} className="btn-primary">
               {verifyMut.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <BadgeCheck className="h-4 w-4" />}
               {t('Verify handover')}
             </button>

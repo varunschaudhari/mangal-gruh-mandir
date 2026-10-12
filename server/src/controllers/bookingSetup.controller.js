@@ -10,6 +10,7 @@ import asyncHandler from '../utils/asyncHandler.js';
 import { logAction } from '../services/audit.service.js';
 import { addDays, dateKeyOf, isDateKey } from '../services/booking/rules.js';
 import { listHalls } from '../services/booking/halls.js';
+import { recountSeats } from '../services/booking/booking.service.js';
 
 const pick = (obj, keys) => Object.fromEntries(keys.filter((k) => obj?.[k] !== undefined).map((k) => [k, obj[k]]));
 const weekdays = (w) => (Array.isArray(w) ? [...new Set(w.map(Number).filter((d) => d >= 0 && d <= 6))].sort() : undefined);
@@ -196,4 +197,12 @@ export const updateSettings = asyncHandler(async (req, res) => {
   await settings.save();
   logAction(req, { action: 'booking.settings_update', entity: 'BookingSettings', entityId: 'settings', entityRef: settings._id, after: data });
   res.json(new ApiResponse(200, settings, 'Settings saved'));
+});
+
+// POST /booking-setup/recount-seats — puts the seat counters (today and later) back in line
+// with the bookings, e.g. when a batch shows "full" but has free seats. Also runs every night.
+export const recountSeatCounters = asyncHandler(async (req, res) => {
+  const fixed = await recountSeats();
+  logAction(req, { action: 'booking.seats_recount', entity: 'SlotCounter', entityId: 'seats', meta: { fixed: fixed.length, keys: fixed.slice(0, 20) } });
+  res.json(new ApiResponse(200, { fixed }, fixed.length ? 'Seat counts corrected' : 'Seat counts were already right'));
 });

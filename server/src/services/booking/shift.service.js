@@ -6,18 +6,21 @@ import { dateKeyOf, dateKeyToDate, denominationTotal, DENOMINATIONS, shiftCash }
 
 // A counter person's shift runs from their last handover to the moment they close it. Every
 // booking they took in between (not yet in a shift) is linked to the closed shift, so nothing is
-// counted twice and nothing is missed. Before someone's first ever close, only today counts —
-// bookings from before shifts existed are left alone.
+// counted twice and nothing is missed. Someone's first close takes everything they booked since
+// shift closing started at the temple (the first handover anyone made) — so a new clerk who didn't
+// close on Monday hands Monday's cash over on Tuesday. Bookings from before then are left alone.
 
 const toId = (id) => new mongoose.Types.ObjectId(String(id));
 
 async function openRange(userId) {
-  const [first, last] = await Promise.all([
+  const [first, last, goLive] = await Promise.all([
     BookingShift.findOne({ user: userId }).sort({ closedAt: 1 }).select('startedAt').lean(),
     BookingShift.findOne({ user: userId }).sort({ closedAt: -1 }).select('closedAt').lean(),
+    BookingShift.findOne().sort({ startedAt: 1 }).select('startedAt').lean(),   // the temple's first handover
   ]);
   return {
-    floor: first ? first.startedAt : dateKeyToDate(dateKeyOf()),
+    // their own first shift; else since shift closing started; the very first close of all: today
+    floor: first?.startedAt || goLive?.startedAt || dateKeyToDate(dateKeyOf()),
     since: last?.closedAt || null,
   };
 }
@@ -160,19 +163,60 @@ export async function listShifts(query, viewer, { canSeeAll = false } = {}) {
   };
 }
 
-/** One shift with its bookings (for the handover slip). */
+const DIGITAL = ['upi', 'card'];
+
+/**
+ * UPI / card bookings the cashier should look at before verifying: no reference (taken before
+ * references were required), payment mode changed after booking (e.g. cash → UPI), or the same
+ * reference on another booking. Adds `flags` (and `modeChange`) to each booking; returns the counts.
+ */
+async function digitalChecks(bookings) {
+  const refs = [...new Set(bookings.filter((b) => b.status === 'confirmed' && DIGITAL.includes(b.paymentMode) && b.paymentRef).map((b) => b.paymentRef))];
+  const reused = refs.length
+    ? new Set((await Booking.aggregate([
+      { $match: { paymentRef: { $in: refs }, status: 'confirmed' } },
+      { $group: { _id: '$paymentRef', n: { $sum: 1 } } },
+      { $match: { n: { $gt: 1 } } },
+    ])).map((r) => r._id))
+    : new Set();
+  const summary = { upi: { count: 0, amount: 0 }, card: { count: 0, amount: 0 }, noRef: 0, modeChanged: 0, reused: 0 };
+  for (const b of bookings) {
+    const changes = (b.history || []).filter((h) => h.changes?.paymentMode);
+    if (changes.length) {
+      const [from] = changes[0].changes.paymentMode;
+      const [, to] = changes[changes.length - 1].changes.paymentMode;
+      b.modeChange = { from, to, at: changes[changes.length - 1].at };
+    }
+    delete b.history;
+    b.flags = [];
+    if (b.status !== 'confirmed') continue;
+    if (b.modeChange && b.modeChange.from !== b.paymentMode) { b.flags.push('mode-changed'); summary.modeChanged += 1; }
+    if (!DIGITAL.includes(b.paymentMode)) continue;
+    summary[b.paymentMode].count += 1;
+    summary[b.paymentMode].amount += b.amount;
+    if (!b.paymentRef) { b.flags.push('no-ref'); summary.noRef += 1; }
+    else if (reused.has(b.paymentRef)) { b.flags.push('ref-reused'); summary.reused += 1; }
+  }
+  return summary;
+}
+
+/** One shift with its bookings (for the handover slip), and the UPI / card checks. */
 export async function getShift(id, viewer, { canSeeAll = false } = {}) {
   if (!mongoose.isValidObjectId(id)) throw new ApiError(404, 'Shift not found');
   const shift = await BookingShift.findById(id).populate(POPULATE).lean();
   if (!shift || (!canSeeAll && String(shift.user?._id) !== String(viewer._id))) throw new ApiError(404, 'Shift not found');
   const bookings = await Booking.find({ shift: shift._id })
-    .select('receiptNo sevaName amount paymentMode paymentRef status paidAt voidedAt voidReason devotee.name dateKey batchLabel')
+    .select('receiptNo sevaName amount paymentMode paymentRef status paidAt voidedAt voidReason devotee.name dateKey batchLabel history.at history.changes.paymentMode')
     .sort({ paidAt: 1 }).lean();
   const late = await lateVoids([shift]);
-  return { ...shift, voidedAfterClose: late[String(shift._id)] || null, bookings };
+  const digital = await digitalChecks(bookings);
+  return { ...shift, voidedAfterClose: late[String(shift._id)] || null, bookings, digital };
 }
 
-/** Supervisor sign-off. Only an admin may verify their own handover. */
+/**
+ * Supervisor sign-off. Only an admin may verify their own handover. When the shift has UPI or
+ * card payments the verifier must confirm they match the bank / card-machine statement.
+ */
 export async function verifyShift(id, input = {}, user) {
   if (!mongoose.isValidObjectId(id)) throw new ApiError(404, 'Shift not found');
   const shift = await BookingShift.findById(id).lean();
@@ -180,9 +224,18 @@ export async function verifyShift(id, input = {}, user) {
   if (String(shift.user) === String(user._id) && !['admin', 'super_admin'].includes(user.role)) {
     throw new ApiError(403, 'Someone else has to verify your handover');
   }
+  const digital = (shift.totals?.upi || 0) + (shift.totals?.card || 0);
+  if (digital > 0 && input.digitalChecked !== true) {
+    throw new ApiError(400, 'Tick that the UPI and card payments match the bank / card statement');
+  }
   const saved = await BookingShift.findOneAndUpdate(
     { _id: id, status: 'closed' },
-    { $set: { status: 'verified', verifiedBy: user._id, verifiedAt: new Date(), verifyNote: String(input.note ?? '').trim().slice(0, 300) } },
+    {
+      $set: {
+        status: 'verified', verifiedBy: user._id, verifiedAt: new Date(), verifyNote: String(input.note ?? '').trim().slice(0, 300),
+        digitalChecked: digital > 0,
+      },
+    },
     { returnDocument: 'after' },
   ).populate(POPULATE).lean();
   if (!saved) throw new ApiError(400, 'This shift is already verified');

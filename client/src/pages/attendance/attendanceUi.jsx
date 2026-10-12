@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Fingerprint, PenLine, Undo2, EyeOff, Plus, AlertTriangle, Moon, Sun, Gift, IndianRupee, Ban, PartyPopper } from 'lucide-react';
+import { Fingerprint, PenLine, Undo2, EyeOff, Plus, AlertTriangle, Moon, Sun, Gift, IndianRupee, Ban, PartyPopper, Lock } from 'lucide-react';
 import toast from 'react-hot-toast';
 import Sheet from '../../components/ui/Sheet.jsx';
 import { PageLoader } from '../../components/ui/Spinner.jsx';
@@ -141,7 +141,7 @@ export function DoubleDecision({ staffId, date, decision, eligible = true, canAp
     setOvertime(null);
     qc.invalidateQueries({ queryKey: ['attendance'] });
   };
-  const fail = (err) => toast.error(err.response?.data?.message || t('Failed'));
+  const fail = (err) => toast.error(t(err.response?.data?.message || 'Failed'));
   const save = useMutation({
     mutationFn: (body) => setDoubleDecision({ staff: staffId, date, ...body }),
     onSuccess: () => { toast.success(t('Saved')); after(); },
@@ -200,6 +200,22 @@ export function DoubleDecision({ staffId, date, decision, eligible = true, canAp
   );
 }
 
+// ── Month frozen by salary ────────────────────────────────────────────────────
+
+/** Once a month's salary is finalised or paid its attendance can't be changed. */
+export function MonthLockNote({ locked, className = '' }) {
+  const t = useT();
+  if (!locked) return null;
+  return (
+    <p className={`flex items-start gap-2 rounded-xl border border-blue-200 bg-blue-50 px-3 py-2.5 text-sm text-blue-900 ${className}`}>
+      <Lock className="mt-0.5 h-4 w-4 shrink-0" />
+      {locked === 'paid'
+        ? t('Salary for this month is paid — its attendance is locked.')
+        : t('Salary for this month is finalised — its attendance is locked. Reopen the salary to make changes.')}
+    </p>
+  );
+}
+
 // ── Day detail: punches, missed punch, ignore, correction, leave ────────────
 
 const nowHHMM = () => new Date().toTimeString().slice(0, 5);
@@ -221,6 +237,8 @@ export function DayDetailSheet({ staffId, date, onClose, canWrite, shifts = [] }
   const day = detail?.day;
   const override = detail?.override;
   const balance = detail?.balance;
+  // A month whose salary is finalised / paid is frozen: look, don't change
+  const write = canWrite && !detail?.locked;
   const shiftById = new Map(shifts.map((s) => [String(s._id), s]));
   const isFuture = date > localDateStr();
 
@@ -230,20 +248,20 @@ export function DayDetailSheet({ staffId, date, onClose, canWrite, shifts = [] }
     setForm({});
     qc.invalidateQueries({ queryKey: ['attendance'] });
   };
-  const fail = (err) => toast.error(err.response?.data?.message || t('Failed'));
+  const fail = (err) => toast.error(t(err.response?.data?.message || 'Failed'));
 
   const punchMut = useMutation({
     mutationFn: () => {
       const [h, m] = form.time.split(':').map(Number);
       const when = parseDay(form.date || date);
       when.setHours(h, m, 0, 0);
-      return addManualPunch({ staff: staffId, time: when.toISOString(), reason: form.reason });
+      return addManualPunch({ staff: staffId, time: when.toISOString(), reason: form.reason, day: date });
     },
     onSuccess: () => done('Punch added'),
     onError: fail,
   });
   const ignoreMut = useMutation({
-    mutationFn: ({ punch, ignored }) => ignorePunch(punch._id, { ignored, reason: form.reason }),
+    mutationFn: ({ punch, ignored }) => ignorePunch(punch._id, { ignored, reason: form.reason, day: date }),
     onSuccess: (res) => done(res.data?.message || 'Saved'),
     onError: fail,
   });
@@ -356,7 +374,7 @@ export function DayDetailSheet({ staffId, date, onClose, canWrite, shifts = [] }
                           {p.source === 'manual' ? `${t('Added by {name}', { name: p.by?.name || '—' })} — ${p.reason}` : (p.ignored ? p.reason : t(VERIFY[p.verify] || 'Machine'))}
                         </p>
                       </div>
-                      {canWrite && (p.ignored ? (
+                      {write && (p.ignored ? (
                         <button onClick={() => ignoreMut.mutate({ punch: p, ignored: false })} className="btn-ghost p-2 text-gray-500" aria-label={t('Restore')}><Undo2 className="h-4 w-4" /></button>
                       ) : (
                         <button onClick={() => { setForm({ reason: '' }); setMode({ ignore: p }); }} className="btn-ghost p-2 text-gray-500" aria-label={t(p.source === 'manual' ? 'Remove' : 'Ignore')}>
@@ -371,7 +389,8 @@ export function DayDetailSheet({ staffId, date, onClose, canWrite, shifts = [] }
           )}
 
           {/* Actions */}
-          {canWrite && !mode && (
+          <MonthLockNote locked={detail?.locked} />
+          {write && !mode && (
             <div className={`grid gap-2 ${isFuture ? 'grid-cols-1' : 'grid-cols-2'}`}>
               {!isFuture && <button onClick={startPunch} className="btn-secondary flex items-center justify-center gap-1.5"><Plus className="h-4 w-4" />{t('Missed punch')}</button>}
               <button onClick={startFix} className="btn-secondary flex items-center justify-center gap-1.5"><PenLine className="h-4 w-4" />{t(isFuture ? 'Mark leave / change day' : 'Correct day')}</button>

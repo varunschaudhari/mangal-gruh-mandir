@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { allocateLeave, extraAvailable } from './leave.js';
+import { allocateLeave, extraAvailable, leaveChainStart } from './leave.js';
 
 // days: { date: status | { status, ...extra } } → day objects as compute.js returns them
 const mk = (spec) => Object.fromEntries(Object.entries(spec).map(([date, v]) => [date, {
@@ -88,4 +88,34 @@ test('late penalty: after the free late marks each late cuts half a day — only
   const resOff = allocateLeave({ days: off, entitlement: 3, latePenalty: { enabled: false, freeLates: 3 } });
   assert.equal(resOff.months['2026-10'].lateMarks, 6);
   assert.equal(resOff.months['2026-10'].lateCut, 0);
+});
+
+test('the leave sums start early enough to know every extra leave carried into the month', () => {
+  // No extra leave earned before: one validity period back, from the 1st
+  assert.equal(leaveChainStart('2026-10-01', 60, []), '2026-08-01');
+  // Earned 15 Jul — still usable in early September, and late-August absences may have used it
+  assert.equal(leaveChainStart('2026-10-01', 60, ['2026-07-15', '2026-08-20']), '2026-06-01');
+  // Never further than maxSteps periods back
+  const every = Array.from({ length: 40 }, (_, i) => `2025-${String(1 + Math.floor(i / 4)).padStart(2, '0')}-1${i % 4}`);
+  assert.ok(leaveChainStart('2026-10-01', 60, every, 2) >= '2026-04-01');
+});
+
+test('starting early keeps the newer extra leave for later (it was the older one that got used)', () => {
+  // Extra leave earned 15 Jul (until 13 Sep) and 20 Aug (until 19 Oct). Four absences at the end of
+  // August (3 paid + 1 extra) and four in early October (3 paid + 1 extra).
+  const credits = [
+    { date: '2026-07-15', expiresOn: '2026-09-13' },
+    { date: '2026-08-20', expiresOn: '2026-10-19' },
+  ];
+  const spec = {};
+  for (const d of ['2026-08-25', '2026-08-26', '2026-08-27', '2026-08-28', '2026-10-05', '2026-10-06', '2026-10-07', '2026-10-08']) spec[d] = 'absent';
+  const withJuly = mk({ '2026-06-01': 'present', ...spec });
+  allocateLeave({ days: withJuly, entitlement: 3, credits });
+  assert.deepEqual(withJuly['2026-08-28'].cover, { paid: 0, extra: 1, unpaid: 0 });   // the July leave, expiring first
+  assert.deepEqual(withJuly['2026-10-08'].cover, { paid: 0, extra: 1, unpaid: 0 });   // August's leave still there
+
+  // Starting on 1 Aug (what was done before) misses the July leave: October loses a day's pay
+  const fromAugust = mk({ '2026-08-01': 'present', ...spec });
+  allocateLeave({ days: fromAugust, entitlement: 3, credits: credits.filter((c) => c.date >= '2026-08-01') });
+  assert.deepEqual(fromAugust['2026-10-08'].cover, { paid: 0, extra: 0, unpaid: 1 });
 });
