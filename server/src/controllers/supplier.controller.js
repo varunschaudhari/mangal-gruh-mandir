@@ -40,7 +40,7 @@ export const updateSupplier = asyncHandler(async (req, res) => {
   const supplier = await Supplier.findByIdAndUpdate(
     req.params.id,
     { $set: { name, type, contactPerson, phone, email, address, city, pincode, area, district, state, gstin, panNumber, notes, isActive, creditDays, bankAccounts } },
-    { new: true, runValidators: true }
+    { returnDocument: 'after', runValidators: true }
   );
   if (!supplier) throw new ApiError(404, 'Supplier not found');
   logAction(req, {

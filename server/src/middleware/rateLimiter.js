@@ -3,7 +3,8 @@ import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
 
 export const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 10,
+  // Sign-in attempts per IP. CI raises it: its check scripts sign in as several test users.
+  max: Number(process.env.LOGIN_RATE_LIMIT) || 10,
   message: { success: false, message: 'Too many login attempts. Please try again in 15 minutes.' },
   standardHeaders: true,
   legacyHeaders: false,

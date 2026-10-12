@@ -5,7 +5,7 @@ import {
   Armchair, ClipboardList, Settings2, BarChart2, TrendingUp, Heart, CreditCard, Plus,
   ShoppingCart, BookTemplate, FileText, Utensils, ScanLine, BarChart3, Receipt, PiggyBank, Bug,
   Fingerprint, CalendarDays, CalendarRange, UsersRound, Clock3, CalendarHeart, Wallet, HandCoins, IndianRupee,
-  CalendarCheck, ListOrdered, ClipboardList as DaySheetIcon, Vault,
+  CalendarCheck, ListOrdered, ClipboardList as DaySheetIcon, Vault, QrCode, MonitorPlay,
 } from 'lucide-react';
 
 // Single source of truth for navigation: the desktop sidebar, the mobile bottom tab bar,
@@ -97,6 +97,8 @@ export const navConfig = [
       { label: 'New Booking',      to: '/bookings/new',     icon: Plus,         permission: 'bookings:create' },
       { label: 'All Bookings',     to: '/bookings',         icon: ListOrdered,  permission: 'bookings:read'   },
       { label: 'Day Sheet',        to: '/bookings/day',     icon: DaySheetIcon, permission: 'bookings:read'   },
+      { label: 'Hall Check-in',    to: '/bookings/check-in', icon: QrCode,      permission: 'bookings:checkin' },
+      { label: 'Hall Screen',      to: '/hall-screen',      icon: MonitorPlay,  permission: 'bookings:checkin' },
       { label: 'Booking Reports',  to: '/bookings/reports', icon: BarChart3,    permission: 'bookings:read'   },
       { label: 'Cash Handover',    to: '/bookings/shifts',  icon: Vault,        permission: 'bookings:read'   },
       { label: 'Booking Setup',    to: '/bookings/setup',   icon: Settings2,    permission: 'bookings:manage' },
@@ -196,6 +198,7 @@ export const MOBILE_TABS = {
   roster:     { label: 'Roster',     to: '/attendance/roster',  icon: CalendarRange, permission: 'attendance:read',  match: ['/attendance/roster'] },
   bookings:   { label: 'Pooja',      to: '/bookings',           icon: CalendarCheck, permission: 'bookings:read',    match: ['/bookings'] },
   daySheet:   { label: 'Day Sheet',  to: '/bookings/day',       icon: DaySheetIcon,  permission: 'bookings:read',    match: ['/bookings/day'] },
+  checkIn:    { label: 'Check-in',   to: '/bookings/check-in',  icon: QrCode,        permission: 'bookings:checkin', match: ['/bookings/check-in'] },
 };
 
 // Tabs per built-in role, most-used first. Custom roles fall back to TAB_PRIORITY.
@@ -212,6 +215,7 @@ const ROLE_TABS = {
   cashier:            ['payments', 'expenses', 'reports'],
   attendance_supervisor: ['attendance', 'roster'],
   booking_counter:    ['bookings', 'daySheet'],
+  hall_checkin:       ['checkIn'],
 };
 const TAB_PRIORITY = ['stock', 'scan', 'coupons', 'payments', 'purchases', 'donations', 'reports', 'prasad', 'expenses', 'attendance'];
 

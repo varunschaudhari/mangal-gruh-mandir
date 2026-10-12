@@ -1,9 +1,11 @@
 import mongoose from 'mongoose';
 import Booking from '../../models/Booking.js';
 import BookingBatch from '../../models/BookingBatch.js';
+import BookingClosure from '../../models/BookingClosure.js';
 import SevaType from '../../models/SevaType.js';
 import { APP_TIMEZONE } from '../../utils/dates.js';
-import { dateKeyToDate, isDateKey } from './rules.js';
+import { addDays, dateKeyOf, dateKeysBetween, dateKeyToDate, isDateKey } from './rules.js';
+import { summariseAttendance } from './attendance.js';
 
 // Income is counted on the day it was paid (paidAt); seats on the puja date (dateKey).
 
@@ -25,6 +27,13 @@ export function buildFilter(q = {}) {
   }
   if (['cash', 'upi', 'card', 'online'].includes(q.paymentMode)) filter.paymentMode = q.paymentMode;
   if (['counter', 'online'].includes(q.channel)) filter.channel = q.channel;
+  // Hall check-in: who came, and who booked but never came (only past days count as no-shows).
+  if (q.arrival === 'arrived') filter.checkedInAt = { $ne: null };
+  if (q.arrival === 'noshow') {
+    const today = dateKeyOf();
+    filter.checkedInAt = null;
+    filter.dateKey = isDateKey(q.pujaDate) ? (q.pujaDate < today ? q.pujaDate : '-') : { $lt: today };
+  }
 
   const search = String(q.q || '').trim();
   if (search) {
@@ -35,6 +44,19 @@ export function buildFilter(q = {}) {
       { 'devotee.name': rx },
       ...(digits.length >= 4 ? [{ 'devotee.phone': { $regex: digits } }] : []),
     ];
+  }
+  return filter;
+}
+
+/**
+ * buildFilter() for lists and exports: no-shows count only on days the hall scanned (a day with
+ * no check-ins at all isn't everyone missing) — the same rule as the attendance report.
+ */
+export async function registerFilter(q = {}) {
+  const filter = buildFilter(q);
+  if (q.arrival === 'noshow') {
+    const days = await Booking.distinct('dateKey', { dateKey: filter.dateKey, checkedInAt: { $ne: null } });
+    filter.dateKey = { $in: days };
   }
   return filter;
 }
@@ -91,7 +113,7 @@ const labelMinutes = (label) => {
 export async function daySheet(dateKey) {
   const bookings = await Booking.find({ dateKey, status: 'confirmed' })
     .sort({ serialNo: 1 })
-    .select('receiptNo sevaType sevaName schedule batch batchLabel hall serialNo devotee peopleCount amount paymentMode notes')
+    .select('receiptNo sevaType sevaName schedule batch batchLabel hall serialNo devotee peopleCount amount paymentMode notes checkedInAt')
     .lean();
   const [batches, slotSevas] = await Promise.all([
     BookingBatch.find({ _id: { $in: [...new Set(bookings.filter((b) => b.batch).map((b) => String(b.batch)))] } }).select('capacity').lean(),
@@ -106,12 +128,13 @@ export async function daySheet(dateKey) {
     const key = b.batch ? `${b.batch}` : `${b.sevaName}|${b.batchLabel}`;
     if (!groups.has(key)) {
       const capacity = capacityOf.get(String(b.batch || (b.schedule === 'slot' ? b.sevaType : ''))) || 0;
-      groups.set(key, { batch: b.batch, label: b.batchLabel, hall: b.hall, capacity, sevaNames: new Set(), bookings: [], people: 0 });
+      groups.set(key, { batch: b.batch, label: b.batchLabel, hall: b.hall, capacity, sevaNames: new Set(), bookings: [], people: 0, arrived: 0, arrivedPeople: 0 });
     }
     const g = groups.get(key);
     g.sevaNames.add(b.sevaName);
     g.bookings.push(b);
     g.people += b.peopleCount || 1;
+    if (b.checkedInAt) { g.arrived += 1; g.arrivedPeople += b.peopleCount || 1; }
   }
   return [...groups.values()]
     .map((g) => ({ ...g, sevaNames: [...g.sevaNames] }))
@@ -125,4 +148,46 @@ export async function incomeBetween(from, to) {
     { $group: { _id: null, amount: { $sum: '$amount' }, count: { $sum: 1 } } },
   ]);
   return { amount: r?.amount || 0, count: r?.count || 0 };
+}
+
+
+/**
+ * Fill rate and no-shows for puja dates from → to (default: the last 30 days).
+ *   Fill rate = seats booked ÷ seats on offer (batch capacity / slot daily limit, as set now),
+ *               per batch, weekday and day. Closed days offer nothing.
+ *   No-shows  = bookings never checked in at the hall, on past days when scanning was in use
+ *               (a day with no check-ins at all is left out, not counted as everyone missing).
+ * Nothing before the first booking counts (the module's start).
+ */
+export async function attendanceReport(q = {}) {
+  const today = dateKeyOf();
+  let to = isDateKey(q.to) ? q.to : today;
+  let from = isDateKey(q.from) ? q.from : addDays(to, -29);
+  if (from > to) [from, to] = [to, from];
+  const first = await Booking.findOne({ dateKey: { $gt: '' } }).sort({ dateKey: 1 }).select('dateKey').lean();
+  if (first && from < first.dateKey) from = first.dateKey;
+  const dates = from <= to ? dateKeysBetween(from, to) : [];
+  if (dates.length) to = dates[dates.length - 1];
+
+  const [rows, batches, slotSevas, closures] = await Promise.all([
+    Booking.aggregate([
+      { $match: { status: 'confirmed', dateKey: { $gte: from, $lte: to } } },
+      {
+        $group: {
+          _id: { dateKey: '$dateKey', batch: '$batch', sevaType: '$sevaType', schedule: '$schedule' },
+          sevaName: { $first: '$sevaName' }, label: { $first: '$batchLabel' }, hall: { $first: '$hall' },
+          bookings: { $sum: 1 },
+          seats: { $sum: { $ifNull: ['$seats', 1] } },
+          people: { $sum: { $ifNull: ['$peopleCount', 1] } },
+          arrived: { $sum: { $cond: [{ $ifNull: ['$checkedInAt', false] }, 1, 0] } },
+          arrivedPeople: { $sum: { $cond: [{ $ifNull: ['$checkedInAt', false] }, { $ifNull: ['$peopleCount', 1] }, 0] } },
+        },
+      },
+    ]),
+    BookingBatch.find().lean(),
+    SevaType.find({ schedule: 'slot' }).lean(),
+    BookingClosure.find({ date: { $gte: from, $lte: to } }).lean(),
+  ]);
+
+  return summariseAttendance({ rows, dates, batches, slotSevas, closures, today, from, to });
 }

@@ -2,6 +2,7 @@ import Punch from '../models/Punch.js';
 import Staff from '../models/Staff.js';
 import ApiError from '../utils/ApiError.js';
 import { getPermissionsForRole } from '../middleware/authorize.js';
+import { nextNumber } from './sequence.service.js';
 
 // Everyone is a User. A user who is "on attendance & payroll" also has an attendance profile
 // (the Staff document): machine number, shifts, weekly off, salary, PF/ESI, bank. Punches,
@@ -25,11 +26,7 @@ export async function assertMachineIdFree(machineId, exceptId) {
   if (other) throw new ApiError(409, `Machine number ${machineId} is already given to ${other.name} (${other.staffCode})`);
 }
 
-async function nextStaffCode() {
-  const last = await Staff.findOne({ staffCode: /^STF-\d+$/ }).sort({ createdAt: -1 }).select('staffCode').lean();
-  const n = last ? parseInt(last.staffCode.split('-')[1], 10) + 1 : 1;
-  return `STF-${String(n).padStart(3, '0')}`;
-}
+const nextStaffCode = () => nextNumber({ prefix: 'STF-', sources: [{ model: Staff, field: 'staffCode' }] });
 
 // Punches that arrived before the machine number was entered get linked now.
 export const linkPunches = (staff) => (staff.machineId

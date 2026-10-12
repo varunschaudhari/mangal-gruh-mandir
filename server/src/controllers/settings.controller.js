@@ -4,6 +4,7 @@ import ApiResponse from '../utils/ApiResponse.js';
 import ApiError from '../utils/ApiError.js';
 import asyncHandler from '../utils/asyncHandler.js';
 import { logAction } from '../services/audit.service.js';
+import { refreshTemple } from '../services/temple.service.js';
 
 export const getSettings = asyncHandler(async (req, res) => {
   const settings = await Settings.getOrCreate();
@@ -67,6 +68,7 @@ export const updateSettings = asyncHandler(async (req, res) => {
   if (mahaprasadPrinterName        !== undefined) settings.mahaprasadPrinterName        = mahaprasadPrinterName;
 
   await settings.save();
+  await refreshTemple(settings);
   const changedKeys = Object.keys(req.body).filter((k) => req.body[k] !== undefined && !['waAccessToken', 'msg91AuthKey'].includes(k));
   logAction(req, {
     action: 'settings.update', entity: 'Settings',

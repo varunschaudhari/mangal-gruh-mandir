@@ -28,8 +28,17 @@ export const getRole = asyncHandler(async (req, res) => {
   res.json(new ApiResponse(200, role));
 });
 
+// "*" means every permission, including ones admins don't have themselves: only a super admin
+// may grant it, or change the super admin role.
+function assertMayGrant(req, permissions, role) {
+  if (req.user.role === 'super_admin') return;
+  if (role?.slug === 'super_admin') throw new ApiError(403, 'Only a super admin can change the super admin role');
+  if (permissions?.includes('*')) throw new ApiError(403, 'Only a super admin can give a role every permission');
+}
+
 export const createRole = asyncHandler(async (req, res) => {
   const { slug, name, description, permissions } = req.body;
+  assertMayGrant(req, permissions);
 
   if (!slug || !name) throw new ApiError(400, 'slug and name are required');
   if (!/^[a-z0-9_]+$/.test(slug)) throw new ApiError(400, 'Slug must be lowercase letters, numbers, underscores only');
@@ -58,6 +67,7 @@ export const updateRole = asyncHandler(async (req, res) => {
   if (!role) throw new ApiError(404, 'Role not found');
 
   const { name, description, permissions, isActive } = req.body;
+  assertMayGrant(req, permissions, role);
 
   // System roles: only allow editing permissions and isActive (not slug/name)
   if (role.isSystem) {

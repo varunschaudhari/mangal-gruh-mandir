@@ -8,9 +8,10 @@ import ApiResponse from '../utils/ApiResponse.js';
 import asyncHandler from '../utils/asyncHandler.js';
 import { generatePurchaseEntryNumber } from '../services/purchaseEntryNumber.service.js';
 import { generateTransactionNumber } from '../services/transactionNumber.service.js';
-import { createBatch, restoreBatchesForVoid } from '../services/fifo.service.js';
-import { recomputeBalance, updateBalancesForTransaction } from '../services/stockBalance.service.js';
+import { createBatch } from '../services/fifo.service.js';
+import { recomputeBalance } from '../services/stockBalance.service.js';
 import { logAction } from '../services/audit.service.js';
+import { voidStockIns } from '../services/stockVoid.service.js';
 
 // POST /purchase-entries
 export const createPurchaseEntry = asyncHandler(async (req, res) => {
@@ -329,22 +330,8 @@ export const voidPurchaseEntry = asyncHandler(async (req, res) => {
     );
   }
 
-  // Void each linked StockTransaction and restore batches
-  for (const item of entry.items) {
-    if (!item.stockTransactionId) continue;
-    const txn = await StockTransaction.findById(item.stockTransactionId);
-    if (!txn || txn.isVoided) continue;
-
-    await restoreBatchesForVoid(txn);
-
-    txn.isVoided  = true;
-    txn.voidedBy  = req.user._id;
-    txn.voidedAt  = new Date();
-    txn.voidReason = voidReason;
-    await txn.save();
-
-    await updateBalancesForTransaction(txn);
-  }
+  // Void the stock-ins of all items (refused, with nothing changed, if any of it has been used)
+  await voidStockIns(entry.items.map((i) => i.stockTransactionId), { userId: req.user._id, reason: voidReason, what: 'purchase' });
 
   entry.isVoided  = true;
   entry.voidReason = voidReason;

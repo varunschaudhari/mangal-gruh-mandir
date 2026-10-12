@@ -1,6 +1,7 @@
 import QRCode from 'qrcode/lib/browser.js';
 import { printHtml } from './printHtml.js';
 import { isNative, publicUrl } from './platform.js';
+import { temple, templeHtml } from './temple.js';
 
 const fmt = (d) => d
   ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
@@ -51,7 +52,7 @@ export async function printUnitLabels(asset, units) {
       <div class="sticker">
         <div class="s-inner">
           <div class="s-left">
-            <div class="s-temple">Mangal Grah Mandir</div>
+            <div class="s-temple">${templeHtml()}</div>
             <div class="s-name">${esc(asset.name)}</div>
             <div class="s-num">#${unitNum}</div>
             <div class="s-code">${esc(u.unitCode)}</div>
@@ -123,7 +124,7 @@ export async function printUnitLabels(asset, units) {
 // ── Asset-level summary labels (2-col A4) ─────────────────────────────────────
 export async function printAssetLabels(assets) {
   // Open window synchronously — must happen before any await or browser blocks it
-  const win = openPrintWindow('Asset Labels — Mangal Grah Mandir');
+  const win = openPrintWindow(`Asset Labels — ${temple().name}`);
   if (!win && !isNative) return;
 
   const qrMap = {};
@@ -143,7 +144,7 @@ export async function printAssetLabels(assets) {
       <div class="label">
         <div class="label-inner">
           <div class="label-left">
-            <div class="temple">Mangal Grah Mandir, Amalner</div>
+            <div class="temple">${templeHtml()}</div>
             <div class="asset-name">${esc(a.name)}</div>
             <div class="asset-code">${esc(a.assetCode || '—')}</div>
             <div class="asset-meta">${esc(a.category)} &nbsp;|&nbsp; Qty: <strong>${a.totalQuantity}</strong></div>
@@ -160,7 +161,7 @@ export async function printAssetLabels(assets) {
 <html>
 <head>
   <meta charset="utf-8" />
-  <title>Asset Labels — Mangal Grah Mandir</title>
+  <title>Asset Labels — ${templeHtml()}</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: Arial, sans-serif; background: #fff; }

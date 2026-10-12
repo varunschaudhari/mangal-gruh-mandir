@@ -4,18 +4,20 @@ import { changePassword } from '../../api/auth.api.js';
 import PageHeader from '../../components/ui/PageHeader.jsx';
 import { FormField, FormSection } from '../../components/ui/FormField.jsx';
 import toast from 'react-hot-toast';
+import { useT } from '../../i18n/index.jsx';
 
 const ChangePassword = () => {
+  const t = useT();
   const { register, handleSubmit, watch, reset, formState: { errors } } = useForm();
   const newPassword = watch('newPassword');
 
   const mutation = useMutation({
     mutationFn: changePassword,
     onSuccess: () => {
-      toast.success('Password changed successfully');
+      toast.success(t('Password changed successfully'));
       reset();
     },
-    onError: (err) => toast.error(err.response?.data?.message || 'Failed to change password'),
+    onError: (err) => toast.error(err.response?.data?.message || t('Failed to change password')),
   });
 
   return (
@@ -26,8 +28,8 @@ const ChangePassword = () => {
       />
 
       <form onSubmit={handleSubmit((d) => mutation.mutate(d))} className="card p-6 space-y-6">
-        <FormSection title="Update Your Password">
-          <FormField label="Current Password" required error={errors.currentPassword?.message}>
+        <FormSection title={t('Update Your Password')}>
+          <FormField label={t('Current Password')} required error={errors.currentPassword?.message}>
             <input
               {...register('currentPassword', { required: 'Current password is required' })}
               type="password"
@@ -36,11 +38,11 @@ const ChangePassword = () => {
             />
           </FormField>
 
-          <FormField label="New Password" required error={errors.newPassword?.message} hint="At least 6 characters">
+          <FormField label={t('New Password')} required error={errors.newPassword?.message} hint={t('At least 6 characters')}>
             <input
               {...register('newPassword', {
                 required: 'New password is required',
-                minLength: { value: 6, message: 'Minimum 6 characters' },
+                minLength: { value: 6, message: t('Minimum 6 characters') },
               })}
               type="password"
               className="input"
@@ -48,7 +50,7 @@ const ChangePassword = () => {
             />
           </FormField>
 
-          <FormField label="Confirm New Password" required error={errors.confirmPassword?.message}>
+          <FormField label={t('Confirm New Password')} required error={errors.confirmPassword?.message}>
             <input
               {...register('confirmPassword', {
                 required: 'Please confirm your new password',
@@ -67,7 +69,7 @@ const ChangePassword = () => {
             disabled={mutation.isPending}
             className="btn btn-primary disabled:opacity-50"
           >
-            {mutation.isPending ? 'Updating…' : 'Change Password'}
+            {mutation.isPending ? t('Updating…') : t('Change Password')}
           </button>
         </div>
       </form>

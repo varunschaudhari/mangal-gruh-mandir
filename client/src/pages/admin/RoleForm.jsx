@@ -7,6 +7,7 @@ import PageHeader from '../../components/ui/PageHeader.jsx';
 import { FormField, FormRow, FormSection, FormActions } from '../../components/ui/FormField.jsx';
 import { PageLoader } from '../../components/ui/Spinner.jsx';
 import toast from 'react-hot-toast';
+import { useT } from '../../i18n/index.jsx';
 
 const PERMISSION_GROUPS = {
   Users:        ['users:read', 'users:write', 'users:delete'],
@@ -19,7 +20,7 @@ const PERMISSION_GROUPS = {
   Mahaprasad:   ['mahaprasad:read', 'mahaprasad:issue', 'mahaprasad:redeem'],
   Attendance:   ['attendance:read', 'attendance:write', 'attendance:manage', 'attendance:approve'],
   Salary:       ['salary:read', 'salary:manage'],
-  Bookings:     ['bookings:read', 'bookings:create', 'bookings:void', 'bookings:manage', 'bookings:cash'],
+  Bookings:     ['bookings:read', 'bookings:create', 'bookings:void', 'bookings:manage', 'bookings:cash', 'bookings:checkin'],
 };
 
 const PERMISSION_LABELS = {
@@ -36,6 +37,7 @@ const PERMISSION_LABELS = {
   'bookings:read': 'View pooja bookings & reports', 'bookings:create': 'Book at the counter, fix details, close own shift',
   'bookings:void': 'Void bookings', 'bookings:manage': 'Booking setup (sevas, batches, closed dates)',
   'bookings:cash': 'See all cash handovers & verify them',
+  'bookings:checkin': 'Scan booking slips at the hall (check-in)',
 };
 
 const ALL_PERMISSIONS = Object.values(PERMISSION_GROUPS).flat();
@@ -43,6 +45,7 @@ const ALL_PERMISSIONS = Object.values(PERMISSION_GROUPS).flat();
 const toSlug = (name) => name.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
 
 const RoleForm = () => {
+  const t = useT();
   const { id } = useParams();
   const isEdit = Boolean(id);
   const navigate = useNavigate();
@@ -85,11 +88,11 @@ const RoleForm = () => {
   const mutation = useMutation({
     mutationFn: (data) => isEdit ? updateRole(id, data) : createRole(data),
     onSuccess: () => {
-      toast.success(isEdit ? 'Role updated' : 'Role created');
+      toast.success(isEdit ? t('Role updated') : t('Role created'));
       qc.invalidateQueries({ queryKey: ['roles'] });
       navigate('/admin/roles');
     },
-    onError: (err) => toast.error(err.response?.data?.message || 'Failed'),
+    onError: (err) => toast.error(err.response?.data?.message || t('Failed')),
   });
 
   const togglePermission = (perm) => {
@@ -118,8 +121,8 @@ const RoleForm = () => {
         breadcrumbs={[{ label: 'Admin' }, { label: 'Roles', to: '/admin/roles' }, { label: isEdit ? 'Edit' : 'New' }]}
       />
       <form onSubmit={handleSubmit((d) => mutation.mutate(d))} className="card p-6 space-y-6">
-        <FormSection title="Role Details">
-          <FormField label="Name" required error={errors.name?.message}>
+        <FormSection title={t('Role Details')}>
+          <FormField label={t('Name')} required error={errors.name?.message}>
             <input
               {...register('name', { required: 'Name is required' })}
               className="input"
@@ -127,11 +130,11 @@ const RoleForm = () => {
             />
           </FormField>
           <FormRow cols={2}>
-            <FormField label="Slug" required error={errors.slug?.message} hint="Lowercase letters, digits, underscores">
+            <FormField label={t('Slug')} required error={errors.slug?.message} hint={t('Lowercase letters, digits, underscores')}>
               <input
                 {...register('slug', {
                   required: 'Slug is required',
-                  pattern: { value: /^[a-z0-9_]+$/, message: 'Only lowercase letters, digits, underscores' },
+                  pattern: { value: /^[a-z0-9_]+$/, message: t('Only lowercase letters, digits, underscores') },
                 })}
                 className="input font-mono"
                 disabled={isEdit}
@@ -140,19 +143,19 @@ const RoleForm = () => {
             <div className="flex items-end pb-1">
               <label className="flex items-center gap-2 text-sm cursor-pointer">
                 <input type="checkbox" {...register('isActive')} className="h-4 w-4 rounded" />
-                Active
+                {t('Active')}
               </label>
             </div>
           </FormRow>
-          <FormField label="Description">
-            <input {...register('description')} className="input" placeholder="Optional description" />
+          <FormField label={t('Description')}>
+            <input {...register('description')} className="input" placeholder={t('Optional description')} />
           </FormField>
         </FormSection>
 
-        <FormSection title="Permissions">
+        <FormSection title={t('Permissions')}>
           {isWildcard && (
             <div className="rounded-lg bg-primary-50 border border-primary-200 px-4 py-3 text-sm text-primary-800 font-medium">
-              ✦ This role has full wildcard access (<code className="font-mono text-xs bg-primary-100 px-1 rounded">*</code>). All permissions are granted automatically — changes here will not reduce access unless you save.
+              {t('✦ This role has full wildcard access (')}<code className="font-mono text-xs bg-primary-100 px-1 rounded">*</code>{t('). All permissions are granted automatically — changes here will not reduce access unless you save.')}
             </div>
           )}
           {Object.entries(PERMISSION_GROUPS).map(([group, perms]) => {

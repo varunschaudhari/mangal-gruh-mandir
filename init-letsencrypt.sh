@@ -23,8 +23,8 @@ fi
 COMPOSE="docker compose"
 CERT_PATH="/etc/letsencrypt/live/$DOMAIN"
 
-echo "==> Substituting domain ($DOMAIN) into nginx config"
-sed -i "s/yourdomain.com/$DOMAIN/g" nginx/conf.d/app.conf
+# nginx reads the domain from DOMAIN itself (nginx/templates/app.conf.template) — no file edits.
+export DOMAIN
 
 echo "==> Creating a temporary self-signed cert so nginx can boot"
 $COMPOSE run --rm --entrypoint "\

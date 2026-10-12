@@ -12,6 +12,7 @@ import 'react-datepicker/dist/react-datepicker.css';
 import toast from 'react-hot-toast';
 import { shareText } from '../../utils/fileSaver.js';
 import { useIsMobile } from '../../hooks/useMediaQuery.js';
+import { useT } from '../../i18n/index.jsx';
 
 const TYPE_LABELS = {
   STOCK_IN: 'Stock In', STOCK_OUT: 'Stock Out',
@@ -23,15 +24,19 @@ const TYPE_VARIANTS = {
   TRANSFER: 'info', WASTAGE: 'danger',
 };
 
-const StatBox = ({ label, count, qty, color }) => (
+const StatBox = ({ label, count, qty, color }) => {
+  const t = useT();
+  return (
   <div className={`card px-4 py-3 border-l-4 ${color}`}>
-    <p className="text-xs text-gray-500 font-medium">{label}</p>
+    <p className="text-xs text-gray-500 font-medium">{t(label)}</p>
     <p className="text-2xl font-bold text-gray-900">{count}</p>
-    <p className="text-xs text-gray-400">Total: {qty} units</p>
+    <p className="text-xs text-gray-400">{t('Total:')} {qty} {t('units')}</p>
   </div>
 );
+};
 
 const DailyMovement = () => {
+  const t = useT();
   const isMobile = useIsMobile();
   const [date, setDate] = useState(new Date());
   const [deptId, setDeptId] = useState('');
@@ -61,12 +66,12 @@ const DailyMovement = () => {
 
   const pdfMutation = useMutation({
     mutationFn: () => downloadDailyPDF(params, dateStr),
-    onError: () => toast.error('PDF export failed'),
+    onError: () => toast.error(t('PDF export failed')),
   });
 
   const excelMutation = useMutation({
     mutationFn: () => downloadDailyExcel(params, dateStr),
-    onError: () => toast.error('Excel export failed'),
+    onError: () => toast.error(t('Excel export failed')),
   });
 
   const whatsappMutation = useMutation({
@@ -75,13 +80,13 @@ const DailyMovement = () => {
       setWhatsappText(res.data.data.text);
       setShowWhatsApp(true);
     },
-    onError: () => toast.error('Failed to generate summary'),
+    onError: () => toast.error(t('Failed to generate summary')),
   });
 
   const handleCopy = () => {
     navigator.clipboard.writeText(whatsappText);
     setCopied(true);
-    toast.success('Copied to clipboard');
+    toast.success(t('Copied to clipboard'));
     setTimeout(() => setCopied(false), 2000);
   };
 
@@ -101,7 +106,7 @@ const DailyMovement = () => {
       <form onSubmit={handleView} className="card p-4 mb-4">
         <div className="flex flex-wrap items-end gap-3">
           <div>
-            <label className="label">Date *</label>
+            <label className="label">{t('Date *')}</label>
             <DatePicker
               selected={date}
               onChange={(d) => { setDate(d); setSubmitted(false); }}
@@ -114,17 +119,17 @@ const DailyMovement = () => {
             />
           </div>
           <div className="flex-1 min-w-[160px] max-w-xs">
-            <label className="label">Department</label>
+            <label className="label">{t('Department')}</label>
             <select
               value={deptId}
               onChange={(e) => { setDeptId(e.target.value); setSubmitted(false); }}
               className="input text-sm"
             >
-              <option value="">All Departments</option>
+              <option value="">{t('All Departments')}</option>
               {departments.map((d) => <option key={d._id} value={d._id}>{d.name}</option>)}
             </select>
           </div>
-          <button type="submit" disabled={!date} className="btn btn-primary">View Report</button>
+          <button type="submit" disabled={!date} className="btn btn-primary">{t('View Report')}</button>
         </div>
       </form>
 
@@ -134,22 +139,22 @@ const DailyMovement = () => {
         <>
           {/* Summary */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
-            <StatBox label="Stock In"  count={summary.STOCK_IN?.count || 0}  qty={summary.STOCK_IN?.totalQty || 0}  color="border-green-500" />
-            <StatBox label="Stock Out" count={summary.STOCK_OUT?.count || 0} qty={summary.STOCK_OUT?.totalQty || 0} color="border-amber-500" />
-            <StatBox label="Transfers" count={summary.TRANSFER?.count || 0}  qty={summary.TRANSFER?.totalQty || 0}  color="border-blue-500"  />
-            <StatBox label="Wastage"   count={summary.WASTAGE?.count || 0}   qty={summary.WASTAGE?.totalQty || 0}   color="border-red-500"   />
+            <StatBox label={t('Stock In')}  count={summary.STOCK_IN?.count || 0}  qty={summary.STOCK_IN?.totalQty || 0}  color="border-green-500" />
+            <StatBox label={t('Stock Out')} count={summary.STOCK_OUT?.count || 0} qty={summary.STOCK_OUT?.totalQty || 0} color="border-amber-500" />
+            <StatBox label={t('Transfers')} count={summary.TRANSFER?.count || 0}  qty={summary.TRANSFER?.totalQty || 0}  color="border-blue-500"  />
+            <StatBox label={t('Wastage')}   count={summary.WASTAGE?.count || 0}   qty={summary.WASTAGE?.totalQty || 0}   color="border-red-500"   />
           </div>
 
           {/* Export buttons */}
           <div className="card p-4 mb-4 flex flex-wrap items-center gap-2">
-            <span className="text-sm font-medium text-gray-600 mr-2">Export:</span>
+            <span className="text-sm font-medium text-gray-600 mr-2">{t('Export:')}</span>
             <button
               onClick={() => pdfMutation.mutate()}
               disabled={pdfMutation.isPending || transactions.length === 0}
               className="btn btn-ghost text-sm flex items-center gap-1.5 border"
             >
               <FileText className="h-4 w-4 text-red-500" />
-              {pdfMutation.isPending ? 'Generating…' : 'PDF'}
+              {pdfMutation.isPending ? t('Generating…') : 'PDF'}
             </button>
             <button
               onClick={() => excelMutation.mutate()}
@@ -157,7 +162,7 @@ const DailyMovement = () => {
               className="btn btn-ghost text-sm flex items-center gap-1.5 border"
             >
               <Sheet className="h-4 w-4 text-green-600" />
-              {excelMutation.isPending ? 'Generating…' : 'Excel'}
+              {excelMutation.isPending ? t('Generating…') : t('Excel')}
             </button>
             <button
               onClick={() => whatsappMutation.mutate()}
@@ -165,7 +170,7 @@ const DailyMovement = () => {
               className="btn btn-ghost text-sm flex items-center gap-1.5 border"
             >
               <MessageCircle className="h-4 w-4 text-green-500" />
-              {whatsappMutation.isPending ? 'Preparing…' : 'WhatsApp Summary'}
+              {whatsappMutation.isPending ? t('Preparing…') : t('WhatsApp Summary')}
             </button>
           </div>
 
@@ -174,15 +179,15 @@ const DailyMovement = () => {
             <div className="card p-4 mb-4 bg-green-50 border border-green-200">
               <div className="flex items-center justify-between mb-2">
                 <h4 className="font-semibold text-sm text-green-800 flex items-center gap-1.5">
-                  <MessageCircle className="h-4 w-4" /> WhatsApp Summary
+                  <MessageCircle className="h-4 w-4" /> {t('WhatsApp Summary')}
                 </h4>
                 <div className="flex gap-2">
                   <button onClick={handleCopy} className="btn btn-ghost text-xs flex items-center gap-1 border border-green-300">
                     {copied ? <Check className="h-3 w-3 text-green-600" /> : <Copy className="h-3 w-3" />}
-                    {copied ? 'Copied!' : 'Copy'}
+                    {copied ? t('Copied!') : t('Copy')}
                   </button>
                   <button onClick={handleWhatsAppOpen} className="btn text-xs bg-green-500 text-white hover:bg-green-600 flex items-center gap-1 px-3 py-1.5 rounded-md">
-                    <MessageCircle className="h-3 w-3" /> Open WhatsApp
+                    <MessageCircle className="h-3 w-3" /> {t('Open WhatsApp')}
                   </button>
                 </div>
               </div>
@@ -195,53 +200,53 @@ const DailyMovement = () => {
           {/* Transactions table */}
           {transactions.length === 0 ? (
             <div className="card p-10 text-center text-gray-500">
-              No transactions recorded for {fDate(date)}.
+              {t('No transactions recorded for')} {fDate(date)}.
             </div>
           ) : (
             <div className="card overflow-hidden">
               <div className="px-4 py-2.5 border-b bg-gray-50 flex items-center justify-between">
-                <span className="text-sm font-medium text-gray-700">{transactions.length} transactions on {fDate(date)}</span>
+                <span className="text-sm font-medium text-gray-700">{transactions.length} {t('transactions on')} {fDate(date)}</span>
               </div>
               <div className="overflow-x-auto">
                 <table className="min-w-full">
                   <thead>
                     <tr className="border-b border-gray-200 bg-gray-50">
-                      <th className="table-th">TXN #</th>
-                      <th className="table-th">Type</th>
-                      <th className="table-th">Product</th>
-                      <th className="table-th">From</th>
-                      <th className="table-th">To</th>
-                      <th className="table-th text-right">Qty</th>
-                      <th className="table-th text-right">Value (₹)</th>
-                      <th className="table-th">Ref</th>
-                      <th className="table-th">By</th>
+                      <th className="table-th">{t('TXN #')}</th>
+                      <th className="table-th">{t('Type')}</th>
+                      <th className="table-th">{t('Product')}</th>
+                      <th className="table-th">{t('From')}</th>
+                      <th className="table-th">{t('To')}</th>
+                      <th className="table-th text-right">{t('Qty')}</th>
+                      <th className="table-th text-right">{t('Value (₹)')}</th>
+                      <th className="table-th">{t('Ref')}</th>
+                      <th className="table-th">{t('By')}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
-                    {transactions.map((t) => (
-                      <tr key={t._id} className="hover:bg-gray-50 text-sm">
-                        <td className="table-td font-mono text-xs">{t.transactionNumber}</td>
+                    {transactions.map((txn) => (
+                      <tr key={txn._id} className="hover:bg-gray-50 text-sm">
+                        <td className="table-td font-mono text-xs">{txn.transactionNumber}</td>
                         <td className="table-td">
-                          <Badge variant={TYPE_VARIANTS[t.transactionType] || 'default'} size="sm">
-                            {TYPE_LABELS[t.transactionType]}
+                          <Badge variant={TYPE_VARIANTS[txn.transactionType] || 'default'} size="sm">
+                            {TYPE_LABELS[txn.transactionType]}
                           </Badge>
                         </td>
                         <td className="table-td">
-                          <div className="font-medium">{t.product?.name}</div>
-                          <div className="text-xs text-gray-400">{t.product?.code}</div>
+                          <div className="font-medium">{txn.product?.name}</div>
+                          <div className="text-xs text-gray-400">{txn.product?.code}</div>
                         </td>
-                        <td className="table-td text-sm">{t.fromDepartment?.name || '—'}</td>
-                        <td className="table-td text-sm">{t.toDepartment?.name || '—'}</td>
+                        <td className="table-td text-sm">{txn.fromDepartment?.name || '—'}</td>
+                        <td className="table-td text-sm">{txn.toDepartment?.name || '—'}</td>
                         <td className="table-td text-right font-medium">
-                          {t.quantity} <span className="text-xs text-gray-400">{t.unit?.symbol}</span>
+                          {txn.quantity} <span className="text-xs text-gray-400">{txn.unit?.symbol}</span>
                         </td>
                         <td className="table-td text-right text-gray-600">
-                          {t.totalValue > 0 ? `₹${t.totalValue.toFixed(2)}` : '—'}
+                          {txn.totalValue > 0 ? `₹${txn.totalValue.toFixed(2)}` : '—'}
                         </td>
                         <td className="table-td text-xs text-gray-500">
-                          {t.invoiceNumber || t.supplier?.name || t.donorName || ''}
+                          {txn.invoiceNumber || txn.supplier?.name || txn.donorName || ''}
                         </td>
-                        <td className="table-td text-xs">{t.createdBy?.name}</td>
+                        <td className="table-td text-xs">{txn.createdBy?.name}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -254,7 +259,7 @@ const DailyMovement = () => {
 
       {!submitted && (
         <div className="card p-12 text-center text-gray-400">
-          Select a date above to view the daily movement report.
+          {t('Select a date above to view the daily movement report.')}
         </div>
       )}
     </div>

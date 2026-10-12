@@ -7,6 +7,7 @@ import PageHeader from '../../components/ui/PageHeader.jsx';
 import { PageLoader } from '../../components/ui/Spinner.jsx';
 import { usePermissions } from '../../hooks/usePermissions.js';
 import toast from 'react-hot-toast';
+import { useT, tNow } from '../../i18n/index.jsx';
 
 const fmt = (d) => d ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
 
@@ -16,13 +17,14 @@ function daysFromNow(d) {
 }
 
 function urgencyLabel(days, status) {
-  if (status === 'overdue' || days < 0) return { label: 'Overdue', cls: 'text-red-600 bg-red-50 border-red-200', badge: 'bg-red-500' };
-  if (days === 0) return { label: 'Due Today', cls: 'text-orange-600 bg-orange-50 border-orange-200', badge: 'bg-orange-500' };
-  if (days <= 3)  return { label: 'Due Soon', cls: 'text-amber-600 bg-amber-50 border-amber-200', badge: 'bg-amber-400' };
-  return { label: 'Upcoming', cls: 'text-blue-600 bg-blue-50 border-blue-200', badge: 'bg-blue-400' };
+  if (status === 'overdue' || days < 0) return { label: tNow('Overdue'), cls: 'text-red-600 bg-red-50 border-red-200', badge: 'bg-red-500' };
+  if (days === 0) return { label: tNow('Due Today'), cls: 'text-orange-600 bg-orange-50 border-orange-200', badge: 'bg-orange-500' };
+  if (days <= 3)  return { label: tNow('Due Soon'), cls: 'text-amber-600 bg-amber-50 border-amber-200', badge: 'bg-amber-400' };
+  return { label: tNow('Upcoming'), cls: 'text-blue-600 bg-blue-50 border-blue-200', badge: 'bg-blue-400' };
 }
 
 const BorrowCard = ({ txn, navigate, can }) => {
+  const t = useT();
   const days     = daysFromNow(txn.expectedReturnDate);
   const urgency  = urgencyLabel(days, txn.status);
   const isOverdue = txn.status === 'overdue' || days < 0;
@@ -45,7 +47,7 @@ const BorrowCard = ({ txn, navigate, can }) => {
             <p className="text-xs font-bold">
               {isOverdue
                 ? `${Math.abs(days)}d overdue`
-                : days === 0 ? 'Due today'
+                : days === 0 ? t('Due today')
                 : `${days}d left`}
             </p>
             <p className="text-xs opacity-60 mt-0.5">{fmt(txn.expectedReturnDate)}</p>
@@ -56,7 +58,7 @@ const BorrowCard = ({ txn, navigate, can }) => {
             <button
               onClick={(e) => { e.stopPropagation(); navigate(`/assets/borrows/${txn._id}/return`); }}
               className="flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1.5 bg-white rounded-lg shadow-sm hover:shadow transition-shadow">
-              <RotateCcw className="h-3 w-3" /> Return
+              <RotateCcw className="h-3 w-3" /> {t('Return')}
             </button>
           </div>
         )}
@@ -66,6 +68,7 @@ const BorrowCard = ({ txn, navigate, can }) => {
 };
 
 const UpcomingReturns = () => {
+  const t = useT();
   const navigate = useNavigate();
   const { can } = usePermissions();
   const qc = useQueryClient();
@@ -80,10 +83,10 @@ const UpcomingReturns = () => {
     mutationFn: bulkSendReminders,
     onSuccess: (res) => {
       const { sent, total } = res.data?.data || {};
-      toast.success(`Reminders sent to ${sent} of ${total} overdue borrower(s)`);
+      toast.success(t('Reminders sent to {sent} of {total} overdue borrower(s)', { sent, total }));
       qc.invalidateQueries({ queryKey: ['upcoming-returns'] });
     },
-    onError: (err) => toast.error(err.response?.data?.message || 'Failed to send reminders'),
+    onError: (err) => toast.error(err.response?.data?.message || t('Failed to send reminders')),
   });
 
   const result = data?.data?.data;
@@ -91,13 +94,13 @@ const UpcomingReturns = () => {
 
   // Only active transactions, sorted by expectedReturnDate ASC
   const active = all
-    .filter((t) => ['approved', 'checked_out', 'overdue'].includes(t.status))
+    .filter((item) => ['approved', 'checked_out', 'overdue'].includes(item.status))
     .sort((a, b) => new Date(a.expectedReturnDate) - new Date(b.expectedReturnDate));
 
-  const overdueTxns  = active.filter((t) => t.status === 'overdue' || daysFromNow(t.expectedReturnDate) < 0);
-  const todayTxns    = active.filter((t) => t.status !== 'overdue' && daysFromNow(t.expectedReturnDate) === 0);
-  const soonTxns     = active.filter((t) => t.status !== 'overdue' && daysFromNow(t.expectedReturnDate) > 0 && daysFromNow(t.expectedReturnDate) <= 3);
-  const upcomingTxns = active.filter((t) => t.status !== 'overdue' && daysFromNow(t.expectedReturnDate) > 3);
+  const overdueTxns  = active.filter((item) => item.status === 'overdue' || daysFromNow(item.expectedReturnDate) < 0);
+  const todayTxns    = active.filter((item) => item.status !== 'overdue' && daysFromNow(item.expectedReturnDate) === 0);
+  const soonTxns     = active.filter((item) => item.status !== 'overdue' && daysFromNow(item.expectedReturnDate) > 0 && daysFromNow(item.expectedReturnDate) <= 3);
+  const upcomingTxns = active.filter((item) => item.status !== 'overdue' && daysFromNow(item.expectedReturnDate) > 3);
 
   if (isLoading) return <PageLoader />;
 
@@ -111,7 +114,7 @@ const UpcomingReturns = () => {
           <span className="text-xs bg-current bg-opacity-10 rounded-full px-2 py-0.5 font-bold">{txns.length}</span>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-          {txns.map((t) => <BorrowCard key={t._id} txn={t} navigate={navigate} can={can} />)}
+          {txns.map((item) => <BorrowCard key={item._id} txn={item} navigate={navigate} can={can} />)}
         </div>
       </div>
     );
@@ -130,7 +133,7 @@ const UpcomingReturns = () => {
             className="btn-danger flex items-center gap-2"
           >
             <Bell className="h-4 w-4" />
-            {bulkMut.isPending ? 'Sending…' : `Remind All Overdue (${overdueTxns.length})`}
+            {bulkMut.isPending ? t('Sending…') : t('Remind All Overdue ({n})', { n: overdueTxns.length })}
           </button>
         )}
       />
@@ -138,18 +141,18 @@ const UpcomingReturns = () => {
       {active.length === 0 ? (
         <div className="rounded-2xl border border-gray-100 bg-white p-12 text-center">
           <CalendarClock className="h-12 w-12 text-gray-200 mx-auto mb-3" />
-          <p className="text-gray-500 font-medium">No active borrows</p>
-          <p className="text-sm text-gray-400 mt-1">All assets are back in the temple</p>
+          <p className="text-gray-500 font-medium">{t('No active borrows')}</p>
+          <p className="text-sm text-gray-400 mt-1">{t('All assets are back in the temple')}</p>
           <Link to="/assets/borrows/new" className="btn-primary inline-flex items-center gap-2 mt-4">
-            New Borrow Request
+            {t('New Borrow Request')}
           </Link>
         </div>
       ) : (
         <div className="space-y-7">
-          <Section title="Overdue"    icon={AlertTriangle} txns={overdueTxns}  color="text-red-600" />
-          <Section title="Due Today"  icon={AlertTriangle} txns={todayTxns}    color="text-orange-600" />
-          <Section title="Due in 3 Days" icon={CalendarClock} txns={soonTxns} color="text-amber-600" />
-          <Section title="Upcoming"   icon={CalendarClock} txns={upcomingTxns} color="text-blue-600" />
+          <Section title={t('Overdue')}    icon={AlertTriangle} txns={overdueTxns}  color="text-red-600" />
+          <Section title={t('Due Today')}  icon={AlertTriangle} txns={todayTxns}    color="text-orange-600" />
+          <Section title={t('Due in 3 Days')} icon={CalendarClock} txns={soonTxns} color="text-amber-600" />
+          <Section title={t('Upcoming')}   icon={CalendarClock} txns={upcomingTxns} color="text-blue-600" />
         </div>
       )}
     </div>

@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import singleton from './singleton.js';
 
 // Single document with the attendance rules, shift timings and the biometric machine(s).
 // Edited from Settings → Attendance.
@@ -53,8 +54,6 @@ const attendanceSettingsSchema = new mongoose.Schema(
   { timestamps: true },
 );
 
-attendanceSettingsSchema.statics.getOrCreate = async function getOrCreate() {
-  return (await this.findOne()) || this.create({});
-};
+attendanceSettingsSchema.plugin(singleton);   // getOrCreate()
 
 export default mongoose.model('AttendanceSettings', attendanceSettingsSchema);

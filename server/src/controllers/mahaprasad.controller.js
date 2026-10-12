@@ -9,6 +9,7 @@ import asyncHandler from '../utils/asyncHandler.js';
 import { randomBytes } from 'crypto';
 import { logAction } from '../services/audit.service.js';
 import { APP_TIMEZONE, localDateStr } from '../utils/dates.js';
+import { temple } from '../services/temple.service.js';
 const nanoid = () => randomBytes(6).toString('hex');
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -48,7 +49,7 @@ async function getOrCreateDrawer(dateStr) {
   return MahaprasadCashDrawer.findOneAndUpdate(
     { date: dateStr },
     { $setOnInsert: { counts: { ...EMPTY_COUNTS } } },
-    { upsert: true, new: true },
+    { upsert: true, returnDocument: 'after' },
   );
 }
 
@@ -580,7 +581,7 @@ export const getMahaprasadWhatsApp = asyncHandler(async (req, res) => {
   const shortDate = new Date(dateStr).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
 
   const lines = [
-    `📿 Mangal Grah Mandir, Amalner — ${shortDate}`,
+    `📿 ${temple().name} — ${shortDate}`,
     `Coupons: ${fmtN(total)} | Free: ${fmtN(free)} | Paid: ${fmtN(paid)}`,
     `Redeemed: ${fmtN(redeemed)} (${redPct}%) | Pending: ${fmtN(pending)}`,
     (cashTotal > 0 || upiTotal > 0) ? `Cash: ₹${fmtN(cashTotal)} | UPI: ₹${fmtN(upiTotal)}` : null,
@@ -813,7 +814,7 @@ export const setOpeningFloat = asyncHandler(async (req, res) => {
   const drawer = await MahaprasadCashDrawer.findOneAndUpdate(
     { date: dateStr },
     { $set: { counts: safeCounts, openingCounts: safeCounts, isFloatSet: true, openedBy: req.user._id, openedAt: new Date() } },
-    { upsert: true, new: true },
+    { upsert: true, returnDocument: 'after' },
   );
 
   const total = DRAWER_DENOMS.reduce((s, d) => s + d * (drawer.counts[String(d)] || 0), 0);
@@ -836,7 +837,7 @@ export const adjustDrawer = asyncHandler(async (req, res) => {
   const drawer  = await MahaprasadCashDrawer.findOneAndUpdate(
     { date: dateStr },
     { $inc: { [`counts.${d}`]: inc } },
-    { upsert: true, new: true },
+    { upsert: true, returnDocument: 'after' },
   );
 
   // Prevent negative counts
@@ -871,7 +872,7 @@ export const voidBatch = asyncHandler(async (req, res) => {
   const payment = await MahaprasadPayment.findOneAndUpdate(
     { batchId },
     { $set: { voided: true, voidedAt: new Date(), voidedBy: req.user._id } },
-    { new: true },
+    { returnDocument: 'after' },
   );
 
   if (payment && payment.paymentMode === 'cash' && payment.receivedNotes?.length) {

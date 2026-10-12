@@ -163,8 +163,8 @@ const ProductDetail = () => {
       {/* ── Tabs ── */}
       <div className="flex gap-1 border-b">
         {[
-          { key: TAB_STOCK,   label: 'Stock by Department', short: 'By Department', icon: Package  },
-          { key: TAB_HISTORY, label: 'Transaction History', short: 'History',       icon: BarChart2 },
+          { key: TAB_STOCK,   label: t('Stock by Department'), short: 'By Department', icon: Package  },
+          { key: TAB_HISTORY, label: t('Transaction History'), short: 'History',       icon: BarChart2 },
         ].map(({ key, label, short, icon: Icon }) => (
           <button
             key={key}

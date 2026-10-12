@@ -1,5 +1,6 @@
 import { Component } from 'react';
 import { reportError } from '../utils/errorReporter.js';
+import { tNow } from '../i18n/index.jsx';
 
 export default class ErrorBoundary extends Component {
   constructor(props) {
@@ -40,16 +41,16 @@ export default class ErrorBoundary extends Component {
           </div>
 
           <div className="space-y-1.5">
-            <h2 className="text-lg font-bold text-gray-900">Something went wrong</h2>
+            <h2 className="text-lg font-bold text-gray-900">{tNow('Something went wrong')}</h2>
             <p className="text-sm text-gray-500">
-              An unexpected error occurred. Your data is safe — tap Reload to continue.
+              {tNow('An unexpected error occurred. Your data is safe — tap Reload to continue.')}
             </p>
           </div>
 
           {/* Error detail — collapsed by default so staff aren't confused */}
           <details className="text-left">
             <summary className="text-xs text-gray-400 cursor-pointer select-none hover:text-gray-600">
-              Show error details
+              {tNow('Show error details')}
             </summary>
             <pre className="mt-2 text-[11px] text-red-600 bg-red-50 rounded-lg p-3 overflow-x-auto whitespace-pre-wrap break-all">
               {error.message}
@@ -60,13 +61,13 @@ export default class ErrorBoundary extends Component {
             <button
               onClick={this.handleReload}
               className="w-full py-2.5 rounded-xl bg-orange-600 hover:bg-orange-700 text-white font-bold text-sm transition-colors">
-              Reload
+              {tNow('Reload')}
             </button>
             {isElectron && (
               <button
                 onClick={() => window.location.reload()}
                 className="w-full py-2 rounded-xl border border-gray-200 text-gray-500 hover:bg-gray-50 text-sm transition-colors">
-                Full restart
+                {tNow('Full restart')}
               </button>
             )}
           </div>

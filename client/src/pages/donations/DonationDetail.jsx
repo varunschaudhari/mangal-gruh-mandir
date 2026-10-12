@@ -12,21 +12,26 @@ import { usePermissions } from '../../hooks/usePermissions.js';
 import toast from 'react-hot-toast';
 import { saveFile } from '../../utils/fileSaver.js';
 import { useSetAppBarTitle } from '../../components/Layout/AppBarContext.jsx';
+import { useT, rich } from '../../i18n/index.jsx';
 
 const fmt = (d) => d ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
 const TYPE_COLORS = { named: 'green', hundi: 'blue', anonymous: 'gray' };
 const TYPE_LABELS = { named: 'Named Donor', hundi: 'Hundi Collection', anonymous: 'Anonymous' };
 const PM_LABELS   = { cash: 'Cash', upi: 'UPI', cheque: 'Cheque', bank_transfer: 'Bank Transfer' };
 
-const Row = ({ label, children }) => (
+const Row = ({ label, children }) => {
+  const t = useT();
+  return (
   <div className="flex items-start justify-between gap-4 py-2.5 border-b border-gray-50 last:border-0">
-    <span className="text-xs text-gray-400 shrink-0 w-36">{label}</span>
+    <span className="text-xs text-gray-400 shrink-0 w-36">{t(label)}</span>
     <span className="text-sm text-gray-800 text-right font-medium">{children}</span>
   </div>
 );
+};
 
 const DonationDetail = () => {
-  useSetAppBarTitle('Donation');
+  const t = useT();
+  useSetAppBarTitle(t('Donation'));
   const { id }   = useParams();
   const navigate = useNavigate();
   const { can }  = usePermissions();
@@ -40,14 +45,14 @@ const DonationDetail = () => {
 
   const voidMut = useMutation({
     mutationFn: () => voidDonation(id, { voidReason }),
-    onSuccess: () => { toast.success('Donation voided'); qc.invalidateQueries({ queryKey: ['donation', id] }); qc.invalidateQueries({ queryKey: ['donations'] }); setShowVoid(false); },
-    onError: (e) => toast.error(e.response?.data?.message || 'Failed'),
+    onSuccess: () => { toast.success(t('Donation voided')); qc.invalidateQueries({ queryKey: ['donation', id] }); qc.invalidateQueries({ queryKey: ['donations'] }); setShowVoid(false); },
+    onError: (e) => toast.error(e.response?.data?.message || t('Failed')),
   });
 
   if (isLoading) return <PageLoader />;
 
   const donation = data?.data?.data;
-  if (!donation) return <div className="text-gray-400 p-6">Donation not found.</div>;
+  if (!donation) return <div className="text-gray-400 p-6">{t('Donation not found.')}</div>;
 
   const { donationNumber, donationType, date, donor, donorName, donorPhone, panNumber, is80G, occasion,
     cashAmount, paymentMode, paymentRef, kindItems = [], notes, totalEstimatedValue,
@@ -58,7 +63,7 @@ const DonationDetail = () => {
     try {
       const res = await download80GReceipt(id);
       await saveFile(res.data, `80G-${donationNumber}.pdf`);
-    } catch { toast.error('Failed to generate 80G receipt'); }
+    } catch { toast.error(t('Failed to generate 80G receipt')); }
     finally { setDownloading80G(false); }
   };
 
@@ -67,27 +72,27 @@ const DonationDetail = () => {
     try {
       const res = await downloadDonationReceipt(id);
       await saveFile(res.data, `RECEIPT-${donationNumber}.pdf`);
-    } catch { toast.error('Failed to generate receipt'); }
+    } catch { toast.error(t('Failed to generate receipt')); }
     finally { setDownloadingPdf(false); }
   };
 
-  const displayDonor = donor?.name || donorName || (donationType === 'hundi' ? 'Hundi Collection' : 'Anonymous');
+  const displayDonor = donor?.name || donorName || (donationType === 'hundi' ? t('Hundi Collection') : t('Anonymous'));
   const kindTotal    = kindItems.reduce((s, k) => s + (k.estimatedValue || 0), 0);
 
   return (
     <div className="max-w-3xl space-y-4">
       <button onClick={() => navigate('/donations')}
         className="inline-flex items-center gap-1.5 text-sm text-gray-400 hover:text-gray-700 transition-colors">
-        <ArrowLeft className="h-4 w-4" /> Donation History
+        <ArrowLeft className="h-4 w-4" /> {t('Donation History')}
       </button>
 
       {/* Header */}
       <div className="flex items-start justify-between gap-4">
         <div>
           <div className="flex items-center gap-2.5 mb-1 flex-wrap">
-            <Badge variant={TYPE_COLORS[donationType]}>{TYPE_LABELS[donationType]}</Badge>
+            <Badge variant={TYPE_COLORS[donationType]}>{t(TYPE_LABELS[donationType])}</Badge>
             <span className="font-mono text-xs text-gray-400">{donationNumber}</span>
-            {isVoided && <Badge variant="red">Voided</Badge>}
+            {isVoided && <Badge variant="red">{t('Voided')}</Badge>}
           </div>
           <h1 className="text-xl font-bold text-gray-900">{displayDonor}</h1>
           <p className="text-sm text-gray-400 mt-0.5">
@@ -99,12 +104,12 @@ const DonationDetail = () => {
             <>
               <button onClick={() => printDonationReceipt(donation)}
                 className="btn-secondary flex items-center gap-2 text-sm">
-                <Printer className="h-4 w-4" /> Print
+                <Printer className="h-4 w-4" /> {t('Print')}
               </button>
               <button onClick={handleReceiptDownload} disabled={downloadingPdf}
                 className="btn-secondary flex items-center gap-2 text-sm disabled:opacity-50">
                 <Download className="h-4 w-4" />
-                {downloadingPdf ? 'Generating…' : 'Receipt PDF'}
+                {downloadingPdf ? t('Generating…') : t('Receipt PDF')}
               </button>
             </>
           )}
@@ -112,13 +117,13 @@ const DonationDetail = () => {
             <button onClick={handle80GDownload} disabled={downloading80G}
               className="btn-secondary flex items-center gap-2 text-sm text-emerald-700 border-emerald-300 hover:bg-emerald-50 disabled:opacity-50">
               <FileCheck2 className="h-4 w-4 text-emerald-600" />
-              {downloading80G ? 'Generating…' : '80G Receipt'}
+              {downloading80G ? t('Generating…') : t('80G Receipt')}
             </button>
           )}
           {can('donations:write') && !isVoided && (
             <button onClick={() => { setShowVoid(true); setVoidReason(''); }}
               className="btn-danger flex items-center gap-2 text-sm">
-              <XCircle className="h-4 w-4" /> Void
+              <XCircle className="h-4 w-4" /> {t('Void')}
             </button>
           )}
         </div>
@@ -127,13 +132,13 @@ const DonationDetail = () => {
       {/* Stats strip */}
       <div className="bg-white rounded-xl border border-gray-100 grid grid-cols-3 divide-x divide-gray-100 overflow-hidden">
         {[
-          { label: 'Cash Donated',    value: cashAmount > 0 ? `₹${cashAmount.toLocaleString('en-IN')}` : '—', color: 'text-green-600' },
-          { label: 'Kind Value',      value: kindTotal  > 0 ? `₹${kindTotal.toLocaleString('en-IN')}`  : '—', color: 'text-blue-600' },
-          { label: 'Total',           value: `₹${(totalEstimatedValue || 0).toLocaleString('en-IN')}`,          color: 'text-gray-800' },
+          { label: t('Cash Donated'),    value: cashAmount > 0 ? `₹${cashAmount.toLocaleString('en-IN')}` : '—', color: 'text-green-600' },
+          { label: t('Kind Value'),      value: kindTotal  > 0 ? `₹${kindTotal.toLocaleString('en-IN')}`  : '—', color: 'text-blue-600' },
+          { label: t('Total'),           value: `₹${(totalEstimatedValue || 0).toLocaleString('en-IN')}`,          color: 'text-gray-800' },
         ].map(({ label, value, color }) => (
           <div key={label} className="px-4 py-3 text-center">
             <p className={`text-xl font-black ${color}`}>{value}</p>
-            <p className="text-xs text-gray-400 mt-0.5">{label}</p>
+            <p className="text-xs text-gray-400 mt-0.5">{t(label)}</p>
           </div>
         ))}
       </div>
@@ -144,14 +149,14 @@ const DonationDetail = () => {
           <div className="bg-white rounded-xl border border-gray-100 p-4">
             <div className="flex items-center gap-2 mb-3">
               <User className="h-4 w-4 text-gray-400" />
-              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Donor</p>
+              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">{t('Donor')}</p>
               {donor && (
                 <button onClick={() => navigate(`/donations/donors/${donor._id}`)}
-                  className="ml-auto text-xs text-primary-600 hover:underline">History →</button>
+                  className="ml-auto text-xs text-primary-600 hover:underline">{t('History →')}</button>
               )}
             </div>
-            <Row label="Name">{displayDonor}</Row>
-            {(donorPhone || donor?.phone) && <Row label="Phone">{donorPhone || donor?.phone}</Row>}
+            <Row label={t('Name')}>{displayDonor}</Row>
+            {(donorPhone || donor?.phone) && <Row label={t('Phone')}>{donorPhone || donor?.phone}</Row>}
             {(panNumber || donor?.panNumber) && <Row label="PAN">{panNumber || donor?.panNumber}</Row>}
           </div>
         )}
@@ -161,11 +166,11 @@ const DonationDetail = () => {
           <div className="bg-white rounded-xl border border-gray-100 p-4">
             <div className="flex items-center gap-2 mb-3">
               <IndianRupee className="h-4 w-4 text-gray-400" />
-              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Cash Donation</p>
+              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">{t('Cash Donation')}</p>
             </div>
-            <Row label="Amount">₹{cashAmount.toLocaleString('en-IN')}</Row>
-            <Row label="Payment Mode">{PM_LABELS[paymentMode] || paymentMode}</Row>
-            {paymentRef && <Row label="Reference">{paymentRef}</Row>}
+            <Row label={t('Amount')}>₹{cashAmount.toLocaleString('en-IN')}</Row>
+            <Row label={t('Payment Mode')}>{PM_LABELS[paymentMode] ? t(PM_LABELS[paymentMode]) : paymentMode}</Row>
+            {paymentRef && <Row label={t('Reference')}>{paymentRef}</Row>}
           </div>
         )}
       </div>
@@ -175,13 +180,13 @@ const DonationDetail = () => {
         <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
           <div className="flex items-center gap-2 px-4 py-3 border-b bg-blue-50">
             <Package className="h-4 w-4 text-blue-600" />
-            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Kind Donations ({kindItems.length} item{kindItems.length > 1 ? 's' : ''})</p>
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">{kindItems.length > 1 ? t('Kind Donations ({n} items)', { n: kindItems.length }) : t('Kind Donations ({n} item)', { n: kindItems.length })}</p>
           </div>
           <table className="min-w-full">
             <thead>
               <tr className="bg-gray-50">
                 {['Item', 'Qty', 'Department', 'Est. Value'].map((h) => (
-                  <th key={h} className="table-th text-left">{h}</th>
+                  <th key={h} className="table-th text-left">{t(h)}</th>
                 ))}
               </tr>
             </thead>
@@ -197,7 +202,7 @@ const DonationDetail = () => {
                 </tr>
               ))}
               <tr className="bg-gray-50 font-semibold">
-                <td className="table-td" colSpan={3}>Kind Donation Total</td>
+                <td className="table-td" colSpan={3}>{t('Kind Donation Total')}</td>
                 <td className="table-td text-right">₹{kindTotal.toLocaleString('en-IN')}</td>
               </tr>
             </tbody>
@@ -208,32 +213,32 @@ const DonationDetail = () => {
       {/* Notes + meta */}
       {(notes || createdBy) && (
         <div className="bg-white rounded-xl border border-gray-100 p-4 space-y-0">
-          {notes && <Row label="Notes">{notes}</Row>}
-          {receivedBy?.name && <Row label="Received By">{receivedBy.name}</Row>}
+          {notes && <Row label={t('Notes')}>{notes}</Row>}
+          {receivedBy?.name && <Row label={t('Received By')}>{receivedBy.name}</Row>}
         </div>
       )}
 
       {/* Void info */}
       {isVoided && vr && (
         <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3">
-          <p className="text-sm text-red-700"><span className="font-semibold">Void reason:</span> {vr}</p>
+          <p className="text-sm text-red-700"><span className="font-semibold">{t('Void reason:')}</span> {vr}</p>
         </div>
       )}
 
       {/* Audit trail */}
-      {donation?._id && <EntityAuditTrail entityRef={donation._id} title="Donation History" />}
+      {donation?._id && <EntityAuditTrail entityRef={donation._id} title={t('Donation History')} />}
 
       <Modal open={showVoid} onClose={() => setShowVoid(false)} title="Void Donation" size="sm">
         <div className="space-y-4">
-          <p className="text-sm text-gray-600">Void <strong>{donationNumber}</strong>? This cannot be undone.</p>
+          <p className="text-sm text-gray-600">{rich(t('Void {number}? This cannot be undone.'), { number: <strong>{donationNumber}</strong> })}</p>
           <div>
-            <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Reason</label>
-            <input value={voidReason} onChange={(e) => setVoidReason(e.target.value)} className="input" placeholder="e.g. Entered by mistake" />
+            <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">{t('Reason')}</label>
+            <input value={voidReason} onChange={(e) => setVoidReason(e.target.value)} className="input" placeholder={t('e.g. Entered by mistake')} />
           </div>
           <div className="flex justify-end gap-2">
-            <button onClick={() => setShowVoid(false)} className="btn-secondary">Cancel</button>
+            <button onClick={() => setShowVoid(false)} className="btn-secondary">{t('Cancel')}</button>
             <button onClick={() => voidMut.mutate()} disabled={voidMut.isPending} className="btn-danger">
-              {voidMut.isPending ? 'Voiding…' : 'Yes, Void'}
+              {voidMut.isPending ? t('Voiding…') : t('Yes, Void')}
             </button>
           </div>
         </div>

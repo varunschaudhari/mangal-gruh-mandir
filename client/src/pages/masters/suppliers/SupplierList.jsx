@@ -11,11 +11,13 @@ import { ConfirmModal } from '../../../components/ui/Modal.jsx';
 import { usePermissions } from '../../../hooks/usePermissions.js';
 import { capitalize } from '../../../utils/formatters.js';
 import toast from 'react-hot-toast';
+import { useT } from '../../../i18n/index.jsx';
 
 const TYPE_COLORS = { vendor: 'blue', donor: 'green', both: 'orange' };
 const col = createColumnHelper();
 
 const SupplierList = () => {
+  const t = useT();
   const { can } = usePermissions();
   const qc = useQueryClient();
   const [search, setSearch] = useState('');
@@ -24,15 +26,15 @@ const SupplierList = () => {
   const { data, isLoading } = useQuery({ queryKey: ['suppliers', search], queryFn: () => getSuppliers({ search }) });
   const deleteMut = useMutation({
     mutationFn: (id) => deleteSupplier(id),
-    onSuccess: () => { toast.success('Supplier deleted'); qc.invalidateQueries({ queryKey: ['suppliers'] }); setDeleteTarget(null); },
-    onError: (err) => toast.error(err.response?.data?.message || 'Failed'),
+    onSuccess: () => { toast.success(t('Supplier deleted')); qc.invalidateQueries({ queryKey: ['suppliers'] }); setDeleteTarget(null); },
+    onError: (err) => toast.error(err.response?.data?.message || t('Failed')),
   });
 
   const suppliers = data?.data?.data || [];
 
   const columns = [
     col.accessor('name', { header: 'Name', cell: (i) => <Link to={`/masters/suppliers/${i.row.original._id}`} className="font-medium text-gray-900 hover:text-primary-600 transition-colors">{i.getValue()}</Link> }),
-    col.accessor('type', { header: 'Type', size: 90, cell: (i) => <Badge variant={TYPE_COLORS[i.getValue()]}>{capitalize(i.getValue())}</Badge> }),
+    col.accessor('type', { header: 'Type', size: 90, cell: (i) => <Badge variant={TYPE_COLORS[i.getValue()]}>{t(capitalize(i.getValue()))}</Badge> }),
     col.accessor('contactPerson', { header: 'Contact Person', cell: (i) => i.getValue() || '—' }),
     col.accessor('phone', { header: 'Phone', cell: (i) => i.getValue() || '—' }),
     col.accessor('city', { header: 'City', cell: (i) => i.getValue() || '—' }),
@@ -54,11 +56,11 @@ const SupplierList = () => {
         title="Suppliers & Donors"
         subtitle="Vendors who supply goods and donors who donate"
         breadcrumbs={[{ label: 'Masters' }, { label: 'Suppliers' }]}
-        actions={can('masters:write') && <Link to="/masters/suppliers/new" className="btn-primary"><Plus className="h-4 w-4" /> Add Supplier</Link>}
+        actions={can('masters:write') && <Link to="/masters/suppliers/new" className="btn-primary"><Plus className="h-4 w-4" /> {t('Add Supplier')}</Link>}
       />
       <div className="relative max-w-xs">
         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-        <input type="text" placeholder="Search..." value={search} onChange={(e) => setSearch(e.target.value)} className="input pl-9" />
+        <input type="text" placeholder={t('Search...')} value={search} onChange={(e) => setSearch(e.target.value)} className="input pl-9" />
       </div>
       <DataTable columns={columns} data={suppliers} loading={isLoading} />
       <ConfirmModal open={!!deleteTarget} onClose={() => setDeleteTarget(null)} onConfirm={() => deleteMut.mutate(deleteTarget._id)}

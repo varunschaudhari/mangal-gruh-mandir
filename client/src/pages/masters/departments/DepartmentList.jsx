@@ -11,11 +11,13 @@ import { ConfirmModal } from '../../../components/ui/Modal.jsx';
 import { usePermissions } from '../../../hooks/usePermissions.js';
 import { capitalize } from '../../../utils/formatters.js';
 import toast from 'react-hot-toast';
+import { useT } from '../../../i18n/index.jsx';
 
 const TYPE_COLORS = { store:'blue', kitchen:'orange', puja:'yellow', flower:'green', distribution:'gray', office:'gray', other:'gray' };
 const col = createColumnHelper();
 
 const DepartmentList = () => {
+  const t = useT();
   const { can } = usePermissions();
   const qc = useQueryClient();
   const [deleteTarget, setDeleteTarget] = useState(null);
@@ -24,8 +26,8 @@ const DepartmentList = () => {
 
   const deleteMut = useMutation({
     mutationFn: (id) => deleteDepartment(id),
-    onSuccess: () => { toast.success('Department deleted'); qc.invalidateQueries({ queryKey: ['departments'] }); setDeleteTarget(null); },
-    onError: (err) => toast.error(err.response?.data?.message || 'Delete failed'),
+    onSuccess: () => { toast.success(t('Department deleted')); qc.invalidateQueries({ queryKey: ['departments'] }); setDeleteTarget(null); },
+    onError: (err) => toast.error(err.response?.data?.message || t('Delete failed')),
   });
 
   const depts = data?.data?.data || [];
@@ -33,7 +35,7 @@ const DepartmentList = () => {
   const columns = [
     col.accessor('code', { header: 'Code', size: 80, cell: (i) => <span className="font-mono text-xs font-bold text-gray-600">{i.getValue()}</span> }),
     col.accessor('name', { header: 'Department Name', cell: (i) => <span className="font-medium text-gray-900">{i.getValue()}</span> }),
-    col.accessor('type', { header: 'Type', size: 120, cell: (i) => <Badge variant={TYPE_COLORS[i.getValue()] || 'gray'}>{capitalize(i.getValue())}</Badge> }),
+    col.accessor('type', { header: 'Type', size: 120, cell: (i) => <Badge variant={TYPE_COLORS[i.getValue()] || 'gray'}>{t(capitalize(i.getValue()))}</Badge> }),
     col.accessor('description', { header: 'Description', cell: (i) => <span className="text-gray-500">{i.getValue() || '—'}</span> }),
     col.accessor('isActive', { header: 'Status', size: 80, cell: (i) => <ActiveBadge isActive={i.getValue()} /> }),
     col.display({
@@ -53,11 +55,11 @@ const DepartmentList = () => {
         title="Departments"
         subtitle="Manage godowns and departments"
         breadcrumbs={[{ label: 'Masters' }, { label: 'Departments' }]}
-        actions={can('masters:write') && <Link to="/masters/departments/new" className="btn-primary"><Plus className="h-4 w-4" /> Add Department</Link>}
+        actions={can('masters:write') && <Link to="/masters/departments/new" className="btn-primary"><Plus className="h-4 w-4" /> {t('Add Department')}</Link>}
       />
       <DataTable columns={columns} data={depts} loading={isLoading} />
       <ConfirmModal open={!!deleteTarget} onClose={() => setDeleteTarget(null)} onConfirm={() => deleteMut.mutate(deleteTarget._id)}
-        loading={deleteMut.isPending} title="Delete Department" message={`Delete "${deleteTarget?.name}"? This cannot be undone.`} />
+        loading={deleteMut.isPending} title="Delete Department" message={t('Delete "{name}"? This cannot be undone.', { name: deleteTarget?.name })} />
     </div>
   );
 };

@@ -1,5 +1,6 @@
 import PDFDocument from 'pdfkit';
 import { localDateStr } from '../utils/dates.js';
+import { temple } from './temple.service.js';
 
 const C = { primary: '#ea580c', dark: '#1f2937', gray: '#6b7280', light: '#fff7ed', white: '#ffffff', green: '#16a34a' };
 
@@ -38,7 +39,7 @@ export function generateDonationPDF(res, { donations, from, to }) {
   // Header
   doc.rect(LEFT, 30, W, 54).fill(C.primary);
   doc.fillColor(C.white).fontSize(16).font('Helvetica-Bold')
-    .text('Mangal Grah Mandir, Amalner', LEFT + 10, 40, { width: W - 20 });
+    .text(temple().name, LEFT + 10, 40, { width: W - 20 });
   doc.fontSize(9).font('Helvetica').text('Donation Register', LEFT + 10, 60);
 
   doc.fillColor(C.dark).fontSize(9).font('Helvetica')
@@ -104,7 +105,7 @@ export function generateDonationPDF(res, { donations, from, to }) {
   for (let i = 0; i < pageCount; i++) {
     doc.switchToPage(i);
     doc.fillColor(C.gray).fontSize(7).font('Helvetica')
-      .text(`Page ${i + 1} of ${pageCount}  ·  Mangal Grah Mandir Donation Register`, LEFT, doc.page.height - 28, { width: W, align: 'center' });
+      .text(`Page ${i + 1} of ${pageCount}  ·  ${temple().name} · Donation Register`, LEFT, doc.page.height - 28, { width: W, align: 'center' });
   }
 
   doc.end();
@@ -121,7 +122,7 @@ export function generateDonationReceipt(res, { donation, settings }) {
   const LEFT = 50;
   const PM   = { cash: 'Cash', upi: 'UPI / Online', cheque: 'Cheque', bank_transfer: 'Bank Transfer' };
 
-  const templeName = settings?.templeName || 'Mangal Grah Mandir, Amalner';
+  const templeName = settings?.templeName || temple().name;
   const donorName  = donation.donor?.name || donation.donorName || (donation.donationType === 'hundi' ? 'Hundi Collection' : 'Anonymous');
   const donorPhone = donation.donorPhone || donation.donor?.phone || '';
   const donorPAN   = donation.panNumber   || donation.donor?.panNumber || '';
@@ -247,7 +248,7 @@ export function generateDonorStatement(res, { donor, donations, settings }) {
 
   const W    = doc.page.width - 80;
   const LEFT = 40;
-  const templeName = settings?.templeName || 'Mangal Grah Mandir, Amalner';
+  const templeName = settings?.templeName || temple().name;
 
   const totalCash = donations.reduce((s, d) => s + (d.cashAmount || 0), 0);
   const totalKind = donations.reduce((s, d) => s + (d.kindItems || []).reduce((k, i) => k + (i.estimatedValue || 0), 0), 0);
@@ -350,7 +351,7 @@ export function generate80GReceipt(res, { donation, settings }) {
   const LEFT = 50;
   const PM   = { cash: 'Cash', upi: 'UPI / Online', cheque: 'Cheque', bank_transfer: 'Bank Transfer' };
 
-  const templeName = settings.templeName || 'Mangal Grah Mandir, Amalner';
+  const templeName = settings.templeName || temple().name;
   const donorName  = donation.donor?.name || donation.donorName || 'Anonymous';
   const donorPAN   = donation.panNumber   || donation.donor?.panNumber || '';
   const amount     = donation.cashAmount  || 0;

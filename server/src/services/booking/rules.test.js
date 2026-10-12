@@ -99,3 +99,65 @@ test('diffFields lists only what changed', async () => {
     'devotee.familyNames': [['A'], ['A', 'B']],
   });
 });
+
+test('check-in verdicts', async () => {
+  const { checkInVerdict } = await import('./rules.js');
+  const today = '2026-10-13';
+  const now = new Date(2026, 9, 13, 8, 0);
+  const b = { status: 'confirmed', dateKey: today, batch: 'x', batchLabel: '7:00 AM – 8:15 AM', hall: 'H1' };
+  const v = (over, opts = {}) => checkInVerdict({ ...b, ...over }, { today, now, ...opts }).result;
+  assert.equal(v({}), 'ok');
+  assert.equal(v({ status: 'voided' }), 'voided');
+  assert.equal(v({ dateKey: undefined }), 'no-visit');
+  assert.equal(v({ checkedInAt: new Date() }), 'already');
+  assert.equal(v({ dateKey: '2026-10-14' }), 'early');
+  assert.equal(v({ dateKey: '2026-10-12' }), 'past');
+  assert.equal(v({}, { hall: 'H2' }), 'other-hall');
+  assert.equal(v({}, { hall: 'H1' }), 'ok');
+  assert.equal(v({ batchLabel: '6:00 AM – 7:15 AM' }), 'batch-over');
+  assert.equal(v({ batchLabel: '12:10 PM – 1:25 PM' }), 'ok');
+  assert.equal(v({ batch: undefined, batchLabel: '5:00 AM – 7:00 AM' }), 'ok'); // slot sevas: no batch-over check
+  assert.equal(checkInVerdict({ ...b, batchLabel: '6:00 AM – 7:15 AM' }, { today, now }).canOverride, true);
+});
+
+test('receipt token from a scanned QR', async () => {
+  const { receiptTokenOf } = await import('./rules.js');
+  assert.equal(receiptTokenOf('https://mandir.example.in/r/AbCdEfGh12345678'), 'AbCdEfGh12345678');
+  assert.equal(receiptTokenOf('https://localhost/r/Ab_d-fGh12345678/'), 'Ab_d-fGh12345678');
+  assert.equal(receiptTokenOf('AbCdEfGh12345678'), 'AbCdEfGh12345678');
+  assert.equal(receiptTokenOf('ABH/2026-27/00010'), null);
+  assert.equal(receiptTokenOf('https://example.com/promo'), null);
+});
+
+test('batch times and where a batch stands', async () => {
+  const { labelTimes, batchStateAt } = await import('./rules.js');
+  assert.deepEqual(labelTimes('7:00 AM – 8:15 AM'), { start: 420, end: 495 });
+  assert.deepEqual(labelTimes('12:10 PM - 1:25 PM'), { start: 730, end: 805 });
+  assert.equal(labelTimes('Early morning – 7:00 AM'), null);
+  assert.equal(batchStateAt('7:00 AM – 8:15 AM', 419), 'later');
+  assert.equal(batchStateAt('7:00 AM – 8:15 AM', 420), 'now');
+  assert.equal(batchStateAt('7:00 AM – 8:15 AM', 495), 'over');
+  assert.equal(batchStateAt('Early morning – 7:00 AM', 300), '');
+});
+
+test('seats on offer per day (fill-rate capacity)', async () => {
+  const { capacityPlan, dateKeysBetween, percent } = await import('./rules.js');
+  const dates = dateKeysBetween('2026-10-12', '2026-10-14'); // Mon, Tue, Wed
+  assert.deepEqual(dates, ['2026-10-12', '2026-10-13', '2026-10-14']);
+  const batches = [
+    { _id: 'b1', start: '07:00', end: '08:15', hall: 'H1', capacity: 50 },
+    { _id: 'b2', start: '09:00', end: '10:15', hall: 'H2', capacity: 30, weekdays: [2] },  // Tuesdays only
+    { _id: 'b3', start: '11:00', end: '12:15', hall: 'H3', capacity: 30, isActive: false },
+  ];
+  const slotSevas = [{ _id: 'p', name: 'Panchamrit', slotTime: '5:00 AM – 7:00 AM', dailyLimit: 1, weekdays: [2] }];
+  const closures = [{ date: '2026-10-14', sevaTypes: [] }, { date: '2026-10-13', sevaTypes: ['p'] }];
+  const plan = capacityPlan({ dates, batches, slotSevas, closures });
+  assert.deepEqual(plan.map((p) => `${p.dateKey} ${p.key} ${p.capacity}`), [
+    '2026-10-12 B:b1 50',
+    '2026-10-13 B:b1 50',
+    '2026-10-13 B:b2 30',   // Panchamrit closed on the 13th; everything closed on the 14th
+  ]);
+  assert.equal(plan[0].label, '7:00 AM – 8:15 AM');
+  assert.equal(percent(1, 3), 33.3);
+  assert.equal(percent(5, 0), null);
+});

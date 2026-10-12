@@ -115,3 +115,89 @@ export function diffFields(before, after, fields) {
   }
   return changes;
 }
+
+// ── Hall check-in ─────────────────────────────────────────────────────────────
+
+// What a scanned slip means at the hall. `hall` is the hall this scanner stands at ('' = any).
+//   ok          let in (and mark checked in)
+//   already     checked in before — the slip is being used again
+//   voided      cancelled booking
+//   no-visit    seva done on the devotee's behalf (Post Abhishek) — nothing to check in
+//   early/past  booked for another day
+//   other-hall  belongs to another hall (can be let in anyway)
+//   batch-over  today's batch has finished (can be let in anyway)
+export function checkInVerdict(b, { today, now = new Date(), hall = '' } = {}) {
+  if (b.status === 'voided') return { result: 'voided', canOverride: false };
+  if (!b.dateKey) return { result: 'no-visit', canOverride: false };
+  if (b.checkedInAt) return { result: 'already', canOverride: false };
+  if (b.dateKey > today) return { result: 'early', canOverride: false };
+  if (b.dateKey < today) return { result: 'past', canOverride: false };
+  if (hall && b.hall && b.hall !== hall) return { result: 'other-hall', canOverride: true };
+  const end = /(\d{1,2}):(\d{2})\s*(AM|PM)\s*$/i.exec(b.batchLabel || '');
+  if (b.batch && end) {
+    const h = (Number(end[1]) % 12) + (end[3].toUpperCase() === 'PM' ? 12 : 0);
+    if (now.getHours() * 60 + now.getMinutes() >= h * 60 + Number(end[2])) return { result: 'batch-over', canOverride: true };
+  }
+  return { result: 'ok', canOverride: false };
+}
+
+/** The receipt token in a scanned QR (".../r/<token>"), a bare token, or null. */
+export const receiptTokenOf = (code) => {
+  const s = String(code || '').trim();
+  const fromUrl = /\/r\/([A-Za-z0-9_-]{10,40})\/?(?:[?#].*)?$/.exec(s);
+  if (fromUrl) return fromUrl[1];
+  return /^[A-Za-z0-9_-]{16}$/.test(s) ? s : null;
+};
+
+// ── Hall screen and attendance reports ────────────────────────────────────────
+
+/** "7:00 AM – 8:15 AM" → { start: 420, end: 495 } in minutes after midnight, or null without times. */
+export function labelTimes(label) {
+  const m = /(\d{1,2}):(\d{2})\s*(AM|PM)\s*[–-]\s*(\d{1,2}):(\d{2})\s*(AM|PM)/i.exec(label || '');
+  if (!m) return null;
+  const at = (h, min, ap) => ((Number(h) % 12) + (ap.toUpperCase() === 'PM' ? 12 : 0)) * 60 + Number(min);
+  return { start: at(m[1], m[2], m[3]), end: at(m[4], m[5], m[6]) };
+}
+
+/** Where a batch stands at `minutes` after midnight today: 'now', 'over', 'later', or '' without times. */
+export const batchStateAt = (label, minutes) => {
+  const r = labelTimes(label);
+  if (!r) return '';
+  if (minutes >= r.end) return 'over';
+  return minutes >= r.start ? 'now' : 'later';
+};
+
+/** part / whole as a percentage with one decimal; null when there was nothing to measure. */
+export const percent = (part, whole) => (whole > 0 ? Math.round((part / whole) * 1000) / 10 : null);
+
+/** Every date key from → to (inclusive), at most `max` of them. */
+export function dateKeysBetween(from, to, max = 400) {
+  const out = [];
+  for (let k = from; k <= to && out.length < max; k = addDays(k, 1)) out.push(k);
+  return out;
+}
+
+/**
+ * Seats on offer per day: each active batch on its weekdays, and each slot seva up to its daily
+ * limit on its weekdays, except dates closed for everything (or, for a slot seva, closed for it).
+ * Returns [{ dateKey, key, label, hall, capacity }] where key is 'B:<batchId>' or 'S:<sevaTypeId>'.
+ */
+export function capacityPlan({ dates, batches = [], slotSevas = [], closures = [] }) {
+  const closedAll = new Set(closures.filter((c) => !c.sevaTypes?.length).map((c) => c.date));
+  const closedFor = (dateKey, sevaId) => closures.some((c) => c.date === dateKey
+    && c.sevaTypes?.some((id) => String(id) === String(sevaId)));
+  const plan = [];
+  for (const dateKey of dates) {
+    if (closedAll.has(dateKey)) continue;
+    const day = weekdayOf(dateKey);
+    for (const b of batches) {
+      if (b.isActive === false || (b.weekdays?.length && !b.weekdays.includes(day))) continue;
+      plan.push({ dateKey, key: `B:${b._id}`, label: batchLabel(b.start, b.end), hall: b.hall || '', capacity: b.capacity || 0 });
+    }
+    for (const s of slotSevas) {
+      if (s.isActive === false || !s.dailyLimit || (s.weekdays?.length && !s.weekdays.includes(day)) || closedFor(dateKey, s._id)) continue;
+      plan.push({ dateKey, key: `S:${s._id}`, label: s.slotTime || s.name, hall: '', capacity: s.dailyLimit });
+    }
+  }
+  return plan;
+}

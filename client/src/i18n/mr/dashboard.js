@@ -4,7 +4,7 @@
 export default {
   // ── Dashboard: greeting and "Needs attention" (phones) ───────────────────
   'Welcome back, {name}': 'नमस्कार, {name}',
-  'Mangal Grah Mandir, Amalner — Stock Management': 'श्री मंगळग्रह मंदिर, अमळनेर — साठा व्यवस्थापन',
+  '{temple} — Stock Management': '{temple} — साठा व्यवस्थापन',
   'Needs attention': 'लक्ष देण्यासारखे',
   'All caught up': 'सर्व काम पूर्ण',
   'No approvals, overdue bills or stock alerts': 'मंजुरी, थकीत बिले किंवा साठ्याच्या सूचना नाहीत',

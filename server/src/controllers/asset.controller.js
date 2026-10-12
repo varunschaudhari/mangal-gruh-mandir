@@ -34,7 +34,7 @@ export const updateAsset = asyncHandler(async (req, res) => {
   if (!existing) throw new ApiError(404, 'Asset not found');
 
   const asset = await Asset.findByIdAndUpdate(req.params.id, req.body, {
-    new: true, runValidators: true,
+    returnDocument: 'after', runValidators: true,
   });
 
   // Auto-generate units for any newly added quantity

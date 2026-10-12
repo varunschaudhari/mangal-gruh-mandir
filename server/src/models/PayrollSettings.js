@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import singleton from './singleton.js';
 
 // Salary rules: PF, ESI, Professional Tax and bank-file details. One document, edited from
 // Salary → Salary Settings. Defaults follow the current statutory rates and Maharashtra PT.
@@ -48,8 +49,6 @@ const payrollSettingsSchema = new mongoose.Schema(
   { timestamps: true },
 );
 
-payrollSettingsSchema.statics.getOrCreate = async function getOrCreate() {
-  return (await this.findOne()) || this.create({});
-};
+payrollSettingsSchema.plugin(singleton);   // getOrCreate()
 
 export default mongoose.model('PayrollSettings', payrollSettingsSchema);

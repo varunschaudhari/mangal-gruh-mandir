@@ -20,18 +20,52 @@ const POPULATE = [
   { path: 'voidedBy',   select: 'name' },
 ];
 
-// Aggregate approved payments per invoice for a supplier
-// Keyed by purchaseEntryId (new flow) or invoiceNumber (fallback)
-async function buildPaidMap(supplierId) {
-  const payments = await SupplierPayment.find({ supplier: supplierId, status: 'approved' }).lean();
-  const map = {};
-  for (const p of payments) {
+const rupees = (n) => `₹${Math.round(n * 100) / 100}`;
+const invoiceLabel = (e) => e.invoiceNumber || e.entryNumber;
+
+// Each purchase invoice a payment is split across must belong to this supplier, not be voided,
+// and not end up paid more than its total — counting payments approved or awaiting approval.
+async function assertInvoicesPayable(supplierId, invoices, exceptPaymentId) {
+  const lines = invoices.filter((i) => i.purchaseEntryId);
+  if (!lines.length) return;
+  const ids = lines.map((i) => i.purchaseEntryId);
+  const [entries, others] = await Promise.all([
+    PurchaseEntry.find({ _id: { $in: ids } }).select('supplier totalValue isVoided invoiceNumber entryNumber').lean(),
+    SupplierPayment.find({
+      _id: { $ne: exceptPaymentId },
+      status: { $in: ['pending_approval', 'approved'] },
+      'invoices.purchaseEntryId': { $in: ids },
+    }).select('invoices').lean(),
+  ]);
+  const committed = {};
+  for (const p of others) {
     for (const inv of p.invoices) {
-      const key = inv.purchaseEntryId?.toString() || inv.invoiceNumber || '__advance__';
-      map[key] = (map[key] || 0) + inv.paidAmount;
+      const key = String(inv.purchaseEntryId);
+      committed[key] = (committed[key] || 0) + (inv.paidAmount || 0);
     }
   }
-  return map;
+  for (const line of lines) {
+    const entry = entries.find((e) => String(e._id) === String(line.purchaseEntryId));
+    if (!entry) throw new ApiError(404, 'Purchase entry not found for this payment');
+    if (String(entry.supplier) !== String(supplierId)) throw new ApiError(400, `Invoice ${invoiceLabel(entry)} belongs to another supplier`);
+    if (entry.isVoided) throw new ApiError(400, `Invoice ${invoiceLabel(entry)} has been voided`);
+    const already = committed[String(entry._id)] || 0;
+    const left = Math.max(0, entry.totalValue - already);
+    if (Number(line.paidAmount) > left + 0.01) {
+      throw new ApiError(400, `Invoice ${invoiceLabel(entry)}: ${rupees(Number(line.paidAmount))} is more than the ${rupees(left)} still to pay `
+        + `(total ${rupees(entry.totalValue)}, ${rupees(already)} already paid or awaiting approval)`);
+    }
+  }
+}
+
+// A payment for a purchase that has since been voided must not be approved.
+async function assertNoVoidedInvoices(payments) {
+  const ids = payments.flatMap((p) => p.invoices.map((i) => i.purchaseEntryId)).filter(Boolean);
+  if (!ids.length) return;
+  const voided = await PurchaseEntry.find({ _id: { $in: ids }, isVoided: true }).select('invoiceNumber entryNumber').lean();
+  if (voided.length) {
+    throw new ApiError(400, `Cannot approve: purchase ${voided.map(invoiceLabel).join(', ')} has been voided. Reject the payment instead.`);
+  }
 }
 
 // GET /supplier-payments/counts
@@ -432,6 +466,7 @@ export const createPayment = asyncHandler(async (req, res) => {
     if (Math.abs(invoiceSum - expectedTotal) > 0.01) {
       throw new ApiError(400, `Invoice allocation (₹${invoiceSum}) must equal cash amount + advance applied (₹${expectedTotal})`);
     }
+    await assertInvoicesPayable(supplierId, invoices);
   }
 
   const paymentNumber = await generatePaymentNumber(paymentDate ? new Date(paymentDate) : new Date());
@@ -485,6 +520,7 @@ export const approvePayment = asyncHandler(async (req, res) => {
   if (payment.status !== 'pending_approval') throw new ApiError(400, `Payment is already ${payment.status}`);
   if (payment.createdBy.toString() === req.user._id.toString())
     throw new ApiError(403, 'You cannot approve a payment you submitted');
+  await assertNoVoidedInvoices([payment]);
   payment.status     = 'approved';
   payment.approvedBy = req.user._id;
   payment.approvedAt = new Date();
@@ -515,6 +551,7 @@ export const bulkApprovePayments = asyncHandler(async (req, res) => {
   if (selfCreated.length) {
     throw new ApiError(403, `${selfCreated.length} payment(s) were submitted by you and cannot be self-approved`);
   }
+  await assertNoVoidedInvoices(payments);
 
   const now  = new Date();
   const note = approvalNote?.trim() || undefined;
@@ -618,6 +655,11 @@ export const resubmitPayment = asyncHandler(async (req, res) => {
   if (totalAmount !== undefined) {
     const amt = Number(totalAmount);
     if (amt < 0) throw new ApiError(400, 'Amount cannot be negative');
+    // The invoice split is not edited here, so the amount must still match it
+    const split = payment.invoices.reduce((s, i) => s + (i.paidAmount || 0), 0);
+    if (payment.invoices.length && Math.abs(split - (amt + (payment.advanceApplied || 0))) > 0.01) {
+      throw new ApiError(400, `The amount must still match the invoice split (₹${split}). To pay a different amount, record a new payment.`);
+    }
     payment.totalAmount = amt;
   }
   if (paymentDate  !== undefined) payment.paymentDate      = new Date(paymentDate);
@@ -625,6 +667,9 @@ export const resubmitPayment = asyncHandler(async (req, res) => {
   if (referenceNumber !== undefined) payment.referenceNumber = referenceNumber || undefined;
   if (bankName     !== undefined) payment.bankName         = bankName || undefined;
   if (notes        !== undefined) payment.notes            = notes || undefined;
+
+  // Other payments may have been recorded for these invoices while this one was rejected
+  await assertInvoicesPayable(payment.supplier, payment.invoices, payment._id);
 
   payment.status     = 'pending_approval';
   payment.rejectedBy = undefined;

@@ -14,6 +14,7 @@ import { usePermissions } from '../../hooks/usePermissions.js';
 import toast from 'react-hot-toast';
 import { saveFile } from '../../utils/fileSaver.js';
 import { localDateStr } from '../../utils/formatters.js';
+import { useT, rich } from '../../i18n/index.jsx';
 
 const TYPE_COLORS = { named: 'green', hundi: 'blue', anonymous: 'gray' };
 const TYPE_LABELS = { named: 'Named', hundi: 'Hundi', anonymous: 'Anonymous' };
@@ -21,6 +22,7 @@ const fmt = (d) => d ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit',
 const col = createColumnHelper();
 
 const DonationList = () => {
+  const t = useT();
   const { can } = usePermissions();
   const navigate = useNavigate();
   const qc = useQueryClient();
@@ -58,7 +60,7 @@ const DonationList = () => {
         ? await exportDonationsExcel(params)
         : await exportDonationsPDF(params);
       await saveFile(res.data, `donations-${localDateStr()}.${format === 'excel' ? 'xlsx' : 'pdf'}`);
-    } catch { toast.error('Export failed'); }
+    } catch { toast.error(t('Export failed')); }
     finally { setExporting(null); }
   };
 
@@ -71,8 +73,8 @@ const DonationList = () => {
 
   const voidMut = useMutation({
     mutationFn: () => voidDonation(voidTarget._id, { voidReason }),
-    onSuccess: () => { toast.success('Donation voided'); qc.invalidateQueries({ queryKey: ['donations'] }); setVoidTarget(null); },
-    onError: (e) => toast.error(e.response?.data?.message || 'Failed'),
+    onSuccess: () => { toast.success(t('Donation voided')); qc.invalidateQueries({ queryKey: ['donations'] }); setVoidTarget(null); },
+    onError: (e) => toast.error(e.response?.data?.message || t('Failed')),
   });
 
   const result   = data?.data?.data;
@@ -92,14 +94,14 @@ const DonationList = () => {
     }),
     col.accessor('donationType', {
       header: 'Type', size: 95,
-      cell: (i) => <Badge variant={TYPE_COLORS[i.getValue()]}>{TYPE_LABELS[i.getValue()]}</Badge>,
+      cell: (i) => <Badge variant={TYPE_COLORS[i.getValue()]}>{t(TYPE_LABELS[i.getValue()])}</Badge>,
     }),
     col.display({
       id: 'donor', header: 'Donor',
       cell: ({ row }) => {
         const { donor, donorName, donationType } = row.original;
         const name = donor?.name || donorName;
-        if (!name) return <span className="text-gray-400">{donationType === 'hundi' ? 'Hundi' : 'Anonymous'}</span>;
+        if (!name) return <span className="text-gray-400">{donationType === 'hundi' ? t('Hundi') : t('Anonymous')}</span>;
         return <span className="font-medium text-gray-900">{name}</span>;
       },
     }),
@@ -116,7 +118,7 @@ const DonationList = () => {
     col.accessor('kindItems', {
       header: 'Kind Items', size: 90,
       cell: (i) => i.getValue()?.length > 0
-        ? <span className="text-blue-600 font-semibold">{i.getValue().length} item{i.getValue().length > 1 ? 's' : ''}</span>
+        ? <span className="text-blue-600 font-semibold">{i.getValue().length > 1 ? t('{n} items', { n: i.getValue().length }) : t('{n} item', { n: 1 })}</span>
         : <span className="text-gray-400">—</span>,
     }),
     col.accessor('totalEstimatedValue', {
@@ -127,19 +129,19 @@ const DonationList = () => {
       id: 'actions', header: '', size: 90,
       cell: ({ row }) => {
         const { donationType, isVoided } = row.original;
-        if (isVoided) return <span className="text-xs text-red-400">Voided</span>;
+        if (isVoided) return <span className="text-xs text-red-400">{t('Voided')}</span>;
         return (
           <div className="flex gap-1">
             {donationType !== 'hundi' && (
               <button onClick={() => printDonationReceipt(row.original)}
-                className="p-1.5 text-gray-400 hover:text-gray-700 rounded" title="Print receipt">
+                className="p-1.5 text-gray-400 hover:text-gray-700 rounded" title={t('Print receipt')}>
                 <Printer className="h-4 w-4" />
               </button>
             )}
             {can('donations:write') && (
               <button onClick={() => { setVoidTarget(row.original); setVoidReason(''); }}
                 className="text-xs text-red-400 hover:text-red-600 px-2 py-1 rounded">
-                Void
+                {t('Void')}
               </button>
             )}
           </div>
@@ -159,12 +161,12 @@ const DonationList = () => {
             <div className="relative">
               <button onClick={() => setExporting(exporting ? null : 'menu')} disabled={!!exporting && exporting !== 'menu'}
                 className="btn-secondary flex items-center gap-2 text-sm disabled:opacity-50">
-                <Download className="h-4 w-4" /> Export
+                <Download className="h-4 w-4" /> {t('Export')}
               </button>
               {exporting === 'menu' && (
                 <div className="absolute right-0 top-10 z-20 bg-white border border-gray-200 rounded-xl shadow-lg py-1 w-36">
                   <button onClick={() => doExport('excel')} className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">
-                    <FileSpreadsheet className="h-4 w-4 text-green-600" /> Excel (.xlsx)
+                    <FileSpreadsheet className="h-4 w-4 text-green-600" /> {t('Excel (.xlsx)')}
                   </button>
                   <button onClick={() => doExport('pdf')} className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">
                     <FileText className="h-4 w-4 text-red-500" /> PDF
@@ -173,7 +175,7 @@ const DonationList = () => {
               )}
             </div>
             {can('donations:write') && (
-              <Link to="/donations/new" className="btn-primary"><Plus className="h-4 w-4" /> Record Donation</Link>
+              <Link to="/donations/new" className="btn-primary"><Plus className="h-4 w-4" /> {t('Record Donation')}</Link>
             )}
           </div>
         }
@@ -183,15 +185,15 @@ const DonationList = () => {
       {stats && (
         <div className="bg-white rounded-xl border border-gray-100 grid grid-cols-2 sm:grid-cols-5 divide-x divide-gray-100 overflow-hidden">
           {[
-            { label: 'Total Records',    value: stats.totalCount,                                                                icon: Heart,        color: 'text-gray-700' },
-            { label: 'Cash Collected',   value: `₹${(stats.totalCash || 0).toLocaleString('en-IN')}`,                         icon: IndianRupee,  color: 'text-green-600' },
-            { label: 'Kind Value (Est)', value: `₹${(stats.totalKindValue || 0).toLocaleString('en-IN')}`,                    icon: Package,      color: 'text-blue-600' },
-            { label: 'Named Donors',     value: stats.namedCount,                                                              icon: Heart,        color: 'text-purple-600' },
-            { label: 'Hundi Entries',    value: stats.hundiCount,                                                              icon: Heart,        color: 'text-orange-600' },
+            { label: t('Total Records'),    value: stats.totalCount,                                                                icon: Heart,        color: 'text-gray-700' },
+            { label: t('Cash Collected'),   value: `₹${(stats.totalCash || 0).toLocaleString('en-IN')}`,                         icon: IndianRupee,  color: 'text-green-600' },
+            { label: t('Kind Value (Est)'), value: `₹${(stats.totalKindValue || 0).toLocaleString('en-IN')}`,                    icon: Package,      color: 'text-blue-600' },
+            { label: t('Named Donors'),     value: stats.namedCount,                                                              icon: Heart,        color: 'text-purple-600' },
+            { label: t('Hundi Entries'),    value: stats.hundiCount,                                                              icon: Heart,        color: 'text-orange-600' },
           ].map(({ label, value, icon: Icon, color }) => (
             <div key={label} className="px-4 py-3 text-center">
               <p className={`text-xl font-black ${color}`}>{value}</p>
-              <p className="text-xs text-gray-400 mt-0.5">{label}</p>
+              <p className="text-xs text-gray-400 mt-0.5">{t(label)}</p>
             </div>
           ))}
         </div>
@@ -202,14 +204,14 @@ const DonationList = () => {
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
           <input type="text" value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-            placeholder="Search donor or receipt no…" className="input pl-9 text-sm py-1.5 w-56" />
+            placeholder={t('Search donor or receipt no…')} className="input pl-9 text-sm py-1.5 w-56" />
         </div>
         <div className="flex gap-2 items-center">
-          <label className="text-xs font-semibold text-gray-500 uppercase">From</label>
+          <label className="text-xs font-semibold text-gray-500 uppercase">{t('From')}</label>
           <input type="date" value={from} onChange={(e) => { setFrom(e.target.value); setPage(1); }} className="input text-sm py-1.5" />
         </div>
         <div className="flex gap-2 items-center">
-          <label className="text-xs font-semibold text-gray-500 uppercase">To</label>
+          <label className="text-xs font-semibold text-gray-500 uppercase">{t('To')}</label>
           <input type="date" value={to} max={localDateStr()}
             onChange={(e) => { setTo(e.target.value); setPage(1); }} className="input text-sm py-1.5" />
         </div>
@@ -217,7 +219,7 @@ const DonationList = () => {
           {[['', 'All'], ['named', 'Named'], ['hundi', 'Hundi'], ['anonymous', 'Anonymous']].map(([val, label]) => (
             <button key={val} onClick={() => { setTypeFilter(val); setPage(1); }}
               className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${typeFilter === val ? 'bg-primary-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
-              {label}
+              {t(label)}
             </button>
           ))}
         </div>
@@ -228,7 +230,7 @@ const DonationList = () => {
 
       {pages > 1 && (
         <div className="flex items-center justify-between pt-1">
-          <p className="text-xs text-gray-500">{total} record{total !== 1 ? 's' : ''} · Page {page} of {pages}</p>
+          <p className="text-xs text-gray-500">{t('Page {page} of {pages} · {n} records', { page, pages, n: total })}</p>
           <div className="flex gap-2">
             <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1} className="btn-secondary p-1.5 disabled:opacity-40"><ChevronLeft className="h-4 w-4" /></button>
             <button onClick={() => setPage((p) => Math.min(pages, p + 1))} disabled={page === pages} className="btn-secondary p-1.5 disabled:opacity-40"><ChevronRight className="h-4 w-4" /></button>
@@ -238,14 +240,14 @@ const DonationList = () => {
 
       <Modal open={!!voidTarget} onClose={() => setVoidTarget(null)} title="Void Donation" size="sm">
         <div className="space-y-4">
-          <p className="text-sm text-gray-600">Void <strong>{voidTarget?.donationNumber}</strong>? This cannot be undone.</p>
+          <p className="text-sm text-gray-600">{rich(t('Void {number}? This cannot be undone.'), { number: <strong>{voidTarget?.donationNumber}</strong> })}</p>
           <div>
-            <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Reason</label>
-            <input type="text" value={voidReason} onChange={(e) => setVoidReason(e.target.value)} className="input" placeholder="e.g. Entered by mistake" />
+            <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">{t('Reason')}</label>
+            <input type="text" value={voidReason} onChange={(e) => setVoidReason(e.target.value)} className="input" placeholder={t('e.g. Entered by mistake')} />
           </div>
           <div className="flex justify-end gap-2">
-            <button onClick={() => setVoidTarget(null)} className="btn-secondary">Cancel</button>
-            <button onClick={() => voidMut.mutate()} disabled={voidMut.isPending} className="btn-danger">{voidMut.isPending ? 'Voiding…' : 'Yes, Void'}</button>
+            <button onClick={() => setVoidTarget(null)} className="btn-secondary">{t('Cancel')}</button>
+            <button onClick={() => voidMut.mutate()} disabled={voidMut.isPending} className="btn-danger">{voidMut.isPending ? t('Voiding…') : t('Yes, Void')}</button>
           </div>
         </div>
       </Modal>

@@ -1,4 +1,5 @@
 import PDFDocument from 'pdfkit';
+import { temple } from './temple.service.js';
 
 const COLORS = {
   primary: '#ea580c',   // saffron/orange
@@ -48,7 +49,7 @@ export function generateDailyReportPDF(res, { date, department, transactions, su
   doc.rect(LEFT, 30, W, 60).fill(COLORS.primary);
   doc.fillColor(COLORS.white)
     .fontSize(18).font('Helvetica-Bold')
-    .text('Mangal Grah Mandir, Amalner', LEFT + 10, 42, { width: W - 20 });
+    .text(temple().name, LEFT + 10, 42, { width: W - 20 });
   doc.fontSize(10).font('Helvetica')
     .text('Daily Stock Movement Report', LEFT + 10, 64);
 
@@ -156,7 +157,7 @@ export function generateDailyReportPDF(res, { date, department, transactions, su
   for (let i = 0; i < pageCount; i++) {
     doc.switchToPage(i);
     doc.fillColor(COLORS.gray).fontSize(7).font('Helvetica')
-      .text(`Page ${i + 1} of ${pageCount}  |  Mangal Grah Mandir Stock Management`, LEFT, doc.page.height - 30, { width: W, align: 'center' });
+      .text(`Page ${i + 1} of ${pageCount}  |  ${temple().name} · Stock Management`, LEFT, doc.page.height - 30, { width: W, align: 'center' });
   }
 
   doc.end();
@@ -168,7 +169,7 @@ function pdfHeader(doc, title, subtitle) {
   const LEFT = 40;
   doc.rect(LEFT, 30, W, 60).fill(COLORS.primary);
   doc.fillColor(COLORS.white).fontSize(18).font('Helvetica-Bold')
-    .text('Mangal Grah Mandir, Amalner', LEFT + 10, 42, { width: W - 20 });
+    .text(temple().name, LEFT + 10, 42, { width: W - 20 });
   doc.fontSize(10).font('Helvetica').text(title, LEFT + 10, 64);
   doc.fillColor(COLORS.gray).fontSize(8).font('Helvetica')
     .text(`${subtitle}   Generated: ${new Date().toLocaleString('en-IN')}`, LEFT + 10, 78, { width: W - 20 });
@@ -188,7 +189,7 @@ function pdfFooter(doc) {
   for (let i = 0; i < pageCount; i++) {
     doc.switchToPage(i);
     doc.fillColor(COLORS.gray).fontSize(7).font('Helvetica')
-      .text(`Page ${i + 1} of ${pageCount}  |  Mangal Grah Mandir Stock Management`, 40, doc.page.height - 30, { width: W, align: 'center' });
+      .text(`Page ${i + 1} of ${pageCount}  |  ${temple().name} · Stock Management`, 40, doc.page.height - 30, { width: W, align: 'center' });
   }
 }
 

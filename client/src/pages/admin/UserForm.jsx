@@ -16,6 +16,7 @@ import { ROLE_LABELS } from '../../utils/permissions.js';
 import { usePermissions } from '../../hooks/usePermissions.js';
 import StaffProfileSection, { profileFromForm, profileToForm } from './StaffProfileSection.jsx';
 import toast from 'react-hot-toast';
+import { useT } from '../../i18n/index.jsx';
 
 const Section = ({ icon: Icon, title, subtitle, children, color = 'text-gray-600', bg = 'bg-gray-50' }) => (
   <div className={`rounded-xl border border-gray-100 overflow-hidden`}>
@@ -30,18 +31,23 @@ const Section = ({ icon: Icon, title, subtitle, children, color = 'text-gray-600
   </div>
 );
 
-const Field = ({ label, required, error, hint, children }) => (
+const Field = ({ label, required, error, hint, children }) => {
+  const t = useT();
+  return (
   <div>
     <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">
-      {label} {required && <span className="text-red-400">*</span>}
+      {t(label)} {required && <span className="text-red-400">*</span>}
     </label>
     {children}
-    {hint && !error && <p className="mt-1 text-xs text-gray-400">{hint}</p>}
+    {hint && !error && <p className="mt-1 text-xs text-gray-400">{t(hint)}</p>}
     {error && <p className="mt-1 text-xs text-red-500">{error}</p>}
   </div>
 );
+};
 
-const AlertToggle = ({ icon: Icon, color, bg, label, description, checked, onChange }) => (
+const AlertToggle = ({ icon: Icon, color, bg, label, description, checked, onChange }) => {
+  const t = useT();
+  return (
   <label className={`flex items-start gap-3 p-3.5 rounded-lg border-2 cursor-pointer transition-all ${
     checked ? `${bg} border-current ${color}` : 'bg-white border-gray-100 hover:border-gray-200'
   }`}>
@@ -49,8 +55,8 @@ const AlertToggle = ({ icon: Icon, color, bg, label, description, checked, onCha
       <Icon className="h-5 w-5" />
     </div>
     <div className="flex-1 min-w-0">
-      <p className={`text-sm font-semibold ${checked ? color : 'text-gray-600'}`}>{label}</p>
-      <p className="text-xs text-gray-400 mt-0.5">{description}</p>
+      <p className={`text-sm font-semibold ${checked ? color : 'text-gray-600'}`}>{t(label)}</p>
+      <p className="text-xs text-gray-400 mt-0.5">{t(description)}</p>
     </div>
     <div className="shrink-0 mt-0.5">
       <input
@@ -65,8 +71,10 @@ const AlertToggle = ({ icon: Icon, color, bg, label, description, checked, onCha
     </div>
   </label>
 );
+};
 
 const UserForm = () => {
+  const t = useT();
   const { id } = useParams();
   const isEdit = Boolean(id);
   const navigate = useNavigate();
@@ -116,12 +124,12 @@ const UserForm = () => {
       return isEdit ? updateUser(id, body) : createUser(body);
     },
     onSuccess: () => {
-      toast.success(isEdit ? 'User updated' : 'User created');
+      toast.success(isEdit ? t('User updated') : t('User created'));
       qc.invalidateQueries({ queryKey: ['users'] });
       qc.invalidateQueries({ queryKey: ['attendance'] });
       navigate(backTo);
     },
-    onError: (err) => toast.error(err.response?.data?.message || 'Failed'),
+    onError: (err) => toast.error(err.response?.data?.message || t('Failed')),
   });
 
   if (isEdit && isLoading) return <PageLoader />;
@@ -142,15 +150,15 @@ const UserForm = () => {
       <form onSubmit={handleSubmit((d) => mutation.mutate(d))} className="space-y-4">
 
         {/* ── Account Details ── */}
-        <Section icon={User} title="Account Details" subtitle="Basic login and contact information" color="text-blue-600" bg="bg-blue-50">
+        <Section icon={User} title={t('Account Details')} subtitle={t('Basic login and contact information')} color="text-blue-600" bg="bg-blue-50">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <Field label="Full Name" required error={errors.name?.message}>
+            <Field label={t('Full Name')} required error={errors.name?.message}>
               <div className="relative">
                 <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-300" />
-                <input {...register('name', { required: 'Name is required' })} className="input pl-9" placeholder="e.g. Ramesh Patil" />
+                <input {...register('name', { required: 'Name is required' })} className="input pl-9" placeholder={t('e.g. Ramesh Patil')} />
               </div>
             </Field>
-            <Field label="Email Address" required error={errors.email?.message}>
+            <Field label={t('Email Address')} required error={errors.email?.message}>
               <div className="relative">
                 <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-300" />
                 <input {...register('email', { required: 'Email is required' })} className="input pl-9" type="email" placeholder="user@mandir.com" />
@@ -159,8 +167,8 @@ const UserForm = () => {
           </div>
 
           <Field
-            label="Mobile Number"
-            hint="Used for both WhatsApp and SMS alerts — include country code (e.g. 919876543210)"
+            label={t('Mobile Number')}
+            hint={t('Used for both WhatsApp and SMS alerts — include country code (e.g. 919876543210)')}
             error={errors.phone?.message}
           >
             <div className="relative">
@@ -177,13 +185,13 @@ const UserForm = () => {
           </Field>
 
           {!isEdit && (
-            <Field label="Password" required error={errors.password?.message} hint="Minimum 6 characters">
+            <Field label={t('Password')} required error={errors.password?.message} hint={t('Minimum 6 characters')}>
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-300" />
                 <input
                   {...register('password', {
                     required: !isEdit && 'Password is required',
-                    minLength: { value: 6, message: 'Min 6 characters' },
+                    minLength: { value: 6, message: t('Min 6 characters') },
                   })}
                   className="input pl-9"
                   type="password"
@@ -195,8 +203,8 @@ const UserForm = () => {
         </Section>
 
         {/* ── Role & Access ── */}
-        <Section icon={Shield} title="Role & Access" subtitle="Permissions and department assignment" color="text-purple-600" bg="bg-purple-50">
-          <Field label="Role" required>
+        <Section icon={Shield} title={t('Role & Access')} subtitle={t('Permissions and department assignment')} color="text-purple-600" bg="bg-purple-50">
+          <Field label={t('Role')} required>
             <Controller
               name="role"
               control={control}
@@ -205,7 +213,7 @@ const UserForm = () => {
                   value={field.value || ''}
                   onChange={field.onChange}
                   options={roles.map((r) => ({ value: r.slug, label: r.name }))}
-                  placeholder="Select role…"
+                  placeholder={t('Select role…')}
                   nullable={false}
                 />
               )}
@@ -213,7 +221,7 @@ const UserForm = () => {
           </Field>
 
           {showDepts && (
-            <Field label="Department Access" hint="Leave all unchecked to allow access to all departments">
+            <Field label={t('Department Access')} hint={t('Leave all unchecked to allow access to all departments')}>
               <div className="grid grid-cols-2 gap-2 mt-1">
                 {depts.map((d) => (
                   <label key={d._id} className="flex items-center gap-2 text-sm cursor-pointer p-2 rounded-lg hover:bg-gray-50 border border-transparent hover:border-gray-100">
@@ -230,7 +238,7 @@ const UserForm = () => {
           <label className="flex items-center gap-2 text-sm cursor-pointer">
             <input type="checkbox" {...register('isActive')} className="h-4 w-4 rounded text-primary-600" />
             <CheckCircle2 className="h-4 w-4 text-gray-400" />
-            <span className="font-medium text-gray-700">Account is Active</span>
+            <span className="font-medium text-gray-700">{t('Account is Active')}</span>
           </label>
 
           <label className={`flex items-start gap-3 p-3.5 rounded-lg border-2 cursor-pointer transition-all ${
@@ -240,8 +248,8 @@ const UserForm = () => {
               <Key className="h-5 w-5" />
             </div>
             <div className="flex-1 min-w-0">
-              <p className={`text-sm font-semibold ${canApprove ? 'text-purple-700' : 'text-gray-600'}`}>Can Approve Asset Requests</p>
-              <p className="text-xs text-gray-400 mt-0.5">This person can appear as approver when help desk logs asset borrow requests</p>
+              <p className={`text-sm font-semibold ${canApprove ? 'text-purple-700' : 'text-gray-600'}`}>{t('Can Approve Asset Requests')}</p>
+              <p className="text-xs text-gray-400 mt-0.5">{t('This person can appear as approver when help desk logs asset borrow requests')}</p>
             </div>
             <div className="shrink-0 mt-0.5">
               <input type="checkbox" {...register('canApproveAssets')} className="sr-only" />
@@ -258,8 +266,8 @@ const UserForm = () => {
               <CreditCard className="h-5 w-5" />
             </div>
             <div className="flex-1 min-w-0">
-              <p className={`text-sm font-semibold ${canApprovePayments ? 'text-emerald-700' : 'text-gray-600'}`}>Can Approve Payments</p>
-              <p className="text-xs text-gray-400 mt-0.5">This person can approve or reject supplier payment vouchers (trustee-level access)</p>
+              <p className={`text-sm font-semibold ${canApprovePayments ? 'text-emerald-700' : 'text-gray-600'}`}>{t('Can Approve Payments')}</p>
+              <p className="text-xs text-gray-400 mt-0.5">{t('This person can approve or reject supplier payment vouchers (trustee-level access)')}</p>
             </div>
             <div className="shrink-0 mt-0.5">
               <input type="checkbox" {...register('canApprovePayments')} className="sr-only" />
@@ -276,15 +284,15 @@ const UserForm = () => {
         {/* ── Notifications ── */}
         <Section
           icon={Bell}
-          title="Notifications"
-          subtitle="Choose how this user receives stock alerts"
+          title={t('Notifications')}
+          subtitle={t('Choose how this user receives stock alerts')}
           color="text-orange-600"
           bg="bg-orange-50"
         >
           {!hasPhone && (
             <div className="flex items-center gap-2 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2.5">
               <Phone className="h-4 w-4 shrink-0" />
-              Add a mobile number above to enable alerts
+              {t('Add a mobile number above to enable alerts')}
             </div>
           )}
 
@@ -293,8 +301,8 @@ const UserForm = () => {
               icon={MessageCircle}
               color="text-green-600"
               bg="bg-green-50"
-              label="WhatsApp Alerts"
-              description="Instant WhatsApp message when stock drops below threshold"
+              label={t('WhatsApp Alerts')}
+              description={t('Instant WhatsApp message when stock drops below threshold')}
               checked={whatsappEnabled}
               onChange={(e) => setValue('whatsappAlertsEnabled', e.target.checked, { shouldDirty: true })}
             />
@@ -302,8 +310,8 @@ const UserForm = () => {
               icon={MessageSquare}
               color="text-blue-600"
               bg="bg-blue-50"
-              label="SMS Alerts"
-              description="SMS via MSG91 when stock drops below threshold"
+              label={t('SMS Alerts')}
+              description={t('SMS via MSG91 when stock drops below threshold')}
               checked={smsEnabled}
               onChange={(e) => setValue('smsAlertsEnabled', e.target.checked, { shouldDirty: true })}
             />
@@ -311,14 +319,14 @@ const UserForm = () => {
 
           {alertsActive && !hasPhone && (
             <p className="text-xs text-red-500 flex items-center gap-1">
-              ⚠ Please add a mobile number to receive alerts.
+              {t('⚠ Please add a mobile number to receive alerts.')}
             </p>
           )}
 
           {alertsActive && hasPhone && (
             <div className="flex items-center gap-2 text-xs text-green-700 bg-green-50 border border-green-200 rounded-lg px-3 py-2.5">
               <CheckCircle2 className="h-4 w-4 shrink-0" />
-              Alerts will be sent to <span className="font-mono font-semibold ml-1">{phone}</span>
+              {t('Alerts will be sent to')} <span className="font-mono font-semibold ml-1">{phone}</span>
             </div>
           )}
         </Section>
@@ -326,10 +334,10 @@ const UserForm = () => {
         {/* ── Actions ── */}
         <div className="flex items-center gap-3 pt-1">
           <button type="submit" disabled={mutation.isPending} className="btn-primary px-6">
-            {mutation.isPending ? 'Saving…' : isEdit ? 'Update User' : 'Create User'}
+            {mutation.isPending ? t('Saving…') : isEdit ? t('Update User') : t('Create User')}
           </button>
           <button type="button" onClick={() => navigate(backTo)} className="btn-secondary">
-            Cancel
+            {t('Cancel')}
           </button>
         </div>
 

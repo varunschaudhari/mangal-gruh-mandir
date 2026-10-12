@@ -25,12 +25,15 @@ const STATUS_LABELS = { pending_approval: 'Pending Approval', approved: 'Approve
 const PM_LABELS     = { cash: 'Cash', upi: 'UPI / Online', neft: 'NEFT', rtgs: 'RTGS', cheque: 'Cheque' };
 
 
-const Row = ({ label, children }) => (
+const Row = ({ label, children }) => {
+  const t = useT();
+  return (
   <div className="flex items-start justify-between gap-4 py-2.5 border-b border-gray-50 last:border-0">
-    <span className="text-xs text-gray-400 shrink-0 w-28 sm:w-36">{label}</span>
+    <span className="text-xs text-gray-400 shrink-0 w-28 sm:w-36">{t(label)}</span>
     <span className="min-w-0 break-words text-sm text-gray-800 text-right font-medium">{children}</span>
   </div>
-);
+  );
+};
 
 const TIMELINE_CONFIG = {
   created:  { icon: Clock,      bg: 'bg-blue-100',  ring: 'ring-blue-200',  text: 'text-blue-600',  label: 'Submitted' },

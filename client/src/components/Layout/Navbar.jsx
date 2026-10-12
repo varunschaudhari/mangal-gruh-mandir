@@ -14,6 +14,7 @@ import { scanQrCode } from '../../utils/nativeScanner.js';
 import { resolveScan } from '../../utils/scanResolver.js';
 import haptics from '../../utils/haptics.js';
 import { useT } from '../../i18n/index.jsx';
+import { useTemple } from '../../utils/temple.js';
 
 const AlertBell = () => {
   const { data } = useQuery({
@@ -44,21 +45,21 @@ const AlertBell = () => {
   );
 };
 
-// Mobile app: scan any label this app prints (product, asset, coupon) or a shop barcode
+// Mobile app: scan any label this app prints (product, asset, coupon, booking slip) or a shop barcode
 // and jump to it. See utils/scanResolver.js.
 const ScanButton = () => {
   const navigate = useNavigate();
   const t = useT();
   const { can } = usePermissions();
   const [busy, setBusy] = useState(false);
-  if (!isNative || !(can('masters:read') || can('assets:read') || can('mahaprasad:redeem'))) return null;
+  if (!isNative || !(can('masters:read') || can('assets:read') || can('mahaprasad:redeem') || can('bookings:checkin'))) return null;
 
   const scan = async () => {
     setBusy(true);
     try {
       const text = await scanQrCode({ barcodes: true });
       if (!text) return;
-      const result = await resolveScan(text);
+      const result = await resolveScan(text, { canCheckIn: can('bookings:checkin') });
       if (result.to) { haptics.success(); navigate(result.to); } else { haptics.error(); toast.error(result.error); }
     } catch (err) {
       toast.error(err?.message || t('Scanner not available'));
@@ -84,6 +85,7 @@ const ScanButton = () => {
 const MobileTitle = () => {
   const navigate = useNavigate();
   const t = useT();
+  const { name: templeName } = useTemple();
   const { pathname } = useLocation();
   const title = useAppBarTitle();
   const { rootPaths } = useMobileNav();
@@ -97,7 +99,7 @@ const MobileTitle = () => {
       <div className="flex min-w-0 flex-1 items-center gap-2.5 pl-2 lg:hidden">
         <img src="/logo.png" alt="" className="h-8 w-8 rounded object-contain" />
         <div className="min-w-0 leading-tight">
-          <p className="truncate text-sm font-bold text-gray-900">{t('Mangal Grah Mandir')}</p>
+          <p className="truncate text-sm font-bold text-gray-900">{t(templeName)}</p>
           <p className="text-[11px] text-gray-500">{t('Amalner')}</p>
         </div>
       </div>

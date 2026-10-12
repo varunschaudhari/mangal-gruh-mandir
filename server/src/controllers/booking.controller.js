@@ -11,13 +11,17 @@ import { logAction } from '../services/audit.service.js';
 import {
   createBooking, editBooking, getAvailability, lookupDevotee, moveBooking, voidBooking,
 } from '../services/booking/booking.service.js';
+import { checkInByCode, checkInById, checkInSummary, hallBoard, undoCheckIn } from '../services/booking/checkin.service.js';
 import { receiptUrl, sendReceipt } from '../services/booking/notify.js';
-import { buildFilter, daySheet, summary } from '../services/booking/reports.js';
+import { attendanceReport, daySheet, registerFilter, summary } from '../services/booking/reports.js';
 import { bookingsExcel, summaryPdf } from '../services/booking/exports.js';
 import { dateKeyOf, isDateKey } from '../services/booking/rules.js';
 
 const withUrl = (b) => (b ? { ...b, receiptUrl: receiptUrl(b) } : b);
-const POPULATE = [{ path: 'createdBy', select: 'name' }, { path: 'voidedBy', select: 'name' }, { path: 'history.by', select: 'name' }];
+const POPULATE = [
+  { path: 'createdBy', select: 'name' }, { path: 'voidedBy', select: 'name' }, { path: 'history.by', select: 'name' },
+  { path: 'checkedInBy', select: 'name' },
+];
 
 const can = async (req, perm) => {
   const perms = await getPermissionsForRole(req.user.role);
@@ -71,9 +75,9 @@ export const create = asyncHandler(async (req, res) => {
   res.status(duplicate ? 200 : 201).json(new ApiResponse(duplicate ? 200 : 201, withUrl(populated), duplicate ? 'Already booked' : 'Booked'));
 });
 
-// GET /bookings — register with filters (see reports.buildFilter)
+// GET /bookings — register with filters (see reports.buildFilter / registerFilter)
 export const list = asyncHandler(async (req, res) => {
-  const filter = buildFilter(req.query);
+  const filter = await registerFilter(req.query);
   const page = Math.max(1, Number(req.query.page) || 1);
   const limit = Math.min(200, Math.max(1, Number(req.query.limit) || 25));
   const sort = req.query.dateField === 'puja' ? { performDate: 1, serialNo: 1 } : { paidAt: -1 };
@@ -132,6 +136,54 @@ export const move = asyncHandler(async (req, res) => {
   res.json(new ApiResponse(200, withUrl(populated), 'Booking moved'));
 });
 
+// ── Hall check-in ──
+const logCheckIn = (req, r) => {
+  if (!r.checkedIn) return;
+  logAction(req, {
+    action: 'booking.checkin', entity: 'Booking', entityId: r.booking.receiptNo, entityRef: r.booking._id,
+    meta: { hall: r.booking.hall, batch: r.booking.batchLabel, override: r.booking.checkInOverride || undefined },
+  });
+};
+
+// POST /bookings/check-in { code, hall?, override? } — the QR on the slip, or the receipt number
+export const checkIn = asyncHandler(async (req, res) => {
+  const r = await checkInByCode(req.body?.code, { hall: req.body?.hall, override: Boolean(req.body?.override) }, req.user);
+  logCheckIn(req, r);
+  res.json(new ApiResponse(200, r));
+});
+
+// POST /bookings/:id/check-in { override? } — marked by hand (devotee without the slip)
+export const checkInOne = asyncHandler(async (req, res) => {
+  const r = await checkInById(req.params.id, { override: Boolean(req.body?.override) }, req.user);
+  logCheckIn(req, r);
+  res.json(new ApiResponse(200, r));
+});
+
+// DELETE /bookings/:id/check-in — undo a check-in made by mistake
+export const undoCheckInOne = asyncHandler(async (req, res) => {
+  const { booking, was } = await undoCheckIn(req.params.id);
+  logAction(req, {
+    action: 'booking.checkin.undo', entity: 'Booking', entityId: booking.receiptNo, entityRef: booking._id,
+    meta: { checkedInAt: was.checkedInAt, by: was.checkedInBy?.name },
+  });
+  res.json(new ApiResponse(200, booking, 'Check-in undone'));
+});
+
+// GET /bookings/check-in/summary?date=&hall= — arrivals per batch, latest check-ins
+export const checkInStatus = asyncHandler(async (req, res) => {
+  res.json(new ApiResponse(200, await checkInSummary(req.query)));
+});
+
+// GET /bookings/hall-board?hall=&date= — the hall screen: today's batches, serials, who has arrived
+export const hallScreen = asyncHandler(async (req, res) => {
+  res.json(new ApiResponse(200, await hallBoard(req.query)));
+});
+
+// GET /bookings/reports/attendance?from=&to= — fill rate and no-shows
+export const reportAttendance = asyncHandler(async (req, res) => {
+  res.json(new ApiResponse(200, await attendanceReport(req.query)));
+});
+
 // POST /bookings/:id/send — resend the receipt by WhatsApp / SMS
 export const resend = asyncHandler(async (req, res) => {
   const booking = await Booking.findById(req.params.id).lean();
@@ -143,7 +195,7 @@ export const resend = asyncHandler(async (req, res) => {
 
 // GET /bookings/export/excel
 export const exportExcel = asyncHandler(async (req, res) => {
-  const filter = buildFilter({ ...req.query, status: req.query.status || 'all' });
+  const filter = await registerFilter({ ...req.query, status: req.query.status || 'all' });
   const count = await Booking.countDocuments(filter);
   if (count > 50000) throw new ApiError(400, `${count} bookings — narrow the date range (max 50,000 per file)`);
   const bookings = await Booking.find(filter).sort({ paidAt: 1 }).populate('createdBy', 'name').lean();
@@ -185,7 +237,7 @@ export const publicReceipt = asyncHandler(async (req, res) => {
     receiptNo: b.receiptNo, status: b.status, sevaName: b.sevaName, schedule: b.schedule, amount: b.amount,
     performDate: b.performDate, dateKey: b.dateKey, batchLabel: b.batchLabel, hall: b.hall, serialNo: b.serialNo,
     devotee: { name: b.devotee.name, phone: `XXXXXX${b.devotee.phone.slice(-4)}`, gotra: b.devotee.gotra, familyNames: b.devotee.familyNames },
-    peopleCount: b.peopleCount, paymentMode: b.paymentMode, paidAt: b.paidAt,
+    peopleCount: b.peopleCount, paymentMode: b.paymentMode, paidAt: b.paidAt, checkedInAt: b.checkedInAt || null,
     temple: { name: temple.templeName, address: temple.templeAddress, phone: temple.templePhone },
     footer: settings.receiptFooter,
   }));

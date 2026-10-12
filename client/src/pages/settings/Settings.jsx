@@ -13,23 +13,29 @@ import { PageLoader } from '../../components/ui/Spinner.jsx';
 import AttendanceSettingsPanel from '../attendance/AttendanceSettingsPanel.jsx';
 import { usePermissions } from '../../hooks/usePermissions.js';
 import toast from 'react-hot-toast';
+import { useT } from '../../i18n/index.jsx';
 
 // ── Reusable primitives ───────────────────────────────────────────────────────
 
-const Field = ({ label, hint, error, children }) => (
+const Field = ({ label, hint, error, children }) => {
+  const t = useT();
+  return (
   <div>
-    <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">{label}</label>
+    <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">{t(label)}</label>
     {children}
-    {hint  && !error && <p className="mt-1 text-xs text-gray-400">{hint}</p>}
+    {hint  && !error && <p className="mt-1 text-xs text-gray-400">{t(hint)}</p>}
     {error && <p className="mt-1 text-xs text-red-500">{error}</p>}
   </div>
-);
+  );
+};
 
-const Toggle = ({ label, description, checked, onChange }) => (
+const Toggle = ({ label, description, checked, onChange }) => {
+  const t = useT();
+  return (
   <label className="flex items-center justify-between gap-4 cursor-pointer">
     <div>
-      <p className="text-sm font-medium text-gray-700">{label}</p>
-      {description && <p className="text-xs text-gray-400 mt-0.5">{description}</p>}
+      <p className="text-sm font-medium text-gray-700">{t(label)}</p>
+      {description && <p className="text-xs text-gray-400 mt-0.5">{t(description)}</p>}
     </div>
     <div className="shrink-0">
       <input type="checkbox" checked={!!checked} onChange={onChange} className="sr-only" />
@@ -38,9 +44,11 @@ const Toggle = ({ label, description, checked, onChange }) => (
       </div>
     </div>
   </label>
-);
+  );
+};
 
 const SecretInput = ({ reg, name, placeholder, hint }) => {
+  const t = useT();
   const [show, setShow] = useState(false);
   return (
     <div>
@@ -57,7 +65,7 @@ const SecretInput = ({ reg, name, placeholder, hint }) => {
           {show ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
         </button>
       </div>
-      {hint && <p className="mt-1 text-xs text-gray-400">{hint}</p>}
+      {hint && <p className="mt-1 text-xs text-gray-400">{t(hint)}</p>}
     </div>
   );
 };
@@ -89,17 +97,18 @@ const TAB_FIELDS = {
 // ── Save footer (per tab) ─────────────────────────────────────────────────────
 
 function SaveFooter({ onSave, isPending, savedTabId, tabId }) {
+  const t = useT();
   const justSaved = savedTabId === tabId;
   return (
     <div className="flex items-center gap-3 pt-4 border-t border-gray-100 mt-6">
       <button type="button" onClick={onSave} disabled={isPending}
         className="btn-primary flex items-center gap-2 disabled:opacity-50">
         <Save className="h-4 w-4" />
-        {isPending ? 'Saving…' : 'Save'}
+        {isPending ? t('Saving…') : t('Save')}
       </button>
       {justSaved && !isPending && (
         <span className="flex items-center gap-1.5 text-xs text-green-600 animate-in fade-in">
-          <CheckCircle2 className="h-4 w-4" /> Saved
+          <CheckCircle2 className="h-4 w-4" /> {t('Saved')}
         </span>
       )}
     </div>
@@ -109,6 +118,7 @@ function SaveFooter({ onSave, isPending, savedTabId, tabId }) {
 // ── Main component ────────────────────────────────────────────────────────────
 
 const Settings = () => {
+  const t = useT();
   const qc = useQueryClient();
   const { register, reset, watch, setValue, getValues } = useForm();
 
@@ -139,12 +149,13 @@ const Settings = () => {
   const mutation = useMutation({
     mutationFn: updateSettings,
     onSuccess: (_, variables) => {
-      toast.success('Settings saved');
+      toast.success(t('Settings saved'));
       qc.invalidateQueries({ queryKey: ['settings'] });
+      qc.invalidateQueries({ queryKey: ['temple'] });   // name in the header and on receipts
       setSavedTabId(activeTab);
       setTimeout(() => setSavedTabId(null), 3000);
     },
-    onError: (err) => toast.error(err.response?.data?.message || 'Failed to save'),
+    onError: (err) => toast.error(err.response?.data?.message || t('Failed to save')),
   });
 
   const saveTab = () => {
@@ -165,7 +176,7 @@ const Settings = () => {
       setDetectedPrinters(list);
       if (list.length === 1) setValue('mahaprasadPrinterName', list[0], { shouldDirty: true });
     } catch {
-      toast.error('QZ Tray not reachable. Is it installed and running?');
+      toast.error(t('QZ Tray not reachable. Is it installed and running?'));
     } finally {
       setDetectLoading(false);
     }
@@ -197,7 +208,7 @@ const Settings = () => {
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                 }`}>
                 <Icon className="h-4 w-4 shrink-0" />
-                {label}
+                {t(label)}
               </button>
             );
           })}
@@ -213,21 +224,21 @@ const Settings = () => {
         {activeTab === 'temple' && (
           <>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <Field label="Temple Name">
-                <input {...register('templeName')} className="input" placeholder="Mangal Grah Mandir" />
+              <Field label={t('Temple Name')}>
+                <input {...register('templeName')} className="input" placeholder={t('Mangal Grah Mandir')} />
               </Field>
-              <Field label="Phone">
-                <input {...register('templePhone')} className="input" type="tel" placeholder="+91 XXXXX XXXXX" />
+              <Field label={t('Phone')}>
+                <input {...register('templePhone')} className="input" type="tel" placeholder={t('+91 XXXXX XXXXX')} />
               </Field>
             </div>
-            <Field label="Address">
-              <input {...register('templeAddress')} className="input" placeholder="Village, District, State" />
+            <Field label={t('Address')}>
+              <input {...register('templeAddress')} className="input" placeholder={t('Village, District, State')} />
             </Field>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <Field label="Email">
+              <Field label={t('Email')}>
                 <input {...register('templeEmail')} className="input" type="email" placeholder="temple@example.com" />
               </Field>
-              <Field label="Website">
+              <Field label={t('Website')}>
                 <input {...register('templeWebsite')} className="input" placeholder="www.example.com" />
               </Field>
             </div>
@@ -239,41 +250,40 @@ const Settings = () => {
         {activeTab === 'whatsapp' && (
           <>
             <Toggle
-              label="Enable WhatsApp Alerts"
-              description="Send WhatsApp messages when stock drops below threshold"
+              label={t('Enable WhatsApp Alerts')}
+              description={t('Send WhatsApp messages when stock drops below threshold')}
               checked={waEnabled}
               onChange={(e) => setValue('waEnabled', e.target.checked, { shouldDirty: true })}
             />
             {waEnabled && (
               <div className="space-y-4 pt-2 border-t border-gray-100">
-                <Field label="Phone Number ID" hint="Meta Developer Console → WhatsApp → API Setup">
+                <Field label={t('Phone Number ID')} hint={t('Meta Developer Console → WhatsApp → API Setup')}>
                   <input {...register('waPhoneNumberId')} className="input font-mono text-sm" placeholder="1100536663150619" />
                 </Field>
-                <Field label="Access Token" hint="Paste new value to update — use permanent System User token">
-                  <SecretInput reg={register} name="waAccessToken" placeholder="EAAxxxxxxxx…" hint="Masked for security — paste to update" />
+                <Field label={t('Access Token')} hint={t('Paste new value to update — use permanent System User token')}>
+                  <SecretInput reg={register} name="waAccessToken" placeholder={t('EAAxxxxxxxx…')} hint={t('Masked for security — paste to update')} />
                 </Field>
-                <Field label="Template Name" hint="Must match your approved template in Meta Business Manager">
+                <Field label={t('Template Name')} hint={t('Must match your approved template in Meta Business Manager')}>
                   <input {...register('waTemplateName')} className="input" placeholder="stock_alert" />
                 </Field>
                 <div className="text-xs text-green-700 bg-green-50 border border-green-200 rounded-lg p-3 space-y-1">
-                  <p className="font-semibold">Quick setup:</p>
+                  <p className="font-semibold">{t('Quick setup:')}</p>
                   <p>1. developers.facebook.com → Create App → Add WhatsApp</p>
-                  <p>2. Create a message template named <span className="font-mono font-bold">stock_alert</span></p>
-                  <p>3. Generate a permanent System User token (never expires)</p>
-                  <p>4. Enable WhatsApp on individual users in User Management</p>
+                  <p>{t('2. Create a message template named')} <span className="font-mono font-bold">stock_alert</span></p>
+                  <p>{t('3. Generate a permanent System User token (never expires)')}</p>
+                  <p>{t('4. Enable WhatsApp on individual users in User Management')}</p>
                 </div>
                 <div className="rounded-lg border border-green-200 bg-green-50/30 p-4">
-                  <p className="text-sm font-semibold text-gray-700 mb-1">Test Connection</p>
+                  <p className="text-sm font-semibold text-gray-700 mb-1">{t('Test Connection')}</p>
                   <p className="text-xs text-gray-400 mb-3">
-                    Sends a <span className="font-mono">hello_world</span> template to verify your credentials.
-                    The recipient must be in your Meta test phone list.
+                    {t('Sends a')} <span className="font-mono">hello_world</span> {t('template to verify your credentials. The recipient must be in your Meta test phone list.')}
                   </p>
                   <div className="flex gap-2">
                     <input
                       type="tel"
                       value={testPhone}
                       onChange={(e) => { setTestPhone(e.target.value); setTestResult(null); }}
-                      placeholder="919876543210  (no + or spaces)"
+                      placeholder={t('919876543210  (no + or spaces)')}
                       className="input flex-1 text-sm font-mono"
                     />
                     <button
@@ -292,7 +302,7 @@ const Settings = () => {
                       }}
                       className="btn-primary flex items-center gap-2 shrink-0 disabled:opacity-50">
                       <Send className="h-4 w-4" />
-                      {testLoading ? 'Sending…' : 'Send Test'}
+                      {testLoading ? t('Sending…') : t('Send Test')}
                     </button>
                   </div>
                   {testResult && (
@@ -311,25 +321,25 @@ const Settings = () => {
         {activeTab === 'sms' && (
           <>
             <Toggle
-              label="Enable SMS Alerts"
-              description="Send SMS when stock drops below threshold"
+              label={t('Enable SMS Alerts')}
+              description={t('Send SMS when stock drops below threshold')}
               checked={smsEnabled}
               onChange={(e) => setValue('smsEnabled', e.target.checked, { shouldDirty: true })}
             />
             {smsEnabled && (
               <div className="space-y-4 pt-2 border-t border-gray-100">
-                <Field label="MSG91 Auth Key" hint="msg91.com → API → Auth Key">
-                  <SecretInput reg={register} name="msg91AuthKey" placeholder="xxxxxx…" hint="Masked for security — paste to update" />
+                <Field label={t('MSG91 Auth Key')} hint="msg91.com → API → Auth Key">
+                  <SecretInput reg={register} name="msg91AuthKey" placeholder={t('xxxxxx…')} hint={t('Masked for security — paste to update')} />
                 </Field>
-                <Field label="Template ID" hint="MSG91 → Campaigns → Flow → Your template ID">
-                  <input {...register('msg91TemplateId')} className="input font-mono text-sm" placeholder="6xxxxxxxxxxxxxxxxx" />
+                <Field label={t('Template ID')} hint={t('MSG91 → Campaigns → Flow → Your template ID')}>
+                  <input {...register('msg91TemplateId')} className="input font-mono text-sm" placeholder={t('6xxxxxxxxxxxxxxxxx')} />
                 </Field>
                 <div className="text-xs text-blue-700 bg-blue-50 border border-blue-200 rounded-lg p-3 space-y-1">
-                  <p className="font-semibold">Quick setup:</p>
+                  <p className="font-semibold">{t('Quick setup:')}</p>
                   <p>1. Sign up at msg91.com → Create a Flow template</p>
-                  <p>2. Add variables: product, department, quantity, unit, status</p>
-                  <p>3. Copy Auth Key and Template ID above</p>
-                  <p>4. Enable SMS on individual users in User Management</p>
+                  <p>{t('2. Add variables: product, department, quantity, unit, status')}</p>
+                  <p>{t('3. Copy Auth Key and Template ID above')}</p>
+                  <p>{t('4. Enable SMS on individual users in User Management')}</p>
                 </div>
               </div>
             )}
@@ -342,23 +352,23 @@ const Settings = () => {
           <>
             <div className="space-y-4 divide-y divide-gray-100">
               <Toggle
-                label="Out of Stock"
-                description="Alert when quantity reaches 0"
+                label={t('Out of Stock')}
+                description={t('Alert when quantity reaches 0')}
                 checked={watch('alertOnOutOfStock')}
                 onChange={(e) => setValue('alertOnOutOfStock', e.target.checked, { shouldDirty: true })}
               />
               <div className="pt-4">
                 <Toggle
-                  label="Low Stock"
-                  description="Alert when quantity drops at or below minimum stock level"
+                  label={t('Low Stock')}
+                  description={t('Alert when quantity drops at or below minimum stock level')}
                   checked={watch('alertOnLowStock')}
                   onChange={(e) => setValue('alertOnLowStock', e.target.checked, { shouldDirty: true })}
                 />
               </div>
               <div className="pt-4">
                 <Toggle
-                  label="Reorder Soon"
-                  description="Alert when quantity drops at or below reorder point"
+                  label={t('Reorder Soon')}
+                  description={t('Alert when quantity drops at or below reorder point')}
                   checked={watch('alertOnReorder')}
                   onChange={(e) => setValue('alertOnReorder', e.target.checked, { shouldDirty: true })}
                 />
@@ -372,24 +382,23 @@ const Settings = () => {
         {activeTab === 'tax80g' && (
           <>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <Field label="Trust PAN" hint="PAN of the registered trust / temple">
-                <input {...register('trustPAN')} className="input uppercase font-mono" placeholder="AAAAB1234C" />
+              <Field label={t('Trust PAN')} hint={t('PAN of the registered trust / temple')}>
+                <input {...register('trustPAN')} className="input uppercase font-mono" placeholder={t('AAAAB1234C')} />
               </Field>
-              <Field label="80G Registration No." hint="e.g. 80G/2023/0012345">
-                <input {...register('reg80GNumber')} className="input font-mono text-sm" placeholder="80G/YYYY/XXXXXXX" />
+              <Field label={t('80G Registration No.')} hint="e.g. 80G/2023/0012345">
+                <input {...register('reg80GNumber')} className="input font-mono text-sm" placeholder={t('80G/YYYY/XXXXXXX')} />
               </Field>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <Field label="Valid From" hint="Registration validity start date">
+              <Field label={t('Valid From')} hint={t('Registration validity start date')}>
                 <input {...register('reg80GFrom')} type="date" className="input" />
               </Field>
-              <Field label="Valid To" hint="Registration validity end date">
+              <Field label={t('Valid To')} hint={t('Registration validity end date')}>
                 <input {...register('reg80GTo')} type="date" className="input" />
               </Field>
             </div>
             <p className="text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg p-3">
-              These details appear on the 80G tax exemption receipt. To issue 80G receipts, mark donations
-              as "80G Eligible" when recording them and ensure the donor's PAN is captured.
+              {t('These details appear on the 80G tax exemption receipt. To issue 80G receipts, mark donations as "80G Eligible" when recording them and ensure the donor\'s PAN is captured.')}
             </p>
             <SaveFooter onSave={saveTab} isPending={mutation.isPending} savedTabId={savedTabId} tabId="tax80g" />
           </>
@@ -398,7 +407,7 @@ const Settings = () => {
         {/* Assets */}
         {activeTab === 'assets' && (
           <>
-            <Field label="Maximum Borrow Duration (days)" hint="Staff cannot borrow assets for longer than this many days">
+            <Field label={t('Maximum Borrow Duration (days)')} hint={t('Staff cannot borrow assets for longer than this many days')}>
               <input
                 type="number"
                 {...register('assetMaxBorrowDays', { min: 1, max: 30, valueAsNumber: true })}
@@ -415,8 +424,8 @@ const Settings = () => {
           <>
             {/* Day-wise pricing */}
             <Field
-              label="Price per Plate by Day (₹)"
-              hint="Each paid coupon uses the price for its day of issue — changing this does not affect already-issued coupons">
+              label={t('Price per Plate by Day (₹)')}
+              hint={t('Each paid coupon uses the price for its day of issue — changing this does not affect already-issued coupons')}>
               <div className="grid grid-cols-7 gap-2 mt-1">
                 {[
                   ['Mon', 'monday'],
@@ -441,7 +450,7 @@ const Settings = () => {
             </Field>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <Field label="Daily Cap" hint="Max coupons per day (0 = no limit)">
+              <Field label={t('Daily Cap')} hint={t('Max coupons per day (0 = no limit)')}>
                 <input
                   type="number"
                   {...register('mahaprasadDailyCap', { min: 0, valueAsNumber: true })}
@@ -449,7 +458,7 @@ const Settings = () => {
                   min={0} step={1} placeholder="0"
                 />
               </Field>
-              <Field label="Coupon Validity (days)" hint="Days redeemable after issue (0 = no expiry)">
+              <Field label={t('Coupon Validity (days)')} hint={t('Days redeemable after issue (0 = no expiry)')}>
                 <input
                   type="number"
                   {...register('mahaprasadCouponValidityDays', { min: 0, valueAsNumber: true })}
@@ -461,38 +470,38 @@ const Settings = () => {
 
             {/* Thermal Printer */}
             <Field
-              label="Thermal Printer Name"
-              hint='Windows printer name exactly as shown in "Printers & scanners" — required for one-click receipt printing via QZ Tray'>
+              label={t('Thermal Printer Name')}
+              hint={t('Windows printer name exactly as shown in "Printers & scanners" — required for one-click receipt printing via QZ Tray')}>
               <div className="flex gap-2">
                 {detectedPrinters.length > 0 ? (
                   <select
                     value={watch('mahaprasadPrinterName') || ''}
                     onChange={(e) => setValue('mahaprasadPrinterName', e.target.value, { shouldDirty: true })}
                     className="input flex-1 text-sm">
-                    <option value="">Select printer…</option>
+                    <option value="">{t('Select printer…')}</option>
                     {detectedPrinters.map((p) => <option key={p} value={p}>{p}</option>)}
                   </select>
                 ) : (
                   <input
                     {...register('mahaprasadPrinterName')}
                     className="input flex-1 text-sm"
-                    placeholder="e.g. Epson TM-T20III"
+                    placeholder={t('e.g. Epson TM-T20III')}
                   />
                 )}
                 <button type="button" onClick={handleDetectPrinters} disabled={detectLoading}
                   className="shrink-0 btn btn-ghost border text-sm flex items-center gap-1.5 disabled:opacity-50">
                   <Printer className="h-4 w-4" />
-                  {detectLoading ? 'Detecting…' : 'Detect'}
+                  {detectLoading ? t('Detecting…') : t('Detect')}
                 </button>
               </div>
             </Field>
 
             <div className="text-xs text-orange-700 bg-orange-50 border border-orange-200 rounded-lg p-3 space-y-1">
-              <p className="font-semibold">One-click thermal printing setup:</p>
-              <p>1. Download and install <span className="font-semibold">QZ Tray</span> from <span className="font-mono">qz.io</span> on the counter PC</p>
-              <p>2. Start QZ Tray — it runs in the system tray</p>
-              <p>3. Click <span className="font-semibold">Detect</span> above to auto-fill the printer name</p>
-              <p>4. Save Settings — the counter will now print receipts automatically on issue</p>
+              <p className="font-semibold">{t('One-click thermal printing setup:')}</p>
+              <p>{t('1. Download and install')} <span className="font-semibold">{t('QZ Tray')}</span> {t('from')} <span className="font-mono">{t('qz.io')}</span> {t('on the counter PC')}</p>
+              <p>{t('2. Start QZ Tray — it runs in the system tray')}</p>
+              <p>{t('3. Click')} <span className="font-semibold">{t('Detect')}</span> {t('above to auto-fill the printer name')}</p>
+              <p>{t('4. Save Settings — the counter will now print receipts automatically on issue')}</p>
             </div>
 
             <SaveFooter onSave={saveTab} isPending={mutation.isPending} savedTabId={savedTabId} tabId="mahaprasad" />

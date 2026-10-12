@@ -1,3 +1,7 @@
+# nginx template: the nginx container fills in ${DOMAIN} (from the root .env) when it starts and
+# writes the result to /etc/nginx/conf.d/app.conf. Edit this file, never a copy on the server.
+# Only variables set in the container's environment are replaced; nginx's own $host, $uri etc. stay.
+
 # Redirect HTTP to HTTPS
 server {
     listen 80;
@@ -26,10 +30,10 @@ server {
 # HTTPS server
 server {
     listen 443 ssl;
-    server_name yourdomain.com;
+    server_name ${DOMAIN};
 
-    ssl_certificate     /etc/letsencrypt/live/yourdomain.com/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/yourdomain.com/privkey.pem;
+    ssl_certificate     /etc/letsencrypt/live/${DOMAIN}/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/${DOMAIN}/privkey.pem;
 
     ssl_protocols TLSv1.2 TLSv1.3;
     ssl_prefer_server_ciphers on;

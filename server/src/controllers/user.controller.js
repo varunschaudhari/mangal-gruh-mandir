@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import Role from '../models/Role.js';
 import User from '../models/User.js';
 import Staff from '../models/Staff.js';
 import ApiError from '../utils/ApiError.js';
@@ -10,6 +11,27 @@ import { profileFor, saveStaffProfile, validateProfile } from '../services/staff
 
 // Department ids only — a form can send `false` or a single value for an empty checkbox group
 const departmentIds = (v) => [].concat(v || []).filter((d) => mongoose.isValidObjectId(d));
+
+// Fields an edit may change. Only the ones actually sent are touched — a screen or app version
+// that leaves one out must not blank it.
+const EDITABLE = ['name', 'phone', 'role', 'departments', 'isActive', 'whatsappAlertsEnabled', 'smsAlertsEnabled', 'canApproveAssets', 'canApprovePayments'];
+const BOOLEANS = ['isActive', 'whatsappAlertsEnabled', 'smsAlertsEnabled', 'canApproveAssets', 'canApprovePayments'];
+
+function userChanges(body, target) {
+  const out = {};
+  for (const k of EDITABLE) {
+    if (body[k] === undefined) continue;
+    if (k === 'departments') out[k] = departmentIds(body[k]);
+    else if (BOOLEANS.includes(k)) out[k] = Boolean(body[k]);
+    else out[k] = typeof body[k] === 'string' ? body[k].trim() : body[k];
+  }
+  if ('name' in out && !out.name) throw new ApiError(400, 'Name is required');
+  // Mobile numbers: digits with country code; only checked when it is being changed
+  if ('phone' in out && out.phone && out.phone !== target.phone && !/^\d{10,15}$/.test(out.phone)) {
+    throw new ApiError(400, 'Enter the mobile number with country code, digits only (e.g. 919876543210)');
+  }
+  return out;
+}
 
 export const getUsers = asyncHandler(async (req, res) => {
   const filter = {};
@@ -79,22 +101,27 @@ export const createUser = asyncHandler(async (req, res) => {
 });
 
 export const updateUser = asyncHandler(async (req, res) => {
-  const { name, phone, role, departments, isActive, whatsappAlertsEnabled, smsAlertsEnabled, canApproveAssets, canApprovePayments, staffProfile } = req.body;
+  const { staffProfile } = req.body;
 
   const target = await User.findById(req.params.id);
   if (!target) throw new ApiError(404, 'User not found');
 
+  const changes = userChanges(req.body, target);
   if (target.role === 'super_admin' && req.user.role !== 'super_admin') {
     throw new ApiError(403, 'Cannot modify a super_admin user');
   }
-  if (role === 'super_admin' && req.user.role !== 'super_admin') {
+  if (changes.role === 'super_admin' && req.user.role !== 'super_admin') {
     throw new ApiError(403, 'Cannot assign super_admin role');
+  }
+  if (changes.role && changes.role !== target.role && !(await Role.exists({ slug: changes.role }))) {
+    throw new ApiError(400, `Unknown role "${changes.role}"`);
   }
   await validateProfile(req, target, staffProfile);
 
   const before = { role: target.role, isActive: target.isActive, canApprovePayments: target.canApprovePayments, canApproveAssets: target.canApproveAssets };
-  Object.assign(target, { name, phone, role, departments: departmentIds(departments), isActive, whatsappAlertsEnabled, smsAlertsEnabled, canApproveAssets, canApprovePayments });
-  await target.save({ validateBeforeSave: false });
+  Object.assign(target, changes);
+  // Checks the fields being changed (an older record missing some other field can still be edited)
+  await target.save({ validateModifiedOnly: true });
   if (before.isActive && target.isActive === false) await endAllSessions(target._id);
   const profile = await saveStaffProfile(req, target, staffProfile);
 

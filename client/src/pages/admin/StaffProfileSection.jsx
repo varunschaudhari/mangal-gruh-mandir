@@ -51,23 +51,29 @@ export function profileFromForm(f, { canSalary }) {
   return canSalary ? out : Object.fromEntries(Object.entries(out).filter(([k]) => !SALARY_FIELDS.includes(k)));
 }
 
-const Field = ({ label, hint, children }) => (
+const Field = ({ label, hint, children }) => {
+  const t = useT();
+  return (
   <label className="block">
-    <span className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-gray-600">{label}</span>
+    <span className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-gray-600">{t(label)}</span>
     {children}
-    {hint && <span className="mt-1 block text-xs text-gray-400">{hint}</span>}
+    {hint && <span className="mt-1 block text-xs text-gray-400">{t(hint)}</span>}
   </label>
 );
+};
 
-const Tick = ({ label, hint, ...props }) => (
+const Tick = ({ label, hint, ...props }) => {
+  const t = useT();
+  return (
   <label className="flex cursor-pointer items-start gap-2.5 rounded-lg border border-gray-200 px-3 py-2.5">
     <input type="checkbox" className="mt-0.5 h-4 w-4 rounded" {...props} />
     <span>
-      <span className="block text-sm font-medium text-gray-700">{label}</span>
-      {hint && <span className="block text-xs text-gray-400">{hint}</span>}
+      <span className="block text-sm font-medium text-gray-700">{t(label)}</span>
+      {hint && <span className="block text-xs text-gray-400">{t(hint)}</span>}
     </span>
   </label>
 );
+};
 
 export default function StaffProfileSection({ register, watch, isActive }) {
   const t = useT();

@@ -41,6 +41,7 @@ export async function bookingsExcel(res, { bookings, title }) {
     { header: 'Booked By', key: 'by', width: 18 },
     { header: 'Status', key: 'status', width: 10 },
     { header: 'Void reason', key: 'voidReason', width: 24 },
+    { header: 'Checked in', key: 'checkedIn', width: 17 },
   ];
   ws.getRow(1).eachCell((c) => {
     c.font = { bold: true, color: { argb: 'FFFFFFFF' } }; c.fill = HDR_FILL; c.border = BORDER;
@@ -54,6 +55,7 @@ export async function bookingsExcel(res, { bookings, title }) {
       email: b.devotee?.email, notes: b.notes, channel: b.channel === 'online' ? 'Online' : 'Counter', people: b.peopleCount,
       amount: b.amount, mode: MODE[b.paymentMode] || b.paymentMode, ref: b.paymentRef,
       by: b.createdBy?.name || '', status: b.status === 'voided' ? 'Voided' : 'Confirmed', voidReason: b.voidReason,
+      checkedIn: b.checkedInAt ? `${fmtDate(b.checkedInAt)} ${fmtTime(b.checkedInAt)}` : '',
     });
   }
   const confirmed = bookings.filter((b) => b.status !== 'voided');

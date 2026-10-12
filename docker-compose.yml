@@ -1,7 +1,8 @@
 services:
   server:
     build:
-      context: ./server
+      context: .                     # repo root, so the image includes /shared
+      dockerfile: server/Dockerfile
       target: production
     container_name: mgm_server
     restart: unless-stopped
@@ -11,14 +12,15 @@ services:
       - NODE_ENV=production
       - TZ=Asia/Kolkata          # temple runs on India time (also pinned in server/src/config/timezone.js)
     volumes:
-      - ./server/uploads:/app/uploads               # expense receipts — on the host so rebuilds don't delete them
-      - ./mobile-releases:/app/mobile-releases:ro   # Android app updates (MOBILE.md)
+      - ./server/uploads:/app/server/uploads               # expense receipts — on the host so rebuilds don't delete them
+      - ./mobile-releases:/app/server/mobile-releases:ro   # Android app updates (MOBILE.md)
     networks:
       - mgm_net
 
   client:
     build:
-      context: ./client
+      context: .                     # repo root, so the build includes /shared
+      dockerfile: client/Dockerfile
       target: production
     container_name: mgm_client
     restart: unless-stopped
@@ -32,12 +34,18 @@ services:
     ports:
       - "80:80"
       - "443:443"
+    environment:
+      # Filled into nginx/templates/app.conf.template at start-up (set DOMAIN in the root .env)
+      - DOMAIN=${DOMAIN:?Set DOMAIN in .env, e.g. DOMAIN=mandir.aumora.io}
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
-      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      - ./nginx/templates:/etc/nginx/templates:ro
       - ./docs/manual:/usr/share/nginx/html/manual:ro
       - certbot_www:/var/www/certbot:ro
       - certbot_conf:/etc/letsencrypt:ro
+    # Empty, writable conf.d: holds only the filled-in template (hides the image's default site)
+    tmpfs:
+      - /etc/nginx/conf.d
     depends_on:
       - server
       - client

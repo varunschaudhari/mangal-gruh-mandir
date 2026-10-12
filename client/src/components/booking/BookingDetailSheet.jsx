@@ -3,20 +3,21 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import {
   Printer, FileText, MessageCircle, Send, Ban, Phone, MapPin, Mail, Users, AlertTriangle, CheckCircle2, Clock,
-  PencilLine, CalendarClock,
+  PencilLine, CalendarClock, RotateCcw,
 } from 'lucide-react';
 import Sheet from '../ui/Sheet.jsx';
 import Modal from '../ui/Modal.jsx';
 import Badge from '../ui/Badge.jsx';
 import Spinner from '../ui/Spinner.jsx';
-import { getBooking, getBookingOptions, resendReceipt, voidBooking } from '../../api/booking.api.js';
+import { checkInBooking, getBooking, getBookingOptions, resendReceipt, undoCheckIn, voidBooking } from '../../api/booking.api.js';
 import { printBookingReceipt, printBookingSlip, whatsappShareUrl, fmtPujaDate } from '../../utils/bookingReceipt.js';
 import { usePermissions } from '../../hooks/usePermissions.js';
 import { localDateStr } from '../../utils/formatters.js';
 import haptics from '../../utils/haptics.js';
 import { formatAddress } from '../../utils/address.js';
 import { useLanguage, useT, rich } from '../../i18n/index.jsx';
-import { MODE_BADGE, MODE_LABEL, fmtDateTime, fmtDay, nPeople, rupees } from './registerUtils.js';
+import { MODE_BADGE, MODE_LABEL, fmtDateTime, fmtDay, fmtTime, nPeople, rupees } from './registerUtils.js';
+import { overrideText, verdictOf } from './checkin/checkInUtils.js';
 import EditBookingSheet from './EditBookingSheet.jsx';
 import MoveBookingSheet from './MoveBookingSheet.jsx';
 import BookingHistory from './BookingHistory.jsx';
@@ -73,6 +74,7 @@ export default function BookingDetailSheet({ booking: initial, onClose }) {
   const [notSetUp, setNotSetUp] = useState(false);
   const noticeRef = useRef(null);
   const [voidOpen, setVoidOpen] = useState(false);
+  const [checkInWarn, setCheckInWarn] = useState(null); // 'batch-over' — let in anyway?
   const [reason, setReason] = useState('');
   const [editOpen, setEditOpen] = useState(false);
   const [moveOpen, setMoveOpen] = useState(false);
@@ -85,7 +87,7 @@ export default function BookingDetailSheet({ booking: initial, onClose }) {
 
   const close = () => {
     setNotSetUp(false); setVoidOpen(false); setReason('');
-    setEditOpen(false); setMoveOpen(false); setReprint(false);
+    setEditOpen(false); setMoveOpen(false); setReprint(false); setCheckInWarn(null);
     onClose();
   };
 
@@ -96,6 +98,7 @@ export default function BookingDetailSheet({ booking: initial, onClose }) {
     qc.invalidateQueries({ queryKey: ['booking-summary'] });
     qc.invalidateQueries({ queryKey: ['booking-availability'] });
     qc.invalidateQueries({ queryKey: ['booking-devotee'] });
+    qc.invalidateQueries({ queryKey: ['booking-checkin-summary'] });
   };
 
   // Edit / move answer with the full booking: show it at once (printing then uses the new details).
@@ -163,6 +166,32 @@ export default function BookingDetailSheet({ booking: initial, onClose }) {
       refresh();
     },
     onError: (e) => { haptics.error(); toast.error(e.response?.data?.message || t('Failed')); },
+  });
+
+  // Hall check-in by hand (devotee without the slip), and undo.
+  const checkInMut = useMutation({
+    mutationFn: (override) => checkInBooking(id, override).then((r) => r.data.data),
+    onSuccess: (r) => {
+      if (r.checkedIn) {
+        haptics.success();
+        toast.success(t('Checked in'));
+        setCheckInWarn(null);
+        refresh();
+      } else if (r.canOverride) {
+        haptics.warning();
+        setCheckInWarn(r.result);
+      } else {
+        haptics.error();
+        toast.error(t(verdictOf(r.result).title));
+        refresh();
+      }
+    },
+    onError: (e) => { haptics.error(); toast.error(t(e.response?.data?.message || 'Failed')); },
+  });
+  const undoCheckInMut = useMutation({
+    mutationFn: () => undoCheckIn(id),
+    onSuccess: () => { haptics.success(); toast.success(t('Check-in undone')); refresh(); },
+    onError: (e) => { haptics.error(); toast.error(t(e.response?.data?.message || 'Failed')); },
   });
 
   if (!b) return null;
@@ -283,6 +312,40 @@ export default function BookingDetailSheet({ booking: initial, onClose }) {
             </div>
           )}
         </div>
+
+        {/* Hall check-in: when the devotee came, or mark it by hand on the day */}
+        {full && b.checkedInAt ? (
+          <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl border border-green-200 bg-green-50 px-3 py-2.5 text-sm text-green-800">
+            <CheckCircle2 className="h-4 w-4 shrink-0" />
+            <span className="min-w-[12rem] flex-1">
+              {t('Checked in at {time} by {name}', { time: fmtTime(b.checkedInAt), name: b.checkedInBy?.name || '—' })}
+              {b.checkInOverride && <span className="block text-xs text-amber-700">{t(overrideText(b.checkInOverride))}</span>}
+            </span>
+            {can('bookings:checkin') && (
+              <button onClick={() => undoCheckInMut.mutate()} disabled={undoCheckInMut.isPending} className="btn-secondary shrink-0 text-sm">
+                {undoCheckInMut.isPending ? <Spinner size="sm" /> : <RotateCcw className="h-4 w-4" />} {t('Undo check-in')}
+              </button>
+            )}
+          </div>
+        ) : full && !voided && b.dateKey === localDateStr() && can('bookings:checkin') && (
+          <div className="mt-2 rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm">
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+              <span className="min-w-[10rem] flex-1 text-gray-600">{t('Not arrived yet')}</span>
+              <button onClick={() => checkInMut.mutate(false)} disabled={checkInMut.isPending} className="btn-secondary shrink-0 text-sm text-green-700">
+                {checkInMut.isPending ? <Spinner size="sm" /> : <CheckCircle2 className="h-4 w-4" />} {t('Check in')}
+              </button>
+            </div>
+            {checkInWarn && (
+              <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-lg bg-amber-50 px-2.5 py-2 text-amber-900">
+                <AlertTriangle className="h-4 w-4 shrink-0" />
+                <span className="flex-1">{t(verdictOf(checkInWarn).title)}</span>
+                <button onClick={() => checkInMut.mutate(true)} disabled={checkInMut.isPending} className="btn shrink-0 bg-amber-600 text-sm text-white hover:bg-amber-700">
+                  {t('Let in anyway')}
+                </button>
+              </div>
+            )}
+          </div>
+        )}
 
         {!ready && <div className="flex justify-center py-6"><Spinner /></div>}
 

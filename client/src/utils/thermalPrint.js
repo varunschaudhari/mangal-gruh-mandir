@@ -1,4 +1,5 @@
 import qz from 'qz-tray';
+import { temple } from './temple.js';
 
 // ── Electron print path ───────────────────────────────────────────────────────
 // When running inside the desktop app, bypass QZ Tray entirely and use the
@@ -232,7 +233,7 @@ function buildTestPageBytes(printerName) {
     ...charSize(0x01), ...line('Double Height'), ...charSize(0x00),
     ...charSize(0x10), ...line('Double Width'), ...charSize(0x00),
     ...dashes(),
-    ...bold(1), ...line('Mangal Grah Mandir'), ...bold(0),
+    ...bold(1), ...line(temple().name), ...bold(0),
     ...line('Printer is working correctly'),
     ...feedN(2),
     ...partCut(),
@@ -280,7 +281,7 @@ function buildShiftSummaryBytes({ dateStr, staffName, count, cash, upi }) {
     ...bold(1), ...r('TOTAL', `Rs.${total.toLocaleString('en-IN')}`), ...bold(0),
     ...dashes(),
     ...align(1),
-    ...line('Mangal Grah Mandir'),
+    ...line(temple().name),
     ...nl(),
     ...line('Supervisor: ___________________'),
     ...feedN(3),

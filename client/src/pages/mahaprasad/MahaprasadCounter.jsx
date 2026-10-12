@@ -24,6 +24,7 @@ import { isNative } from '../../utils/platform.js';
 import haptics from '../../utils/haptics.js';
 import { localDateStr } from '../../utils/formatters.js';
 import { useT } from '../../i18n/index.jsx';
+import { temple } from '../../utils/temple.js';
 
 // Touch screens: focusing the quantity field would pop the on-screen keyboard on open and after every issue.
 const canAutoFocus = () => !isNative && Boolean(window.matchMedia?.('(hover: hover) and (pointer: fine)').matches);
@@ -185,7 +186,6 @@ export default function MahaprasadCounter() {
     isSyncing, isPrefetching, prefetch, sync, refreshCounts, getOfflineUser, getOfflineSettings,
   } = useOfflineMode();
 
-  const occasionValue   = occasionPreset === '__other__' ? occasionCustom : occasionPreset;
   const isToday         = date === todayStr();
   const isTuesdayToday  = new Date().getDay() === 2;  // Tuesday surge day
   const resetDuration   = isTuesdayToday ? 1 : 3;     // faster auto-reset on high-traffic days
@@ -210,6 +210,8 @@ export default function MahaprasadCounter() {
     staleTime: 5 * 60 * 1000,
   });
   const occasions = occasionsRes?.data?.data || [];
+  // With no occasions set up there is only the free-text box
+  const occasionValue = occasionPreset === '__other__' || !occasions.length ? occasionCustom : occasionPreset;
 
   const { data: drawerData } = useQuery({
     queryKey: ['mahaprasad-cash-drawer', date],
@@ -556,7 +558,7 @@ export default function MahaprasadCounter() {
   const shiftSummaryText = () => {
     const shortDate = new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
     return [
-      `📿 Mangal Grah Mandir — ${shortDate}`,
+      `📿 ${temple().name} — ${shortDate}`,
       `Staff: ${user?.name || 'Staff'}`,
       `Coupons: ${myCount} issued`,
       `Cash: ₹${fmtMoney(myCash)} | UPI: ₹${fmtMoney(myUpi)}`,

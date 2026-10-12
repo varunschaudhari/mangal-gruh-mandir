@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import singleton from './singleton.js';
 
 const settingsSchema = new mongoose.Schema(
   {
@@ -51,10 +52,6 @@ const settingsSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-settingsSchema.statics.getOrCreate = async function () {
-  let s = await this.findOne();
-  if (!s) s = await this.create({});
-  return s;
-};
+settingsSchema.plugin(singleton);   // getOrCreate()
 
 export default mongoose.model('Settings', settingsSchema);

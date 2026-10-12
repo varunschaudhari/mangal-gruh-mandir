@@ -74,7 +74,7 @@ export const updateUnit = asyncHandler(async (req, res) => {
   if (conditionNotes !== undefined) update.conditionNotes = conditionNotes;
   if (isActive       !== undefined) update.isActive       = isActive;
 
-  const unit = await AssetUnit.findByIdAndUpdate(req.params.id, update, { new: true, runValidators: true });
+  const unit = await AssetUnit.findByIdAndUpdate(req.params.id, update, { returnDocument: 'after', runValidators: true });
   if (!unit) throw new ApiError(404, 'Unit not found');
   logAction(req, {
     action: 'asset.unit_update', entity: 'AssetUnit',

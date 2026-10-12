@@ -1,17 +1,7 @@
 import Asset from '../models/Asset.js';
+import { nextNumber } from './sequence.service.js';
 
-export async function generateAssetCode() {
-  const last = await Asset.findOne(
-    { assetCode: { $exists: true, $ne: null } },
-    { assetCode: 1 },
-    { sort: { assetCode: -1 } }
-  ).lean();
-
-  let seq = 1;
-  if (last?.assetCode) {
-    const parts = last.assetCode.split('-');
-    seq = parseInt(parts[parts.length - 1], 10) + 1;
-  }
-
-  return `MGM-AST-${String(seq).padStart(3, '0')}`;
+/** MGM-AST-NNN, one running number for all assets. */
+export function generateAssetCode() {
+  return nextNumber({ prefix: 'MGM-AST-', sources: [{ model: Asset, field: 'assetCode' }] });
 }

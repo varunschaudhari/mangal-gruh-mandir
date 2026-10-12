@@ -53,6 +53,7 @@ jobs:
       SEED_ADMIN_EMAIL: admin@mandir.com
       SEED_ADMIN_PASSWORD: Ci-Pass-123!
       SEED_ADMIN_NAME: CI Admin
+      LOGIN_RATE_LIMIT: 100       # the check scripts sign in as several test users
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
@@ -76,6 +77,10 @@ jobs:
         run: node scripts/auth-check.mjs
       - name: Bookings (seat limits under parallel load, void, reports, P&L, public receipt)
         run: node scripts/booking-check.mjs
+      - name: Stock FIFO, supplier payment approval, donations and 80G
+        run: node scripts/rules-check.mjs
+      - name: Request validation accepts what the screens send, refuses bad input
+        run: node scripts/validation-check.mjs
       - name: Server log
         if: always()
         run: cat server.log || true

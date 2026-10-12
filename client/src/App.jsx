@@ -99,6 +99,8 @@ const BookingList = lazyPage(() => import('./pages/bookings/BookingList.jsx'));
 const BookingDaySheet = lazyPage(() => import('./pages/bookings/BookingDaySheet.jsx'));
 const BookingReports = lazyPage(() => import('./pages/bookings/BookingReports.jsx'));
 const BookingShifts = lazyPage(() => import('./pages/bookings/BookingShifts.jsx'));
+const BookingCheckIn = lazyPage(() => import('./pages/bookings/BookingCheckIn.jsx'));
+const HallScreen = lazyPage(() => import('./pages/bookings/HallScreen.jsx'));
 const BookingSetup = lazyPage(() => import('./pages/bookings/BookingSetup.jsx'));
 const PublicReceipt = lazyPage(() => import('./pages/bookings/PublicReceipt.jsx'));
 
@@ -114,6 +116,8 @@ const App = () => (
     <Route path="/r/:token" element={<PublicReceipt />} />
 
     <Route element={<PrivateRoute />}>
+      {/* TV at the hall: full screen, no sidebar */}
+      <Route path="/hall-screen" element={<HallScreen />} />
       <Route element={<AppLayout />}>
         <Route path="/" element={<Navigate to="/dashboard" replace />} />
         <Route path="/dashboard" element={<Dashboard />} />
@@ -231,6 +235,7 @@ const App = () => (
         <Route path="/bookings/day" element={<BookingDaySheet />} />
         <Route path="/bookings/reports" element={<BookingReports />} />
         <Route path="/bookings/shifts" element={<BookingShifts />} />
+        <Route path="/bookings/check-in" element={<BookingCheckIn />} />
         <Route path="/bookings/setup" element={<BookingSetup />} />
         <Route path="/salary"          element={<SalaryMonth />} />
         <Route path="/salary/advances" element={<SalaryAdvances />} />

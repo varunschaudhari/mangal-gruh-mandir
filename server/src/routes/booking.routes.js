@@ -2,8 +2,8 @@ import { Router } from 'express';
 import protect from '../middleware/auth.js';
 import authorize from '../middleware/authorize.js';
 import {
-  availability, create, devotee, exportExcel, getOne, getOptions, list, move, reportDaySheet,
-  reportSummary, reportSummaryPdf, resend, update, voidOne,
+  availability, checkIn, checkInOne, checkInStatus, create, devotee, exportExcel, getOne, getOptions, hallScreen, list, move,
+  reportAttendance, reportDaySheet, reportSummary, reportSummaryPdf, resend, undoCheckInOne, update, voidOne,
 } from '../controllers/booking.controller.js';
 import * as shifts from '../controllers/bookingShift.controller.js';
 import {
@@ -21,6 +21,11 @@ bookingRouter.get('/export/excel',         authorize('bookings:read'),   exportE
 bookingRouter.get('/reports/summary',      authorize('bookings:read'),   reportSummary);
 bookingRouter.get('/reports/summary/pdf',  authorize('bookings:read'),   reportSummaryPdf);
 bookingRouter.get('/reports/day-sheet',    authorize('bookings:read'),   reportDaySheet);
+bookingRouter.get('/reports/attendance',   authorize('bookings:read'),   reportAttendance);
+// Hall check-in (scanner at the hall)
+bookingRouter.get('/check-in/summary',     authorize('bookings:checkin'), checkInStatus);
+bookingRouter.post('/check-in',            authorize('bookings:checkin'), checkIn);
+bookingRouter.get('/hall-board',           authorize('bookings:checkin'), hallScreen);
 bookingRouter.route('/')
   .get(authorize('bookings:read'), list)
   .post(authorize('bookings:create'), create);
@@ -30,6 +35,9 @@ bookingRouter.route('/:id')
 bookingRouter.post('/:id/move',            authorize('bookings:create'), move);
 bookingRouter.patch('/:id/void',           authorize('bookings:void'),   voidOne);
 bookingRouter.post('/:id/send',            authorize('bookings:create'), resend);
+bookingRouter.route('/:id/check-in')
+  .post(authorize('bookings:checkin'), checkInOne)
+  .delete(authorize('bookings:checkin'), undoCheckInOne);
 
 // /booking-setup — seva types, batches, closed dates, settings
 export const bookingSetupRouter = Router();

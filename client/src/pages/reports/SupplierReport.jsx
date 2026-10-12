@@ -10,11 +10,13 @@ import 'react-datepicker/dist/react-datepicker.css';
 import toast from 'react-hot-toast';
 import { useIsMobile } from '../../hooks/useMediaQuery.js';
 import { localDateStr } from '../../utils/formatters.js';
+import { useT } from '../../i18n/index.jsx';
 
 const fmt     = (n) => Number(n || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
 
 const SupplierReport = () => {
+  const t = useT();
   const isMobile = useIsMobile();
   const [startDate, setStartDate] = useState(null);
   const [endDate,   setEndDate]   = useState(null);
@@ -45,12 +47,12 @@ const SupplierReport = () => {
 
   const pdfMut = useMutation({
     mutationFn: () => downloadSupplierPDF(params),
-    onError: () => toast.error('PDF export failed'),
+    onError: () => toast.error(t('PDF export failed')),
   });
 
   const excelMut = useMutation({
     mutationFn: () => downloadSupplierExcel(params),
-    onError: () => toast.error('Excel export failed'),
+    onError: () => toast.error(t('Excel export failed')),
   });
 
   const toggle = (id) => setExpanded((prev) => ({ ...prev, [id]: !prev[id] }));
@@ -67,12 +69,12 @@ const SupplierReport = () => {
               <button onClick={() => pdfMut.mutate()} disabled={pdfMut.isPending}
                 className="btn btn-ghost text-sm flex items-center gap-1.5 border">
                 <FileText className="h-4 w-4 text-red-500" />
-                {pdfMut.isPending ? 'Generating…' : 'PDF'}
+                {pdfMut.isPending ? t('Generating…') : 'PDF'}
               </button>
               <button onClick={() => excelMut.mutate()} disabled={excelMut.isPending}
                 className="btn btn-ghost text-sm flex items-center gap-1.5 border">
                 <Sheet className="h-4 w-4 text-green-600" />
-                {excelMut.isPending ? 'Generating…' : 'Excel'}
+                {excelMut.isPending ? t('Generating…') : t('Excel')}
               </button>
             </div>
           )
@@ -82,7 +84,7 @@ const SupplierReport = () => {
       {/* Filters */}
       <div className="card p-4 flex flex-wrap items-end gap-3">
         <div>
-          <label className="label">From Date</label>
+          <label className="label">{t('From Date')}</label>
           <DatePicker
             selected={startDate}
             onChange={(d) => setStartDate(d)}
@@ -95,7 +97,7 @@ const SupplierReport = () => {
           />
         </div>
         <div>
-          <label className="label">To Date</label>
+          <label className="label">{t('To Date')}</label>
           <DatePicker
             selected={endDate}
             onChange={(d) => setEndDate(d)}
@@ -108,9 +110,9 @@ const SupplierReport = () => {
           />
         </div>
         <div className="flex-1 min-w-[180px] max-w-xs">
-          <label className="label">Supplier</label>
+          <label className="label">{t('Supplier')}</label>
           <select value={supplierId} onChange={(e) => setSupplierId(e.target.value)} className="input text-sm">
-            <option value="">All Suppliers</option>
+            <option value="">{t('All Suppliers')}</option>
             {supplierOptions.map((s) => <option key={s._id} value={s._id}>{s.name}</option>)}
           </select>
         </div>
@@ -121,22 +123,22 @@ const SupplierReport = () => {
       ) : suppliers.length === 0 ? (
         <div className="card p-12 text-center text-gray-400">
           <Truck className="h-10 w-10 mx-auto mb-3 text-gray-200" />
-          <p>No purchase transactions found for the selected filters.</p>
+          <p>{t('No purchase transactions found for the selected filters.')}</p>
         </div>
       ) : (
         <>
           {/* Summary strip */}
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
             <div className="card px-4 py-3 border-l-4 border-primary-500">
-              <p className="text-xs text-gray-500">Total Purchased</p>
+              <p className="text-xs text-gray-500">{t('Total Purchased')}</p>
               <p className="text-xl font-bold text-primary-600">₹{fmt(grandTotal)}</p>
             </div>
             <div className="card px-4 py-3 border-l-4 border-blue-400">
-              <p className="text-xs text-gray-500">Suppliers</p>
+              <p className="text-xs text-gray-500">{t('Suppliers')}</p>
               <p className="text-xl font-bold text-blue-600">{suppliers.length}</p>
             </div>
             <div className="card px-4 py-3 border-l-4 border-gray-300">
-              <p className="text-xs text-gray-500">Transactions</p>
+              <p className="text-xs text-gray-500">{t('Transactions')}</p>
               <p className="text-xl font-bold text-gray-700">{totalTxns}</p>
             </div>
           </div>
@@ -162,7 +164,7 @@ const SupplierReport = () => {
                     </div>
                     <div className="text-right">
                       <p className="font-bold text-gray-900">₹{fmt(sup.totalValue)}</p>
-                      <p className="text-xs text-gray-400">{sup.count} transaction{sup.count !== 1 ? 's' : ''}</p>
+                      <p className="text-xs text-gray-400">{sup.count} {t('transaction')}{sup.count !== 1 ? 's' : ''}</p>
                     </div>
                   </button>
 
@@ -171,41 +173,41 @@ const SupplierReport = () => {
                       <table className="min-w-full text-sm">
                         <thead>
                           <tr className="bg-gray-50 border-b border-gray-100">
-                            <th className="table-th">Date</th>
-                            <th className="table-th">Product</th>
-                            <th className="table-th">To Dept</th>
-                            <th className="table-th text-right">Qty</th>
-                            <th className="table-th text-right">Rate (₹)</th>
-                            <th className="table-th text-right">Value (₹)</th>
-                            <th className="table-th">Invoice</th>
+                            <th className="table-th">{t('Date')}</th>
+                            <th className="table-th">{t('Product')}</th>
+                            <th className="table-th">{t('To Dept')}</th>
+                            <th className="table-th text-right">{t('Qty')}</th>
+                            <th className="table-th text-right">{t('Rate (₹)')}</th>
+                            <th className="table-th text-right">{t('Value (₹)')}</th>
+                            <th className="table-th">{t('Invoice')}</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-50">
-                          {sup.transactions.map((t) => (
-                            <tr key={t._id} className="hover:bg-gray-50">
-                              <td className="table-td text-gray-500 text-xs">{fmtDate(t.transactionDate)}</td>
+                          {sup.transactions.map((txn) => (
+                            <tr key={txn._id} className="hover:bg-gray-50">
+                              <td className="table-td text-gray-500 text-xs">{fmtDate(txn.transactionDate)}</td>
                               <td className="table-td">
-                                <p className="font-medium">{t.product?.name}</p>
-                                <p className="text-xs text-gray-400 font-mono">{t.product?.code}</p>
+                                <p className="font-medium">{txn.product?.name}</p>
+                                <p className="text-xs text-gray-400 font-mono">{txn.product?.code}</p>
                               </td>
-                              <td className="table-td text-gray-600">{t.toDepartment?.name}</td>
+                              <td className="table-td text-gray-600">{txn.toDepartment?.name}</td>
                               <td className="table-td text-right font-semibold">
-                                {t.quantity} <span className="text-xs text-gray-400">{t.unit?.symbol}</span>
+                                {txn.quantity} <span className="text-xs text-gray-400">{txn.unit?.symbol}</span>
                               </td>
                               <td className="table-td text-right text-gray-600">
-                                {t.rate > 0 ? `₹${fmt(t.rate)}` : '—'}
+                                {txn.rate > 0 ? `₹${fmt(txn.rate)}` : '—'}
                               </td>
                               <td className="table-td text-right font-bold text-gray-900">
-                                {t.totalValue > 0 ? `₹${fmt(t.totalValue)}` : '—'}
+                                {txn.totalValue > 0 ? `₹${fmt(txn.totalValue)}` : '—'}
                               </td>
-                              <td className="table-td text-xs text-gray-400 font-mono">{t.invoiceNumber || '—'}</td>
+                              <td className="table-td text-xs text-gray-400 font-mono">{txn.invoiceNumber || '—'}</td>
                             </tr>
                           ))}
                         </tbody>
                         <tfoot>
                           <tr className="bg-orange-50 border-t border-orange-100">
                             <td className="table-td font-semibold text-primary-700" colSpan={5}>
-                              Subtotal — {sup.supplier?.name}
+                              {t('Subtotal —')} {sup.supplier?.name}
                             </td>
                             <td className="table-td text-right font-black text-primary-700">₹{fmt(sup.totalValue)}</td>
                             <td className="table-td" />
@@ -221,7 +223,7 @@ const SupplierReport = () => {
 
           {/* Grand total */}
           <div className="card px-4 py-3 bg-primary-50 border border-primary-200 flex justify-between items-center">
-            <span className="font-bold text-primary-800">Grand Total ({totalTxns} transactions)</span>
+            <span className="font-bold text-primary-800">{t('Grand Total (')}{totalTxns} {t('transactions)')}</span>
             <span className="font-black text-primary-700 text-lg">₹{fmt(grandTotal)}</span>
           </div>
         </>

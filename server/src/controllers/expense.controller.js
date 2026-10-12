@@ -8,8 +8,8 @@ import asyncHandler from '../utils/asyncHandler.js';
 import { generateExpenseNumber } from '../services/expenseNumber.service.js';
 import { logAction } from '../services/audit.service.js';
 import { generateExpenseReport } from '../services/expensePdf.service.js';
-import Settings from '../models/Settings.js';
 import { pushExpenseSubmitted, pushExpenseDecision } from '../services/pushAlerts.service.js';
+import { temple } from '../services/temple.service.js';
 
 const __dirname   = path.dirname(fileURLToPath(import.meta.url));
 const UPLOADS_DIR = path.join(__dirname, '../../uploads/expenses');
@@ -21,15 +21,9 @@ const POPULATE = [
   { path: 'voidedBy',   select: 'name' },
 ];
 
-// POST /expenses
+// POST /expenses — body checked by validation/expense.schemas.js
 export const createExpense = asyncHandler(async (req, res) => {
   const { category, description, amount, payee, expenseDate, paymentMode, referenceNumber, notes } = req.body;
-
-  if (!category)    throw new ApiError(400, 'Category is required');
-  if (!description) throw new ApiError(400, 'Description is required');
-  if (!amount || amount <= 0) throw new ApiError(400, 'Amount must be greater than 0');
-  if (!expenseDate) throw new ApiError(400, 'Expense date is required');
-  if (!paymentMode) throw new ApiError(400, 'Payment mode is required');
 
   const expenseNumber = await generateExpenseNumber(expenseDate);
 
@@ -37,12 +31,12 @@ export const createExpense = asyncHandler(async (req, res) => {
     expenseNumber,
     category,
     description,
-    amount:          Number(amount),
-    payee:           payee           || undefined,
+    amount,
+    payee,
     expenseDate:     new Date(expenseDate),
     paymentMode,
-    referenceNumber: referenceNumber || undefined,
-    notes:           notes           || undefined,
+    referenceNumber,
+    notes,
     createdBy:       req.user._id,
   });
 
@@ -135,7 +129,6 @@ export const approveExpense = asyncHandler(async (req, res) => {
 // PATCH /expenses/:id/reject
 export const rejectExpense = asyncHandler(async (req, res) => {
   const { rejectionReason } = req.body;
-  if (!rejectionReason?.trim()) throw new ApiError(400, 'Rejection reason is required');
 
   const expense = await Expense.findById(req.params.id);
   if (!expense) throw new ApiError(404, 'Expense not found');
@@ -161,7 +154,6 @@ export const rejectExpense = asyncHandler(async (req, res) => {
 // PATCH /expenses/:id/void
 export const voidExpense = asyncHandler(async (req, res) => {
   const { voidReason } = req.body;
-  if (!voidReason?.trim()) throw new ApiError(400, 'Void reason is required');
 
   const expense = await Expense.findById(req.params.id);
   if (!expense) throw new ApiError(404, 'Expense not found');
@@ -243,8 +235,5 @@ export const exportExpensesPdf = asyncHandler(async (req, res) => {
     .sort({ expenseDate: -1 })
     .lean();
 
-  const settingsDoc = await Settings.findOne().lean();
-  const templeName  = settingsDoc?.templeName || 'Mangal Grah Mandir, Amalner';
-
-  generateExpenseReport(res, { expenses, from, to, templeName });
+  generateExpenseReport(res, { expenses, from, to, templeName: temple().name });
 });

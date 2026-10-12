@@ -15,6 +15,7 @@ import { useT } from '../../i18n/index.jsx';
 import {
   DayDetailSheet, STATUS, codeCell, dayCode, fDays, fMinutes, shiftMonth, thisMonth, weekdayOf,
 } from './attendanceUi.jsx';
+import { temple } from '../../utils/temple.js';
 
 // Month at a glance: one row per person, a code per day, and the totals salary will use.
 
@@ -68,7 +69,7 @@ function registerHtml({ title, dates, staff, days, totals, leave, t }) {
   small { color: inherit; opacity: .7; font-size: 8px; }
   sup { color: #b91c1c; font-size: 7px; }
 </style></head><body>
-<h1>Mangal Grah Mandir — ${esc(title)}</h1>
+<h1>${esc(temple().name)} — ${esc(title)}</h1>
 <p class="sub">${esc(t(LEGEND))} · <sup>½</sup> ${esc(t('half day cut for late'))}</p>
 <table><thead><tr><th>${esc(t('Name'))}</th>${head}<th>${esc(t('Days worked'))}</th><th>PL</th><th>EL</th><th>${esc(t('Unpaid|salary'))}</th><th>${esc(t('Late cut'))}</th><th>${esc(t('Paid days'))}</th></tr></thead>
 <tbody>${rows}</tbody></table>

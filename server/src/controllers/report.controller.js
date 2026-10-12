@@ -25,6 +25,7 @@ import asyncHandler from '../utils/asyncHandler.js';
 import ApiError from '../utils/ApiError.js';
 import ApiResponse from '../utils/ApiResponse.js';
 import { localDateStr } from '../utils/dates.js';
+import { temple } from '../services/temple.service.js';
 
 function today() { return localDateStr(); }
 
@@ -65,7 +66,7 @@ export const getDailyWhatsApp = asyncHandler(async (req, res) => {
   const dateLabel = new Date(date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
 
   const lines = [
-    `*🕉️ Mangal Grah Mandir, Amalner*`,
+    `*🕉️ ${temple().name}*`,
     `*Daily Stock Report – ${dateLabel}*`,
     departmentName ? `Department: ${departmentName}` : '',
     '',
@@ -134,7 +135,7 @@ export const getLowStockWhatsApp = asyncHandler(async (req, res) => {
   const reorder    = balances.filter((b) => b.alertLevel === 'reorder');
 
   const lines = [
-    `*🕉️ Mangal Grah Mandir, Amalner*`,
+    `*🕉️ ${temple().name}*`,
     `*Stock Alert Report – ${new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}*`,
     '',
   ];
@@ -193,7 +194,7 @@ export const getExpiringWhatsApp = asyncHandler(async (req, res) => {
   const fmt = (d) => new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
 
   const lines = [
-    `*🕉️ Mangal Grah Mandir, Amalner*`,
+    `*🕉️ ${temple().name}*`,
     `*Expiring Stock – Within ${days} Days*`,
     '',
   ];

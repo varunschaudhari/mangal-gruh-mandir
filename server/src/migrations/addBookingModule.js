@@ -2,7 +2,7 @@
  * Migration: abhishek / puja booking module
  *
  * - adds bookings:* permissions to existing roles (bookings:cash = verify counter cash handovers)
- * - creates the "Booking Counter" role
+ * - creates the "Booking Counter" and "Hall Check-in" roles (bookings:checkin = scan slips at the hall)
  * - first run only: adds the seva types and batches from the temple website
  *
  * Safe to run multiple times — $addToSet for permissions, and seva types / batches are
@@ -23,14 +23,15 @@ import { rolesSeed } from '../seeds/roles.seed.js';
 import { sevaTypesSeed, batchesSeed, DEFAULT_BATCH_CAPACITY } from '../seeds/booking.seed.js';
 
 const PATCHES = [
-  { slug: 'admin', add: ['bookings:read', 'bookings:create', 'bookings:void', 'bookings:manage', 'bookings:cash'] },
-  { slug: 'staff', add: ['bookings:read', 'bookings:create'] },
+  { slug: 'admin', add: ['bookings:read', 'bookings:create', 'bookings:void', 'bookings:manage', 'bookings:cash', 'bookings:checkin'] },
+  { slug: 'staff', add: ['bookings:read', 'bookings:create', 'bookings:checkin'] },
+  { slug: 'booking_counter', add: ['bookings:checkin'] }, // made before hall check-in existed
   { slug: 'viewer', add: ['bookings:read'] },
   { slug: 'accountant', add: ['bookings:read'] },
   { slug: 'cashier', add: ['bookings:read', 'bookings:cash'] }, // verifies counter cash handovers
   // super_admin — already has '*'
 ];
-const NEW_ROLES = ['booking_counter'];
+const NEW_ROLES = ['booking_counter', 'hall_checkin'];
 
 const migrate = async () => {
   await connectDB();

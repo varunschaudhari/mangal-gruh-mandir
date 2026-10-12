@@ -32,7 +32,7 @@ export const ALL_PERMISSIONS = [
   'mahaprasad:read', 'mahaprasad:issue', 'mahaprasad:redeem',
   'attendance:read', 'attendance:write', 'attendance:manage', 'attendance:approve',
   'salary:read', 'salary:manage',
-  'bookings:read', 'bookings:create', 'bookings:void', 'bookings:manage', 'bookings:cash',
+  'bookings:read', 'bookings:create', 'bookings:void', 'bookings:manage', 'bookings:cash', 'bookings:checkin',
 ];
 
 export const PERMISSION_GROUPS = {
@@ -46,7 +46,7 @@ export const PERMISSION_GROUPS = {
   Mahaprasad:   ['mahaprasad:read', 'mahaprasad:issue', 'mahaprasad:redeem'],
   Attendance:   ['attendance:read', 'attendance:write', 'attendance:manage', 'attendance:approve'],
   Salary:       ['salary:read', 'salary:manage'],
-  Bookings:     ['bookings:read', 'bookings:create', 'bookings:void', 'bookings:manage', 'bookings:cash'],
+  Bookings:     ['bookings:read', 'bookings:create', 'bookings:void', 'bookings:manage', 'bookings:cash', 'bookings:checkin'],
 };
 
 const Role = mongoose.model('Role', roleSchema);

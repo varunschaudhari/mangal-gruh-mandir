@@ -149,7 +149,7 @@ const seed = async () => {
 
   // ── Lookup master data ─────────────────────────────────────────────────────
 
-  const [ms, kt, ps, fr, dc] = await Promise.all([
+  const [ms, kt, ps, fr] = await Promise.all([
     Department.findOne({ code: 'MS' }),
     Department.findOne({ code: 'KT' }),
     Department.findOne({ code: 'PS' }),
@@ -169,7 +169,7 @@ const seed = async () => {
     Category.findOne({ code: 'CS' }),
   ]);
 
-  const [kg, g, L, pcs, pkt, bag] = await Promise.all([
+  const [kg, g, L, pcs, pkt] = await Promise.all([
     Unit.findOne({ symbol: 'kg' }),
     Unit.findOne({ symbol: 'g'  }),
     Unit.findOne({ symbol: 'L'  }),
@@ -191,7 +191,7 @@ const seed = async () => {
   // ── 1. Suppliers ───────────────────────────────────────────────────────────
 
   console.log('Creating suppliers...');
-  const [kirana, flowerMart, dairy, trust, amul, dryFruits, shantiBhushan] = await Promise.all([
+  const [kirana, flowerMart, dairy, trust, amul, dryFruits] = await Promise.all([
     Supplier.create({ name: 'Shri Ganesh Kirana Store', type: 'vendor', contactPerson: 'Ramesh Patil', phone: '9876543210', city: 'Amalner', gstin: '27AABCS1234A1Z5', creditDays: 30,
       bankAccounts: [{ label: 'Main Account', bankName: 'State Bank of India', accountHolderName: 'Ramesh Patil', accountNumber: '12345678901', ifscCode: 'SBIN0002654', isDefault: true }] }),
     Supplier.create({ name: 'Pushpa Flower Mart', type: 'vendor', contactPerson: 'Sunita Joshi', phone: '9823456780', city: 'Amalner', creditDays: 7,
@@ -947,7 +947,7 @@ const seed = async () => {
   console.log(`  ✓ ${donationData.length} donations (trust + hundi + anonymous)`);
 
   // ── Additional donations from individual donors + more hundi ──────────────
-  const [ganeshOcc, templeRenOcc] = await Promise.all([
+  const [, templeRenOcc] = await Promise.all([
     DonationOccasion.findOne({ name: 'Ganesh Utsav' }),
     DonationOccasion.findOne({ name: 'Temple Renovation' }),
   ]);

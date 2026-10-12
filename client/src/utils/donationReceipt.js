@@ -1,4 +1,5 @@
 import { printHtml } from './printHtml.js';
+import { templeHtml } from './temple.js';
 
 export function printDonationReceipt(donation) {
   const {
@@ -53,7 +54,7 @@ export function printDonationReceipt(donation) {
 </style></head><body>
 
 <div class="header">
-  <div class="temple">🕉️ Mangal Grah Mandir, Amalner</div>
+  <div class="temple">🕉️ ${templeHtml()}</div>
   <div class="subtitle">Dist. Jalgaon, Maharashtra</div>
   <div class="receipt-title">Donation Receipt</div>
   <div class="ref">${donationNumber}</div>
@@ -106,7 +107,7 @@ ${pan ? `<div class="tax-note">
   <div class="sig-box">
     <div class="sig-line"></div>
     <div class="sig-label">Authorised Signatory</div>
-    <div class="sig-label">Mangal Grah Mandir, Amalner</div>
+    <div class="sig-label">${templeHtml()}</div>
   </div>
 </div>
 

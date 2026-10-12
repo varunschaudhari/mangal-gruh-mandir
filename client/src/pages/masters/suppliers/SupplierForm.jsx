@@ -9,8 +9,10 @@ import PageHeader from '../../../components/ui/PageHeader.jsx';
 import { FormField, FormRow, FormSection, FormActions } from '../../../components/ui/FormField.jsx';
 import { PageLoader } from '../../../components/ui/Spinner.jsx';
 import toast from 'react-hot-toast';
+import { useT } from '../../../i18n/index.jsx';
 
 const SupplierForm = () => {
+  const t = useT();
   const { id } = useParams();
   const isEdit = Boolean(id);
   const navigate = useNavigate();
@@ -39,12 +41,12 @@ const SupplierForm = () => {
   const mutation = useMutation({
     mutationFn: (data) => isEdit ? updateSupplier(id, data) : createSupplier(data),
     onSuccess: () => {
-      toast.success(isEdit ? 'Supplier updated' : 'Supplier created');
+      toast.success(isEdit ? t('Supplier updated') : t('Supplier created'));
       qc.invalidateQueries({ queryKey: ['suppliers'] });
       qc.invalidateQueries({ queryKey: ['supplier', id] });
       navigate('/masters/suppliers');
     },
-    onError: (err) => toast.error(err.response?.data?.message || 'Failed'),
+    onError: (err) => toast.error(err.response?.data?.message || t('Failed')),
   });
 
   const handleSetDefault = (idx) => {
@@ -74,36 +76,36 @@ const SupplierForm = () => {
         breadcrumbs={[{ label: 'Masters' }, { label: 'Suppliers', to: '/masters/suppliers' }, { label: isEdit ? 'Edit' : 'New' }]}
       />
       <form onSubmit={handleSubmit((d) => mutation.mutate(d))} className="card p-6 space-y-6">
-        <FormSection title="Basic Information">
+        <FormSection title={t('Basic Information')}>
           <FormRow>
-            <FormField label="Name" required error={errors.name?.message}>
-              <input {...register('name', { required: 'Name is required' })} className="input" placeholder="Supplier or donor name" />
+            <FormField label={t('Name')} required error={errors.name?.message}>
+              <input {...register('name', { required: 'Name is required' })} className="input" placeholder={t('Supplier or donor name')} />
             </FormField>
-            <FormField label="Type" required>
+            <FormField label={t('Type')} required>
               <select {...register('type')} className="input">
-                <option value="vendor">Vendor (Supplier)</option>
-                <option value="donor">Donor</option>
-                <option value="both">Both</option>
+                <option value="vendor">{t('Vendor (Supplier)')}</option>
+                <option value="donor">{t('Donor')}</option>
+                <option value="both">{t('Both')}</option>
               </select>
             </FormField>
           </FormRow>
         </FormSection>
 
-        <FormSection title="Contact Details">
+        <FormSection title={t('Contact Details')}>
           <FormRow>
-            <FormField label="Contact Person">
+            <FormField label={t('Contact Person')}>
               <input {...register('contactPerson')} className="input" />
             </FormField>
-            <FormField label="Phone">
+            <FormField label={t('Phone')}>
               <input {...register('phone')} className="input" type="tel" />
             </FormField>
           </FormRow>
           <FormRow>
-            <FormField label="Email">
+            <FormField label={t('Email')}>
               <input {...register('email')} className="input" type="email" />
             </FormField>
           </FormRow>
-          <FormField label="Address" hint="House / building, street">
+          <FormField label={t('Address')} hint={t('House / building, street')}>
             <textarea {...register('address')} rows={2} className="input" />
           </FormField>
           {/* PIN fills city, district and state */}
@@ -113,34 +115,34 @@ const SupplierForm = () => {
           />
         </FormSection>
 
-        <FormSection title="Business Details">
+        <FormSection title={t('Business Details')}>
           <FormRow cols={3}>
-            <FormField label="GSTIN" hint="Optional">
-              <input {...register('gstin')} className="input" placeholder="GST number" />
+            <FormField label="GSTIN" hint={t('Optional')}>
+              <input {...register('gstin')} className="input" placeholder={t('GST number')} />
             </FormField>
-            <FormField label="PAN Number" hint="Required for 80G donation receipts">
-              <input {...register('panNumber')} className="input uppercase" placeholder="ABCDE1234F" />
+            <FormField label={t('PAN Number')} hint={t('Required for 80G donation receipts')}>
+              <input {...register('panNumber')} className="input uppercase" placeholder={t('ABCDE1234F')} />
             </FormField>
-            <FormField label="Credit Days" hint="Payment due after N days from invoice">
+            <FormField label={t('Credit Days')} hint={t('Payment due after N days from invoice')}>
               <input {...register('creditDays', { valueAsNumber: true, min: 0 })} type="number" min={0} className="input" placeholder="0" />
             </FormField>
           </FormRow>
           <FormRow>
             <FormField label=" ">
               <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer mt-2">
-                <input type="checkbox" {...register('isActive')} className="h-4 w-4 rounded" /> Active
+                <input type="checkbox" {...register('isActive')} className="h-4 w-4 rounded" /> {t('Active')}
               </label>
             </FormField>
           </FormRow>
-          <FormField label="Notes">
+          <FormField label={t('Notes')}>
             <textarea {...register('notes')} rows={2} className="input" />
           </FormField>
         </FormSection>
 
         {/* ── Bank Accounts ── */}
-        <FormSection title="Bank Accounts">
+        <FormSection title={t('Bank Accounts')}>
           {bankFields.length === 0 && (
-            <p className="text-sm text-gray-400">No bank accounts added yet.</p>
+            <p className="text-sm text-gray-400">{t('No bank accounts added yet.')}</p>
           )}
 
           {bankFields.map((field, idx) => {
@@ -150,10 +152,10 @@ const SupplierForm = () => {
                 {/* Row header */}
                 <div className="flex items-center justify-between gap-2">
                   <div className="flex items-center gap-2">
-                    <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Account {idx + 1}</span>
+                    <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">{t('Account')} {idx + 1}</span>
                     {isDefault && (
                       <span className="flex items-center gap-1 text-xs font-semibold text-primary-600 bg-orange-100 px-2 py-0.5 rounded-full">
-                        <Star className="h-3 w-3" /> Default
+                        <Star className="h-3 w-3" /> {t('Default')}
                       </span>
                     )}
                   </div>
@@ -161,7 +163,7 @@ const SupplierForm = () => {
                     {!isDefault && (
                       <button type="button" onClick={() => handleSetDefault(idx)}
                         className="text-xs text-gray-500 hover:text-primary-600 border border-gray-200 hover:border-primary-400 rounded px-2 py-0.5 transition-colors">
-                        Set as Default
+                        {t('Set as Default')}
                       </button>
                     )}
                     <button type="button" onClick={() => removeBank(idx)}
@@ -174,23 +176,23 @@ const SupplierForm = () => {
                 {/* Label + Bank Name */}
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs text-gray-500 mb-1">Label (optional)</label>
-                    <input {...register(`bankAccounts.${idx}.label`)} className="input text-sm" placeholder="e.g. Main, Savings, UPI" />
+                    <label className="block text-xs text-gray-500 mb-1">{t('Label (optional)')}</label>
+                    <input {...register(`bankAccounts.${idx}.label`)} className="input text-sm" placeholder={t('e.g. Main, Savings, UPI')} />
                   </div>
                   <div>
-                    <label className="block text-xs text-gray-500 mb-1">Bank Name</label>
-                    <input {...register(`bankAccounts.${idx}.bankName`)} className="input text-sm" placeholder="State Bank of India" />
+                    <label className="block text-xs text-gray-500 mb-1">{t('Bank Name')}</label>
+                    <input {...register(`bankAccounts.${idx}.bankName`)} className="input text-sm" placeholder={t('State Bank of India')} />
                   </div>
                 </div>
 
                 {/* Account holder + Account number */}
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs text-gray-500 mb-1">Account Holder Name</label>
+                    <label className="block text-xs text-gray-500 mb-1">{t('Account Holder Name')}</label>
                     <input {...register(`bankAccounts.${idx}.accountHolderName`)} className="input text-sm" />
                   </div>
                   <div>
-                    <label className="block text-xs text-gray-500 mb-1">Account Number</label>
+                    <label className="block text-xs text-gray-500 mb-1">{t('Account Number')}</label>
                     <input {...register(`bankAccounts.${idx}.accountNumber`)} className="input text-sm font-mono" />
                   </div>
                 </div>
@@ -198,11 +200,11 @@ const SupplierForm = () => {
                 {/* IFSC + UPI */}
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs text-gray-500 mb-1">IFSC Code</label>
-                    <input {...register(`bankAccounts.${idx}.ifscCode`)} className="input text-sm font-mono uppercase" placeholder="SBIN0001234" />
+                    <label className="block text-xs text-gray-500 mb-1">{t('IFSC Code')}</label>
+                    <input {...register(`bankAccounts.${idx}.ifscCode`)} className="input text-sm font-mono uppercase" placeholder={t('SBIN0001234')} />
                   </div>
                   <div>
-                    <label className="block text-xs text-gray-500 mb-1">UPI ID (optional)</label>
+                    <label className="block text-xs text-gray-500 mb-1">{t('UPI ID (optional)')}</label>
                     <input {...register(`bankAccounts.${idx}.upiId`)} className="input text-sm font-mono" placeholder="name@bank" />
                   </div>
                 </div>
@@ -212,7 +214,7 @@ const SupplierForm = () => {
 
           <button type="button" onClick={addBankAccount}
             className="btn-secondary flex items-center gap-2 text-sm w-full justify-center border-dashed">
-            <Plus className="h-4 w-4" /> Add Bank Account
+            <Plus className="h-4 w-4" /> {t('Add Bank Account')}
           </button>
         </FormSection>
 

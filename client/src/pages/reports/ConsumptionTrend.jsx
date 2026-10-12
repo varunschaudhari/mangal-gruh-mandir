@@ -5,8 +5,10 @@ import { getConsumptionTrend } from '../../api/report.api.js';
 import { getDepartments } from '../../api/department.api.js';
 import PageHeader from '../../components/ui/PageHeader.jsx';
 import { PageLoader } from '../../components/ui/Spinner.jsx';
+import { useT } from '../../i18n/index.jsx';
 
 const ConsumptionTrend = () => {
+  const t = useT();
   const [deptFilter, setDeptFilter] = useState('');
   const [search, setSearch] = useState('');
 
@@ -38,7 +40,7 @@ const ConsumptionTrend = () => {
         breadcrumbs={[{ label: 'Reports' }, { label: 'Consumption Trend' }]}
         actions={
           <button onClick={() => refetch()} disabled={isFetching} className="btn btn-ghost text-sm flex items-center gap-1.5 border">
-            <RefreshCw className={`h-4 w-4 ${isFetching ? 'animate-spin' : ''}`} /> Refresh
+            <RefreshCw className={`h-4 w-4 ${isFetching ? 'animate-spin' : ''}`} /> {t('Refresh')}
           </button>
         }
       />
@@ -47,35 +49,35 @@ const ConsumptionTrend = () => {
       <div className="card p-4 flex flex-wrap items-center gap-3">
         <input
           type="text" value={search} onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search product…" className="input text-sm w-48"
+          placeholder={t('Search product…')} className="input text-sm w-48"
         />
         <select value={deptFilter} onChange={(e) => setDeptFilter(e.target.value)} className="input text-sm">
-          <option value="">All Departments</option>
+          <option value="">{t('All Departments')}</option>
           {departments.map((d) => <option key={d._id} value={d._id}>{d.name}</option>)}
         </select>
       </div>
 
       {isLoading ? <PageLoader /> : rows.length === 0 ? (
         <div className="card p-10 text-center text-gray-400">
-          No stock-out activity in the last 3 months.
+          {t('No stock-out activity in the last 3 months.')}
         </div>
       ) : (
         <div className="card overflow-hidden">
           <div className="px-4 py-3 border-b bg-gray-50 flex items-center gap-2">
             <TrendingUp className="h-4 w-4 text-primary-600" />
-            <h3 className="text-sm font-semibold text-gray-700">Monthly Consumption by Product</h3>
-            <span className="text-xs text-gray-400 ml-1">({rows.length} products)</span>
+            <h3 className="text-sm font-semibold text-gray-700">{t('Monthly Consumption by Product')}</h3>
+            <span className="text-xs text-gray-400 ml-1">({rows.length} {t('products)')}</span>
           </div>
           <div className="overflow-x-auto">
             <table className="min-w-full">
               <thead>
                 <tr className="bg-gray-50 border-b">
-                  <th className="table-th w-52">Product</th>
+                  <th className="table-th w-52">{t('Product')}</th>
                   {monthLabels.map((m) => (
                     <th key={m} className="table-th text-center w-28">{m}</th>
                   ))}
-                  <th className="table-th text-right w-28">3-Month Total</th>
-                  <th className="table-th w-36">Trend</th>
+                  <th className="table-th text-right w-28">{t('3-Month Total')}</th>
+                  <th className="table-th w-36">{t('Trend')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">

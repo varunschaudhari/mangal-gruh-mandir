@@ -1,5 +1,6 @@
 import ExcelJS from 'exceljs';
 import { localDateStr } from '../utils/dates.js';
+import { temple } from './temple.service.js';
 
 const HDR_FILL  = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFEA580C' } }; // orange
 const BORDER    = { top: { style: 'thin' }, bottom: { style: 'thin' }, left: { style: 'thin' }, right: { style: 'thin' } };
@@ -18,7 +19,7 @@ function headerRow(sheet, values) {
 
 export async function generateDonationExcel(res, { donations, from, to }) {
   const wb = new ExcelJS.Workbook();
-  wb.creator = 'Mangal Grah Mandir'; wb.created = new Date();
+  wb.creator = temple().name; wb.created = new Date();
 
   const rangeLabel = from || to
     ? `${from ? fmtDate(from) : 'Beginning'} – ${to ? fmtDate(to) : 'Today'}`
@@ -41,7 +42,7 @@ export async function generateDonationExcel(res, { donations, from, to }) {
 
   sheet.mergeCells('A1:L1');
   const t1 = sheet.getCell('A1');
-  t1.value = 'Mangal Grah Mandir – Donation Register';
+  t1.value = `${temple().name} – Donation Register`;
   t1.font = { bold: true, size: 13, color: { argb: 'FFEA580C' } }; t1.alignment = { horizontal: 'center' };
   sheet.getRow(1).height = 22;
 

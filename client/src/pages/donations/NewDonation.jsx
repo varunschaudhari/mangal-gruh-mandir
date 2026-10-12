@@ -14,20 +14,25 @@ import PageHeader from '../../components/ui/PageHeader.jsx';
 import { useDebounce } from '../../hooks/useDebounce.js';
 import toast from 'react-hot-toast';
 import { localDateStr } from '../../utils/formatters.js';
+import { useT } from '../../i18n/index.jsx';
 
-const Field = ({ label, required, hint, error, children }) => (
+const Field = ({ label, required, hint, error, children }) => {
+  const t = useT();
+  return (
   <div>
     <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
-      {label}{required && <span className="text-red-400 ml-0.5">*</span>}
+      {t(label)}{required && <span className="text-red-400 ml-0.5">*</span>}
     </label>
     {children}
-    {hint  && !error && <p className="mt-1 text-xs text-gray-400">{hint}</p>}
+    {hint  && !error && <p className="mt-1 text-xs text-gray-400">{t(hint)}</p>}
     {error && <p className="mt-1 text-xs text-red-500">{error}</p>}
   </div>
 );
+};
 
 
 const NewDonation = () => {
+  const t = useT();
   const navigate = useNavigate();
   const qc       = useQueryClient();
   const [lastDonation, setLastDonation] = useState(null);
@@ -65,7 +70,7 @@ const NewDonation = () => {
     if (donorMatch.donorName) setValue('donorName', donorMatch.donorName);
     if (donorMatch.panNumber)  setValue('panNumber', donorMatch.panNumber);
     if (donorMatch.donorId)    setValue('donor', donorMatch.donorId);
-    toast.success('Donor details filled in');
+    toast.success(t('Donor details filled in'));
   };
 
   const { data: occasionsRes } = useQuery({ queryKey: ['donation-occasions'],  queryFn: () => getOccasions({ active: true }) });
@@ -83,12 +88,12 @@ const NewDonation = () => {
     mutationFn: createDonation,
     onSuccess: (res) => {
       const donation = res.data?.data;
-      toast.success(`Donation ${donation?.donationNumber} recorded`);
+      toast.success(t('Donation {number} recorded', { number: donation?.donationNumber }));
       setLastDonation(donation);
       qc.invalidateQueries({ queryKey: ['donations'] });
       qc.invalidateQueries({ queryKey: ['donation-stats'] });
     },
-    onError: (err) => toast.error(err.response?.data?.message || 'Failed to record donation'),
+    onError: (err) => toast.error(err.response?.data?.message || t('Failed to record donation')),
   });
 
   const onSubmit = (data) => {
@@ -117,21 +122,21 @@ const NewDonation = () => {
         <div className="mb-5 rounded-xl border border-green-200 bg-green-50 p-4 flex items-center justify-between gap-4">
           <div>
             <p className="text-sm font-semibold text-green-800">
-              {lastDonation.donationNumber} recorded ✓
+              {t('{number} recorded ✓', { number: lastDonation.donationNumber })}
             </p>
             <p className="text-xs text-green-600 mt-0.5">
-              Total: ₹{(lastDonation.totalEstimatedValue || 0).toLocaleString('en-IN')}
+              {t('Total: ₹{amount}', { amount: (lastDonation.totalEstimatedValue || 0).toLocaleString('en-IN') })}
             </p>
           </div>
           <div className="flex gap-2 shrink-0">
             {lastDonation.donationType !== 'hundi' && (
               <button onClick={() => printDonationReceipt(lastDonation)}
                 className="btn-secondary flex items-center gap-2 text-sm">
-                <Printer className="h-4 w-4" /> Print Receipt
+                <Printer className="h-4 w-4" /> {t('Print Receipt')}
               </button>
             )}
             <button onClick={() => setLastDonation(null)} className="btn-primary text-sm">
-              New Donation
+              {t('New Donation')}
             </button>
           </div>
         </div>
@@ -144,7 +149,7 @@ const NewDonation = () => {
           <div className="rounded-xl border border-gray-100 overflow-hidden">
             <div className="flex items-center gap-3 px-5 py-4 border-b bg-orange-50">
               <Heart className="h-5 w-5 text-orange-600" />
-              <p className="text-sm font-semibold text-gray-800">Donation Type</p>
+              <p className="text-sm font-semibold text-gray-800">{t('Donation Type')}</p>
             </div>
             <div className="p-4 sm:p-5 bg-white">
               <div className="flex flex-col gap-2 sm:flex-row sm:gap-3">
@@ -155,8 +160,8 @@ const NewDonation = () => {
                 ].map(([val, label, desc]) => (
                   <label key={val} onClick={() => setValue('donationType', val)}
                     className={`flex-1 rounded-xl border-2 p-3 cursor-pointer transition-all ${donationType === val ? 'border-orange-400 bg-orange-50' : 'border-gray-100 hover:border-gray-200'}`}>
-                    <p className={`text-sm font-semibold ${donationType === val ? 'text-orange-700' : 'text-gray-700'}`}>{label}</p>
-                    <p className="text-xs text-gray-400 mt-0.5">{desc}</p>
+                    <p className={`text-sm font-semibold ${donationType === val ? 'text-orange-700' : 'text-gray-700'}`}>{t(label)}</p>
+                    <p className="text-xs text-gray-400 mt-0.5">{t(desc)}</p>
                   </label>
                 ))}
               </div>
@@ -167,18 +172,18 @@ const NewDonation = () => {
           <div className="rounded-xl border border-gray-100 overflow-hidden">
             <div className="flex items-center gap-3 px-5 py-4 border-b bg-purple-50">
               <User className="h-5 w-5 text-purple-600" />
-              <p className="text-sm font-semibold text-gray-800">Details</p>
+              <p className="text-sm font-semibold text-gray-800">{t('Details')}</p>
             </div>
             <div className="p-5 bg-white space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <Field label="Date" required>
+                <Field label={t('Date')} required>
                   <div className="relative">
                     <CalendarDays className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-300" />
                     <input type="date" max={localDateStr()}
                       {...register('date', { required: true })} className="input pl-9" />
                   </div>
                 </Field>
-                <Field label="Occasion / Purpose">
+                <Field label={t('Occasion / Purpose')}>
                   <Controller
                     name="occasion"
                     control={control}
@@ -187,7 +192,7 @@ const NewDonation = () => {
                         value={field.value || ''}
                         onChange={field.onChange}
                         options={occasions.map((o) => ({ value: o._id, label: o.name }))}
-                        placeholder="— General / Unspecified —"
+                        placeholder={t('— General / Unspecified —')}
                       />
                     )}
                   />
@@ -196,7 +201,7 @@ const NewDonation = () => {
 
               {donationType === 'named' && (
                 <>
-                  <Field label="Donor" hint="Select from list, or leave blank and enter below">
+                  <Field label={t('Donor')} hint={t('Select from list, or leave blank and enter below')}>
                     <Controller
                       name="donor"
                       control={control}
@@ -209,17 +214,17 @@ const NewDonation = () => {
                             label: d.name,
                             sub: [d.phone, d.panNumber ? `PAN: ${d.panNumber}` : null].filter(Boolean).join(' · '),
                           }))}
-                          placeholder="— Walk-in / New donor —"
+                          placeholder={t('— Walk-in / New donor —')}
                         />
                       )}
                     />
                   </Field>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <Field label="Donor Name (walk-in)">
-                      <input {...register('donorName')} className="input" placeholder="Full name" />
+                    <Field label={t('Donor Name (walk-in)')}>
+                      <input {...register('donorName')} className="input" placeholder={t('Full name')} />
                     </Field>
-                    <Field label="Phone">
-                      <input {...register('donorPhone')} className="input" type="tel" placeholder="91XXXXXXXXXX" />
+                    <Field label={t('Phone')}>
+                      <input {...register('donorPhone')} className="input" type="tel" placeholder={t('91XXXXXXXXXX')} />
                     </Field>
                   </div>
 
@@ -228,25 +233,25 @@ const NewDonation = () => {
                     <div className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 flex items-start gap-3">
                       <UserCheck className="h-5 w-5 text-blue-500 shrink-0 mt-0.5" />
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-semibold text-blue-800">Returning donor found</p>
+                        <p className="text-sm font-semibold text-blue-800">{t('Returning donor found')}</p>
                         <p className="text-xs text-blue-600 mt-0.5">
-                          <strong>{donorMatch.donorName || 'Unknown name'}</strong>
-                          {donorMatch.panNumber && <> · PAN: {donorMatch.panNumber}</>}
+                          <strong>{donorMatch.donorName || t('Unknown name')}</strong>
+                          {donorMatch.panNumber && <> {t('· PAN:')} {donorMatch.panNumber}</>}
                           {' · '}
                           <Clock className="h-3 w-3 inline" />{' '}
-                          {donorMatch.donationCount} donation{donorMatch.donationCount !== 1 ? 's' : ''}
-                          {' · ₹'}{(donorMatch.totalAmount || 0).toLocaleString('en-IN')} total
+                          {donorMatch.donationCount !== 1 ? t('{n} donations', { n: donorMatch.donationCount }) : t('{n} donation', { n: donorMatch.donationCount })}
+                          {' · '}{t('₹{amount} total', { amount: (donorMatch.totalAmount || 0).toLocaleString('en-IN') })}
                         </p>
                       </div>
                       <button type="button" onClick={applyDonorSuggestion}
                         className="shrink-0 text-xs font-semibold bg-blue-600 text-white px-3 py-1.5 rounded-lg hover:bg-blue-700 transition-colors">
-                        Use Details
+                        {t('Use Details')}
                       </button>
                     </div>
                   )}
 
-                  <Field label="PAN Number" hint="Required for 80G tax exemption certificate">
-                    <input {...register('panNumber')} className="input uppercase" placeholder="ABCDE1234F" />
+                  <Field label={t('PAN Number')} hint={t('Required for 80G tax exemption certificate')}>
+                    <input {...register('panNumber')} className="input uppercase" placeholder={t('ABCDE1234F')} />
                   </Field>
                   {panNumber && (
                     <label className={`flex items-center gap-3 rounded-lg border-2 px-4 py-3 cursor-pointer transition-all ${is80G ? 'border-emerald-400 bg-emerald-50' : 'border-gray-100 hover:border-gray-200'}`}>
@@ -257,8 +262,8 @@ const NewDonation = () => {
                       <div className="flex items-center gap-2">
                         <FileCheck2 className={`h-4 w-4 ${is80G ? 'text-emerald-600' : 'text-gray-400'}`} />
                         <div>
-                          <p className={`text-sm font-semibold ${is80G ? 'text-emerald-700' : 'text-gray-600'}`}>80G Eligible Donation</p>
-                          <p className="text-xs text-gray-400">Generates an 80G tax exemption receipt for the donor</p>
+                          <p className={`text-sm font-semibold ${is80G ? 'text-emerald-700' : 'text-gray-600'}`}>{t('80G Eligible Donation')}</p>
+                          <p className="text-xs text-gray-400">{t('Generates an 80G tax exemption receipt for the donor')}</p>
                         </div>
                       </div>
                     </label>
@@ -272,27 +277,27 @@ const NewDonation = () => {
           <div className="rounded-xl border border-gray-100 overflow-hidden">
             <div className="flex items-center gap-3 px-5 py-4 border-b bg-green-50">
               <IndianRupee className="h-5 w-5 text-green-600" />
-              <p className="text-sm font-semibold text-gray-800">Cash Donation (Nakad Daan)</p>
+              <p className="text-sm font-semibold text-gray-800">{t('Cash Donation (Nakad Daan)')}</p>
             </div>
             <div className="p-5 bg-white space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <Field label="Amount (₹)">
+                <Field label={t('Amount (₹)')}>
                   <div className="relative">
                     <IndianRupee className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-300" />
                     <input type="number" min="0" step="1" {...register('cashAmount')} className="input pl-9" placeholder="0" />
                   </div>
                 </Field>
-                <Field label="Payment Mode">
+                <Field label={t('Payment Mode')}>
                   <select {...register('paymentMode')} className="input">
-                    <option value="cash">Cash</option>
+                    <option value="cash">{t('Cash')}</option>
                     <option value="upi">UPI</option>
-                    <option value="cheque">Cheque</option>
-                    <option value="bank_transfer">Bank Transfer</option>
+                    <option value="cheque">{t('Cheque')}</option>
+                    <option value="bank_transfer">{t('Bank Transfer')}</option>
                   </select>
                 </Field>
               </div>
-              <Field label="Reference No." hint="UPI transaction ID, cheque number, etc.">
-                <input {...register('paymentRef')} className="input" placeholder="Optional" />
+              <Field label={t('Reference No.')} hint={t('UPI transaction ID, cheque number, etc.')}>
+                <input {...register('paymentRef')} className="input" placeholder={t('Optional')} />
               </Field>
             </div>
           </div>
@@ -302,35 +307,35 @@ const NewDonation = () => {
             <div className="flex items-center justify-between px-5 py-4 border-b bg-blue-50">
               <div className="flex items-center gap-3">
                 <Package className="h-5 w-5 text-blue-600" />
-                <p className="text-sm font-semibold text-gray-800">Kind Donations (Vastu Daan)</p>
+                <p className="text-sm font-semibold text-gray-800">{t('Kind Donations (Vastu Daan)')}</p>
                 {fields.length > 0 && (
                   <span className="text-xs text-gray-500 bg-white rounded-full px-2 py-0.5 border">
-                    {fields.length} item{fields.length > 1 ? 's' : ''}
+                    {fields.length > 1 ? t('{n} items', { n: fields.length }) : t('{n} item', { n: fields.length })}
                   </span>
                 )}
               </div>
               <button type="button"
                 onClick={() => append({ product: '', quantity: '', estimatedValue: '', department: mainStore?._id || '' })}
                 className="flex items-center gap-1.5 text-xs font-semibold text-blue-700 hover:text-blue-900">
-                <Plus className="h-3.5 w-3.5" /> Add Item
+                <Plus className="h-3.5 w-3.5" /> {t('Add Item')}
               </button>
             </div>
 
             {fields.length === 0 ? (
-              <p className="p-5 text-sm text-gray-400 bg-white">No kind items — click "Add Item" to record donated goods.</p>
+              <p className="p-5 text-sm text-gray-400 bg-white">{t('No kind items — click "Add Item" to record donated goods.')}</p>
             ) : (
               <div className="divide-y divide-gray-50 bg-white">
                 {fields.map((field, index) => (
                   <div key={field.id} className="p-4 space-y-3">
                     <div className="flex items-center justify-between">
-                      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Item {index + 1}</p>
+                      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">{t('Item {n}', { n: index + 1 })}</p>
                       <button type="button" onClick={() => remove(index)} className="text-gray-400 hover:text-red-500 p-1 rounded transition-colors">
                         <Trash2 className="h-4 w-4" />
                       </button>
                     </div>
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                       <div className="col-span-2">
-                        <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Item <span className="text-red-400">*</span></label>
+                        <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">{t('Item')} <span className="text-red-400">*</span></label>
                         <Controller
                           name={`kindItems.${index}.product`}
                           control={control}
@@ -344,26 +349,26 @@ const NewDonation = () => {
                                 if (selected?.unit) setValue(`kindItems.${index}.unit`, selected.unit._id || selected.unit);
                               }}
                               options={products.map((p) => ({ value: p._id, label: p.name, sub: p.code }))}
-                              placeholder="— Select item —"
+                              placeholder={t('— Select item —')}
                             />
                           )}
                         />
                       </div>
                       <div>
-                        <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Qty <span className="text-red-400">*</span></label>
+                        <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">{t('Qty')} <span className="text-red-400">*</span></label>
                         <input type="number" min="0.01" step="0.01"
                           {...register(`kindItems.${index}.quantity`, { required: true, min: 0.01 })}
                           className="input" placeholder="1" />
                       </div>
                       <div>
-                        <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Est. Value (₹)</label>
+                        <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">{t('Est. Value (₹)')}</label>
                         <input type="number" min="0"
                           {...register(`kindItems.${index}.estimatedValue`)}
                           className="input" placeholder="0" />
                       </div>
                     </div>
                     <div>
-                      <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">To Department</label>
+                      <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">{t('To Department')}</label>
                       <Controller
                         name={`kindItems.${index}.department`}
                         control={control}
@@ -373,9 +378,9 @@ const NewDonation = () => {
                             onChange={field.onChange}
                             options={depts.map((d) => ({
                               value: d._id,
-                              label: d.name + (d._id === mainStore?._id ? ' (Default)' : ''),
+                              label: d.name + (d._id === mainStore?._id ? ` ${t('(Default)')}` : ''),
                             }))}
-                            placeholder="Select department…"
+                            placeholder={t('Select department…')}
                             nullable={false}
                           />
                         )}
@@ -387,22 +392,22 @@ const NewDonation = () => {
             )}
           </div>
 
-          <Field label="Notes">
-            <textarea {...register('notes')} className="input" rows={2} placeholder="Optional — event details, special instructions, etc." />
+          <Field label={t('Notes')}>
+            <textarea {...register('notes')} className="input" rows={2} placeholder={t('Optional — event details, special instructions, etc.')} />
           </Field>
 
           {!cashAmount && fields.length === 0 && (
             <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
-              Add a cash amount or at least one kind item to save.
+              {t('Add a cash amount or at least one kind item to save.')}
             </p>
           )}
 
           <div className="flex items-center gap-3 pt-1">
             <button type="submit" disabled={mutation.isPending || (!Number(cashAmount) && fields.length === 0)}
               className="btn-primary px-6 disabled:opacity-50">
-              {mutation.isPending ? 'Saving…' : 'Record Donation'}
+              {mutation.isPending ? t('Saving…') : t('Record Donation')}
             </button>
-            <button type="button" onClick={() => navigate('/donations')} className="btn-secondary">Cancel</button>
+            <button type="button" onClick={() => navigate('/donations')} className="btn-secondary">{t('Cancel')}</button>
           </div>
         </form>
       )}

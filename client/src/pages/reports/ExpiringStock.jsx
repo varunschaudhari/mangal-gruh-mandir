@@ -11,6 +11,7 @@ import { fDate, localDateStr } from '../../utils/formatters.js';
 import { exportToExcel } from '../../utils/exportToExcel.js';
 import toast from 'react-hot-toast';
 import { shareText } from '../../utils/fileSaver.js';
+import { useT } from '../../i18n/index.jsx';
 
 const DAY_OPTIONS = [7, 14, 30, 60, 90];
 
@@ -27,6 +28,7 @@ const urgencyVariant = (days) => {
 };
 
 const ExpiringStock = () => {
+  const t = useT();
   const [days, setDays] = useState(30);
   const [department, setDepartment] = useState('');
   const [waText, setWaText] = useState('');
@@ -50,19 +52,19 @@ const ExpiringStock = () => {
 
   const pdfMut = useMutation({
     mutationFn: () => downloadExpiringPDF(params),
-    onError: () => toast.error('PDF export failed'),
+    onError: () => toast.error(t('PDF export failed')),
   });
 
   const waMut = useMutation({
     mutationFn: () => getExpiringWhatsApp(params),
     onSuccess: (res) => { setWaText(res.data.data.text); setShowWa(true); },
-    onError: () => toast.error('Failed to generate summary'),
+    onError: () => toast.error(t('Failed to generate summary')),
   });
 
   const handleCopy = () => {
     navigator.clipboard.writeText(waText);
     setCopied(true);
-    toast.success('Copied to clipboard');
+    toast.success(t('Copied to clipboard'));
     setTimeout(() => setCopied(false), 2000);
   };
 
@@ -95,13 +97,13 @@ const ExpiringStock = () => {
           batches.length > 0 && (
             <div className="flex gap-2 flex-wrap">
               <button onClick={() => pdfMut.mutate()} disabled={pdfMut.isPending} className="btn btn-ghost text-sm flex items-center gap-1.5 border">
-                <FileText className="h-4 w-4 text-red-500" /> {pdfMut.isPending ? 'Generating…' : 'PDF'}
+                <FileText className="h-4 w-4 text-red-500" /> {pdfMut.isPending ? t('Generating…') : 'PDF'}
               </button>
               <button onClick={handleExport} className="btn btn-ghost text-sm flex items-center gap-1.5 border">
-                <Download className="h-4 w-4 text-green-600" /> Excel
+                <Download className="h-4 w-4 text-green-600" /> {t('Excel')}
               </button>
               <button onClick={() => waMut.mutate()} disabled={waMut.isPending} className="btn btn-ghost text-sm flex items-center gap-1.5 border">
-                <MessageCircle className="h-4 w-4 text-green-500" /> {waMut.isPending ? 'Preparing…' : 'WhatsApp'}
+                <MessageCircle className="h-4 w-4 text-green-500" /> {waMut.isPending ? t('Preparing…') : t('WhatsApp')}
               </button>
             </div>
           )
@@ -111,7 +113,7 @@ const ExpiringStock = () => {
       {/* Filters */}
       <div className="card p-4 flex flex-wrap gap-3 items-center">
         <div className="flex items-center gap-2">
-          <span className="text-sm text-gray-600">Show expiring within:</span>
+          <span className="text-sm text-gray-600">{t('Show expiring within:')}</span>
           <div className="flex gap-1">
             {DAY_OPTIONS.map((d) => (
               <button
@@ -127,7 +129,7 @@ const ExpiringStock = () => {
           </div>
         </div>
         <select value={department} onChange={(e) => setDepartment(e.target.value)} className="input max-w-xs text-sm">
-          <option value="">All departments</option>
+          <option value="">{t('All departments')}</option>
           {departments.map((d) => <option key={d._id} value={d._id}>{d.name}</option>)}
         </select>
       </div>
@@ -136,16 +138,16 @@ const ExpiringStock = () => {
         <div className="card p-4 bg-green-50 border border-green-200">
           <div className="flex items-center justify-between mb-2">
             <h4 className="font-semibold text-sm text-green-800 flex items-center gap-1.5">
-              <MessageCircle className="h-4 w-4" /> WhatsApp Summary
+              <MessageCircle className="h-4 w-4" /> {t('WhatsApp Summary')}
             </h4>
             <div className="flex gap-2">
               <button onClick={handleCopy} className="btn btn-ghost text-xs flex items-center gap-1 border border-green-300">
                 {copied ? <Check className="h-3 w-3 text-green-600" /> : <Copy className="h-3 w-3" />}
-                {copied ? 'Copied!' : 'Copy'}
+                {copied ? t('Copied!') : t('Copy')}
               </button>
               <button onClick={() => shareText(waText)}
                 className="btn text-xs bg-green-500 text-white hover:bg-green-600 flex items-center gap-1 px-3 py-1.5 rounded-md">
-                <MessageCircle className="h-3 w-3" /> Open WhatsApp
+                <MessageCircle className="h-3 w-3" /> {t('Open WhatsApp')}
               </button>
             </div>
           </div>
@@ -160,15 +162,15 @@ const ExpiringStock = () => {
       ) : batches.length === 0 ? (
         <div className="card p-8 text-center">
           <CalendarClock className="h-10 w-10 mx-auto mb-3 text-green-400" />
-          <p className="text-sm text-gray-500">No batches expiring within {days} days.</p>
+          <p className="text-sm text-gray-500">{t('No batches expiring within')} {days} {t('days.')}</p>
         </div>
       ) : (
         <div className="space-y-6">
           {expired.length > 0 && (
-            <Section title="Already Expired" count={expired.length} variant="danger" batches={expired} />
+            <Section title={t('Already Expired')} count={expired.length} variant="danger" batches={expired} />
           )}
           {expiring.length > 0 && (
-            <Section title={`Expiring within ${days} days`} count={expiring.length} variant="warning" batches={expiring} />
+            <Section title={t('Expiring within {n} days', { n: days })} count={expiring.length} variant="warning" batches={expiring} />
           )}
         </div>
       )}

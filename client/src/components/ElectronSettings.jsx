@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Settings, X, Check, Wifi, WifiOff, ChevronDown, AlertCircle, Printer, Loader2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { printTestPage } from '../utils/thermalPrint.js';
+import { useT } from '../i18n/index.jsx';
 
 // Keywords that suggest a thermal/POS printer
 const THERMAL_KEYWORDS = ['thermal', 'xprinter', 'xp-', 'epson tm', 'rp-', 'pos-', 'pos ', 'receipt', '58mm', '80mm', 'btp-', 'srp-'];
@@ -14,6 +15,7 @@ function findBestThermalPrinter(printers) {
 }
 
 export default function ElectronSettings() {
+  const t = useT();
   const [open, setOpen]         = useState(false);
   const [settings, setSettings] = useState({ apiUrl: '', printerName: '' });
   const [printers, setPrinters] = useState([]);
@@ -70,7 +72,7 @@ export default function ElectronSettings() {
     setPrinterErr('');
 
     if (!settings.apiUrl.trim()) {
-      toast.error('Server URL is required');
+      toast.error(t('Server URL is required'));
       return;
     }
 
@@ -83,7 +85,7 @@ export default function ElectronSettings() {
     setSaving(true);
     try {
       await window.electronAPI.saveSettings(settings);
-      toast.success('Settings saved');
+      toast.success(t('Settings saved'));
       setOpen(false);
 
       // Navigate to new URL if it changed
@@ -92,7 +94,7 @@ export default function ElectronSettings() {
         window.electronAPI.navigateTo(settings.apiUrl);
       }
     } catch {
-      toast.error('Failed to save settings');
+      toast.error(t('Failed to save settings'));
     } finally {
       setSaving(false);
     }
@@ -100,7 +102,7 @@ export default function ElectronSettings() {
 
   async function handleTestPrint() {
     if (!settings.printerName) {
-      toast.error('Select a printer first');
+      toast.error(t('Select a printer first'));
       return;
     }
     setTestPrinting(true);
@@ -109,17 +111,17 @@ export default function ElectronSettings() {
       if (window.electronAPI?.checkPrinterStatus) {
         const { ok, status } = await window.electronAPI.checkPrinterStatus(settings.printerName);
         if (!ok && status === 'NOT_FOUND') {
-          toast.error(`Printer "${settings.printerName}" not found in Windows`);
+          toast.error(t('Printer "{name}" not found in Windows', { name: settings.printerName }));
           return;
         }
         if (!ok) {
-          toast(`Printer status: ${status} — attempting print anyway`, { icon: '⚠️' });
+          toast(t('Printer status: {status} — attempting print anyway', { status }), { icon: '⚠️' });
         }
       }
       await printTestPage(settings.printerName);
-      toast.success('Test page sent to printer');
+      toast.success(t('Test page sent to printer'));
     } catch (err) {
-      toast.error(err.message || 'Test print failed');
+      toast.error(err.message || t('Test print failed'));
     } finally {
       setTestPrinting(false);
     }
@@ -135,7 +137,7 @@ export default function ElectronSettings() {
       <button
         onClick={() => setOpen(true)}
         className="fixed bottom-4 right-4 z-50 w-10 h-10 rounded-full bg-gray-700 hover:bg-gray-600 text-white flex items-center justify-center shadow-lg transition-colors"
-        title="App Settings"
+        title={t('App Settings')}
       >
         <Settings className="h-5 w-5" />
       </button>
@@ -144,8 +146,8 @@ export default function ElectronSettings() {
           online === true ? 'bg-green-500' : online === false ? 'bg-red-500' : 'bg-gray-400 animate-pulse'
         }`}
         title={
-          online === true  ? `Server reachable${checkedAgo != null ? ` (checked ${checkedAgo}s ago)` : ''}` :
-          online === false ? 'Server unreachable' : 'Checking…'
+          online === true  ? (checkedAgo != null ? t('Server reachable (checked {n}s ago)', { n: checkedAgo }) : t('Server reachable')) :
+          online === false ? t('Server unreachable') : t('Checking…')
         }
       />
 
@@ -155,7 +157,7 @@ export default function ElectronSettings() {
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-md mx-4 p-6">
             <div className="flex items-center justify-between mb-5">
               <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
-                <Settings className="h-5 w-5 text-gray-500" /> App Settings
+                <Settings className="h-5 w-5 text-gray-500" /> {t('App Settings')}
               </h2>
               <button onClick={() => setOpen(false)} className="text-gray-400 hover:text-gray-600">
                 <X className="h-5 w-5" />
@@ -166,7 +168,7 @@ export default function ElectronSettings() {
               {/* Server URL */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Server URL <span className="text-red-500">*</span>
+                  {t('Server URL')} <span className="text-red-500">*</span>
                 </label>
                 <div className="flex gap-2">
                   <input
@@ -179,28 +181,28 @@ export default function ElectronSettings() {
                   <button
                     onClick={runCheck}
                     className="px-3 py-2 rounded-lg border border-gray-200 text-sm text-gray-500 hover:bg-gray-50 flex items-center gap-1.5 shrink-0"
-                    title="Test connection"
+                    title={t('Test connection')}
                   >
                     {online === true  ? <Wifi className="h-4 w-4 text-green-500" />
                     : online === false ? <WifiOff className="h-4 w-4 text-red-500" />
                     :                   <Wifi className="h-4 w-4 text-gray-400 animate-pulse" />}
-                    Test
+                    {t('Test')}
                   </button>
                 </div>
                 {online === true && (
                   <p className="text-xs text-green-600 mt-1 flex items-center gap-1">
-                    <Check className="h-3 w-3" /> Server reachable
-                    {checkedAgo != null && <span className="text-gray-400 ml-1">({checkedAgo}s ago)</span>}
+                    <Check className="h-3 w-3" /> {t('Server reachable')}
+                    {checkedAgo != null && <span className="text-gray-400 ml-1">({checkedAgo}{t('s ago)')}</span>}
                   </p>
                 )}
                 {online === false && (
-                  <p className="text-xs text-red-500 mt-1">Cannot reach server — check the URL and internet connection</p>
+                  <p className="text-xs text-red-500 mt-1">{t('Cannot reach server — check the URL and internet connection')}</p>
                 )}
               </div>
 
               {/* Printer */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Thermal Printer</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">{t('Thermal Printer')}</label>
                 {printers.length > 0 ? (
                   <div className="relative">
                     <select
@@ -208,10 +210,10 @@ export default function ElectronSettings() {
                       onChange={(e) => { setSettings((s) => ({ ...s, printerName: e.target.value })); setPrinterErr(''); }}
                       className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm appearance-none focus:outline-none focus:ring-2 focus:ring-orange-400"
                     >
-                      <option value="">— select printer —</option>
+                      <option value="">{t('— select printer —')}</option>
                       {printers.map((p) => (
                         <option key={p.name} value={p.name}>
-                          {p.name}{p.isDefault ? ' (default)' : ''}
+                          {p.name}{p.isDefault ? t(' (default)') : ''}
                         </option>
                       ))}
                     </select>
@@ -222,7 +224,7 @@ export default function ElectronSettings() {
                     type="text"
                     value={settings.printerName}
                     onChange={(e) => { setSettings((s) => ({ ...s, printerName: e.target.value })); setPrinterErr(''); }}
-                    placeholder="Exact Windows printer name"
+                    placeholder={t('Exact Windows printer name')}
                     className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"
                   />
                 )}
@@ -240,8 +242,8 @@ export default function ElectronSettings() {
                     className="mt-2 flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-800 border border-gray-200 rounded-lg px-3 py-1.5 hover:bg-gray-50 disabled:opacity-50 transition-colors"
                   >
                     {testPrinting
-                      ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Printing…</>
-                      : <><Printer className="h-3.5 w-3.5" /> Test Print</>}
+                      ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> {t('Printing…')}</>
+                      : <><Printer className="h-3.5 w-3.5" /> {t('Test Print')}</>}
                   </button>
                 )}
               </div>
@@ -249,14 +251,14 @@ export default function ElectronSettings() {
 
             <div className="flex justify-end gap-3 mt-6">
               <button onClick={() => setOpen(false)} className="px-4 py-2 text-sm text-gray-500 hover:text-gray-700">
-                Cancel
+                {t('Cancel')}
               </button>
               <button
                 onClick={handleSave}
                 disabled={saving}
                 className="px-5 py-2 text-sm font-semibold bg-orange-500 hover:bg-orange-600 text-white rounded-lg disabled:opacity-60 transition-colors"
               >
-                {saving ? 'Saving…' : 'Save'}
+                {saving ? t('Saving…') : t('Save')}
               </button>
             </div>
           </div>

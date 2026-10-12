@@ -14,12 +14,14 @@ import { fDateTime } from '../../utils/formatters.js';
 import { usePermissions } from '../../hooks/usePermissions.js';
 import { useForm } from 'react-hook-form';
 import toast from 'react-hot-toast';
+import { useT } from '../../i18n/index.jsx';
 
 const ROLE_COLORS = { super_admin:'red', admin:'orange', store_manager:'blue', staff:'green', viewer:'gray' };
 const col = createColumnHelper();
 
 const UserList = () => {
   const { can } = usePermissions();
+  const t = useT();
   const qc = useQueryClient();
   const [resetTarget, setResetTarget] = useState(null);
   const { register, handleSubmit, reset, formState: { errors } } = useForm();
@@ -27,8 +29,8 @@ const UserList = () => {
   const { data, isLoading } = useQuery({ queryKey: ['users'], queryFn: () => getUsers() });
   const resetMut = useMutation({
     mutationFn: ({ id, newPassword }) => resetUserPassword(id, { newPassword }),
-    onSuccess: () => { toast.success('Password reset'); setResetTarget(null); reset(); },
-    onError: (err) => toast.error(err.response?.data?.message || 'Failed'),
+    onSuccess: () => { toast.success(t('Password reset')); setResetTarget(null); reset(); },
+    onError: (err) => toast.error(err.response?.data?.message || t('Failed')),
   });
 
   const users = data?.data?.data || [];
@@ -42,7 +44,7 @@ const UserList = () => {
             <p className="font-medium text-gray-900">{i.getValue()}</p>
             {i.row.original.canApproveAssets && (
               <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-medium bg-purple-50 text-purple-700 border border-purple-200">
-                <Key className="h-3 w-3" /> Approver
+                <Key className="h-3 w-3" /> {t('Approver')}
               </span>
             )}
           </div>
@@ -56,13 +58,13 @@ const UserList = () => {
     col.accessor('role', {
       header: 'Role',
       size: 130,
-      cell: (i) => <Badge variant={ROLE_COLORS[i.getValue()]}>{ROLE_LABELS[i.getValue()]}</Badge>,
+      cell: (i) => <Badge variant={ROLE_COLORS[i.getValue()]}>{t(ROLE_LABELS[i.getValue()])}</Badge>,
     }),
     col.accessor('departments', {
       header: 'Departments',
       cell: (i) => {
         const depts = i.getValue();
-        if (!depts?.length) return <span className="text-gray-400">All</span>;
+        if (!depts?.length) return <span className="text-gray-400">{t('All')}</span>;
         return depts.map((d) => d.code || d).join(', ');
       },
     }),
@@ -79,7 +81,7 @@ const UserList = () => {
       cell: ({ row }) => {
         const wa  = row.original.whatsappAlertsEnabled;
         const sms = row.original.smsAlertsEnabled;
-        if (!wa && !sms) return <span className="text-xs text-gray-400">None</span>;
+        if (!wa && !sms) return <span className="text-xs text-gray-400">{t('None')}</span>;
         return (
           <div className="flex items-center gap-1.5">
             {wa  && <span className="flex items-center gap-1 text-xs font-medium text-green-600 bg-green-50 px-1.5 py-0.5 rounded"><MessageCircle className="h-3 w-3" />WA</span>}
@@ -109,14 +111,14 @@ const UserList = () => {
         title="Users"
         subtitle="Manage staff accounts and roles"
         breadcrumbs={[{ label: 'Admin' }, { label: 'Users' }]}
-        actions={can('users:write') && <Link to="/admin/users/new" className="btn-primary"><Plus className="h-4 w-4" /> Add User</Link>}
+        actions={can('users:write') && <Link to="/admin/users/new" className="btn-primary"><Plus className="h-4 w-4" /> {t('Add User')}</Link>}
       />
       <DataTable columns={columns} data={users} loading={isLoading} />
 
-      <Modal open={!!resetTarget} onClose={() => setResetTarget(null)} title={`Reset Password — ${resetTarget?.name}`} size="sm">
+      <Modal open={!!resetTarget} onClose={() => setResetTarget(null)} title={t('Reset Password — {name}', { name: resetTarget?.name })} size="sm">
         <form onSubmit={handleSubmit(({ newPassword }) => resetMut.mutate({ id: resetTarget._id, newPassword }))} className="space-y-4">
-          <FormField label="New Password" required error={errors.newPassword?.message}>
-            <input type="password" {...register('newPassword', { required: true, minLength: { value: 6, message: 'Min 6 characters' } })} className="input" />
+          <FormField label={t('New Password')} required error={errors.newPassword?.message}>
+            <input type="password" {...register('newPassword', { required: true, minLength: { value: 6, message: t('Min 6 characters') } })} className="input" />
           </FormField>
           <FormActions onCancel={() => setResetTarget(null)} loading={resetMut.isPending} submitLabel="Reset Password" />
         </form>

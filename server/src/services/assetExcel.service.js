@@ -1,8 +1,8 @@
 import ExcelJS from 'exceljs';
 import { localDateStr } from '../utils/dates.js';
+import { temple } from './temple.service.js';
 
 const HEADER_FILL  = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF7C3AED' } }; // purple
-const SECTION_FILL = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFEDE9FE' } };
 const BORDER       = { top: { style: 'thin' }, bottom: { style: 'thin' }, left: { style: 'thin' }, right: { style: 'thin' } };
 
 const STATUS_LABELS = { approved: 'Approved', checked_out: 'Checked Out', returned: 'Returned', overdue: 'Overdue', cancelled: 'Cancelled' };
@@ -25,7 +25,7 @@ function headerRow(sheet, values) {
 
 export async function generateAssetReportExcel(res, { transactions, utilizationData, from, to }) {
   const wb = new ExcelJS.Workbook();
-  wb.creator = 'Mangal Grah Mandir';
+  wb.creator = temple().name;
   wb.created = new Date();
 
   const rangeLabel = from || to
@@ -56,7 +56,7 @@ export async function generateAssetReportExcel(res, { transactions, utilizationD
   // Title
   txnSheet.mergeCells('A1:P1');
   const t1 = txnSheet.getCell('A1');
-  t1.value     = 'Mangal Grah Mandir – Asset Borrow Transactions';
+  t1.value     = `${temple().name} – Asset Borrow Transactions`;
   t1.font      = { bold: true, size: 13, color: { argb: 'FF7C3AED' } };
   t1.alignment = { horizontal: 'center' };
   txnSheet.getRow(1).height = 24;

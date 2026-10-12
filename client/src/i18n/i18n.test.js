@@ -11,6 +11,10 @@ import bookingRegister from './mr/bookingRegister.js';
 import bookingSetup from './mr/bookingSetup.js';
 import bookingFix from './mr/bookingFix.js';
 import bookingShift from './mr/bookingShift.js';
+import bookingCheckIn from './mr/bookingCheckIn.js';
+import admin from './mr/admin.js';
+import assets from './mr/assets.js';
+import finance from './mr/finance.js';
 import { navConfig, QUICK_ACTIONS, MOBILE_TABS } from '../components/Layout/navConfig.js';
 
 describe('translate', () => {
@@ -46,7 +50,7 @@ describe('translate', () => {
 });
 
 describe('Marathi dictionaries', () => {
-  const all = [common, mahaprasad, stock, dashboard, attendance, salary, booking, bookingRegister, bookingSetup, bookingFix, bookingShift];
+  const all = [common, mahaprasad, stock, dashboard, attendance, salary, booking, bookingRegister, bookingSetup, bookingFix, bookingShift, bookingCheckIn, admin, assets, finance];
 
   it('translate every menu, tab and quick-action label', () => {
     const labels = [

@@ -21,6 +21,12 @@ describe('resolveScan', () => {
     expect(await resolveScan(`https://localhost/assets/${id}/history`)).toEqual({ to: `/assets/${id}/history` });
   });
 
+  it('sends booking slips to hall check-in, or to the receipt for others', async () => {
+    const url = 'https://mandir.aumora.io/r/AbCdEfGh12345678';
+    expect(await resolveScan(url, { canCheckIn: true })).toEqual({ to: '/bookings/check-in?code=AbCdEfGh12345678' });
+    expect(await resolveScan(url)).toEqual({ to: '/r/AbCdEfGh12345678' });
+  });
+
   it('rejects other links', async () => {
     expect((await resolveScan('https://example.com/promo')).error).toMatch(/not from Mangal Grah Mandir/);
   });

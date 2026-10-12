@@ -5,6 +5,7 @@ import { getSupplierAging } from '../../api/supplierPayment.api.js';
 import PageHeader from '../../components/ui/PageHeader.jsx';
 import { PageLoader } from '../../components/ui/Spinner.jsx';
 import MobileCard from '../../components/ui/MobileCard.jsx';
+import { useT } from '../../i18n/index.jsx';
 
 const fmtAmt = (n) =>
   n > 0
@@ -37,12 +38,13 @@ function AgingBar({ row }) {
 }
 
 function SummaryCard({ bucket, value }) {
+  const t = useT();
   const Icon = bucket.icon;
   return (
     <div className={`rounded-xl border border-gray-100 px-3 sm:px-4 py-3 flex items-center gap-3 last:col-span-2 sm:last:col-span-1 ${bucket.bg}`}>
       <Icon className={`h-5 w-5 shrink-0 ${bucket.color}`} />
       <div>
-        <p className="text-xs text-gray-500">{bucket.label}</p>
+        <p className="text-xs text-gray-500">{t(bucket.label)}</p>
         <p className={`text-base font-bold ${value > 0 ? bucket.color : 'text-gray-300'}`}>{fmtAmt(value)}</p>
       </div>
     </div>
@@ -50,6 +52,7 @@ function SummaryCard({ bucket, value }) {
 }
 
 export default function SupplierAgingReport() {
+  const t = useT();
   const navigate = useNavigate();
   const { data, isLoading } = useQuery({
     queryKey: ['supplier-aging'],
@@ -82,7 +85,7 @@ export default function SupplierAgingReport() {
       {/* Total outstanding highlight */}
       {grandTotal.total > 0 && (
         <div className="bg-white rounded-xl border border-gray-100 px-4 sm:px-5 py-3 flex items-center justify-between gap-3">
-          <span className="text-sm font-semibold text-gray-600">Total Outstanding <span className="hidden sm:inline">(all suppliers)</span></span>
+          <span className="text-sm font-semibold text-gray-600">{t('Total Outstanding')} <span className="hidden sm:inline">{t('(all suppliers)')}</span></span>
           <span className="text-xl font-black text-primary-600">{fmtAmt(grandTotal.total)}</span>
         </div>
       )}
@@ -90,7 +93,7 @@ export default function SupplierAgingReport() {
       {/* Per-supplier table */}
       {rows.length === 0 ? (
         <div className="bg-white rounded-xl border border-gray-100 p-10 text-center text-gray-400 text-sm">
-          No outstanding balances found.
+          {t('No outstanding balances found.')}
         </div>
       ) : (
         <>
@@ -122,13 +125,13 @@ export default function SupplierAgingReport() {
             <table className="min-w-full">
               <thead>
                 <tr className="bg-gray-50">
-                  <th className="table-th text-left">Supplier</th>
+                  <th className="table-th text-left">{t('Supplier')}</th>
                   {BUCKETS.map((b) => (
-                    <th key={b.key} className="table-th text-right" title={b.hint}>
-                      {b.label}
+                    <th key={b.key} className="table-th text-right" title={t(b.hint)}>
+                      {t(b.label)}
                     </th>
                   ))}
-                  <th className="table-th text-right">Total Outstanding</th>
+                  <th className="table-th text-right">{t('Total Outstanding')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
@@ -162,7 +165,7 @@ export default function SupplierAgingReport() {
               {/* Grand total footer */}
               <tfoot>
                 <tr className="bg-gray-50 font-bold border-t-2 border-gray-200">
-                  <td className="table-td text-sm">Grand Total</td>
+                  <td className="table-td text-sm">{t('Grand Total')}</td>
                   <td className="table-td text-right text-sm text-green-700">{fmtAmt(grandTotal.current)}</td>
                   <td className="table-td text-right text-sm text-yellow-700">{fmtAmt(grandTotal.d0_30)}</td>
                   <td className="table-td text-right text-sm text-orange-700">{fmtAmt(grandTotal.d31_60)}</td>

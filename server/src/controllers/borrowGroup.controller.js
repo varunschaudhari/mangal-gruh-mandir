@@ -186,7 +186,7 @@ export const checkoutGroup = asyncHandler(async (req, res) => {
     { $set: { status: 'checked_out', checkedOutAt: new Date(), conditionAtCheckout } }
   );
 
-  const newStatus = await recomputeGroupStatus(group._id);
+  await recomputeGroupStatus(group._id);
   const [populatedGroup, transactions] = await Promise.all([
     BorrowGroup.findById(group._id).populate(GROUP_POPULATE),
     AssetTransaction.find({ group: group._id }).populate(TXN_POPULATE),

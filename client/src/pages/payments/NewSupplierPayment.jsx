@@ -364,8 +364,8 @@ export default function NewSupplierPayment() {
                         </p>
                         {acc.bankName && acc.label && <p className="text-xs text-gray-500">{acc.bankName}</p>}
                         {acc.accountNumber && <p className="text-xs font-mono text-gray-500">{t('A/C: {number}', { number: acc.accountNumber })}</p>}
-                        {acc.ifscCode && <p className="text-xs font-mono text-gray-400">IFSC: {acc.ifscCode}</p>}
-                        {acc.upiId && <p className="text-xs font-mono text-gray-400">UPI: {acc.upiId}</p>}
+                        {acc.ifscCode && <p className="text-xs font-mono text-gray-400">{t('IFSC:')} {acc.ifscCode}</p>}
+                        {acc.upiId && <p className="text-xs font-mono text-gray-400">{t('UPI:')} {acc.upiId}</p>}
                       </div>
                     </label>
                   );
@@ -461,7 +461,7 @@ export default function NewSupplierPayment() {
                     </div>
                     <div className="col-span-1 sm:col-span-3">
                       <label className="block text-xs text-gray-500 mb-1">{t('Invoice No.')}</label>
-                      <input {...register(`invoices.${idx}.invoiceNumber`)} className="input text-sm font-mono" placeholder="INV-001" />
+                      <input {...register(`invoices.${idx}.invoiceNumber`)} className="input text-sm font-mono" placeholder={t('INV-001')} />
                     </div>
                     <div className="col-span-1 sm:col-span-2">
                       <label className="block text-xs text-gray-500 mb-1">{t('Invoice Date')}</label>

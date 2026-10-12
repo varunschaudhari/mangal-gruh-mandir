@@ -72,6 +72,12 @@ const bookingSchema = new mongoose.Schema(
     whatsappSentAt: { type: Date },
     smsSentAt:      { type: Date },
 
+    // Hall check-in: the slip's QR scanned at the hall, or marked by hand. checkInOverride says why
+    // staff let the devotee in anyway (batch already over, came to another hall).
+    checkedInAt:     { type: Date },
+    checkedInBy:     { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    checkInOverride: { type: String, default: '' },
+
     history:   { type: [historySchema], default: [] },
     // The counter shift this booking was handed over in (set when the shift is closed).
     shift:     { type: mongoose.Schema.Types.ObjectId, ref: 'BookingShift', default: null },

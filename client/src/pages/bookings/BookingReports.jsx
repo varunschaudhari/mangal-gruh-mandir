@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import {
@@ -7,8 +7,9 @@ import {
 } from 'recharts';
 import {
   CalendarCheck, IndianRupee, Banknote, Smartphone, CreditCard, Users, Ban, Globe, FileText, FileSpreadsheet,
-  BarChart3, CalendarDays, CalendarRange, Sparkles, Wallet, UserRound, ListOrdered,
+  BarChart3, CalendarDays, CalendarRange, Sparkles, Wallet, UserRound, ListOrdered, UserCheck,
 } from 'lucide-react';
+import AttendanceReport from '../../components/booking/reports/AttendanceReport.jsx';
 import PageHeader from '../../components/ui/PageHeader.jsx';
 import Spinner, { PageLoader } from '../../components/ui/Spinner.jsx';
 import { exportBookingsExcel, getBookingOptions, getBookingSummary, getBookingSummaryPdf } from '../../api/booking.api.js';
@@ -139,6 +140,9 @@ export default function BookingReports() {
   const isMobile = useIsMobile();
   const navigate = useNavigate();
   const today = localDateStr();
+  // Two reports: collections (by the day paid) and attendance — fill rate and no-shows (by puja date).
+  const [searchParams, setSearchParams] = useSearchParams();
+  const view = searchParams.get('view') === 'attendance' ? 'attendance' : 'money';
 
   const [preset, setPreset] = useState('month');
   const [custom, setCustom] = useState(() => presetRange('month'));
@@ -167,6 +171,7 @@ export default function BookingReports() {
     queryFn: () => getBookingSummary(params),
     select: (r) => r.data.data,
     placeholderData: keepPreviousData,
+    enabled: view === 'money',
   });
 
   const daily = useMemo(() => fillDays(data?.daily || [], range.from, range.to, today), [data, range.from, range.to, today]);
@@ -218,6 +223,28 @@ export default function BookingReports() {
   const modeRows = [...MODES.filter((m) => byMode[m]), ...Object.keys(byMode).filter((m) => !MODES.includes(m))]
     .map((m) => ({ mode: m, ...byMode[m] }));
 
+  const tabs = (
+    <div role="tablist" aria-label={t('Report')} className="card grid grid-cols-2 gap-1 p-1 sm:inline-grid sm:w-auto">
+      {[['money', 'Collections', IndianRupee], ['attendance', 'Attendance', UserCheck]].map(([key, label, Icon]) => (
+        <button key={key} type="button" role="tab" aria-selected={view === key}
+          onClick={() => { haptics.select(); setSearchParams(key === 'money' ? {} : { view: key }, { replace: true }); }}
+          className={`flex min-h-[40px] items-center justify-center gap-2 rounded-lg px-4 text-sm font-medium transition-colors ${view === key ? 'bg-primary-600 text-white shadow-sm' : 'text-gray-600 hover:bg-gray-50'}`}>
+          <Icon className="h-4 w-4" /> {t(label)}
+        </button>
+      ))}
+    </div>
+  );
+
+  if (view === 'attendance') {
+    return (
+      <div className="space-y-4">
+        <PageHeader title="Booking Reports" subtitle="Fill rate and no-shows" breadcrumbs={[{ label: 'Pooja Booking' }, { label: 'Booking Reports' }]} />
+        {tabs}
+        <AttendanceReport />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-4">
       <PageHeader
@@ -235,6 +262,8 @@ export default function BookingReports() {
           </>
         )}
       />
+
+      {tabs}
 
       {/* ── Period and filters ─────────────────────────────────────────────── */}
       <div className="card space-y-3 p-3 sm:p-4">

@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { useAuth } from '../../context/AuthContext.jsx';
 import toast from 'react-hot-toast';
 import { useT, LanguageSwitch } from '../../i18n/index.jsx';
+import { useTemple } from '../../utils/temple.js';
 
 const Login = () => {
   const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm();
@@ -12,6 +13,7 @@ const Login = () => {
   const navigate = useNavigate();
   const [showPwd, setShowPwd] = useState(false);
   const t = useT();
+  const { name: templeName } = useTemple();
 
   const onSubmit = async ({ email, password }) => {
     try {
@@ -36,7 +38,7 @@ const Login = () => {
           <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-2xl bg-white p-2 shadow-lg">
             <img src="/logo.png" alt="" className="h-full w-full object-contain" />
           </div>
-          <h1 className="text-2xl font-bold text-gray-900">{t('Mangal Grah Mandir')}</h1>
+          <h1 className="text-2xl font-bold text-gray-900">{t(templeName)}</h1>
           <p className="mt-1 text-sm text-gray-500">{t('Amalner — Stock Management')}</p>
         </div>
 
@@ -90,7 +92,7 @@ const Login = () => {
         </div>
 
         <p className="mt-4 text-center text-xs text-gray-400">
-          {t('Mangal Grah Mandir · Stock Management System')}
+          {t('{temple} · Stock Management System', { temple: t(templeName) })}
         </p>
       </div>
     </div>

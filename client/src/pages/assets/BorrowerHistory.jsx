@@ -6,6 +6,7 @@ import { getAssetTransactions } from '../../api/assetTransaction.api.js';
 import DataTable from '../../components/ui/DataTable.jsx';
 import Badge from '../../components/ui/Badge.jsx';
 import { useSetAppBarTitle } from '../../components/Layout/AppBarContext.jsx';
+import { useT } from '../../i18n/index.jsx';
 
 const STATUS_COLORS = { approved: 'blue', checked_out: 'green', returned: 'gray', overdue: 'red', cancelled: 'gray' };
 const STATUS_LABELS = { approved: 'Approved', checked_out: 'Checked Out', returned: 'Returned', overdue: 'Overdue', cancelled: 'Cancelled' };
@@ -14,6 +15,7 @@ const col = createColumnHelper();
 const fmt = (d) => d ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
 
 const BorrowerHistory = () => {
+  const t = useT();
   useSetAppBarTitle('Borrower History');
   const { userId }   = useParams();
   const navigate     = useNavigate();
@@ -33,11 +35,11 @@ const BorrowerHistory = () => {
 
   // Stats
   const total     = txns.length;
-  const returned  = txns.filter((t) => t.status === 'returned').length;
-  const active    = txns.filter((t) => ['approved', 'checked_out', 'overdue'].includes(t.status)).length;
-  const overdue   = txns.filter((t) => t.status === 'overdue').length;
-  const late      = txns.filter((t) => t.status === 'returned' && t.lateDays > 0).length;
-  const damaged   = txns.filter((t) => t.conditionAtReturn === 'damaged').length;
+  const returned  = txns.filter((txn) => txn.status === 'returned').length;
+  const active    = txns.filter((txn) => ['approved', 'checked_out', 'overdue'].includes(txn.status)).length;
+  const overdue   = txns.filter((txn) => txn.status === 'overdue').length;
+  const late      = txns.filter((txn) => txn.status === 'returned' && txn.lateDays > 0).length;
+  const damaged   = txns.filter((txn) => txn.conditionAtReturn === 'damaged').length;
 
   const columns = [
     col.accessor('transactionNumber', {
@@ -95,7 +97,7 @@ const BorrowerHistory = () => {
     <div className="space-y-5 max-w-5xl">
       <button onClick={() => navigate(-1)}
         className="inline-flex items-center gap-1.5 text-sm text-gray-400 hover:text-gray-700 transition-colors">
-        <ArrowLeft className="h-4 w-4" /> Back
+        <ArrowLeft className="h-4 w-4" /> {t('Back')}
       </button>
 
       {/* Header */}
@@ -105,23 +107,23 @@ const BorrowerHistory = () => {
         </div>
         <div>
           <h1 className="text-xl font-bold text-gray-900">{borrowerName}</h1>
-          <p className="text-sm text-gray-400">Borrow History</p>
+          <p className="text-sm text-gray-400">{t('Borrow History')}</p>
         </div>
       </div>
 
       {/* Stats strip */}
       <div className="bg-white rounded-xl border border-gray-100 grid grid-cols-3 sm:grid-cols-6 divide-x divide-gray-100 overflow-hidden">
         {[
-          { label: 'Total Borrows',    value: total,    icon: Package,       color: 'text-gray-700' },
-          { label: 'Returned',         value: returned, icon: CheckCircle2,  color: 'text-green-600' },
-          { label: 'Currently Active', value: active,   icon: Clock,         color: 'text-blue-600' },
-          { label: 'Overdue Now',      value: overdue,  icon: AlertTriangle, color: 'text-red-600' },
-          { label: 'Late Returns',     value: late,     icon: AlertTriangle, color: 'text-amber-600' },
-          { label: 'Damaged Items',    value: damaged,  icon: XCircle,       color: 'text-red-600' },
+          { label: t('Total Borrows'),    value: total,    icon: Package,       color: 'text-gray-700' },
+          { label: t('Returned'),         value: returned, icon: CheckCircle2,  color: 'text-green-600' },
+          { label: t('Currently Active'), value: active,   icon: Clock,         color: 'text-blue-600' },
+          { label: t('Overdue Now'),      value: overdue,  icon: AlertTriangle, color: 'text-red-600' },
+          { label: t('Late Returns'),     value: late,     icon: AlertTriangle, color: 'text-amber-600' },
+          { label: t('Damaged Items'),    value: damaged,  icon: XCircle,       color: 'text-red-600' },
         ].map(({ label, value, icon: Icon, color }) => (
           <div key={label} className="px-4 py-3 text-center">
             <p className={`text-xl font-black ${color}`}>{value}</p>
-            <p className="text-xs text-gray-400 mt-0.5">{label}</p>
+            <p className="text-xs text-gray-400 mt-0.5">{t(label)}</p>
           </div>
         ))}
       </div>

@@ -1,4 +1,5 @@
 import ExcelJS from 'exceljs';
+import { temple } from './temple.service.js';
 
 const PM_LABELS     = { cash: 'Cash', upi: 'UPI', neft: 'NEFT', rtgs: 'RTGS', cheque: 'Cheque' };
 const STATUS_LABELS = { pending_approval: 'Pending', approved: 'Approved', rejected: 'Rejected' };
@@ -26,7 +27,7 @@ function setHeaderRow(sheet, values) {
 
 export async function generatePaymentExcel(res, { payments, from, to }) {
   const wb  = new ExcelJS.Workbook();
-  wb.creator = 'Mangal Grah Mandir';
+  wb.creator = temple().name;
   wb.created = new Date();
 
   const sheet = wb.addWorksheet('Payments');
@@ -50,7 +51,7 @@ export async function generatePaymentExcel(res, { payments, from, to }) {
   // Title
   sheet.mergeCells('A1:M1');
   const titleCell = sheet.getCell('A1');
-  titleCell.value = 'Mangal Grah Mandir – Payment Register';
+  titleCell.value = `${temple().name} – Payment Register`;
   titleCell.font  = { bold: true, size: 14, color: { argb: 'FFEA580C' } };
   titleCell.alignment = { horizontal: 'center' };
   sheet.getRow(1).height = 28;

@@ -1,6 +1,7 @@
 import QRCode from 'qrcode/lib/browser.js';
 import { printHtml } from './printHtml.js';
 import { isNative } from './platform.js';
+import { templeHtml } from './temple.js';
 
 // Shelf / bin labels for products: name, code and a QR of the product code. Scanning one
 // in the app picks the product in stock forms, or opens it from the app bar scanner.
@@ -22,7 +23,7 @@ export async function printProductLabels(products, { title = 'Product Labels' } 
   const stickers = products.map((p, i) => `
     <div class="sticker">
       <div class="s-left">
-        <div class="s-temple">Mangal Grah Mandir</div>
+        <div class="s-temple">${templeHtml()}</div>
         <div class="s-name">${esc(p.name)}</div>
         <div class="s-code">${esc(p.code)}</div>
         <div class="s-meta">${esc([p.category?.name, p.unit?.symbol].filter(Boolean).join(' · '))}</div>
@@ -34,7 +35,7 @@ export async function printProductLabels(products, { title = 'Product Labels' } 
 <html>
 <head>
   <meta charset="utf-8" />
-  <title>${esc(title)} — Mangal Grah Mandir</title>
+  <title>${esc(title)} — ${templeHtml()}</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: Arial, sans-serif; background: #fff; }

@@ -11,6 +11,7 @@ import SearchableSelect from '../../components/ui/SearchableSelect.jsx';
 import PageHeader from '../../components/ui/PageHeader.jsx';
 import toast from 'react-hot-toast';
 import { localDateStr } from '../../utils/formatters.js';
+import { useT } from '../../i18n/index.jsx';
 
 const ID_PROOF_LABELS = {
   aadhar:          'Aadhar Card',
@@ -20,19 +21,23 @@ const ID_PROOF_LABELS = {
   passport:        'Passport',
 };
 
-const Field = ({ label, required, error, hint, children }) => (
+const Field = ({ label, required, error, hint, children }) => {
+  const t = useT();
+  return (
   <div>
     <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">
-      {label} {required && <span className="text-red-400">*</span>}
+      {t(label)} {required && <span className="text-red-400">*</span>}
     </label>
     {children}
-    {hint  && !error && <p className="mt-1 text-xs text-gray-400">{hint}</p>}
+    {hint  && !error && <p className="mt-1 text-xs text-gray-400">{t(hint)}</p>}
     {error && <p className="mt-1 text-xs text-red-500">{error}</p>}
   </div>
 );
+};
 
 // ── Per-item availability indicator ──────────────────────────────────────────
 const AvailabilityHint = ({ assetId, returnDate }) => {
+  const t = useT();
   const dAsset  = useDebounce(assetId, 400);
   const dReturn = useDebounce(returnDate, 400);
 
@@ -48,13 +53,14 @@ const AvailabilityHint = ({ assetId, returnDate }) => {
   return (
     <p className={`mt-1 text-xs flex items-center gap-1 ${av.available === 0 ? 'text-red-600' : 'text-green-700'}`}>
       <Info className="h-3.5 w-3.5 shrink-0" />
-      {av.available} of {av.totalQuantity} unit(s) available
+      {av.available} {t('of')} {av.totalQuantity} {t('unit(s) available')}
     </p>
   );
 };
 
 // ── Main Form ─────────────────────────────────────────────────────────────────
 const NewBorrowRequest = () => {
+  const t = useT();
   const navigate = useNavigate();
   const qc       = useQueryClient();
 
@@ -97,12 +103,12 @@ const NewBorrowRequest = () => {
   const mutation = useMutation({
     mutationFn: createBorrowGroup,
     onSuccess: (res) => {
-      toast.success(`Borrow group created — ${res.data?.data?.transactions?.length || 1} item(s)`);
+      toast.success(t('Borrow group created — {n} item(s)', { n: res.data?.data?.transactions?.length || 1 }));
       qc.invalidateQueries({ queryKey: ['asset-transactions'] });
       qc.invalidateQueries({ queryKey: ['borrow-groups'] });
       navigate('/assets/borrows');
     },
-    onError: (err) => toast.error(err.response?.data?.message || 'Failed'),
+    onError: (err) => toast.error(err.response?.data?.message || t('Failed')),
   });
 
   const onSubmit = (data) => {
@@ -143,17 +149,17 @@ const NewBorrowRequest = () => {
         <div className="rounded-xl border border-gray-100 overflow-hidden">
           <div className="flex items-center gap-3 px-5 py-4 border-b bg-purple-50">
             <User className="h-5 w-5 text-purple-600" />
-            <p className="text-sm font-semibold text-gray-800">Borrow Details</p>
+            <p className="text-sm font-semibold text-gray-800">{t('Borrow Details')}</p>
           </div>
           <div className="p-5 bg-white space-y-4">
 
             {/* ── Borrower type toggle ── */}
             <div>
-              <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-2">Borrower Type</label>
+              <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-2">{t('Borrower Type')}</label>
               <div className="flex gap-2">
                 {[
-                  { value: 'staff',    label: 'Staff Member', Icon: User },
-                  { value: 'external', label: 'External Person', Icon: Users },
+                  { value: 'staff',    label: t('Staff Member'), Icon: User },
+                  { value: 'external', label: t('External Person'), Icon: Users },
                 ].map(({ value, label, Icon }) => (
                   <label
                     key={value}
@@ -164,7 +170,7 @@ const NewBorrowRequest = () => {
                   >
                     <input type="radio" value={value} {...register('borrowerType')} className="sr-only" />
                     <Icon className="h-4 w-4" />
-                    {label}
+                    {t(label)}
                   </label>
                 ))}
               </div>
@@ -172,7 +178,7 @@ const NewBorrowRequest = () => {
 
             {/* ── Staff borrower dropdown ── */}
             {!isExternal && (
-              <Field label="Staff Member" required error={errors.borrower?.message}>
+              <Field label={t('Staff Member')} required error={errors.borrower?.message}>
                 <Controller
                   name="borrower"
                   control={control}
@@ -182,7 +188,7 @@ const NewBorrowRequest = () => {
                       value={field.value || ''}
                       onChange={field.onChange}
                       options={users.map((u) => ({ value: u._id, label: u.name }))}
-                      placeholder="— Select staff member —"
+                      placeholder={t('— Select staff member —')}
                       error={errors.borrower?.message}
                     />
                   )}
@@ -193,27 +199,27 @@ const NewBorrowRequest = () => {
             {/* ── External borrower fields ── */}
             {isExternal && (
               <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 space-y-3">
-                <p className="text-xs font-semibold text-amber-800 uppercase tracking-wide">External Borrower Details</p>
+                <p className="text-xs font-semibold text-amber-800 uppercase tracking-wide">{t('External Borrower Details')}</p>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <Field label="Full Name" required error={errors.extName?.message}>
+                  <Field label={t('Full Name')} required error={errors.extName?.message}>
                     <div className="relative">
                       <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-300" />
                       <input
                         type="text"
-                        placeholder="Full name"
+                        placeholder={t('Full name')}
                         {...register('extName', { validate: (v) => isExternal ? (v?.trim() ? true : 'Name is required') : true })}
                         className="input pl-9"
                       />
                     </div>
                   </Field>
 
-                  <Field label="Phone" required error={errors.extPhone?.message}>
+                  <Field label={t('Phone')} required error={errors.extPhone?.message}>
                     <div className="relative">
                       <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-300" />
                       <input
                         type="tel"
-                        placeholder="Mobile number"
+                        placeholder={t('Mobile number')}
                         {...register('extPhone', { validate: (v) => isExternal ? (v?.trim() ? true : 'Phone is required') : true })}
                         className="input pl-9"
                       />
@@ -221,11 +227,11 @@ const NewBorrowRequest = () => {
                   </Field>
                 </div>
 
-                <Field label="Address" error={errors.extAddress?.message}>
+                <Field label={t('Address')} error={errors.extAddress?.message}>
                   <div className="relative">
                     <MapPin className="absolute left-3 top-2.5 h-4 w-4 text-gray-300" />
                     <textarea
-                      placeholder="Residential address"
+                      placeholder={t('Residential address')}
                       {...register('extAddress')}
                       className="input pl-9"
                       rows={2}
@@ -234,11 +240,11 @@ const NewBorrowRequest = () => {
                 </Field>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <Field label="ID Proof Type" error={errors.extIdType?.message}>
+                  <Field label={t('ID Proof Type')} error={errors.extIdType?.message}>
                     <div className="relative">
                       <CreditCard className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-300" />
                       <select {...register('extIdType')} className="input pl-9">
-                        <option value="">— Select type —</option>
+                        <option value="">{t('— Select type —')}</option>
                         {Object.entries(ID_PROOF_LABELS).map(([v, l]) => (
                           <option key={v} value={v}>{l}</option>
                         ))}
@@ -246,10 +252,10 @@ const NewBorrowRequest = () => {
                     </div>
                   </Field>
 
-                  <Field label="ID Number" error={errors.extIdNumber?.message} hint="E.g. Aadhar / PAN number">
+                  <Field label={t('ID Number')} error={errors.extIdNumber?.message} hint={t('E.g. Aadhar / PAN number')}>
                     <input
                       type="text"
-                      placeholder="Proof number"
+                      placeholder={t('Proof number')}
                       {...register('extIdNumber')}
                       className="input"
                     />
@@ -259,7 +265,7 @@ const NewBorrowRequest = () => {
             )}
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <Field label="Expected Return Date" required error={errors.expectedReturnDate?.message} hint={`Max ${maxDays} days from today`}>
+              <Field label={t('Expected Return Date')} required error={errors.expectedReturnDate?.message} hint={t('Max {n} days from today', { n: maxDays })}>
                 <div className="relative">
                   <CalendarDays className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-300" />
                   <input type="date" min={today} max={maxDateStr}
@@ -267,7 +273,7 @@ const NewBorrowRequest = () => {
                     className="input pl-9" />
                 </div>
               </Field>
-              <Field label="Approved By (Trustee)" required error={errors.approvedBy?.message} hint="Phone approval already received">
+              <Field label={t('Approved By (Trustee)')} required error={errors.approvedBy?.message} hint={t('Phone approval already received')}>
                 <Controller
                   name="approvedBy"
                   control={control}
@@ -277,19 +283,19 @@ const NewBorrowRequest = () => {
                       value={field.value || ''}
                       onChange={field.onChange}
                       options={approvers.map((u) => ({ value: u._id, label: u.name }))}
-                      placeholder="— Select trustee —"
+                      placeholder={t('— Select trustee —')}
                       error={errors.approvedBy?.message}
                     />
                   )}
                 />
                 {approvers.length === 0 && (
-                  <p className="mt-1 text-xs text-amber-600">No approvers configured. Enable "Can Approve Assets" on trustee accounts.</p>
+                  <p className="mt-1 text-xs text-amber-600">{t('No approvers configured. Enable "Can Approve Assets" on trustee accounts.')}</p>
                 )}
               </Field>
             </div>
 
-            <Field label="Notes">
-              <textarea {...register('notes')} className="input" rows={2} placeholder="Optional — event name, purpose, etc." />
+            <Field label={t('Notes')}>
+              <textarea {...register('notes')} className="input" rows={2} placeholder={t('Optional — event name, purpose, etc.')} />
             </Field>
 
           </div>
@@ -300,12 +306,12 @@ const NewBorrowRequest = () => {
           <div className="flex items-center justify-between px-5 py-4 border-b bg-green-50">
             <div className="flex items-center gap-3">
               <Package className="h-5 w-5 text-green-600" />
-              <p className="text-sm font-semibold text-gray-800">Items to Borrow</p>
-              <span className="text-xs text-gray-500 bg-white rounded-full px-2 py-0.5 border">{fields.length} item{fields.length > 1 ? 's' : ''}</span>
+              <p className="text-sm font-semibold text-gray-800">{t('Items to Borrow')}</p>
+              <span className="text-xs text-gray-500 bg-white rounded-full px-2 py-0.5 border">{fields.length} {t('item')}{fields.length > 1 ? 's' : ''}</span>
             </div>
             <button type="button" onClick={() => append({ asset: '', quantity: 1 })}
               className="flex items-center gap-1.5 text-xs font-semibold text-green-700 hover:text-green-900 transition-colors">
-              <Plus className="h-3.5 w-3.5" /> Add Item
+              <Plus className="h-3.5 w-3.5" /> {t('Add Item')}
             </button>
           </div>
 
@@ -315,7 +321,7 @@ const NewBorrowRequest = () => {
               return (
                 <div key={field.id} className="p-5 space-y-3">
                   <div className="flex items-center justify-between">
-                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Item {index + 1}</p>
+                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">{t('Item')} {index + 1}</p>
                     {fields.length > 1 && (
                       <button type="button" onClick={() => remove(index)}
                         className="text-gray-400 hover:text-red-500 transition-colors p-1 rounded">
@@ -326,7 +332,7 @@ const NewBorrowRequest = () => {
 
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                     <div className="sm:col-span-2">
-                      <Field label="Asset" required error={errors.items?.[index]?.asset?.message}>
+                      <Field label={t('Asset')} required error={errors.items?.[index]?.asset?.message}>
                         <Controller
                           name={`items.${index}.asset`}
                           control={control}
@@ -336,7 +342,7 @@ const NewBorrowRequest = () => {
                               value={field.value || ''}
                               onChange={field.onChange}
                               options={assets.map((a) => ({ value: a._id, label: a.name, sub: a.category }))}
-                              placeholder="— Select asset —"
+                              placeholder={t('— Select asset —')}
                               error={errors.items?.[index]?.asset?.message}
                             />
                           )}
@@ -345,11 +351,11 @@ const NewBorrowRequest = () => {
                       </Field>
                     </div>
 
-                    <Field label="Qty" required error={errors.items?.[index]?.quantity?.message}>
+                    <Field label={t('Qty')} required error={errors.items?.[index]?.quantity?.message}>
                       <div className="relative">
                         <Hash className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-300" />
                         <input type="number" min="1"
-                          {...register(`items.${index}.quantity`, { required: 'Enter qty', min: { value: 1, message: 'Min 1' }, valueAsNumber: true })}
+                          {...register(`items.${index}.quantity`, { required: 'Enter qty', min: { value: 1, message: t('Min 1') }, valueAsNumber: true })}
                           className="input pl-9" placeholder="1" />
                       </div>
                     </Field>
@@ -362,9 +368,9 @@ const NewBorrowRequest = () => {
 
         <div className="flex items-center gap-3 pt-1">
           <button type="submit" disabled={mutation.isPending} className="btn-primary px-6">
-            {mutation.isPending ? 'Creating…' : `Create Borrow Request (${fields.length} item${fields.length > 1 ? 's' : ''})`}
+            {mutation.isPending ? t('Creating…') : t(fields.length > 1 ? 'Create Borrow Request ({n} items)' : 'Create Borrow Request ({n} item)', { n: fields.length })}
           </button>
-          <button type="button" onClick={() => navigate('/assets/borrows')} className="btn-secondary">Cancel</button>
+          <button type="button" onClick={() => navigate('/assets/borrows')} className="btn-secondary">{t('Cancel')}</button>
         </div>
       </form>
     </div>

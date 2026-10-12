@@ -62,6 +62,8 @@ export default defineConfig(({ mode }) => ({
   ].filter(Boolean),
   server: {
     port: 3000,
+    // /shared (code used by both app and server) sits next to client/
+    fs: { allow: ['..'] },
     proxy: {
       '/api': {
         target: 'http://localhost:5000',

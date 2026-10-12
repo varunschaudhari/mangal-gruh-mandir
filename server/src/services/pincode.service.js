@@ -1,6 +1,7 @@
 import Pincode from '../models/Pincode.js';
 import ApiError from '../utils/ApiError.js';
 import { logger } from '../utils/logger.js';
+import { isPincode } from '../../../shared/address.js';
 
 // PIN code → state, district, city (taluka) and the villages / localities it covers, from India
 // Post's public directory (api.postalpincode.in), cached in the database.
@@ -14,7 +15,7 @@ const KEEP_DAYS = 180;          // refresh a found PIN after this
 const KEEP_MISSING_DAYS = 7;    // retry an unknown PIN after this
 const TIMEOUT_MS = 6000;
 
-export const isPincode = (v) => /^[1-9]\d{5}$/.test(String(v || ''));
+export { isPincode };
 
 const mostCommon = (values) => {
   const counts = new Map();

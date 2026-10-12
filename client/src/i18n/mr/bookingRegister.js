@@ -120,4 +120,17 @@ export default {
   'Counter: {counter} · Online: {online}': 'काउंटर: {counter} · ऑनलाइन: {online}',
   'Voided bookings are not counted: {n} receipts, {amount}.': 'रद्दबातल बुकिंग यात मोजलेली नाहीत: {n} पावत्या, {amount}.',
   'Capacity {n}': 'क्षमता {n}',
+
+  // ── Hall check-in on the day sheet, booking details, public receipt ───────
+  'Checked in': 'हजर',
+  'Check in': 'हजर नोंदवा',
+  'Undo check-in': 'हजेरी रद्द करा',
+  'Check-in undone': 'हजेरी रद्द केली',
+  'Checked in {time}': 'हजर {time}',
+  'Checked in at {time} by {name}': '{time} वाजता हजर — {name} यांनी नोंदवले',
+  '{n} of {total} arrived': '{total} पैकी {n} आले',
+  'Let in anyway: batch was over': 'बॅच संपली होती तरी आत सोडले',
+  'Let in anyway: came to another hall': 'दुसऱ्या हॉलमध्ये आले तरी आत सोडले',
+  'Checked in at the hall': 'हॉलमध्ये हजर',
+  'Not arrived yet': 'अजून आले नाहीत',
 };

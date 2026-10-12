@@ -1,4 +1,5 @@
 import PDFDocument from 'pdfkit';
+import { temple } from './temple.service.js';
 
 const C = {
   green:  '#16a34a',
@@ -23,7 +24,7 @@ function drawLine(doc, x1, y, x2, color = C.border) {
   doc.moveTo(x1, y).lineTo(x2, y).strokeColor(color).lineWidth(0.5).stroke();
 }
 
-export function generatePnLReport(res, { data, templeName = 'Mangal Grah Mandir, Amalner' }) {
+export function generatePnLReport(res, { data, templeName = temple().name }) {
   const { year, month, income, expenses, net } = data;
   const doc    = new PDFDocument({ size: 'A4', margin: 50, bufferPages: true });
   const period = `${MONTH_NAMES[month]} ${year}`;

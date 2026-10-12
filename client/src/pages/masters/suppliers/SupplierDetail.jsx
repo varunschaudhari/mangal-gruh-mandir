@@ -9,6 +9,7 @@ import Badge from '../../../components/ui/Badge.jsx';
 import { usePermissions } from '../../../hooks/usePermissions.js';
 import { useSetAppBarTitle } from '../../../components/Layout/AppBarContext.jsx';
 import { formatAddress } from '../../../utils/address.js';
+import { useT } from '../../../i18n/index.jsx';
 
 const fmt     = (d)  => d ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
 const fmtAmt  = (n)  => n != null ? `₹${Number(n).toLocaleString('en-IN')}` : '—';
@@ -20,6 +21,7 @@ const STATUS_LABELS = { unpaid: 'Unpaid', partially_paid: 'Partial', paid: 'Paid
 const PM_LABELS     = { cash: 'Cash', upi: 'UPI', neft: 'NEFT', rtgs: 'RTGS', cheque: 'Cheque' };
 
 export default function SupplierDetail() {
+  const t = useT();
   useSetAppBarTitle('Supplier');
   const { id }   = useParams();
   const navigate = useNavigate();
@@ -33,7 +35,7 @@ export default function SupplierDetail() {
 
   if (supLoading) return <PageLoader />;
   const supplier = supRes?.data?.data;
-  if (!supplier) return <div className="text-gray-400 p-6">Supplier not found.</div>;
+  if (!supplier) return <div className="text-gray-400 p-6">{t('Supplier not found.')}</div>;
 
   const ost      = ostRes?.data?.data;
   const invoices = invRes?.data?.data || [];
@@ -43,15 +45,15 @@ export default function SupplierDetail() {
     <div className="max-w-4xl space-y-4">
       <button onClick={() => navigate('/masters/suppliers')}
         className="inline-flex items-center gap-1.5 text-sm text-gray-400 hover:text-gray-700 transition-colors">
-        <ArrowLeft className="h-4 w-4" /> Suppliers
+        <ArrowLeft className="h-4 w-4" /> {t('Suppliers')}
       </button>
 
       {/* Header */}
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
           <div className="flex items-center gap-2.5 mb-1">
-            <Badge variant={supplier.isActive ? 'green' : 'gray'}>{supplier.isActive ? 'Active' : 'Inactive'}</Badge>
-            <Badge variant="blue">{supplier.type === 'vendor' ? 'Vendor' : supplier.type === 'donor' ? 'Donor' : 'Vendor + Donor'}</Badge>
+            <Badge variant={supplier.isActive ? 'green' : 'gray'}>{supplier.isActive ? t('Active') : t('Inactive')}</Badge>
+            <Badge variant="blue">{supplier.type === 'vendor' ? t('Vendor') : supplier.type === 'donor' ? t('Donor') : t('Vendor + Donor')}</Badge>
           </div>
           <h1 className="text-xl font-bold text-gray-900">{supplier.name}</h1>
           {supplier.city && <p className="text-sm text-gray-400 mt-0.5">{supplier.city}</p>}
@@ -60,13 +62,13 @@ export default function SupplierDetail() {
           {can('payments:write') && (
             <Link to={`/payments/new?supplier=${id}`}
               className="btn-primary flex items-center gap-2 text-sm">
-              <CreditCard className="h-4 w-4" /> Record Payment
+              <CreditCard className="h-4 w-4" /> {t('Record Payment')}
             </Link>
           )}
           {can('masters:write') && (
             <Link to={`/masters/suppliers/${id}/edit`}
               className="btn-secondary flex items-center gap-2 text-sm">
-              <Edit className="h-4 w-4" /> Edit
+              <Edit className="h-4 w-4" /> {t('Edit')}
             </Link>
           )}
         </div>
@@ -76,13 +78,13 @@ export default function SupplierDetail() {
       {can('payments:read') && ost && (
         <div className="bg-white rounded-xl border border-gray-100 grid grid-cols-3 divide-x divide-gray-100 overflow-hidden">
           {[
-            { label: 'Total Purchased', value: fmtAmt(ost.totalPurchased), color: 'text-gray-800' },
-            { label: 'Total Paid',      value: fmtAmt(ost.totalPaid),      color: 'text-green-600' },
-            { label: 'Outstanding',     value: fmtAmt(ost.outstanding),    color: ost.outstanding > 0 ? 'text-red-600' : 'text-gray-400' },
+            { label: t('Total Purchased'), value: fmtAmt(ost.totalPurchased), color: 'text-gray-800' },
+            { label: t('Total Paid'),      value: fmtAmt(ost.totalPaid),      color: 'text-green-600' },
+            { label: t('Outstanding'),     value: fmtAmt(ost.outstanding),    color: ost.outstanding > 0 ? 'text-red-600' : 'text-gray-400' },
           ].map(({ label, value, color }) => (
             <div key={label} className="px-4 py-3 text-center">
               <p className={`text-xl font-black ${color}`}>{value}</p>
-              <p className="text-xs text-gray-400 mt-0.5">{label}</p>
+              <p className="text-xs text-gray-400 mt-0.5">{t(label)}</p>
             </div>
           ))}
         </div>
@@ -94,11 +96,11 @@ export default function SupplierDetail() {
         <div className="bg-white rounded-xl border border-gray-100 p-4 space-y-2">
           <div className="flex items-center gap-2 mb-1">
             <Building2 className="h-4 w-4 text-gray-400" />
-            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Contact</p>
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">{t('Contact')}</p>
           </div>
           {supplier.contactPerson && (
             <div className="flex items-center gap-2 text-sm">
-              <span className="text-gray-400 w-20 shrink-0">Contact</span>
+              <span className="text-gray-400 w-20 shrink-0">{t('Contact')}</span>
               <span className="text-gray-800">{supplier.contactPerson}</span>
             </div>
           )}
@@ -122,7 +124,7 @@ export default function SupplierDetail() {
           )}
           {supplier.gstin  && <div className="text-sm"><span className="text-gray-400 w-20 inline-block">GSTIN</span> <span className="font-mono text-xs">{supplier.gstin}</span></div>}
           {supplier.panNumber && <div className="text-sm"><span className="text-gray-400 w-20 inline-block">PAN</span> <span className="font-mono text-xs">{supplier.panNumber}</span></div>}
-          {supplier.creditDays > 0 && <div className="text-sm"><span className="text-gray-400 w-20 inline-block">Credit Days</span> <span>{supplier.creditDays} days</span></div>}
+          {supplier.creditDays > 0 && <div className="text-sm"><span className="text-gray-400 w-20 inline-block">{t('Credit Days')}</span> <span>{supplier.creditDays} {t('days')}</span></div>}
         </div>
 
         {/* Bank Accounts */}
@@ -130,20 +132,20 @@ export default function SupplierDetail() {
           <div className="bg-white rounded-xl border border-gray-100 p-4 space-y-3 lg:col-span-2">
             <div className="flex items-center gap-2 mb-1">
               <CreditCard className="h-4 w-4 text-gray-400" />
-              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Bank Accounts ({supplier.bankAccounts.length})</p>
+              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">{t('Bank Accounts (')}{supplier.bankAccounts.length})</p>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {supplier.bankAccounts.map((acc, i) => (
                 <div key={i} className={`rounded-lg p-3 space-y-1 border ${acc.isDefault ? 'border-primary-300 bg-orange-50' : 'border-gray-100 bg-gray-50'}`}>
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-semibold text-gray-600">{acc.label || `Account ${i + 1}`}</span>
-                    {acc.isDefault && <span className="text-xs text-primary-600 font-semibold">Default</span>}
+                    {acc.isDefault && <span className="text-xs text-primary-600 font-semibold">{t('Default')}</span>}
                   </div>
                   {acc.bankName          && <div className="text-sm text-gray-700">{acc.bankName}</div>}
                   {acc.accountHolderName && <div className="text-xs text-gray-500">{acc.accountHolderName}</div>}
                   {acc.accountNumber     && <div className="text-xs font-mono text-gray-700">A/C: {acc.accountNumber}</div>}
-                  {acc.ifscCode          && <div className="text-xs font-mono text-gray-500">IFSC: {acc.ifscCode}</div>}
-                  {acc.upiId             && <div className="text-xs font-mono text-gray-500">UPI: {acc.upiId}</div>}
+                  {acc.ifscCode          && <div className="text-xs font-mono text-gray-500">{t('IFSC:')} {acc.ifscCode}</div>}
+                  {acc.upiId             && <div className="text-xs font-mono text-gray-500">{t('UPI:')} {acc.upiId}</div>}
                 </div>
               ))}
             </div>
@@ -155,13 +157,13 @@ export default function SupplierDetail() {
       {can('payments:read') && (
         <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
           <div className="flex border-b border-gray-100">
-            {TABS.map((t) => (
-              <button key={t} onClick={() => setTab(t)}
-                className={`px-5 py-3 text-sm font-medium transition-colors border-b-2 ${tab === t ? 'border-primary-500 text-primary-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>
-                {t === 'Invoices'  && <ShoppingCart  className="h-3.5 w-3.5 inline mr-1.5 -mt-0.5" />}
-                {t === 'Payments'  && <CreditCard    className="h-3.5 w-3.5 inline mr-1.5 -mt-0.5" />}
-                {t === 'Ledger'    && <BookOpen      className="h-3.5 w-3.5 inline mr-1.5 -mt-0.5" />}
-                {t}
+            {TABS.map((txn) => (
+              <button key={txn} onClick={() => setTab(txn)}
+                className={`px-5 py-3 text-sm font-medium transition-colors border-b-2 ${tab === txn ? 'border-primary-500 text-primary-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>
+                {txn === 'Invoices'  && <ShoppingCart  className="h-3.5 w-3.5 inline mr-1.5 -mt-0.5" />}
+                {txn === 'Payments'  && <CreditCard    className="h-3.5 w-3.5 inline mr-1.5 -mt-0.5" />}
+                {txn === 'Ledger'    && <BookOpen      className="h-3.5 w-3.5 inline mr-1.5 -mt-0.5" />}
+                {txn}
               </button>
             ))}
           </div>
@@ -170,7 +172,7 @@ export default function SupplierDetail() {
           {tab === 'Invoices' && (
             <div className="overflow-x-auto">
               {invoices.length === 0 ? (
-                <p className="text-sm text-gray-400 text-center py-8">No purchase invoices found</p>
+                <p className="text-sm text-gray-400 text-center py-8">{t('No purchase invoices found')}</p>
               ) : (
                 <table className="min-w-full">
                   <thead>
@@ -187,7 +189,7 @@ export default function SupplierDetail() {
                         <td className="table-td text-sm">{fmt(inv.invoiceDate)}</td>
                         <td className={`table-td text-sm ${inv.isOverdue ? 'text-red-600 font-semibold' : ''}`}>
                           {inv.dueDate ? fmt(inv.dueDate) : '—'}
-                          {inv.isOverdue && <span className="ml-1 text-xs">(Overdue)</span>}
+                          {inv.isOverdue && <span className="ml-1 text-xs">{t('(Overdue)')}</span>}
                         </td>
                         <td className="table-td text-right font-semibold">{fmtAmt(inv.invoiceTotal)}</td>
                         <td className="table-td text-right text-green-700">{fmtAmt(inv.paidSoFar)}</td>
@@ -211,13 +213,13 @@ export default function SupplierDetail() {
             <div>
               <div className="grid grid-cols-3 divide-x divide-gray-100 border-b border-gray-100">
                 {[
-                  { label: 'Total Purchases', value: fmtAmt(ledger.totalPurchased), color: 'text-gray-800' },
-                  { label: 'Total Paid',       value: fmtAmt(ledger.totalPaid),      color: 'text-green-600' },
-                  { label: 'Balance Due',      value: fmtAmt(ledger.outstanding),    color: ledger.outstanding > 0 ? 'text-red-600' : 'text-gray-400' },
+                  { label: t('Total Purchases'), value: fmtAmt(ledger.totalPurchased), color: 'text-gray-800' },
+                  { label: t('Total Paid'),       value: fmtAmt(ledger.totalPaid),      color: 'text-green-600' },
+                  { label: t('Balance Due'),      value: fmtAmt(ledger.outstanding),    color: ledger.outstanding > 0 ? 'text-red-600' : 'text-gray-400' },
                 ].map(({ label, value, color }) => (
                   <div key={label} className="px-4 py-3 text-center">
                     <p className={`text-lg font-bold ${color}`}>{value}</p>
-                    <p className="text-xs text-gray-400">{label}</p>
+                    <p className="text-xs text-gray-400">{t(label)}</p>
                   </div>
                 ))}
               </div>
@@ -243,12 +245,12 @@ export default function SupplierDetail() {
                           {e.description}
                           {e.status && e.status !== 'approved' && (
                             <Badge variant={e.status === 'pending_approval' ? 'yellow' : 'red'} className="ml-2">
-                              {e.status === 'pending_approval' ? 'Pending' : 'Rejected'}
+                              {e.status === 'pending_approval' ? t('Pending') : t('Rejected')}
                             </Badge>
                           )}
                         </td>
                         <td className="table-td text-right font-semibold text-gray-900">{e.debit > 0 ? fmtAmt(e.debit) : '—'}</td>
-                        <td className="table-td text-right font-semibold text-green-700">{e.credit > 0 ? fmtAmt(e.credit) : e.pendingAmount > 0 ? <span className="text-yellow-600">{fmtAmt(e.pendingAmount)} (pending)</span> : '—'}</td>
+                        <td className="table-td text-right font-semibold text-green-700">{e.credit > 0 ? fmtAmt(e.credit) : e.pendingAmount > 0 ? <span className="text-yellow-600">{fmtAmt(e.pendingAmount)} {t('(pending)')}</span> : '—'}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -264,6 +266,7 @@ export default function SupplierDetail() {
 
 // Inline payments tab using supplierPayment API
 function PaymentsTab({ supplierId }) {
+  const t = useT();
   const { data } = useQuery({
     queryKey: ['payments', { supplier: supplierId }],
     queryFn: () => import('../../../api/supplierPayment.api.js').then((m) => m.getPayments({ supplier: supplierId })),
@@ -273,7 +276,7 @@ function PaymentsTab({ supplierId }) {
   const PM_L = { cash: 'Cash', upi: 'UPI', neft: 'NEFT', rtgs: 'RTGS', cheque: 'Cheque' };
 
   if (payments.length === 0) {
-    return <p className="text-sm text-gray-400 text-center py-8">No payments recorded</p>;
+    return <p className="text-sm text-gray-400 text-center py-8">{t('No payments recorded')}</p>;
   }
   return (
     <div className="overflow-x-auto">
@@ -298,7 +301,7 @@ function PaymentsTab({ supplierId }) {
               <td className="table-td text-right font-semibold">₹{p.totalAmount.toLocaleString('en-IN')}</td>
               <td className="table-td">
                 <Badge variant={STATUS_PAY_COLORS[p.status]}>
-                  {p.status === 'pending_approval' ? 'Pending' : p.status === 'approved' ? 'Approved' : 'Rejected'}
+                  {p.status === 'pending_approval' ? t('Pending') : p.status === 'approved' ? t('Approved') : t('Rejected')}
                 </Badge>
               </td>
             </tr>

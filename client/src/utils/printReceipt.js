@@ -1,4 +1,5 @@
 import { printHtml } from './printHtml.js';
+import { templeHtml } from './temple.js';
 
 const TYPE_LABELS = {
   STOCK_IN: 'Stock In', STOCK_OUT: 'Stock Out',
@@ -112,7 +113,7 @@ export function printTransactionReceipt(txn) {
   ${txn.isVoided ? '<div class="voided-watermark">VOIDED</div>' : ''}
 
   <div class="header">
-    <div class="temple-name">Mangal Grah Mandir</div>
+    <div class="temple-name">${templeHtml()}</div>
     <div class="temple-sub">Amalner, Dist. Jalgaon, Maharashtra</div>
     <div class="temple-sub">Stock Management System</div>
   </div>
@@ -162,7 +163,7 @@ export function printTransactionReceipt(txn) {
   </div>
 
   <div class="footer">
-    This is a computer-generated receipt — Mangal Grah Mandir Stock Management System
+    This is a computer-generated receipt — ${templeHtml()} · Stock Management System
   </div>
 
   <script>window.onload = () => { window.print(); }<\/script>

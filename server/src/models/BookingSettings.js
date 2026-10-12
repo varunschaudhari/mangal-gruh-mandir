@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import singleton from './singleton.js';
 
 // Single document with booking options (Setup → Settings).
 const bookingSettingsSchema = new mongoose.Schema(
@@ -20,8 +21,6 @@ const bookingSettingsSchema = new mongoose.Schema(
   { timestamps: true },
 );
 
-bookingSettingsSchema.statics.getOrCreate = async function getOrCreate() {
-  return (await this.findOne()) || this.create({});
-};
+bookingSettingsSchema.plugin(singleton);   // getOrCreate()
 
 export default mongoose.model('BookingSettings', bookingSettingsSchema);

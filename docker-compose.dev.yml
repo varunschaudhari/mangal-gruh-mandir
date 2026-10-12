@@ -14,14 +14,16 @@ services:
 
   server:
     build:
-      context: ./server
+      context: .
+      dockerfile: server/Dockerfile
       target: development
     container_name: mgm_server_dev
     restart: unless-stopped
     ports:
       - "5000:5000"
     volumes:
-      - ./server/src:/app/src
+      - ./server/src:/app/server/src
+      - ./shared:/app/shared
     environment:
       - NODE_ENV=development
       - MONGO_URI=mongodb://mongodb:27017/mgm_stock_dev

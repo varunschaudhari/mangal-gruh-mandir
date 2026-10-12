@@ -1,0 +1,19 @@
+# Images are built from the repo root (so they can include /shared); send only what they need.
+**/node_modules
+.git
+.github
+.claude
+**/.env
+**/.env.*
+!**/.env.example
+**/*.log
+
+client/dist
+client/android
+client/ios
+client/dev-dist
+electron
+docs
+mobile-releases
+nginx
+server/uploads

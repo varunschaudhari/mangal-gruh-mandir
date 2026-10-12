@@ -22,6 +22,8 @@ import toast from 'react-hot-toast';
 import { printHtml } from '../../utils/printHtml.js';
 import { useSetAppBarTitle } from '../../components/Layout/AppBarContext.jsx';
 import { localDateStr } from '../../utils/formatters.js';
+import { templeHtml } from '../../utils/temple.js';
+import { useT, tNow } from '../../i18n/index.jsx';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 const STATUS_COLORS = {
@@ -59,7 +61,7 @@ function printHandoverSlip(txn) {
   .sig-area{display:flex;justify-content:space-between;margin-top:36px;gap:20px}.sig-box{flex:1;text-align:center}.sig-line{border-top:1px solid #111;margin-bottom:6px;height:40px}
   .sig-name{font-size:11px;font-weight:bold}.footer{margin-top:20px;text-align:center;font-size:10px;color:#aaa;border-top:1px dashed #ccc;padding-top:8px}
   @media print{body{padding:16px}}</style></head><body>
-  <div class="header"><div class="temple">Mangal Grah Mandir, Amalner</div><div class="slip-title">Asset Handover Slip</div><div class="ref">Ref: ${transactionNumber||'—'}</div></div>
+  <div class="header"><div class="temple">${templeHtml()}</div><div class="slip-title">Asset Handover Slip</div><div class="ref">Ref: ${transactionNumber||'—'}</div></div>
   <div class="section"><div class="section-title">Asset Details</div>
   <div class="row"><span class="lbl">Asset Name</span><span class="val">${asset?.name||'—'}</span></div>
   <div class="row"><span class="lbl">Category</span><span class="val">${asset?.category||'—'}</span></div>
@@ -76,13 +78,14 @@ function printHandoverSlip(txn) {
   • Any damage must be reported immediately.<br/>• Asset must be returned by <strong>${p(expectedReturnDate)}</strong>.${asset?.finePerDay>0?` Fine of ₹${asset.finePerDay}/day applies.`:''}</div></div>
   <div class="sig-area"><div class="sig-box"><div class="sig-line"></div><div class="sig-name">${borrowerName}</div><div style="font-size:10px;color:#777">Borrower Signature</div></div>
   <div class="sig-box"><div class="sig-line"></div><div class="sig-name">${createdBy?.name||'Help Desk'}</div><div style="font-size:10px;color:#777">Issued By</div></div></div>
-  <div class="footer">Printed on ${p(new Date())} · Mangal Grah Mandir Asset Management</div>
+  <div class="footer">Printed on ${p(new Date())} · ${templeHtml()} · Asset Management</div>
   <script>window.onload=()=>{window.print()}<\/script></body></html>`;
   return printHtml(html, { filename: `Handover-Slip-${transactionNumber || 'asset'}.pdf` });
 }
 
 // ── Modals ────────────────────────────────────────────────────────────────────
 const CheckoutModal = ({ isGroup, id, onClose, onSuccess }) => {
+  const t = useT();
   const qc = useQueryClient();
   const [condition, setCondition] = useState('good');
   const mut = useMutation({
@@ -90,20 +93,20 @@ const CheckoutModal = ({ isGroup, id, onClose, onSuccess }) => {
       ? checkoutGroup(id, { conditionAtCheckout: condition })
       : checkoutAsset(id, { conditionAtCheckout: condition }),
     onSuccess: () => {
-      toast.success(isGroup ? 'All items handed over' : 'Asset handed over');
+      toast.success(isGroup ? t('All items handed over') : t('Asset handed over'));
       qc.invalidateQueries({ queryKey: [isGroup ? 'borrow-group' : 'asset-transaction', id] });
       qc.invalidateQueries({ queryKey: ['asset-transactions'] });
       qc.invalidateQueries({ queryKey: ['asset-counts'] });
       onSuccess();
     },
-    onError: (e) => toast.error(e.response?.data?.message || 'Failed'),
+    onError: (e) => toast.error(e.response?.data?.message || t('Failed')),
   });
   return (
     <Modal open onClose={onClose} title={isGroup ? 'Hand Over All Items' : 'Hand Over Asset'} size="sm">
       <div className="space-y-4">
-        {isGroup && <p className="text-sm text-gray-500">All approved items in this group will be handed over together.</p>}
+        {isGroup && <p className="text-sm text-gray-500">{t('All approved items in this group will be handed over together.')}</p>}
         <div>
-          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Condition at handover <span className="text-red-400">*</span></p>
+          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">{t('Condition at handover')} <span className="text-red-400">*</span></p>
           <div className="flex gap-2">
             {[['good','Good','border-green-400 bg-green-50 text-green-700'],['fair','Fair','border-yellow-400 bg-yellow-50 text-yellow-700'],['damaged','Damaged','border-red-400 bg-red-50 text-red-700']].map(([v,l,cls]) => (
               <button key={v} type="button" onClick={() => setCondition(v)}
@@ -112,9 +115,9 @@ const CheckoutModal = ({ isGroup, id, onClose, onSuccess }) => {
           </div>
         </div>
         <div className="flex justify-end gap-2">
-          <button onClick={onClose} className="btn-secondary">Cancel</button>
+          <button onClick={onClose} className="btn-secondary">{t('Cancel')}</button>
           <button onClick={() => mut.mutate()} disabled={mut.isPending} className="btn-primary">
-            {mut.isPending ? 'Processing…' : 'Confirm Handover'}
+            {mut.isPending ? t('Processing…') : t('Confirm Handover')}
           </button>
         </div>
       </div>
@@ -123,6 +126,7 @@ const CheckoutModal = ({ isGroup, id, onClose, onSuccess }) => {
 };
 
 const ExtendModal = ({ isGroup, id, currentDue, onClose, onSuccess }) => {
+  const t = useT();
   const qc = useQueryClient();
   const [newReturnDate, setNewReturnDate] = useState('');
   const [approvedBy, setApprovedBy] = useState('');
@@ -138,43 +142,43 @@ const ExtendModal = ({ isGroup, id, currentDue, onClose, onSuccess }) => {
       ? extendGroup(id, { newReturnDate, approvedBy, notes: notes || undefined })
       : extendBorrow(id, { newReturnDate, approvedBy, notes: notes || undefined }),
     onSuccess: () => {
-      toast.success('Return date extended');
+      toast.success(t('Return date extended'));
       qc.invalidateQueries({ queryKey: [isGroup ? 'borrow-group' : 'asset-transaction', id] });
       qc.invalidateQueries({ queryKey: ['asset-transactions'] });
       onSuccess();
     },
-    onError: (e) => toast.error(e.response?.data?.message || 'Failed'),
+    onError: (e) => toast.error(e.response?.data?.message || t('Failed')),
   });
   return (
     <Modal open onClose={onClose} title={isGroup ? 'Extend Return Date (All Items)' : 'Extend Return Date'}>
       <div className="space-y-4">
         <p className="text-sm text-gray-500">
-          Current due: <span className="font-semibold text-amber-700">{fmt(currentDue)}</span>
-          {isGroup && <span className="ml-2 text-xs text-gray-400">All active items will get the new date.</span>}
+          {t('Current due:')} <span className="font-semibold text-amber-700">{fmt(currentDue)}</span>
+          {isGroup && <span className="ml-2 text-xs text-gray-400">{t('All active items will get the new date.')}</span>}
         </p>
         <div>
-          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">New Return Date <span className="text-red-400">*</span></p>
+          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">{t('New Return Date')} <span className="text-red-400">*</span></p>
           <input type="date" min={today} max={localDateStr(maxDate)}
             value={newReturnDate} onChange={(e) => setNewReturnDate(e.target.value)} className="input" />
-          <p className="mt-1 text-xs text-gray-400">Max {maxDays} days from today</p>
+          <p className="mt-1 text-xs text-gray-400">{t('Max')} {maxDays} {t('days from today')}</p>
         </div>
         <div>
-          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Approved By (Trustee) <span className="text-red-400">*</span></p>
+          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">{t('Approved By (Trustee)')} <span className="text-red-400">*</span></p>
           <SearchableSelect
             value={approvedBy}
             onChange={setApprovedBy}
             options={approvers.map((u) => ({ value: u._id, label: u.name }))}
-            placeholder="— Select trustee —"
+            placeholder={t('— Select trustee —')}
           />
         </div>
         <div>
-          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Reason (optional)</p>
-          <input type="text" value={notes} onChange={(e) => setNotes(e.target.value)} className="input" placeholder="e.g. Event extended" />
+          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">{t('Reason (optional)')}</p>
+          <input type="text" value={notes} onChange={(e) => setNotes(e.target.value)} className="input" placeholder={t('e.g. Event extended')} />
         </div>
         <div className="flex justify-end gap-2">
-          <button onClick={onClose} className="btn-secondary">Cancel</button>
+          <button onClick={onClose} className="btn-secondary">{t('Cancel')}</button>
           <button onClick={() => mut.mutate()} disabled={mut.isPending || !newReturnDate || !approvedBy} className="btn-primary">
-            {mut.isPending ? 'Extending…' : isGroup ? 'Extend All' : 'Extend Borrow'}
+            {mut.isPending ? t('Extending…') : isGroup ? t('Extend All') : t('Extend Borrow')}
           </button>
         </div>
       </div>
@@ -183,6 +187,7 @@ const ExtendModal = ({ isGroup, id, currentDue, onClose, onSuccess }) => {
 };
 
 const CancelModal = ({ isGroup, id, onClose, onSuccess }) => {
+  const t = useT();
   const qc = useQueryClient();
   const [reason, setReason] = useState('');
   const mut = useMutation({
@@ -190,30 +195,30 @@ const CancelModal = ({ isGroup, id, onClose, onSuccess }) => {
       ? cancelGroup(id, { cancellationReason: reason || undefined })
       : cancelBorrow(id, { cancellationReason: reason || undefined }),
     onSuccess: () => {
-      toast.success('Cancelled');
+      toast.success(t('Cancelled'));
       qc.invalidateQueries({ queryKey: [isGroup ? 'borrow-group' : 'asset-transaction', id] });
       qc.invalidateQueries({ queryKey: ['asset-transactions'] });
       qc.invalidateQueries({ queryKey: ['asset-counts'] });
       onSuccess();
     },
-    onError: (e) => toast.error(e.response?.data?.message || 'Failed'),
+    onError: (e) => toast.error(e.response?.data?.message || t('Failed')),
   });
   return (
     <Modal open onClose={onClose} title="Cancel Borrow Request" size="sm">
       <div className="space-y-4">
         <p className="text-sm text-gray-600">
           {isGroup
-            ? 'All approved items will be cancelled. Items already checked out must be returned individually.'
-            : 'This borrow request will be cancelled and the quantity released.'}
+            ? t('All approved items will be cancelled. Items already checked out must be returned individually.')
+            : t('This borrow request will be cancelled and the quantity released.')}
         </p>
         <div>
-          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Reason (optional)</p>
-          <input type="text" value={reason} onChange={(e) => setReason(e.target.value)} className="input" placeholder="e.g. Event cancelled" />
+          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">{t('Reason (optional)')}</p>
+          <input type="text" value={reason} onChange={(e) => setReason(e.target.value)} className="input" placeholder={t('e.g. Event cancelled')} />
         </div>
         <div className="flex justify-end gap-2">
-          <button onClick={onClose} className="btn-secondary">Keep</button>
+          <button onClick={onClose} className="btn-secondary">{t('Keep')}</button>
           <button onClick={() => mut.mutate()} disabled={mut.isPending} className="btn-danger">
-            {mut.isPending ? 'Cancelling…' : 'Yes, Cancel'}
+            {mut.isPending ? t('Cancelling…') : t('Yes, Cancel')}
           </button>
         </div>
       </div>
@@ -222,38 +227,38 @@ const CancelModal = ({ isGroup, id, onClose, onSuccess }) => {
 };
 
 const MarkLostModal = ({ id, onClose, onSuccess }) => {
+  const t = useT();
   const qc = useQueryClient();
   const [reason, setReason] = useState('');
   const mut = useMutation({
     mutationFn: () => markAssetLost(id, { lostReason: reason || undefined }),
     onSuccess: () => {
-      toast.success('Asset marked as lost');
+      toast.success(t('Asset marked as lost'));
       qc.invalidateQueries({ queryKey: ['asset-transaction', id] });
       qc.invalidateQueries({ queryKey: ['borrow-group'] });
       qc.invalidateQueries({ queryKey: ['asset-transactions'] });
       qc.invalidateQueries({ queryKey: ['asset-counts'] });
       onSuccess();
     },
-    onError: (e) => toast.error(e.response?.data?.message || 'Failed'),
+    onError: (e) => toast.error(e.response?.data?.message || t('Failed')),
   });
   return (
     <Modal open onClose={onClose} title="Mark Asset as Lost" size="sm">
       <div className="space-y-4">
         <p className="text-sm text-gray-600">
-          Mark this asset as permanently lost. The borrower remains responsible for the loss.
-          This action cannot be undone.
+          {t('Mark this asset as permanently lost. The borrower remains responsible for the loss. This action cannot be undone.')}
         </p>
         <div>
-          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Reason (optional)</p>
+          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">{t('Reason (optional)')}</p>
           <input type="text" value={reason} onChange={(e) => setReason(e.target.value)}
-            className="input" placeholder="e.g. Borrower reported stolen, cannot locate…" />
+            className="input" placeholder={t('e.g. Borrower reported stolen, cannot locate…')} />
         </div>
         <div className="flex justify-end gap-2">
-          <button onClick={onClose} className="btn-secondary">Cancel</button>
+          <button onClick={onClose} className="btn-secondary">{t('Cancel')}</button>
           <button onClick={() => mut.mutate()} disabled={mut.isPending}
             className="btn-danger flex items-center gap-2 text-sm">
             <PackageX className="h-4 w-4" />
-            {mut.isPending ? 'Marking…' : 'Mark as Lost'}
+            {mut.isPending ? t('Marking…') : t('Mark as Lost')}
           </button>
         </div>
       </div>
@@ -262,24 +267,25 @@ const MarkLostModal = ({ id, onClose, onSuccess }) => {
 };
 
 const SettleFineModal = ({ txn, onClose, onSuccess }) => {
+  const t = useT();
   const qc = useQueryClient();
   const [action, setAction] = useState('paid');
   const [waivedReason, setWaivedReason] = useState('');
   const mut = useMutation({
     mutationFn: () => settleFine(txn._id, { action, waivedReason: action === 'waived' ? waivedReason : undefined }),
     onSuccess: () => {
-      toast.success(action === 'waived' ? 'Fine waived' : 'Fine marked as collected');
+      toast.success(action === 'waived' ? t('Fine waived') : t('Fine marked as collected'));
       qc.invalidateQueries({ queryKey: ['asset-transaction', txn._id] });
       qc.invalidateQueries({ queryKey: ['borrow-group'] });
       onSuccess();
     },
-    onError: (e) => toast.error(e.response?.data?.message || 'Failed'),
+    onError: (e) => toast.error(e.response?.data?.message || t('Failed')),
   });
   return (
     <Modal open onClose={onClose} title="Settle Fine" size="sm">
       <div className="space-y-4">
         <p className="text-sm text-gray-600">
-          Fine of <strong>₹{(txn.fineAmount || 0).toLocaleString('en-IN')}</strong> — mark it as:
+          {t('Fine of')} <strong>₹{(txn.fineAmount || 0).toLocaleString('en-IN')}</strong> {t('— mark it as:')}
         </p>
         <div className="flex gap-2">
           {[['paid', 'Collected', 'border-green-400 bg-green-50 text-green-700'],
@@ -292,17 +298,17 @@ const SettleFineModal = ({ txn, onClose, onSuccess }) => {
         </div>
         {action === 'waived' && (
           <div>
-            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Reason</p>
+            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">{t('Reason')}</p>
             <input type="text" value={waivedReason} onChange={(e) => setWaivedReason(e.target.value)}
-              className="input" placeholder="e.g. One-time waiver, financial hardship…" />
+              className="input" placeholder={t('e.g. One-time waiver, financial hardship…')} />
           </div>
         )}
         <div className="flex justify-end gap-2">
-          <button onClick={onClose} className="btn-secondary">Cancel</button>
+          <button onClick={onClose} className="btn-secondary">{t('Cancel')}</button>
           <button onClick={() => mut.mutate()} disabled={mut.isPending}
             className="btn-primary flex items-center gap-2 text-sm">
             <BadgeCheck className="h-4 w-4" />
-            {mut.isPending ? 'Saving…' : action === 'waived' ? 'Waive Fine' : 'Mark Collected'}
+            {mut.isPending ? t('Saving…') : action === 'waived' ? t('Waive Fine') : t('Mark Collected')}
           </button>
         </div>
       </div>
@@ -311,45 +317,46 @@ const SettleFineModal = ({ txn, onClose, onSuccess }) => {
 };
 
 const DamageStatusModal = ({ txn, onClose, onSuccess }) => {
+  const t = useT();
   const qc = useQueryClient();
   const DAMAGE_OPTS = [
-    { value: 'reported',  label: 'Reported',  desc: 'Damage noted, assessment pending' },
-    { value: 'assessed',  label: 'Assessed',  desc: 'Damage assessed, repair in progress' },
-    { value: 'repaired',  label: 'Repaired',  desc: 'Asset repaired and back in service' },
+    { value: 'reported',  label: t('Reported'),  desc: 'Damage noted, assessment pending' },
+    { value: 'assessed',  label: t('Assessed'),  desc: 'Damage assessed, repair in progress' },
+    { value: 'repaired',  label: t('Repaired'),  desc: 'Asset repaired and back in service' },
   ];
   const [status, setStatus] = useState(txn.damageStatus || 'reported');
   const mut = useMutation({
     mutationFn: () => updateDamageStatus(txn._id, { damageStatus: status }),
     onSuccess: () => {
-      toast.success('Damage status updated');
+      toast.success(t('Damage status updated'));
       qc.invalidateQueries({ queryKey: ['asset-transaction', txn._id] });
       qc.invalidateQueries({ queryKey: ['borrow-group'] });
       onSuccess();
     },
-    onError: (e) => toast.error(e.response?.data?.message || 'Failed'),
+    onError: (e) => toast.error(e.response?.data?.message || t('Failed')),
   });
   return (
     <Modal open onClose={onClose} title="Update Damage Status" size="sm">
       <div className="space-y-4">
-        <p className="text-sm text-gray-500">Track the repair/assessment progress for this damaged asset.</p>
+        <p className="text-sm text-gray-500">{t('Track the repair/assessment progress for this damaged asset.')}</p>
         <div className="space-y-2">
           {DAMAGE_OPTS.map(({ value, label, desc }) => (
             <label key={value}
               className={`flex items-start gap-3 rounded-lg border-2 p-3 cursor-pointer transition-all ${status === value ? 'border-amber-400 bg-amber-50' : 'border-gray-100 hover:border-gray-200'}`}>
               <input type="radio" className="mt-0.5 accent-amber-500" checked={status === value} onChange={() => setStatus(value)} />
               <div>
-                <p className={`text-sm font-semibold ${status === value ? 'text-amber-800' : 'text-gray-700'}`}>{label}</p>
+                <p className={`text-sm font-semibold ${status === value ? 'text-amber-800' : 'text-gray-700'}`}>{t(label)}</p>
                 <p className="text-xs text-gray-400">{desc}</p>
               </div>
             </label>
           ))}
         </div>
         <div className="flex justify-end gap-2">
-          <button onClick={onClose} className="btn-secondary">Cancel</button>
+          <button onClick={onClose} className="btn-secondary">{t('Cancel')}</button>
           <button onClick={() => mut.mutate()} disabled={mut.isPending}
             className="btn-primary flex items-center gap-2 text-sm">
             <Wrench className="h-4 w-4" />
-            {mut.isPending ? 'Saving…' : 'Update Status'}
+            {mut.isPending ? t('Saving…') : t('Update Status')}
           </button>
         </div>
       </div>
@@ -389,27 +396,27 @@ function buildTimeline(group, transactions, isSingle) {
   const { status, createdAt, createdBy, approvedAt, approvedBy, expectedReturnDate, extensions = [], cancellationReason } = group;
   const events = [];
 
-  events.push({ icon: Hash, title: 'Request logged', time: fmtTime(createdAt), detail: createdBy?.name ? `by ${createdBy.name}` : null, variant: 'done' });
-  events.push({ icon: Shield, title: 'Approved by trustee', time: fmtTime(approvedAt), detail: approvedBy?.name || null, variant: 'done' });
+  events.push({ icon: Hash, title: tNow('Request logged'), time: fmtTime(createdAt), detail: createdBy?.name ? `by ${createdBy.name}` : null, variant: 'done' });
+  events.push({ icon: Shield, title: tNow('Approved by trustee'), time: fmtTime(approvedAt), detail: approvedBy?.name || null, variant: 'done' });
 
-  const checkedOutTxns = transactions.filter((t) => t.checkedOutAt);
+  const checkedOutTxns = transactions.filter((item) => item.checkedOutAt);
   if (checkedOutTxns.length > 0) {
-    const firstMs  = Math.min(...checkedOutTxns.map((t) => new Date(t.checkedOutAt).getTime()));
+    const firstMs  = Math.min(...checkedOutTxns.map((item) => new Date(item.checkedOutAt).getTime()));
     const label    = !isSingle && checkedOutTxns.length < transactions.length
-      ? `${checkedOutTxns.length} of ${transactions.length} items handed over`
+      ? tNow('{n} of {total} items handed over', { n: checkedOutTxns.length, total: transactions.length })
       : 'Handed over to borrower';
     const detail   = isSingle && checkedOutTxns[0]?.conditionAtCheckout
       ? `Condition: ${checkedOutTxns[0].conditionAtCheckout}`
-      : (!isSingle ? checkedOutTxns.map((t) => `${t.asset?.name} (${t.conditionAtCheckout || '—'})`).join(', ') : null);
+      : (!isSingle ? checkedOutTxns.map((item) => `${item.asset?.name} (${item.conditionAtCheckout || '—'})`).join(', ') : null);
     events.push({ icon: ShoppingBag, title: label, time: fmtTime(new Date(firstMs)), detail, variant: 'done' });
   } else {
-    events.push({ icon: ShoppingBag, title: 'Awaiting handover', time: `Due ${fmt(expectedReturnDate)}`, variant: 'pending' });
+    events.push({ icon: ShoppingBag, title: tNow('Awaiting handover'), time: `Due ${fmt(expectedReturnDate)}`, variant: 'pending' });
   }
 
   for (const ext of extensions) {
     events.push({
       icon: CalendarPlus,
-      title: 'Return date extended',
+      title: tNow('Return date extended'),
       time: fmtTime(ext.approvedAt),
       detail: `${fmt(ext.previousReturnDate)} → ${fmt(ext.newReturnDate)}${ext.approvedBy?.name ? ` · approved by ${ext.approvedBy.name}` : ''}${ext.notes ? ` · ${ext.notes}` : ''}`,
       variant: 'done',
@@ -417,12 +424,12 @@ function buildTimeline(group, transactions, isSingle) {
   }
 
   if (!isSingle) {
-    transactions.filter((t) => t.status === 'returned').forEach((t) => {
+    transactions.filter((item) => item.status === 'returned').forEach((item) => {
       events.push({
         icon: CheckCircle2,
-        title: `${t.asset?.name} returned`,
-        time: fmtTime(t.actualReturnDate),
-        detail: t.conditionAtReturn ? `Condition: ${t.conditionAtReturn}${t.lateDays > 0 ? ` · ${t.lateDays}d late` : ''}` : null,
+        title: `${item.asset?.name} returned`,
+        time: fmtTime(item.actualReturnDate),
+        detail: item.conditionAtReturn ? `Condition: ${item.conditionAtReturn}${item.lateDays > 0 ? ` · ${item.lateDays}d late` : ''}` : null,
         variant: 'done',
       });
     });
@@ -430,28 +437,28 @@ function buildTimeline(group, transactions, isSingle) {
 
   if (status === 'returned') {
     if (isSingle) {
-      const t = transactions[0];
+      const entry = transactions[0];
       events.push({
-        icon: CheckCircle2, title: 'Returned', time: fmtTime(t?.actualReturnDate),
-        detail: [t?.conditionAtReturn ? `Condition: ${t.conditionAtReturn}` : null, t?.lateDays > 0 ? `${t.lateDays} day(s) late` : null].filter(Boolean).join(' · ') || null,
+        icon: CheckCircle2, title: tNow('Returned'), time: fmtTime(entry?.actualReturnDate),
+        detail: [entry?.conditionAtReturn ? `Condition: ${entry.conditionAtReturn}` : null, entry?.lateDays > 0 ? `${entry.lateDays} day(s) late` : null].filter(Boolean).join(' · ') || null,
         variant: 'done',
       });
     } else {
-      events.push({ icon: CheckCircle2, title: 'All items returned', variant: 'done' });
+      events.push({ icon: CheckCircle2, title: tNow('All items returned'), variant: 'done' });
     }
   } else if (status === 'partially_returned') {
-    const rem = transactions.filter((t) => t.status !== 'returned').length;
-    events.push({ icon: Clock, title: `${rem} item(s) still pending return`, time: `Due ${fmt(expectedReturnDate)}`, variant: 'active' });
+    const rem = transactions.filter((item) => item.status !== 'returned').length;
+    events.push({ icon: Clock, title: tNow('{n} item(s) still pending return', { n: rem }), time: tNow('Due {date}', { date: fmt(expectedReturnDate) }), variant: 'active' });
   } else if (status === 'overdue') {
-    const t = transactions[0];
-    events.push({ icon: AlertTriangle, title: `Overdue${isSingle && t?.lateDays ? ` — ${t.lateDays} day(s) past due` : ''}`, time: `Was due ${fmt(expectedReturnDate)}`, variant: 'danger' });
+    const entry = transactions[0];
+    events.push({ icon: AlertTriangle, title: isSingle && entry?.lateDays ? tNow('Overdue — {n} day(s) past due', { n: entry.lateDays }) : tNow('Overdue'), time: tNow('Was due {date}', { date: fmt(expectedReturnDate) }), variant: 'danger' });
   } else if (status === 'cancelled') {
-    events.push({ icon: XCircle, title: 'Cancelled', detail: cancellationReason || null, variant: 'danger' });
+    events.push({ icon: XCircle, title: tNow('Cancelled'), detail: cancellationReason || null, variant: 'danger' });
   } else if (status === 'lost') {
-    const t = transactions[0];
-    events.push({ icon: PackageX, title: 'Reported as Lost', detail: t?.lostReason || null, variant: 'danger' });
+    const entry = transactions[0];
+    events.push({ icon: PackageX, title: tNow('Reported as Lost'), detail: entry?.lostReason || null, variant: 'danger' });
   } else if (status === 'checked_out') {
-    events.push({ icon: Clock, title: 'Awaiting return', time: `Due ${fmt(expectedReturnDate)}`, variant: 'active' });
+    events.push({ icon: Clock, title: tNow('Awaiting return'), time: `Due ${fmt(expectedReturnDate)}`, variant: 'active' });
   }
 
   return events;
@@ -464,6 +471,7 @@ const CondPill = ({ value }) => value
 
 // ── Main page ─────────────────────────────────────────────────────────────────
 const BorrowDetail = () => {
+  const t = useT();
   useSetAppBarTitle('Borrow Request');
   const { groupId, txnId } = useParams();
   const navigate  = useNavigate();
@@ -492,8 +500,8 @@ const BorrowDetail = () => {
 
   const reminderMut = useMutation({
     mutationFn: (id) => sendManualReminder(id),
-    onSuccess: () => toast.success('Reminder sent'),
-    onError:   (e) => toast.error(e.response?.data?.message || 'Failed'),
+    onSuccess: () => toast.success(t('Reminder sent')),
+    onError:   (e) => toast.error(e.response?.data?.message || t('Failed')),
   });
 
   if (groupQuery.isLoading || txnQuery.isLoading) return <PageLoader />;
@@ -532,17 +540,17 @@ const BorrowDetail = () => {
     transactions = singleTxn ? [singleTxn] : [];
   }
 
-  if (!group) return <div className="p-6 text-gray-400">Not found.</div>;
+  if (!group) return <div className="p-6 text-gray-400">{t('Not found.')}</div>;
 
   const { status, borrowerType, borrower, externalBorrower, approvedBy, expectedReturnDate, extensions = [], remindersSent = [], notes, cancellationReason } = group;
   const isExternal   = borrowerType === 'external';
   const borrowerName = isExternal ? externalBorrower?.name : borrower?.name;
   const isSingle     = transactions.length === 1;
   const isActive     = !['returned', 'cancelled', 'lost'].includes(status);
-  const hasApproved  = transactions.some((t) => t.status === 'approved');
-  const hasCheckedOut = transactions.some((t) => ['checked_out', 'overdue'].includes(t.status));
-  const activeTargets = transactions.filter((t) => ['approved', 'checked_out', 'overdue'].includes(t.status));
-  const totalFines   = transactions.reduce((s, t) => s + (t.fineApplied ? (t.fineAmount || 0) : 0), 0);
+  const hasApproved  = transactions.some((item) => item.status === 'approved');
+  const hasCheckedOut = transactions.some((item) => ['checked_out', 'overdue'].includes(item.status));
+  const activeTargets = transactions.filter((item) => ['approved', 'checked_out', 'overdue'].includes(item.status));
+  const totalFines   = transactions.reduce((s, item) => s + (item.fineApplied ? (item.fineAmount || 0) : 0), 0);
   const actionId     = isGroup ? groupId : txnId;
 
   const ss           = STATUS_COLORS[status] || 'gray';
@@ -554,7 +562,7 @@ const BorrowDetail = () => {
       {/* Back nav */}
       <button onClick={() => navigate('/assets/borrows')}
         className="inline-flex items-center gap-1.5 text-sm text-gray-400 hover:text-gray-700 transition-colors">
-        <ArrowLeft className="h-4 w-4" /> Borrow Requests
+        <ArrowLeft className="h-4 w-4" /> {t('Borrow Requests')}
       </button>
 
       {/* Header */}
@@ -565,18 +573,18 @@ const BorrowDetail = () => {
             <span className="font-mono text-xs text-gray-400">{group.groupNumber}</span>
             {!isSingle && (
               <span className="inline-flex items-center gap-1 text-xs bg-purple-50 text-purple-600 border border-purple-200 rounded-full px-2 py-0.5">
-                <Layers className="h-3 w-3" /> {transactions.length} items
+                <Layers className="h-3 w-3" /> {transactions.length} {t('items')}
               </span>
             )}
           </div>
           <div className="flex items-center gap-2">
             <h1 className="text-2xl font-bold text-gray-900">{borrowerName}</h1>
             {isExternal && (
-              <span className="text-xs font-semibold bg-amber-100 text-amber-700 border border-amber-200 rounded-full px-2 py-0.5">External</span>
+              <span className="text-xs font-semibold bg-amber-100 text-amber-700 border border-amber-200 rounded-full px-2 py-0.5">{t('External')}</span>
             )}
           </div>
           <p className="text-sm text-gray-500 mt-0.5">
-            Approved by {approvedBy?.name || '—'} · Due {fmt(expectedReturnDate)}
+            {t('Approved by')} {approvedBy?.name || '—'} {t('· Due')} {fmt(expectedReturnDate)}
             {notes && <> · <span className="italic">"{notes}"</span></>}
           </p>
         </div>
@@ -586,13 +594,13 @@ const BorrowDetail = () => {
       {isSingle ? (
         <div className="bg-white rounded-xl border border-gray-100 grid grid-cols-2 sm:grid-cols-4 divide-x divide-gray-100 overflow-hidden">
           {[
-            { label: 'Due Date',    value: fmt(expectedReturnDate) },
-            { label: 'Approved By', value: approvedBy?.name || '—' },
-            { label: 'Asset',       value: transactions[0]?.asset?.name || '—' },
-            { label: 'Fine / Day',  value: transactions[0]?.asset?.finePerDay > 0 ? `₹${transactions[0].asset.finePerDay}` : 'No fine' },
+            { label: t('Due Date'),    value: fmt(expectedReturnDate) },
+            { label: t('Approved By'), value: approvedBy?.name || '—' },
+            { label: t('Asset'),       value: transactions[0]?.asset?.name || '—' },
+            { label: t('Fine / Day'),  value: transactions[0]?.asset?.finePerDay > 0 ? `₹${transactions[0].asset.finePerDay}` : 'No fine' },
           ].map(({ label, value }) => (
             <div key={label} className="px-4 py-3">
-              <p className="text-xs text-gray-400 font-medium">{label}</p>
+              <p className="text-xs text-gray-400 font-medium">{t(label)}</p>
               <p className="text-sm font-bold text-gray-800 mt-0.5">{value}</p>
             </div>
           ))}
@@ -600,14 +608,14 @@ const BorrowDetail = () => {
       ) : (
         <div className="bg-white rounded-xl border border-gray-100 grid grid-cols-2 sm:grid-cols-4 divide-x divide-gray-100 overflow-hidden">
           {[
-            { label: 'Total Items',    value: transactions.length,                                                        color: 'text-gray-700' },
-            { label: 'Pending Return', value: transactions.filter((t) => ['checked_out','overdue'].includes(t.status)).length, color: 'text-blue-600' },
-            { label: 'Overdue Items',  value: transactions.filter((t) => t.status === 'overdue').length,                 color: 'text-red-600' },
-            { label: 'Returned',       value: transactions.filter((t) => t.status === 'returned').length,                color: 'text-green-600' },
+            { label: t('Total Items'),    value: transactions.length,                                                        color: 'text-gray-700' },
+            { label: t('Pending Return'), value: transactions.filter((item) => ['checked_out','overdue'].includes(item.status)).length, color: 'text-blue-600' },
+            { label: t('Overdue Items'),  value: transactions.filter((item) => item.status === 'overdue').length,                 color: 'text-red-600' },
+            { label: t('Returned'),       value: transactions.filter((item) => item.status === 'returned').length,                color: 'text-green-600' },
           ].map(({ label, value, color }) => (
             <div key={label} className="px-4 py-3 text-center">
               <p className={`text-2xl font-black ${color}`}>{value}</p>
-              <p className="text-xs text-gray-400 mt-0.5">{label}</p>
+              <p className="text-xs text-gray-400 mt-0.5">{t(label)}</p>
             </div>
           ))}
         </div>
@@ -618,37 +626,37 @@ const BorrowDetail = () => {
         <div className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 flex flex-wrap gap-2 items-center">
           {hasApproved && (
             <button onClick={() => setShowCheckout(true)} className="btn-primary flex items-center gap-2 text-sm">
-              <ShoppingBag className="h-4 w-4" /> Hand Over{!isSingle ? ' All' : ''}
+              <ShoppingBag className="h-4 w-4" /> {t('Hand Over')}{!isSingle ? t(' All') : ''}
             </button>
           )}
           {(hasApproved || hasCheckedOut) && (
             <button onClick={() => setShowExtend(true)} className="btn-secondary flex items-center gap-2 text-sm">
-              <CalendarPlus className="h-4 w-4" /> Extend{!isSingle ? ' All' : ''}
+              <CalendarPlus className="h-4 w-4" /> {t('Extend')}{!isSingle ? t(' All') : ''}
             </button>
           )}
           {activeTargets.length > 0 && (
             <button
-              onClick={() => activeTargets.forEach((t) => reminderMut.mutate(t._id))}
+              onClick={() => activeTargets.forEach((item) => reminderMut.mutate(item._id))}
               disabled={reminderMut.isPending}
               className="btn-secondary flex items-center gap-2 text-sm"
             >
-              <Bell className="h-4 w-4" /> {reminderMut.isPending ? 'Sending…' : 'Send Reminder'}
+              <Bell className="h-4 w-4" /> {reminderMut.isPending ? t('Sending…') : t('Send Reminder')}
             </button>
           )}
           {isSingle && transactions[0]?.checkedOutAt && (
             <button onClick={() => printHandoverSlip(transactions[0])} className="btn-secondary flex items-center gap-2 text-sm">
-              <Printer className="h-4 w-4" /> Print Slip
+              <Printer className="h-4 w-4" /> {t('Print Slip')}
             </button>
           )}
           {hasApproved && (
             <button onClick={() => setShowCancel(true)} className="btn-danger flex items-center gap-2 text-sm ml-auto">
-              <XCircle className="h-4 w-4" /> Cancel
+              <XCircle className="h-4 w-4" /> {t('Cancel')}
             </button>
           )}
           {hasCheckedOut && (
             <button onClick={() => setShowMarkLost(true)}
               className="btn-secondary flex items-center gap-2 text-sm text-red-600 border-red-200 hover:border-red-300">
-              <PackageX className="h-4 w-4" /> Mark Lost
+              <PackageX className="h-4 w-4" /> {t('Mark Lost')}
             </button>
           )}
         </div>
@@ -657,7 +665,7 @@ const BorrowDetail = () => {
       {/* Cancellation notice */}
       {status === 'cancelled' && cancellationReason && (
         <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3">
-          <p className="text-sm text-red-700"><span className="font-semibold">Cancelled:</span> {cancellationReason}</p>
+          <p className="text-sm text-red-700"><span className="font-semibold">{t('Cancelled:')}</span> {cancellationReason}</p>
         </div>
       )}
 
@@ -665,59 +673,59 @@ const BorrowDetail = () => {
       <div className="card overflow-hidden">
         <div className="px-4 py-2.5 border-b bg-gray-50">
           <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
-            Items ({transactions.length})
+            {t('Items (')}{transactions.length})
           </span>
         </div>
         <div className="overflow-x-auto">
           <table className="min-w-full text-sm">
             <thead>
               <tr className="border-b border-gray-100 bg-gray-50">
-                <th className="table-th">Asset</th>
-                <th className="table-th text-center">Qty</th>
-                <th className="table-th">Status</th>
-                <th className="table-th">Cond. Out</th>
-                <th className="table-th">Cond. Return</th>
-                <th className="table-th text-right">Late</th>
-                <th className="table-th text-right">Fine</th>
+                <th className="table-th">{t('Asset')}</th>
+                <th className="table-th text-center">{t('Qty')}</th>
+                <th className="table-th">{t('Status')}</th>
+                <th className="table-th">{t('Cond. Out')}</th>
+                <th className="table-th">{t('Cond. Return')}</th>
+                <th className="table-th text-right">{t('Late')}</th>
+                <th className="table-th text-right">{t('Fine')}</th>
                 {can('assets:manage') && <th className="table-th w-24" />}
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
-              {transactions.map((t) => (
-                <tr key={t._id} className="hover:bg-gray-50">
+              {transactions.map((txn) => (
+                <tr key={txn._id} className="hover:bg-gray-50">
                   <td className="table-td">
                     <button
-                      onClick={() => navigate(`/assets/${t.asset?._id}/history`)}
+                      onClick={() => navigate(`/assets/${txn.asset?._id}/history`)}
                       className="font-medium text-gray-900 hover:text-primary-600 hover:underline text-left"
                     >
-                      {t.asset?.name}
+                      {txn.asset?.name}
                     </button>
-                    <p className="text-xs text-gray-400">{t.asset?.category}</p>
+                    <p className="text-xs text-gray-400">{txn.asset?.category}</p>
                   </td>
-                  <td className="table-td text-center font-semibold">{t.quantityBorrowed}</td>
+                  <td className="table-td text-center font-semibold">{txn.quantityBorrowed}</td>
                   <td className="table-td">
-                    <Badge variant={STATUS_COLORS[t.status] || 'gray'} size="sm">{STATUS_LABELS[t.status]}</Badge>
+                    <Badge variant={STATUS_COLORS[txn.status] || 'gray'} size="sm">{STATUS_LABELS[txn.status]}</Badge>
                   </td>
-                  <td className="table-td"><CondPill value={t.conditionAtCheckout} /></td>
-                  <td className="table-td"><CondPill value={t.conditionAtReturn} /></td>
+                  <td className="table-td"><CondPill value={txn.conditionAtCheckout} /></td>
+                  <td className="table-td"><CondPill value={txn.conditionAtReturn} /></td>
                   <td className="table-td text-right">
-                    {t.lateDays > 0
-                      ? <span className="text-red-600 font-semibold">{t.lateDays}d</span>
+                    {txn.lateDays > 0
+                      ? <span className="text-red-600 font-semibold">{txn.lateDays}d</span>
                       : <span className="text-gray-300">—</span>}
                   </td>
                   <td className="table-td text-right">
-                    {t.fineApplied
-                      ? <span className="text-amber-700 font-semibold">₹{t.fineAmount}</span>
+                    {txn.fineApplied
+                      ? <span className="text-amber-700 font-semibold">₹{txn.fineAmount}</span>
                       : <span className="text-gray-300">—</span>}
                   </td>
                   {can('assets:manage') && (
                     <td className="table-td">
-                      {(t.status === 'checked_out' || t.status === 'overdue') && (
+                      {(txn.status === 'checked_out' || txn.status === 'overdue') && (
                         <button
-                          onClick={() => navigate(`/assets/borrows/${t._id}/return`)}
+                          onClick={() => navigate(`/assets/borrows/${txn._id}/return`)}
                           className="flex items-center gap-1 text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors"
                         >
-                          <RotateCcw className="h-3 w-3" /> Return
+                          <RotateCcw className="h-3 w-3" /> {t('Return')}
                         </button>
                       )}
                     </td>
@@ -728,7 +736,7 @@ const BorrowDetail = () => {
             {totalFines > 0 && (
               <tfoot>
                 <tr className="bg-amber-50 border-t border-amber-100">
-                  <td className="table-td font-semibold text-amber-800" colSpan={6}>Total Fines</td>
+                  <td className="table-td font-semibold text-amber-800" colSpan={6}>{t('Total Fines')}</td>
                   <td className="table-td text-right font-black text-amber-700">₹{totalFines.toLocaleString('en-IN')}</td>
                   {can('assets:manage') && <td />}
                 </tr>
@@ -743,7 +751,7 @@ const BorrowDetail = () => {
 
         {/* Timeline */}
         <div className="lg:col-span-3 bg-white rounded-xl border border-gray-100 p-5">
-          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-5">Activity</p>
+          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-5">{t('Activity')}</p>
           <div>
             {timelineEvents.map((ev, i) => (
               <TimelineEvent key={i} {...ev} isLast={i === timelineEvents.length - 1} />
@@ -759,7 +767,7 @@ const BorrowDetail = () => {
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
                 <Bell className="h-4 w-4 text-gray-400" />
-                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Reminders</p>
+                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">{t('Reminders')}</p>
               </div>
               {remindersSent.length > 0 && (
                 <span className="text-xs bg-gray-100 text-gray-500 rounded-full px-2 py-0.5 font-semibold">{remindersSent.length}</span>
@@ -775,51 +783,51 @@ const BorrowDetail = () => {
                 ))}
               </div>
             ) : (
-              <p className="text-xs text-gray-400">No reminders sent yet.</p>
+              <p className="text-xs text-gray-400">{t('No reminders sent yet.')}</p>
             )}
           </div>
 
           {/* Fine summary (single item) */}
           {isSingle && (transactions[0]?.fineApplied || transactions[0]?.fineWaived || (transactions[0]?.lateDays > 0 && transactions[0]?.asset?.finePerDay > 0)) && (() => {
-            const t = transactions[0];
-            const fineSettled = t.finePaid || t.fineWaived;
+            const entry = transactions[0];
+            const fineSettled = entry.finePaid || entry.fineWaived;
             return (
-              <div className={`rounded-xl border p-4 ${t.fineApplied && !fineSettled ? 'border-amber-200 bg-amber-50' : 'bg-white border-gray-100'}`}>
+              <div className={`rounded-xl border p-4 ${entry.fineApplied && !fineSettled ? 'border-amber-200 bg-amber-50' : 'bg-white border-gray-100'}`}>
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center gap-2">
                     <IndianRupee className="h-4 w-4 text-gray-400" />
-                    <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Fine</p>
+                    <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">{t('Fine')}</p>
                   </div>
                   <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${
-                    t.finePaid   ? 'bg-green-100 text-green-700' :
-                    t.fineWaived ? 'bg-gray-100 text-gray-500'  :
-                    t.fineApplied ? 'bg-amber-100 text-amber-700' :
+                    entry.finePaid   ? 'bg-green-100 text-green-700' :
+                    entry.fineWaived ? 'bg-gray-100 text-gray-500'  :
+                    entry.fineApplied ? 'bg-amber-100 text-amber-700' :
                     'bg-red-100 text-red-600'
                   }`}>
-                    {t.finePaid ? 'Collected' : t.fineWaived ? 'Waived' : t.fineApplied ? 'Pending collection' : 'Pending'}
+                    {entry.finePaid ? t('Collected') : entry.fineWaived ? t('Waived') : entry.fineApplied ? t('Pending collection') : t('Pending')}
                   </span>
                 </div>
-                {t.fineApplied && (
-                  <p className="text-3xl font-black text-amber-700 mb-1">₹{(t.fineAmount || 0).toLocaleString('en-IN')}</p>
+                {entry.fineApplied && (
+                  <p className="text-3xl font-black text-amber-700 mb-1">₹{(entry.fineAmount || 0).toLocaleString('en-IN')}</p>
                 )}
-                {t.fineWaived && t.fineWaivedReason && (
-                  <p className="text-xs text-gray-500 italic mb-2">"{t.fineWaivedReason}"</p>
+                {entry.fineWaived && entry.fineWaivedReason && (
+                  <p className="text-xs text-gray-500 italic mb-2">"{entry.fineWaivedReason}"</p>
                 )}
-                {t.finePaid && t.finePaidAt && (
+                {entry.finePaid && entry.finePaidAt && (
                   <p className="text-xs text-gray-500 mb-2">
-                    Collected on {new Date(t.finePaidAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+                    {t('Collected on')} {new Date(entry.finePaidAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
                   </p>
                 )}
-                {!t.fineApplied && !t.fineWaived && t.lateDays > 0 && t.asset?.finePerDay > 0 && (
+                {!entry.fineApplied && !entry.fineWaived && entry.lateDays > 0 && entry.asset?.finePerDay > 0 && (
                   <p className="text-sm text-red-600 font-semibold">
-                    Est. ₹{(t.lateDays * t.asset.finePerDay).toLocaleString('en-IN')}
-                    <span className="text-xs font-normal text-gray-400 ml-1">({t.lateDays}d × ₹{t.asset.finePerDay})</span>
+                    {t('Est. ₹')}{(entry.lateDays * entry.asset.finePerDay).toLocaleString('en-IN')}
+                    <span className="text-xs font-normal text-gray-400 ml-1">({entry.lateDays}d × ₹{entry.asset.finePerDay})</span>
                   </p>
                 )}
-                {can('assets:manage') && t.fineApplied && !fineSettled && t.status === 'returned' && (
+                {can('assets:manage') && entry.fineApplied && !fineSettled && entry.status === 'returned' && (
                   <button onClick={() => setShowSettleFine(true)}
                     className="mt-3 text-xs font-semibold text-primary-600 hover:underline flex items-center gap-1">
-                    <BadgeCheck className="h-3.5 w-3.5" /> Settle Fine
+                    <BadgeCheck className="h-3.5 w-3.5" /> {t('Settle Fine')}
                   </button>
                 )}
               </div>
@@ -829,26 +837,26 @@ const BorrowDetail = () => {
           {/* Damage tracking (single item, returned with damage) */}
           {isSingle && transactions[0]?.status === 'returned' &&
            (transactions[0]?.conditionAtReturn === 'damaged' || (transactions[0]?.damageStatus && transactions[0]?.damageStatus !== 'none')) && (() => {
-            const t = transactions[0];
+            const entry = transactions[0];
             const DS_LABEL = { reported: 'Damage Reported', assessed: 'Being Assessed', repaired: 'Repaired' };
             const DS_COLOR = { reported: 'text-red-700 bg-red-50 border-red-200', assessed: 'text-amber-700 bg-amber-50 border-amber-200', repaired: 'text-green-700 bg-green-50 border-green-200' };
-            const ds = t.damageStatus || 'reported';
+            const ds = entry.damageStatus || 'reported';
             return (
               <div className="rounded-xl border border-orange-200 bg-orange-50 p-4">
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-2">
                     <Wrench className="h-4 w-4 text-orange-500" />
-                    <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Damage</p>
+                    <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">{t('Damage')}</p>
                   </div>
                   <span className={`text-xs px-2 py-0.5 rounded-full font-semibold border ${DS_COLOR[ds] || DS_COLOR.reported}`}>
                     {DS_LABEL[ds] || ds}
                   </span>
                 </div>
-                {t.damageNotes && <p className="text-xs text-gray-600 italic mb-2">"{t.damageNotes}"</p>}
+                {entry.damageNotes && <p className="text-xs text-gray-600 italic mb-2">"{entry.damageNotes}"</p>}
                 {can('assets:manage') && ds !== 'repaired' && (
                   <button onClick={() => setShowDamage(true)}
                     className="text-xs font-semibold text-primary-600 hover:underline flex items-center gap-1">
-                    <Wrench className="h-3.5 w-3.5" /> Update Assessment
+                    <Wrench className="h-3.5 w-3.5" /> {t('Update Assessment')}
                   </button>
                 )}
               </div>

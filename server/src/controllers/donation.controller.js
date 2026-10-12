@@ -13,6 +13,7 @@ import { createBatch } from '../services/fifo.service.js';
 import { updateBalancesForTransaction } from '../services/stockBalance.service.js';
 import { sendDonationThankYou } from '../services/donationWhatsapp.service.js';
 import { logAction } from '../services/audit.service.js';
+import { voidStockIns } from '../services/stockVoid.service.js';
 
 const POPULATE = [
   { path: 'donor',     select: 'name phone panNumber type' },
@@ -27,7 +28,7 @@ const POPULATE = [
 // ── Helper: create Stock In for a kind item ──────────────────────────────────
 async function createKindStockIn({ product, quantity, department, donorName, date, userId }) {
   const productDoc = await Product.findById(product).populate('unit');
-  if (!productDoc) return null;
+  if (!productDoc) throw new ApiError(404, 'Product not found for an in-kind item');
 
   const txnNumber = await generateTransactionNumber(date);
 
@@ -122,10 +123,15 @@ export const getDonationStats = asyncHandler(async (req, res) => {
 });
 
 // ── Create ────────────────────────────────────────────────────────────────────
+// Body checked by validation/donation.schemas.js (PAN format, amounts, item quantities).
 export const createDonation = asyncHandler(async (req, res) => {
   const { donationType, date, donor, donorName, donorPhone, panNumber, is80G, occasion, cashAmount, paymentMode, paymentRef, kindItems = [], notes } = req.body;
 
   if (!cashAmount && kindItems.length === 0) throw new ApiError(400, 'Donation must have cash amount or at least one kind item');
+  const productIds = [...new Set(kindItems.map((i) => String(i.product)))];
+  if (productIds.length && await Product.countDocuments({ _id: { $in: productIds } }) !== productIds.length) {
+    throw new ApiError(404, 'Product not found for an in-kind item');
+  }
 
   const defaultDept = await getDefaultDepartment();
   const donationDate = date ? new Date(date) : new Date();
@@ -165,25 +171,32 @@ export const createDonation = asyncHandler(async (req, res) => {
 
   const totalEstimatedValue = (Number(cashAmount) || 0) + processedKindItems.reduce((s, i) => s + (i.estimatedValue || 0), 0);
 
-  const donation = await Donation.create({
-    donationNumber,
-    donationType: donationType || 'named',
-    date:         donationDate,
-    donor:        donor || undefined,
-    donorName:    donorName || undefined,
-    donorPhone:   donorPhone || undefined,
-    panNumber:    panNumber || undefined,
-    is80G:        !!(is80G && donationType === 'named' && panNumber),
-    occasion:     occasion || undefined,
-    cashAmount:   Number(cashAmount) || 0,
-    paymentMode:  paymentMode || 'cash',
-    paymentRef:   paymentRef || undefined,
-    kindItems:    processedKindItems,
-    totalEstimatedValue,
-    notes:        notes || undefined,
-    receivedBy:   req.user._id,
-    createdBy:    req.user._id,
-  });
+  let donation;
+  try {
+    donation = await Donation.create({
+      donationNumber,
+      donationType: donationType || 'named',
+      date:         donationDate,
+      donor:        donor || undefined,
+      donorName:    donorName || undefined,
+      donorPhone:   donorPhone || undefined,
+      panNumber:    panNumber || undefined,
+      is80G:        !!(is80G && donationType === 'named' && panNumber),
+      occasion:     occasion || undefined,
+      cashAmount:   Number(cashAmount) || 0,
+      paymentMode:  paymentMode || 'cash',
+      paymentRef:   paymentRef || undefined,
+      kindItems:    processedKindItems,
+      totalEstimatedValue,
+      notes:        notes || undefined,
+      receivedBy:   req.user._id,
+      createdBy:    req.user._id,
+    });
+  } catch (err) {
+    // Don't leave the in-kind items in stock without their donation
+    await voidStockIns(processedKindItems.map((i) => i.stockTransactionId), { userId: req.user._id, reason: 'Donation could not be saved', what: 'donation' });
+    throw err;
+  }
 
   const populated = await Donation.findById(donation._id).populate(POPULATE);
 
@@ -322,6 +335,11 @@ export const voidDonation = asyncHandler(async (req, res) => {
   const donation = await Donation.findById(req.params.id);
   if (!donation)         throw new ApiError(404, 'Donation not found');
   if (donation.isVoided) throw new ApiError(400, 'Already voided');
+
+  // In-kind items come back out of stock (refused, with nothing changed, if any have been used)
+  await voidStockIns(donation.kindItems.map((i) => i.stockTransactionId), {
+    userId: req.user._id, reason: voidReason || `Donation ${donation.donationNumber} voided`, what: 'donation',
+  });
 
   donation.isVoided   = true;
   donation.voidReason = voidReason || undefined;

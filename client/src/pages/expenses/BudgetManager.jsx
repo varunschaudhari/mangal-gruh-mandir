@@ -8,6 +8,7 @@ import StickyActionBar from '../../components/ui/StickyActionBar.jsx';
 import { fCurrency } from '../../utils/formatters.js';
 import haptics from '../../utils/haptics.js';
 import toast from 'react-hot-toast';
+import { useT } from '../../i18n/index.jsx';
 
 const CATEGORIES = [
   { value: 'electricity',   label: 'Electricity',          icon: '⚡' },
@@ -23,6 +24,7 @@ const CATEGORIES = [
 const now = new Date();
 
 export default function BudgetManager() {
+  const t = useT();
   const qc = useQueryClient();
   const [year,  setYear]  = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth() + 1);
@@ -49,11 +51,11 @@ export default function BudgetManager() {
     },
     onSuccess: () => {
       haptics.success();
-      toast.success('Budgets saved');
+      toast.success(t('Budgets saved'));
       qc.invalidateQueries({ queryKey: ['budgets'] });
       qc.invalidateQueries({ queryKey: ['pnl'] });
     },
-    onError: () => toast.error('Failed to save budgets'),
+    onError: () => toast.error(t('Failed to save budgets')),
   });
 
   const handleCopyPrev = async () => {
@@ -66,9 +68,9 @@ export default function BudgetManager() {
       setValues(map);
       const prevMonth = month === 1 ? 12 : month - 1;
       const prevYear  = month === 1 ? year - 1 : year;
-      toast.success(`Copied from ${prevMonth}/${prevYear} — remember to save`);
+      toast.success(t('Copied from {month}/{year} — remember to save', { month: prevMonth, year: prevYear }));
     } catch {
-      toast.error('No previous month data found');
+      toast.error(t('No previous month data found'));
     }
   };
 
@@ -89,12 +91,12 @@ export default function BudgetManager() {
         actions={
           <div className="flex items-center gap-2">
             <button onClick={handleCopyPrev} className="btn-secondary flex items-center gap-1.5 text-sm">
-              <Copy className="h-3.5 w-3.5" /> Copy last month
+              <Copy className="h-3.5 w-3.5" /> {t('Copy last month')}
             </button>
             {/* Phones: Save is pinned at the bottom instead */}
             <button onClick={() => saveMut.mutate()} disabled={saveMut.isPending} className="btn-primary hidden sm:flex items-center gap-1.5 text-sm">
               <Save className="h-3.5 w-3.5" />
-              {saveMut.isPending ? 'Saving…' : 'Save'}
+              {saveMut.isPending ? t('Saving…') : t('Save')}
             </button>
           </div>
         }
@@ -116,19 +118,19 @@ export default function BudgetManager() {
         <div className="px-4 py-3 border-b bg-gray-50 flex items-center gap-2">
           <Settings2 className="h-4 w-4 text-gray-500" />
           <h3 className="text-sm font-semibold text-gray-700">
-            Budget for {MONTH_NAMES[month]} {year}
+            {t('Budget for')} {MONTH_NAMES[month]} {year}
           </h3>
         </div>
 
         {isLoading ? (
-          <div className="p-6 text-center text-sm text-gray-400">Loading…</div>
+          <div className="p-6 text-center text-sm text-gray-400">{t('Loading…')}</div>
         ) : (
           <div className="divide-y divide-gray-50">
             {CATEGORIES.map(({ value, label, icon }) => (
               <label key={value} className="flex items-center justify-between gap-3 px-4 py-3 hover:bg-gray-50">
                 <div className="flex min-w-0 flex-1 items-center gap-3 sm:w-48 sm:flex-none">
                   <span className="text-base">{icon}</span>
-                  <span className="text-sm font-medium text-gray-700">{label}</span>
+                  <span className="text-sm font-medium text-gray-700">{t(label)}</span>
                 </div>
                 <div className="flex shrink-0 items-center gap-2">
                   <span className="text-gray-400 text-sm">₹</span>
@@ -149,7 +151,7 @@ export default function BudgetManager() {
 
             {/* Total row */}
             <div className="flex items-center justify-between px-4 py-3 bg-gray-50">
-              <span className="text-sm font-semibold text-gray-700">Total Budget</span>
+              <span className="text-sm font-semibold text-gray-700">{t('Total Budget')}</span>
               <span className="text-sm font-bold text-gray-900 pr-1">{fCurrency(total)}</span>
             </div>
           </div>
@@ -157,9 +159,9 @@ export default function BudgetManager() {
       </div>
 
       <p className="text-xs text-gray-400">
-        Budgets are used in the{' '}
+        {t('Budgets are used in the')}{' '}
         <Link to="/reports/pnl" className="text-primary-600 hover:underline">Monthly P&L report</Link>{' '}
-        to show variance and usage per category. Expenses pending approval are not counted.
+        {t('to show variance and usage per category. Expenses pending approval are not counted.')}
       </p>
 
       {/* Phones: Save pinned at the bottom */}
@@ -167,7 +169,7 @@ export default function BudgetManager() {
         <StickyActionBar>
           <button onClick={() => saveMut.mutate()} disabled={saveMut.isPending} className="btn-primary">
             <Save className="h-4 w-4" />
-            {saveMut.isPending ? 'Saving…' : `Save budgets · ${fCurrency(total)}`}
+            {saveMut.isPending ? t('Saving…') : t('Save budgets · {amount}', { amount: fCurrency(total) })}
           </button>
         </StickyActionBar>
       </div>

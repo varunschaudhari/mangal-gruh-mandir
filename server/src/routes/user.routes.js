@@ -2,6 +2,8 @@ import { Router } from 'express';
 import { getUsers, getUser, getApprovers, createUser, updateUser, resetUserPassword } from '../controllers/user.controller.js';
 import protect from '../middleware/auth.js';
 import authorize from '../middleware/authorize.js';
+import validate from '../middleware/validate.js';
+import * as v from '../validation/admin.schemas.js';
 
 const router = Router();
 
@@ -12,9 +14,9 @@ router.get('/approvers', authorize('assets:read'), getApprovers);
 
 router.use(authorize('users:read'));
 router.get('/', getUsers);
-router.get('/:id', getUser);
-router.post('/', authorize('users:write'), createUser);
-router.put('/:id', authorize('users:write'), updateUser);
-router.put('/:id/reset-password', authorize('users:write'), resetUserPassword);
+router.get('/:id', validate(v.userById), getUser);
+router.post('/', authorize('users:write'), validate(v.createUser), createUser);
+router.put('/:id', authorize('users:write'), validate(v.updateUser), updateUser);
+router.put('/:id/reset-password', authorize('users:write'), validate(v.resetPassword), resetUserPassword);
 
 export default router;

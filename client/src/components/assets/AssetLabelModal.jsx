@@ -6,10 +6,13 @@ import { printUnitLabels } from '../../utils/assetLabel.js';
 import Modal from '../ui/Modal.jsx';
 import { PageLoader } from '../ui/Spinner.jsx';
 import toast from 'react-hot-toast';
+import { useT, rich } from '../../i18n/index.jsx';
 
 const COND_COLORS = { good: 'text-green-700 bg-green-50', fair: 'text-amber-700 bg-amber-50', damaged: 'text-red-700 bg-red-50', lost: 'text-gray-500 bg-gray-100' };
+const COND_LABELS = { good: 'Good', fair: 'Fair', damaged: 'Damaged', lost: 'Lost' };
 
 const AssetLabelModal = ({ asset, onClose }) => {
+  const t = useT();
   const [selected, setSelected]   = useState(new Set());
   const [fromNum,  setFromNum]    = useState('');
   const [toNum,    setToNum]      = useState('');
@@ -42,14 +45,14 @@ const AssetLabelModal = ({ asset, onClose }) => {
   const applyRange = () => {
     const from = parseInt(fromNum, 10);
     const to   = parseInt(toNum,   10);
-    if (!from || !to || from > to) { toast.error('Invalid range'); return; }
+    if (!from || !to || from > to) { toast.error(t('Invalid range')); return; }
     const inRange = new Set(units.filter((u) => u.unitNumber >= from && u.unitNumber <= to).map((u) => u._id));
     setSelected(inRange);
   };
 
   const handlePrint = async () => {
     const toPrint = units.filter((u) => selected.has(u._id));
-    if (!toPrint.length) { toast.error('No units selected'); return; }
+    if (!toPrint.length) { toast.error(t('No units selected')); return; }
     setPrinting(true);
     try {
       await printUnitLabels(asset, toPrint);
@@ -59,7 +62,7 @@ const AssetLabelModal = ({ asset, onClose }) => {
   };
 
   return (
-    <Modal open onClose={onClose} title={`Print Labels — ${asset.name}`} size="lg">
+    <Modal open onClose={onClose} title={t('Print Labels — {name}', { name: asset.name })} size="lg">
       {isLoading ? (
         <PageLoader />
       ) : (
@@ -67,17 +70,17 @@ const AssetLabelModal = ({ asset, onClose }) => {
           {/* Toolbar */}
           <div className="flex flex-wrap items-center gap-3">
             <button onClick={() => setSelected(new Set(units.map((u) => u._id)))}
-              className="text-xs text-primary-600 hover:underline">Select All</button>
+              className="text-xs text-primary-600 hover:underline">{t('Select All')}</button>
             <button onClick={() => setSelected(new Set())}
-              className="text-xs text-gray-400 hover:underline">Deselect All</button>
+              className="text-xs text-gray-400 hover:underline">{t('Deselect All')}</button>
             <div className="flex items-center gap-1.5 ml-auto">
-              <span className="text-xs text-gray-400">Range:</span>
+              <span className="text-xs text-gray-400">{t('Range:')}</span>
               <input type="number" min={1} max={units.length} value={fromNum} onChange={(e) => setFromNum(e.target.value)}
-                placeholder="From" className="input w-16 text-xs py-1 px-2" />
-              <span className="text-xs text-gray-400">to</span>
+                placeholder={t('From')} className="input w-16 text-xs py-1 px-2" />
+              <span className="text-xs text-gray-400">{t('to|range')}</span>
               <input type="number" min={1} max={units.length} value={toNum} onChange={(e) => setToNum(e.target.value)}
-                placeholder="To" className="input w-16 text-xs py-1 px-2" />
-              <button onClick={applyRange} className="btn-secondary text-xs py-1 px-2">Apply</button>
+                placeholder={t('To')} className="input w-16 text-xs py-1 px-2" />
+              <button onClick={applyRange} className="btn-secondary text-xs py-1 px-2">{t('Apply')}</button>
             </div>
           </div>
 
@@ -96,9 +99,9 @@ const AssetLabelModal = ({ asset, onClose }) => {
                     </button>
                   </th>
                   <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase">#</th>
-                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase">Unit Code</th>
-                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase">Condition</th>
-                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase">Notes</th>
+                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase">{t('Unit Code')}</th>
+                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase">{t('Condition')}</th>
+                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase">{t('Notes')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -115,7 +118,7 @@ const AssetLabelModal = ({ asset, onClose }) => {
                     <td className="px-3 py-2 font-mono text-xs font-bold text-orange-600">{u.unitCode}</td>
                     <td className="px-3 py-2">
                       <span className={`text-xs px-2 py-0.5 rounded-full font-medium capitalize ${COND_COLORS[u.condition] || ''}`}>
-                        {u.condition}
+                        {t(COND_LABELS[u.condition] || u.condition)}
                       </span>
                     </td>
                     <td className="px-3 py-2 text-gray-400 text-xs truncate max-w-[120px]">{u.conditionNotes || '—'}</td>
@@ -128,14 +131,17 @@ const AssetLabelModal = ({ asset, onClose }) => {
           {/* Footer */}
           <div className="flex items-center justify-between pt-1">
             <p className="text-sm text-gray-500">
-              <span className="font-semibold text-gray-800">{selected.size}</span> of {units.length} units selected
+              {rich(t('{selected} of {total} units selected'), {
+                selected: <span className="font-semibold text-gray-800">{selected.size}</span>,
+                total: units.length,
+              })}
             </p>
             <div className="flex gap-2">
-              <button onClick={onClose} className="btn-secondary text-sm">Cancel</button>
+              <button onClick={onClose} className="btn-secondary text-sm">{t('Cancel')}</button>
               <button onClick={handlePrint} disabled={printing || noneSelected}
                 className="btn-primary flex items-center gap-2 text-sm disabled:opacity-50">
                 <Printer className="h-4 w-4" />
-                {printing ? 'Generating…' : `Print ${selected.size} Label${selected.size !== 1 ? 's' : ''}`}
+                {printing ? t('Generating…') : t(selected.size !== 1 ? 'Print {n} Labels' : 'Print {n} Label', { n: selected.size })}
               </button>
             </div>
           </div>

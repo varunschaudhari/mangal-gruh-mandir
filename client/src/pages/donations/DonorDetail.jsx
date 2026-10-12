@@ -12,13 +12,15 @@ import Badge from '../../components/ui/Badge.jsx';
 import { PageLoader } from '../../components/ui/Spinner.jsx';
 import { saveFile } from '../../utils/fileSaver.js';
 import { useSetAppBarTitle } from '../../components/Layout/AppBarContext.jsx';
+import { useT } from '../../i18n/index.jsx';
 
 const fmt = (d) => d ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
 const TYPE_COLORS = { named: 'green', hundi: 'blue', anonymous: 'gray' };
 const col = createColumnHelper();
 
 const DonorDetail = () => {
-  useSetAppBarTitle('Donor');
+  const t = useT();
+  useSetAppBarTitle(t('Donor'));
   const { id }        = useParams();
   const navigate      = useNavigate();
   const [dlStatement, setDlStatement] = useState(false);
@@ -42,7 +44,7 @@ const DonorDetail = () => {
     try {
       const res = await downloadDonorStatement(id);
       await saveFile(res.data, `Donor-Statement-${donor?.name || id}.pdf`);
-    } catch { toast.error('Failed to generate statement'); }
+    } catch { toast.error(t('Failed to generate statement')); }
     finally { setDlStatement(false); }
   };
 
@@ -70,7 +72,7 @@ const DonorDetail = () => {
     }),
     col.accessor('kindItems', {
       header: 'Kind', size: 80,
-      cell: (i) => i.getValue()?.length > 0 ? <span className="text-blue-600 font-semibold">{i.getValue().length} item{i.getValue().length > 1 ? 's' : ''}</span> : <span className="text-gray-400">—</span>,
+      cell: (i) => i.getValue()?.length > 0 ? <span className="text-blue-600 font-semibold">{i.getValue().length > 1 ? t('{n} items', { n: i.getValue().length }) : t('{n} item', { n: 1 })}</span> : <span className="text-gray-400">—</span>,
     }),
     col.accessor('totalEstimatedValue', {
       header: 'Total', size: 110,
@@ -79,7 +81,7 @@ const DonorDetail = () => {
     col.display({
       id: 'actions', header: '', size: 60,
       cell: ({ row }) => row.original.donationType !== 'hundi' ? (
-        <button onClick={() => printDonationReceipt(row.original)} className="p-1.5 text-gray-400 hover:text-gray-700 rounded" title="Print receipt">
+        <button onClick={() => printDonationReceipt(row.original)} className="p-1.5 text-gray-400 hover:text-gray-700 rounded" title={t('Print receipt')}>
           <Printer className="h-4 w-4" />
         </button>
       ) : null,
@@ -90,7 +92,7 @@ const DonorDetail = () => {
     <div className="max-w-4xl space-y-5">
       <button onClick={() => navigate(-1)}
         className="inline-flex items-center gap-1.5 text-sm text-gray-400 hover:text-gray-700 transition-colors">
-        <ArrowLeft className="h-4 w-4" /> Back
+        <ArrowLeft className="h-4 w-4" /> {t('Back')}
       </button>
 
       {/* Header */}
@@ -100,10 +102,10 @@ const DonorDetail = () => {
             <Heart className="h-6 w-6 text-orange-600" />
           </div>
           <div>
-            <h1 className="text-xl font-bold text-gray-900">{donor?.name || 'Donor'}</h1>
+            <h1 className="text-xl font-bold text-gray-900">{donor?.name || t('Donor')}</h1>
             <p className="text-sm text-gray-400 mt-0.5">
               {donor?.phone && <span className="mr-3">{donor.phone}</span>}
-              {donor?.panNumber && <span>PAN: {donor.panNumber}</span>}
+              {donor?.panNumber && <span>{t('PAN:')} {donor.panNumber}</span>}
             </p>
           </div>
         </div>
@@ -111,7 +113,7 @@ const DonorDetail = () => {
           <button onClick={handleDownloadStatement} disabled={dlStatement}
             className="btn-secondary flex items-center gap-2 text-sm disabled:opacity-50 shrink-0">
             <Download className="h-4 w-4" />
-            {dlStatement ? 'Generating…' : 'Download Statement'}
+            {dlStatement ? t('Generating…') : t('Download Statement')}
           </button>
         )}
       </div>
@@ -119,14 +121,14 @@ const DonorDetail = () => {
       {/* Stats */}
       <div className="bg-white rounded-xl border border-gray-100 grid grid-cols-3 sm:grid-cols-4 divide-x divide-gray-100 overflow-hidden">
         {[
-          { label: 'Total Donations',  value: totalDonations,                                       color: 'text-gray-700' },
-          { label: 'Cash Donated',     value: `₹${totalCash.toLocaleString('en-IN')}`,              color: 'text-green-600' },
-          { label: 'Kind Value (Est)', value: `₹${totalKind.toLocaleString('en-IN')}`,              color: 'text-blue-600' },
-          { label: 'Total Value',      value: `₹${(totalCash + totalKind).toLocaleString('en-IN')}`,color: 'text-gray-800' },
+          { label: t('Total Donations'),  value: totalDonations,                                       color: 'text-gray-700' },
+          { label: t('Cash Donated'),     value: `₹${totalCash.toLocaleString('en-IN')}`,              color: 'text-green-600' },
+          { label: t('Kind Value (Est)'), value: `₹${totalKind.toLocaleString('en-IN')}`,              color: 'text-blue-600' },
+          { label: t('Total Value'),      value: `₹${(totalCash + totalKind).toLocaleString('en-IN')}`,color: 'text-gray-800' },
         ].map(({ label, value, color }) => (
           <div key={label} className="px-4 py-3 text-center">
             <p className={`text-xl font-black ${color}`}>{value}</p>
-            <p className="text-xs text-gray-400 mt-0.5">{label}</p>
+            <p className="text-xs text-gray-400 mt-0.5">{t(label)}</p>
           </div>
         ))}
       </div>

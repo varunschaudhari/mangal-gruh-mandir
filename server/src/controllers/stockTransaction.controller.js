@@ -5,7 +5,7 @@ import StockBalance from '../models/StockBalance.js';
 import Department from '../models/Department.js';
 import { generateTransactionNumber } from '../services/transactionNumber.service.js';
 import { updateBalancesForTransaction } from '../services/stockBalance.service.js';
-import { createBatch, consumeBatches, transferBatches, restoreBatchesForVoid } from '../services/fifo.service.js';
+import { createBatch, consumeBatches, placeTransferred, restoreBatchesForVoid, returnBatches } from '../services/fifo.service.js';
 import { checkAndAlert } from '../services/whatsapp.service.js';
 import { sendSmsAlerts } from '../services/sms.service.js';
 import asyncHandler from '../utils/asyncHandler.js';
@@ -47,48 +47,53 @@ export const createTransaction = asyncHandler(async (req, res) => {
   const product = await Product.findById(productId).lean();
   if (!product) throw new ApiError(404, 'Product not found');
 
-  // For outgoing types, run FIFO first to validate stock (throws if insufficient)
+  // Outgoing types take the stock first (throws if there isn't enough); if saving the
+  // transaction then fails, the stock is put back.
   let consumedBatchesResult = [];
-  if (transactionType === 'STOCK_OUT' || transactionType === 'WASTAGE') {
+  if (['STOCK_OUT', 'WASTAGE', 'TRANSFER'].includes(transactionType)) {
     consumedBatchesResult = await consumeBatches(productId, fromDepartment, quantity);
   }
 
-  const transactionNumber = await generateTransactionNumber(transactionDate || new Date());
+  let txn;
+  try {
+    const transactionNumber = await generateTransactionNumber(transactionDate || new Date());
 
-  const txn = await StockTransaction.create({
-    transactionNumber,
-    transactionType,
-    transactionDate: transactionDate || new Date(),
-    product: productId,
-    fromDepartment: fromDepartment || undefined,
-    toDepartment: toDepartment || undefined,
-    quantity,
-    unit: product.unit,
-    rate: rate || 0,
-    totalValue: (rate || 0) * quantity,
-    stockInType: stockInType || undefined,
-    supplier: supplier || undefined,
-    invoiceNumber: invoiceNumber || undefined,
-    invoiceDate: invoiceDate || undefined,
-    donorName: donorName || undefined,
-    expiryDate: expiryDate || undefined,
-    manufacturingDate: manufacturingDate || undefined,
-    batchRef: batchRef || undefined,
-    stockOutPurpose: stockOutPurpose || undefined,
-    issuedTo: issuedTo || undefined,
-    wastageReason: wastageReason || undefined,
-    consumedBatches: consumedBatchesResult,
-    notes: notes || undefined,
-    createdBy: req.user._id,
-  });
+    txn = await StockTransaction.create({
+      transactionNumber,
+      transactionType,
+      transactionDate: transactionDate || new Date(),
+      product: productId,
+      fromDepartment: fromDepartment || undefined,
+      toDepartment: toDepartment || undefined,
+      quantity,
+      unit: product.unit,
+      rate: rate || 0,
+      totalValue: (rate || 0) * quantity,
+      stockInType: stockInType || undefined,
+      supplier: supplier || undefined,
+      invoiceNumber: invoiceNumber || undefined,
+      invoiceDate: invoiceDate || undefined,
+      donorName: donorName || undefined,
+      expiryDate: expiryDate || undefined,
+      manufacturingDate: manufacturingDate || undefined,
+      batchRef: batchRef || undefined,
+      stockOutPurpose: stockOutPurpose || undefined,
+      issuedTo: issuedTo || undefined,
+      wastageReason: wastageReason || undefined,
+      consumedBatches: consumedBatchesResult,
+      notes: notes || undefined,
+      createdBy: req.user._id,
+    });
+  } catch (err) {
+    await returnBatches(consumedBatchesResult);
+    throw err;
+  }
 
   // Post-create FIFO operations
   if (transactionType === 'STOCK_IN' || transactionType === 'OPENING_BALANCE') {
     await createBatch(txn);
   } else if (transactionType === 'TRANSFER') {
-    const consumed = await transferBatches(productId, fromDepartment, toDepartment, quantity, txn);
-    txn.consumedBatches = consumed;
-    await txn.save();
+    await placeTransferred(consumedBatchesResult, productId, toDepartment, txn);
   }
 
   await updateBalancesForTransaction(txn);

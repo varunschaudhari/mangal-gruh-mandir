@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { AlertTriangle, Ban, Printer, SearchX } from 'lucide-react';
+import { AlertTriangle, Ban, CheckCircle2, Printer, SearchX } from 'lucide-react';
 import { getPublicReceipt } from '../../api/booking.api.js';
 import { bookingReceiptHtml } from '../../utils/bookingReceipt.js';
 import { printHtml } from '../../utils/printHtml.js';
 import { publicUrl } from '../../utils/platform.js';
 import Spinner from '../../components/ui/Spinner.jsx';
+import { fmtDateTime } from '../../components/booking/registerUtils.js';
 import { LanguageSwitch, useT } from '../../i18n/index.jsx';
 
 // The public receipt (/r/:token) opened from the WhatsApp / SMS link or the QR on the slip.
@@ -118,6 +119,12 @@ export default function PublicReceipt() {
             <p className="font-bold">{t('This booking was cancelled (voided)')}</p>
             <p className="text-sm">{t('This receipt is no longer valid. Please contact the temple office.')}</p>
           </div>
+        </div>
+      )}
+
+      {!voided && r.checkedInAt && (
+        <div className="mb-3 flex items-center gap-2 rounded-xl border border-green-200 bg-green-50 px-4 py-2.5 text-sm font-semibold text-green-800">
+          <CheckCircle2 className="h-5 w-5 shrink-0" /> {t('Checked in at the hall')} · {fmtDateTime(r.checkedInAt)}
         </div>
       )}
 

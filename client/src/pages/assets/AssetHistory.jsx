@@ -11,15 +11,18 @@ import DataTable from '../../components/ui/DataTable.jsx';
 import Badge from '../../components/ui/Badge.jsx';
 import { PageLoader } from '../../components/ui/Spinner.jsx';
 import { useSetAppBarTitle } from '../../components/Layout/AppBarContext.jsx';
+import { useT } from '../../i18n/index.jsx';
 
 const STATUS_COLORS = { approved: 'blue', checked_out: 'green', returned: 'gray', overdue: 'red', cancelled: 'gray' };
 const STATUS_LABELS = { approved: 'Approved', checked_out: 'Checked Out', returned: 'Returned', overdue: 'Overdue', cancelled: 'Cancelled' };
+const COND_LABELS = { good: 'Good', fair: 'Fair', damaged: 'Damaged', lost: 'Lost' };
 const col = createColumnHelper();
 
 const fmt = (d) => d ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
 
 const AssetHistory = () => {
-  useSetAppBarTitle('Asset History');
+  const t = useT();
+  useSetAppBarTitle(t('Asset History'));
   const { id }   = useParams();
   const navigate = useNavigate();
   const [showLabels, setShowLabels] = useState(false);
@@ -42,13 +45,13 @@ const AssetHistory = () => {
 
   // Stats
   const total      = txns.length;
-  const returned   = txns.filter((t) => t.status === 'returned').length;
-  const active     = txns.filter((t) => ['approved', 'checked_out', 'overdue'].includes(t.status)).length;
-  const damaged    = txns.filter((t) => t.conditionAtReturn === 'damaged').length;
-  const totalFines = txns.reduce((s, t) => s + (t.fineApplied ? (t.fineAmount || 0) : 0), 0);
+  const returned   = txns.filter((txn) => txn.status === 'returned').length;
+  const active     = txns.filter((txn) => ['approved', 'checked_out', 'overdue'].includes(txn.status)).length;
+  const damaged    = txns.filter((txn) => txn.conditionAtReturn === 'damaged').length;
+  const totalFines = txns.reduce((s, txn) => s + (txn.fineApplied ? (txn.fineAmount || 0) : 0), 0);
   const avgDuration = returned > 0
-    ? Math.round(txns.filter((t) => t.status === 'returned' && t.checkedOutAt && t.actualReturnDate)
-        .reduce((s, t) => s + (new Date(t.actualReturnDate) - new Date(t.checkedOutAt)) / 86400000, 0) / returned * 10) / 10
+    ? Math.round(txns.filter((txn) => txn.status === 'returned' && txn.checkedOutAt && txn.actualReturnDate)
+        .reduce((s, txn) => s + (new Date(txn.actualReturnDate) - new Date(txn.checkedOutAt)) / 86400000, 0) / returned * 10) / 10
     : 0;
 
   const columns = [
@@ -76,7 +79,7 @@ const AssetHistory = () => {
     col.accessor('lateDays', {
       header: 'Late', size: 75,
       cell: (i) => i.getValue() > 0
-        ? <span className="text-red-600 font-semibold text-sm">{i.getValue()}d</span>
+        ? <span className="text-red-600 font-semibold text-sm">{t('{n}d', { n: i.getValue() })}</span>
         : <span className="text-gray-400">—</span>,
     }),
     col.accessor('conditionAtReturn', {
@@ -85,7 +88,7 @@ const AssetHistory = () => {
         const v = i.getValue();
         if (!v) return <span className="text-gray-400">—</span>;
         const cls = v === 'good' ? 'bg-green-100 text-green-700' : v === 'fair' ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700';
-        return <span className={`text-xs px-2 py-0.5 rounded-full font-medium capitalize ${cls}`}>{v}</span>;
+        return <span className={`text-xs px-2 py-0.5 rounded-full font-medium capitalize ${cls}`}>{t(COND_LABELS[v] || v)}</span>;
       },
     }),
     col.accessor('fineAmount', {
@@ -96,7 +99,7 @@ const AssetHistory = () => {
     }),
     col.accessor('status', {
       header: 'Status', size: 115,
-      cell: (i) => <Badge variant={STATUS_COLORS[i.getValue()]}>{STATUS_LABELS[i.getValue()]}</Badge>,
+      cell: (i) => <Badge variant={STATUS_COLORS[i.getValue()]}>{t(STATUS_LABELS[i.getValue()])}</Badge>,
     }),
   ];
 
@@ -104,7 +107,7 @@ const AssetHistory = () => {
     <div className="space-y-5 max-w-5xl">
       <button onClick={() => navigate('/assets')}
         className="inline-flex items-center gap-1.5 text-sm text-gray-400 hover:text-gray-700 transition-colors">
-        <ArrowLeft className="h-4 w-4" /> Asset List
+        <ArrowLeft className="h-4 w-4" /> {t('Asset List')}
       </button>
 
       {/* Header */}
@@ -121,24 +124,24 @@ const AssetHistory = () => {
               </span>
             )}
           </div>
-          <p className="text-sm text-gray-400">{asset?.category} · {asset?.totalQuantity} unit{asset?.totalQuantity > 1 ? 's' : ''} total</p>
+          <p className="text-sm text-gray-400">{t(asset?.category)} · {t(asset?.totalQuantity > 1 ? '{n} units total' : '{n} unit total', { n: asset?.totalQuantity })}</p>
         </div>
         <div className="flex items-center gap-3 shrink-0">
           {asset && (
             <>
               <Link to={`/assets/${id}/units`}
                 className="btn-secondary flex items-center gap-2 text-sm">
-                <Layers className="h-4 w-4" /> View Units
+                <Layers className="h-4 w-4" /> {t('View Units')}
               </Link>
               <button onClick={() => setShowLabels(true)}
                 className="btn-secondary flex items-center gap-2 text-sm">
-                <QrCode className="h-4 w-4" /> Print Labels
+                <QrCode className="h-4 w-4" /> {t('Print Labels')}
               </button>
             </>
           )}
           {asset?.finePerDay > 0 && (
             <div className="text-right">
-              <p className="text-xs text-gray-400">Fine/day</p>
+              <p className="text-xs text-gray-400">{t('Fine/day')}</p>
               <p className="text-sm font-bold text-amber-700">₹{asset.finePerDay}</p>
             </div>
           )}
@@ -148,16 +151,16 @@ const AssetHistory = () => {
       {/* Stats strip */}
       <div className="bg-white rounded-xl border border-gray-100 grid grid-cols-3 sm:grid-cols-6 divide-x divide-gray-100 overflow-hidden">
         {[
-          { label: 'Total Borrows',  value: total,              icon: Package,       color: 'text-gray-700' },
-          { label: 'Returned',       value: returned,           icon: CheckCircle2,  color: 'text-green-600' },
-          { label: 'Active Now',     value: active,             icon: Clock,         color: 'text-blue-600' },
-          { label: 'Damages',        value: damaged,            icon: AlertTriangle, color: 'text-red-600' },
-          { label: 'Avg Duration',   value: `${avgDuration}d`,  icon: Clock,         color: 'text-purple-600' },
-          { label: 'Total Fines',    value: `₹${totalFines}`,  icon: IndianRupee,   color: 'text-amber-600' },
+          { label: t('Total Borrows'),  value: total,              icon: Package,       color: 'text-gray-700' },
+          { label: t('Returned'),       value: returned,           icon: CheckCircle2,  color: 'text-green-600' },
+          { label: t('Active Now'),     value: active,             icon: Clock,         color: 'text-blue-600' },
+          { label: t('Damages'),        value: damaged,            icon: AlertTriangle, color: 'text-red-600' },
+          { label: t('Avg Duration'),   value: t('{n}d', { n: avgDuration }), icon: Clock, color: 'text-purple-600' },
+          { label: t('Total Fines'),    value: `₹${totalFines}`,  icon: IndianRupee,   color: 'text-amber-600' },
         ].map(({ label, value, icon: Icon, color }) => (
           <div key={label} className="px-4 py-3 text-center">
             <p className={`text-xl font-black ${color}`}>{value}</p>
-            <p className="text-xs text-gray-400 mt-0.5">{label}</p>
+            <p className="text-xs text-gray-400 mt-0.5">{t(label)}</p>
           </div>
         ))}
       </div>

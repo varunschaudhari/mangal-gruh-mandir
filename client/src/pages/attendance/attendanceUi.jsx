@@ -10,26 +10,27 @@ import {
 import { usePermissions } from '../../hooks/usePermissions.js';
 import { fCurrency, fDate, localDateStr } from '../../utils/formatters.js';
 import { useT } from '../../i18n/index.jsx';
+import { dayCode } from '../../../../shared/attendanceCodes.js';
 
 // Shared bits of the attendance screens: status colours/codes, time helpers, the shift
 // chip, the double-shift reward picker and the day-detail sheet where supervisors fix a day.
 
 export const STATUS = {
-  present:       { label: 'Present',        code: 'P',  cls: 'bg-green-100 text-green-800' },
-  half_day:      { label: 'Half Day',       code: 'H',  cls: 'bg-yellow-100 text-yellow-800' },
-  absent:        { label: 'Absent',         code: 'A',  cls: 'bg-red-100 text-red-700' },
-  leave:         { label: 'On Leave',       code: 'L',  cls: 'bg-teal-100 text-teal-700' },
-  off:           { label: 'Weekly Off',     code: 'WO', cls: 'bg-gray-100 text-gray-600' },
-  holiday:       { label: 'Holiday',        code: 'HO', cls: 'bg-rose-100 text-rose-700' },
-  worked_off:    { label: 'Worked on Off Day', code: 'WP', cls: 'bg-indigo-100 text-indigo-700' },
-  on_duty:       { label: 'On Duty',        code: 'OD', cls: 'bg-blue-100 text-blue-700' },
-  missing_punch: { label: 'Missing Punch',  code: 'MP', cls: 'bg-orange-100 text-orange-700' },
-  working:       { label: 'Working Now',    code: 'IN', cls: 'bg-emerald-100 text-emerald-700' },
-  not_in:        { label: 'Not In Yet',     code: '·',  cls: 'bg-gray-100 text-gray-500' },
-  upcoming:      { label: 'Shift Later',    code: '',   cls: 'bg-gray-50 text-gray-400' },
-  unscheduled:   { label: 'Came Without Shift', code: 'U', cls: 'bg-purple-100 text-purple-700' },
-  none:          { label: 'No Shift',       code: '',   cls: 'bg-gray-50 text-gray-400' },
-  not_employed:  { label: 'Not Employed',   code: '–',  cls: 'bg-gray-50 text-gray-400' },
+  present:       { label: 'Present',        cls: 'bg-green-100 text-green-800' },
+  half_day:      { label: 'Half Day',       cls: 'bg-yellow-100 text-yellow-800' },
+  absent:        { label: 'Absent',         cls: 'bg-red-100 text-red-700' },
+  leave:         { label: 'On Leave',       cls: 'bg-teal-100 text-teal-700' },
+  off:           { label: 'Weekly Off',     cls: 'bg-gray-100 text-gray-600' },
+  holiday:       { label: 'Holiday',        cls: 'bg-rose-100 text-rose-700' },
+  worked_off:    { label: 'Worked on Off Day', cls: 'bg-indigo-100 text-indigo-700' },
+  on_duty:       { label: 'On Duty',        cls: 'bg-blue-100 text-blue-700' },
+  missing_punch: { label: 'Missing Punch',  cls: 'bg-orange-100 text-orange-700' },
+  working:       { label: 'Working Now',    cls: 'bg-emerald-100 text-emerald-700' },
+  not_in:        { label: 'Not In Yet',     cls: 'bg-gray-100 text-gray-500' },
+  upcoming:      { label: 'Shift Later',    cls: 'bg-gray-50 text-gray-400' },
+  unscheduled:   { label: 'Came Without Shift', cls: 'bg-purple-100 text-purple-700' },
+  none:          { label: 'No Shift',       cls: 'bg-gray-50 text-gray-400' },
+  not_employed:  { label: 'Not Employed',   cls: 'bg-gray-50 text-gray-400' },
 };
 
 // Register cell colours by code (PL / EL / UL come from how leave covered the day)
@@ -40,19 +41,8 @@ export const CODE_CELL = {
   MP: 'bg-orange-50 text-orange-700', IN: 'bg-emerald-50 text-emerald-700', U: 'bg-purple-50 text-purple-700', '·': 'text-gray-300', '–': 'text-gray-300',
 };
 
-/** Register code: an absent or leave day shows what covered it — PL paid leave, EL extra
- *  leave, A / UL unpaid (absent / planned unpaid leave). Same rules as the Excel export. */
-export function dayCode(day) {
-  if (!day) return '';
-  if ((day.status === 'absent' || day.status === 'leave') && day.cover) {
-    const { paid, extra, unpaid } = day.cover;
-    if (paid > 0 && paid >= extra && paid >= unpaid) return 'PL';
-    if (extra > 0 && extra >= unpaid) return 'EL';
-    return day.status === 'leave' ? 'UL' : 'A';
-  }
-  const c = STATUS[day.status]?.code || '';
-  return c && day.double ? `${c}+` : c;
-}
+// Register code for a day (PL / EL / A / UL from leave cover) — same as the Excel export
+export { dayCode };
 export const codeCell = (code) => CODE_CELL[String(code).replace('+', '')] || '';
 
 export const LEAVE_TYPES = { paid: 'Paid leave', extra: 'Extra leave', unpaid: 'Without pay' };

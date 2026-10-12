@@ -21,7 +21,7 @@ export const createOccasion = asyncHandler(async (req, res) => {
 });
 
 export const updateOccasion = asyncHandler(async (req, res) => {
-  const occasion = await MahaprasadOccasion.findByIdAndUpdate(req.params.id, req.body, { new: true, runValidators: true });
+  const occasion = await MahaprasadOccasion.findByIdAndUpdate(req.params.id, req.body, { returnDocument: 'after', runValidators: true });
   if (!occasion) throw new ApiError(404, 'Occasion not found');
   logAction(req, {
     action: 'mahaprasad_occasion.update', entity: 'MahaprasadOccasion',

@@ -28,6 +28,10 @@ describe('getMobileTabs', () => {
     expect(QUICK_ACTIONS.filter((a) => can(a.permission)).map((a) => a.label)).toEqual(['New Booking']);
   });
 
+  it('gives hall staff the check-in scanner', () => {
+    expect(tabsFor('hall_checkin').map((t) => t.key)).toEqual(['checkIn']);
+  });
+
   it('gives the redeem counter only the scanner', () => {
     expect(tabsFor('mahaprasad_redeem').map((t) => t.key)).toEqual(['scan']);
   });

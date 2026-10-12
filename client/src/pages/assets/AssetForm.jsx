@@ -9,25 +9,30 @@ import DatePickerField from '../../components/ui/DatePickerField.jsx';
 import { PageLoader } from '../../components/ui/Spinner.jsx';
 import { printAssetLabels } from '../../utils/assetLabel.js';
 import toast from 'react-hot-toast';
+import { useT } from '../../i18n/index.jsx';
 
 const CATEGORIES = ['Electronics', 'Utensils', 'Furniture', 'Mandap', 'Vessels', 'Decoration', 'Other'];
 
-const Field = ({ label, required, error, hint, children }) => (
+const Field = ({ label, required, error, hint, children }) => {
+  const t = useT();
+  return (
   <div>
     <label className="block text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1.5">
-      {label} {required && <span className="text-red-400">*</span>}
+      {t(label)} {required && <span className="text-red-400">*</span>}
     </label>
     {children}
-    {hint && !error && <p className="mt-1 text-xs text-gray-400">{hint}</p>}
+    {hint && !error && <p className="mt-1 text-xs text-gray-400">{t(hint)}</p>}
     {error && <p className="mt-1 text-xs text-red-500">{error}</p>}
   </div>
 );
+};
 
 const AssetForm = () => {
   const { id } = useParams();
   const isEdit = Boolean(id);
   const navigate = useNavigate();
   const qc = useQueryClient();
+  const t = useT();
 
   const { register, handleSubmit, reset, control, watch, formState: { errors } } = useForm({
     defaultValues: { isActive: true, isBorrowable: true, finePerDay: 0, category: 'Other' },
@@ -45,11 +50,11 @@ const AssetForm = () => {
   const mutation = useMutation({
     mutationFn: (data) => isEdit ? updateAsset(id, data) : createAsset(data),
     onSuccess: () => {
-      toast.success(isEdit ? 'Asset updated' : 'Asset created');
+      toast.success(isEdit ? t('Asset updated') : t('Asset created'));
       qc.invalidateQueries({ queryKey: ['assets'] });
       navigate('/assets');
     },
-    onError: (err) => toast.error(err.response?.data?.message || 'Failed'),
+    onError: (err) => toast.error(err.response?.data?.message || t('Failed')),
   });
 
   if (isEdit && isLoading) return <PageLoader />;
@@ -65,7 +70,7 @@ const AssetForm = () => {
             onClick={() => printAssetLabels([assetRes?.data?.data])}
             className="btn-secondary flex items-center gap-2 text-sm"
           >
-            <QrCode className="h-4 w-4" /> Print Label
+            <QrCode className="h-4 w-4" /> {t('Print Label')}
           </button>
         )}
       />
@@ -74,32 +79,32 @@ const AssetForm = () => {
         <div className="rounded-xl border border-gray-100 overflow-hidden">
           <div className="flex items-center gap-3 px-5 py-4 border-b bg-blue-50">
             <Package className="h-5 w-5 text-blue-600" />
-            <p className="text-sm font-semibold text-gray-800">Asset Details</p>
+            <p className="text-sm font-semibold text-gray-800">{t('Asset Details')}</p>
           </div>
           <div className="p-5 bg-white space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <Field label="Asset Name" required error={errors.name?.message}>
-                <input {...register('name', { required: 'Name is required' })} className="input" placeholder="e.g. Speaker System" />
+              <Field label={t('Asset Name')} required error={errors.name?.message}>
+                <input {...register('name', { required: t('Name is required') })} className="input" placeholder={t('e.g. Speaker System')} />
               </Field>
-              <Field label="Category">
+              <Field label={t('Category')}>
                 <div className="relative">
                   <Tag className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-300" />
                   <select {...register('category')} className="input pl-9">
-                    {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
+                    {CATEGORIES.map((c) => <option key={c} value={c}>{t(c)}</option>)}
                   </select>
                 </div>
               </Field>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <Field label="Total Quantity" required error={errors.totalQuantity?.message} hint="Total units owned by temple">
+              <Field label={t('Total Quantity')} required error={errors.totalQuantity?.message} hint={t('Total units owned by temple')}>
                 <input
                   type="number" min="1"
-                  {...register('totalQuantity', { required: 'Quantity is required', min: { value: 1, message: 'Min 1' }, valueAsNumber: true })}
-                  className="input" placeholder="e.g. 10"
+                  {...register('totalQuantity', { required: t('Quantity is required'), min: { value: 1, message: t('Min 1') }, valueAsNumber: true })}
+                  className="input" placeholder={t('e.g. {example}', { example: 10 })}
                 />
               </Field>
-              <Field label="Fine Per Day (₹)" hint="Leave 0 if no fine for late return">
+              <Field label={t('Fine Per Day (₹)')} hint={t('Leave 0 if no fine for late return')}>
                 <div className="relative">
                   <IndianRupee className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-300" />
                   <input
@@ -112,9 +117,9 @@ const AssetForm = () => {
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <DatePickerField name="purchaseDate" control={control} label="Purchase Date" />
+              <DatePickerField name="purchaseDate" control={control} label={t('Purchase Date')} />
               {isEdit && assetCodeDisplay && (
-                <Field label="Asset Code" hint="Auto-assigned, used on labels">
+                <Field label={t('Asset Code')} hint={t('Auto-assigned, used on labels')}>
                   <div className="input bg-gray-50 text-gray-500 font-mono font-semibold select-all">
                     {assetCodeDisplay}
                   </div>
@@ -122,20 +127,20 @@ const AssetForm = () => {
               )}
             </div>
 
-            <Field label="Description">
-              <textarea {...register('description')} className="input" rows={3} placeholder="Optional description" />
+            <Field label={t('Description')}>
+              <textarea {...register('description')} className="input" rows={3} placeholder={t('Optional description')} />
             </Field>
 
             <div className="flex flex-col gap-3 sm:flex-row sm:gap-6">
               <label className="flex items-center gap-2 text-sm cursor-pointer">
                 <input type="checkbox" {...register('isActive')} className="h-4 w-4 rounded text-primary-600" />
                 <CheckCircle2 className="h-4 w-4 text-gray-400" />
-                <span className="font-medium text-gray-700">Asset is Active</span>
+                <span className="font-medium text-gray-700">{t('Asset is Active')}</span>
               </label>
               <label className="flex items-center gap-2 text-sm cursor-pointer">
                 <input type="checkbox" {...register('isBorrowable')} className="h-4 w-4 rounded text-primary-600" />
                 <Handshake className="h-4 w-4 text-gray-400" />
-                <span className="font-medium text-gray-700">Available for Borrowing</span>
+                <span className="font-medium text-gray-700">{t('Available for Borrowing')}</span>
               </label>
             </div>
           </div>
@@ -143,9 +148,9 @@ const AssetForm = () => {
 
         <div className="flex items-center gap-3 pt-1">
           <button type="submit" disabled={mutation.isPending} className="btn-primary px-6">
-            {mutation.isPending ? 'Saving…' : isEdit ? 'Update Asset' : 'Create Asset'}
+            {mutation.isPending ? t('Saving…') : isEdit ? t('Update Asset') : t('Create Asset')}
           </button>
-          <button type="button" onClick={() => navigate('/assets')} className="btn-secondary">Cancel</button>
+          <button type="button" onClick={() => navigate('/assets')} className="btn-secondary">{t('Cancel')}</button>
         </div>
       </form>
     </div>

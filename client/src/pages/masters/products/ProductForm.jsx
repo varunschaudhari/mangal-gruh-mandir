@@ -159,9 +159,9 @@ const ProductForm = () => {
         <FormSection title={t('Properties')}>
           <div className="flex flex-wrap gap-6">
             {[
-              { name: 'isPujaItem', label: 'Puja / Ritual Item' },
-              { name: 'isPerishable', label: 'Perishable Item' },
-              { name: 'isActive', label: 'Active' },
+              { name: 'isPujaItem', label: t('Puja / Ritual Item') },
+              { name: 'isPerishable', label: t('Perishable Item') },
+              { name: 'isActive', label: t('Active') },
             ].map(({ name, label }) => (
               <label key={name} className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
                 <input type="checkbox" {...register(name)} className="h-4 w-4 rounded text-primary-600" />

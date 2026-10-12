@@ -1,10 +1,8 @@
 import ExcelJS from 'exceljs';
+import { temple } from '../temple.service.js';
+import { dayCode } from '../../../../shared/attendanceCodes.js';   // same codes as the Register screen
 
 // Monthly attendance register: one row per employee, one column per day, totals at the end.
-export const STATUS_CODES = {
-  present: 'P', half_day: 'H', absent: 'A', off: 'WO', holiday: 'HO', worked_off: 'WP', on_duty: 'OD',
-  leave: 'L', missing_punch: 'MP', working: 'IN', not_in: '', upcoming: '', unscheduled: '', none: '', not_employed: '-',
-};
 
 const FILLS = {
   P: 'FFDCFCE7', H: 'FFFEF9C3', A: 'FFFEE2E2', UL: 'FFFEE2E2', WO: 'FFF3F4F6', HO: 'FFFFE4E6', WP: 'FFE0E7FF',
@@ -14,25 +12,12 @@ const FILLS = {
 const thin = { style: 'thin', color: { argb: 'FFD1D5DB' } };
 const border = { top: thin, bottom: thin, left: thin, right: thin };
 
-/** Register code for a day. An absent or leave day shows what covered it: PL paid leave,
- *  EL extra leave, A / UL unpaid (absent / planned unpaid leave). */
-export const cellCode = (day) => {
-  if (!day) return '';
-  if ((day.status === 'absent' || day.status === 'leave') && day.cover) {
-    const { paid, extra, unpaid } = day.cover;
-    if (paid > 0 && paid >= extra && paid >= unpaid) return 'PL';
-    if (extra > 0 && extra >= unpaid) return 'EL';
-    return day.status === 'leave' ? 'UL' : 'A';
-  }
-  const code = STATUS_CODES[day.status] ?? '';
-  return code && day.double ? `${code}+` : code;
-};
 
 const hours = (min) => Math.round((min / 60) * 10) / 10;
 
 export async function writeRegisterExcel(res, { title, dates, staff, days, totals, leave }) {
   const wb = new ExcelJS.Workbook();
-  wb.creator = 'Mangal Grah Mandir';
+  wb.creator = temple().name;
   wb.created = new Date();
   const ws = wb.addWorksheet('Register', { views: [{ state: 'frozen', xSplit: 2, ySplit: 4 }], pageSetup: { orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 0 } });
 
@@ -54,7 +39,7 @@ export async function writeRegisterExcel(res, { title, dates, staff, days, total
   const paidDaysCol = 3 + dates.length + totalCols.findIndex(([h]) => h === 'Paid days');
 
   ws.mergeCells(1, 1, 1, lastCol);
-  ws.getCell(1, 1).value = `Mangal Grah Mandir – ${title}`;
+  ws.getCell(1, 1).value = `${temple().name} – ${title}`;
   ws.getCell(1, 1).font = { bold: true, size: 14, color: { argb: 'FFEA580C' } };
   ws.mergeCells(2, 1, 2, lastCol);
   ws.getCell(2, 1).value = 'P present · H half day · PL paid leave · EL extra leave · A absent (unpaid) · UL unpaid leave · WO weekly off · HO holiday · WP worked on off day · OD on duty · MP missing punch · + double shift · bold orange = late';
@@ -75,7 +60,7 @@ export async function writeRegisterExcel(res, { title, dates, staff, days, total
 
   for (const s of staff) {
     const k = String(s._id);
-    const row = ws.addRow([s.staffCode, s.name, ...dates.map((d) => cellCode(days[k]?.[d])), ...totalCols.map(([, f]) => f(totals[k], leave[k]))]);
+    const row = ws.addRow([s.staffCode, s.name, ...dates.map((d) => dayCode(days[k]?.[d])), ...totalCols.map(([, f]) => f(totals[k], leave[k]))]);
     row.eachCell({ includeEmpty: true }, (cell, c) => {
       cell.border = border;
       cell.font = { size: 9 };

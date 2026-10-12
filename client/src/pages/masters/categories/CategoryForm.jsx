@@ -7,8 +7,10 @@ import PageHeader from '../../../components/ui/PageHeader.jsx';
 import { FormField, FormRow, FormSection, FormActions } from '../../../components/ui/FormField.jsx';
 import { PageLoader } from '../../../components/ui/Spinner.jsx';
 import toast from 'react-hot-toast';
+import { useT } from '../../../i18n/index.jsx';
 
 const CategoryForm = () => {
+  const t = useT();
   const { id } = useParams();
   const isEdit = Boolean(id);
   const navigate = useNavigate();
@@ -31,8 +33,8 @@ const CategoryForm = () => {
       const payload = { ...data, parentCategory: data.parentCategory || null };
       return isEdit ? updateCategory(id, payload) : createCategory(payload);
     },
-    onSuccess: () => { toast.success(isEdit ? 'Category updated' : 'Category created'); qc.invalidateQueries({ queryKey: ['categories'] }); navigate('/masters/categories'); },
-    onError: (err) => toast.error(err.response?.data?.message || 'Failed'),
+    onSuccess: () => { toast.success(isEdit ? t('Category updated') : t('Category created')); qc.invalidateQueries({ queryKey: ['categories'] }); navigate('/masters/categories'); },
+    onError: (err) => toast.error(err.response?.data?.message || t('Failed')),
   });
 
   if (isEdit && isLoading) return <PageLoader />;
@@ -47,27 +49,27 @@ const CategoryForm = () => {
       />
       <form onSubmit={handleSubmit((d) => mutation.mutate(d))} className="card p-6 space-y-4">
         <FormRow>
-          <FormField label="Category Name" required error={errors.name?.message}>
+          <FormField label={t('Category Name')} required error={errors.name?.message}>
             <input {...register('name', { required: 'Name is required' })} className="input" />
           </FormField>
-          <FormField label="Code" required error={errors.code?.message}>
-            <input {...register('code', { required: 'Code is required' })} className="input uppercase" placeholder="e.g. GR" maxLength={5} />
+          <FormField label={t('Code')} required error={errors.code?.message}>
+            <input {...register('code', { required: 'Code is required' })} className="input uppercase" placeholder={t('e.g. GR')} maxLength={5} />
           </FormField>
         </FormRow>
-        <FormField label="Parent Category" hint="Leave empty for root category">
+        <FormField label={t('Parent Category')} hint={t('Leave empty for root category')}>
           <select {...register('parentCategory')} className="input">
-            <option value="">— Root Category —</option>
+            <option value="">{t('— Root Category —')}</option>
             {categories.map((c) => <option key={c._id} value={c._id}>{c.name}</option>)}
           </select>
         </FormField>
-        <FormField label="Description">
+        <FormField label={t('Description')}>
           <textarea {...register('description')} rows={2} className="input" />
         </FormField>
         <FormRow>
-          <FormField label="Sort Order"><input type="number" {...register('sortOrder')} className="input" /></FormField>
+          <FormField label={t('Sort Order')}><input type="number" {...register('sortOrder')} className="input" /></FormField>
           <FormField label=" ">
             <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer mt-2">
-              <input type="checkbox" {...register('isActive')} className="h-4 w-4 rounded" /> Active
+              <input type="checkbox" {...register('isActive')} className="h-4 w-4 rounded" /> {t('Active')}
             </label>
           </FormField>
         </FormRow>

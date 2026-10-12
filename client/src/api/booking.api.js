@@ -21,6 +21,17 @@ export const exportBookingsExcel = (params)        => api.get('/bookings/export/
 export const getBookingSummary   = (params) => api.get('/bookings/reports/summary', { params });
 export const getBookingSummaryPdf = (params) => api.get('/bookings/reports/summary/pdf', { params, responseType: 'blob' });
 export const getDaySheet         = (date)   => api.get('/bookings/reports/day-sheet', { params: { date } });
+// Fill rate and no-shows by puja date ({ from, to })
+export const getAttendanceReport = (params) => api.get('/bookings/reports/attendance', { params });
+
+// ── Hall check-in ─────────────────────────────────────────────────────────────
+// { code: QR link | receipt no. | number, hall?, override? } → { result, checkedIn, canOverride, booking }
+export const checkInByCode     = (data)            => api.post('/bookings/check-in', data);
+export const checkInBooking    = (id, override)    => api.post(`/bookings/${id}/check-in`, { override });
+export const undoCheckIn       = (id)              => api.delete(`/bookings/${id}/check-in`);
+export const getCheckInSummary = (params)          => api.get('/bookings/check-in/summary', { params });
+// The hall screen: today's batches with serials and who has arrived ({ hall?, date? })
+export const getHallBoard      = (params)          => api.get('/bookings/hall-board', { params });
 
 // ── Shift close & cash handover (/booking-shifts) ─────────────────────────────
 export const getCurrentShift = ()           => api.get('/booking-shifts/current');

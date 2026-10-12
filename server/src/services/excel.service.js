@@ -1,4 +1,5 @@
 import ExcelJS from 'exceljs';
+import { temple } from './temple.service.js';
 
 const TYPE_LABELS = {
   STOCK_IN:  'Stock In',
@@ -14,7 +15,6 @@ const TYPE_FILLS = {
   WASTAGE:   { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEE2E2' } }, // red-100
 };
 
-function col(letter) { return { letter }; }
 
 function setHeaderRow(sheet, values, fillArgb = 'FFEA580C') {
   const row = sheet.addRow(values);
@@ -33,7 +33,7 @@ function setHeaderRow(sheet, values, fillArgb = 'FFEA580C') {
 
 export async function generateDailyReportExcel(res, { date, department, transactions, summary }) {
   const wb = new ExcelJS.Workbook();
-  wb.creator = 'Mangal Grah Mandir';
+  wb.creator = temple().name;
   wb.created = new Date();
 
   const dateLabel = new Date(date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
@@ -48,7 +48,7 @@ export async function generateDailyReportExcel(res, { date, department, transact
 
   summary_sheet.mergeCells('A1:C1');
   const titleCell = summary_sheet.getCell('A1');
-  titleCell.value = 'Mangal Grah Mandir – Daily Stock Report';
+  titleCell.value = `${temple().name} – Daily Stock Report`;
   titleCell.font = { bold: true, size: 14, color: { argb: 'FFEA580C' } };
   titleCell.alignment = { horizontal: 'center' };
   summary_sheet.getRow(1).height = 26;
@@ -151,7 +151,7 @@ export async function generateDailyReportExcel(res, { date, department, transact
 
 export async function generateValuationExcel(res, { rows, grandTotal, departmentName, generatedAt }) {
   const wb = new ExcelJS.Workbook();
-  wb.creator = 'Mangal Grah Mandir';
+  wb.creator = temple().name;
   wb.created = new Date();
 
   const sheet = wb.addWorksheet('Stock Valuation');
@@ -167,7 +167,7 @@ export async function generateValuationExcel(res, { rows, grandTotal, department
 
   sheet.mergeCells('A1:G1');
   const t = sheet.getCell('A1');
-  t.value = 'Mangal Grah Mandir – Stock Valuation Report';
+  t.value = `${temple().name} – Stock Valuation Report`;
   t.font = { bold: true, size: 14, color: { argb: 'FFEA580C' } };
   t.alignment = { horizontal: 'center' };
   sheet.getRow(1).height = 26;
@@ -220,7 +220,7 @@ export async function generateValuationExcel(res, { rows, grandTotal, department
 
 export async function generateSupplierReportExcel(res, { suppliers, grandTotal, generatedAt }) {
   const wb = new ExcelJS.Workbook();
-  wb.creator = 'Mangal Grah Mandir';
+  wb.creator = temple().name;
   wb.created = new Date();
 
   // Summary sheet
@@ -234,7 +234,7 @@ export async function generateSupplierReportExcel(res, { suppliers, grandTotal, 
 
   summary.mergeCells('A1:D1');
   const t = summary.getCell('A1');
-  t.value = 'Mangal Grah Mandir – Supplier Purchase Report';
+  t.value = `${temple().name} – Supplier Purchase Report`;
   t.font = { bold: true, size: 14, color: { argb: 'FFEA580C' } };
   t.alignment = { horizontal: 'center' };
   summary.getRow(1).height = 26;

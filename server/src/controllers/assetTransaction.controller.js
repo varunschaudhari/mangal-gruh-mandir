@@ -5,7 +5,7 @@ import Settings from '../models/Settings.js';
 import ApiError from '../utils/ApiError.js';
 import ApiResponse from '../utils/ApiResponse.js';
 import asyncHandler from '../utils/asyncHandler.js';
-import { sendAssetApprovalNotification, sendManualAssetReminder, processAssetReminders } from '../services/assetReminder.service.js';
+import { sendAssetApprovalNotification, sendManualAssetReminder } from '../services/assetReminder.service.js';
 import { recomputeGroupStatus } from '../services/borrowGroupStatus.service.js';
 import { generateBorrowRequestNumber } from '../services/borrowRequestNumber.service.js';
 import { logAction } from '../services/audit.service.js';

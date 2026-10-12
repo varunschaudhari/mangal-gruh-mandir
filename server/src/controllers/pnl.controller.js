@@ -1,11 +1,11 @@
 import Expense, { EXPENSE_CATEGORIES, CATEGORY_LABELS } from '../models/Expense.js';
 import Donation from '../models/Donation.js';
 import ExpenseBudget from '../models/ExpenseBudget.js';
-import Settings from '../models/Settings.js';
 import ApiResponse from '../utils/ApiResponse.js';
 import asyncHandler from '../utils/asyncHandler.js';
 import { generatePnLReport } from '../services/pnlPdf.service.js';
 import { incomeBetween as bookingIncomeBetween } from '../services/booking/reports.js';
+import { temple } from '../services/temple.service.js';
 
 export const buildPnLData = async (y, m) => {
   const from = new Date(y, m - 1, 1);
@@ -111,11 +111,6 @@ export const exportPnLPdf = asyncHandler(async (req, res) => {
   const y = Number(req.query.year)  || new Date().getFullYear();
   const m = Number(req.query.month) || new Date().getMonth() + 1;
 
-  const [data, settingsDoc] = await Promise.all([
-    buildPnLData(y, m),
-    Settings.findOne().lean(),
-  ]);
-
-  const templeName = settingsDoc?.templeName || 'Mangal Grah Mandir, Amalner';
-  generatePnLReport(res, { data, templeName });
+  const data = await buildPnLData(y, m);
+  generatePnLReport(res, { data, templeName: temple().name });
 });

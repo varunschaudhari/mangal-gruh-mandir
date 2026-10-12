@@ -16,6 +16,7 @@ import errorHandler from './middleware/errorHandler.js';
 import { processAssetReminders } from './services/assetReminder.service.js';
 import { processOverdueInvoiceAlerts } from './services/overdueInvoiceAlert.service.js';
 import { logger } from './utils/logger.js';
+import { refreshTemple } from './services/temple.service.js';
 import { pushMorningDigest } from './services/pushAlerts.service.js';
 
 const app = express();
@@ -26,7 +27,10 @@ const IS_PROD = process.env.NODE_ENV === 'production';
 // from X-Forwarded-For instead of the loopback address.
 app.set('trust proxy', 1);
 
-connectDB();
+// Temple name and contact details for reports and messages come from Settings
+connectDB()
+  .then(() => refreshTemple())
+  .catch((err) => logger.warn('Could not load the temple name from Settings', { error: err.message }));
 
 // Mobile apps (Capacitor) load the UI from their own origin, so uploaded files
 // (e.g. expense receipts) must be loadable cross-origin.

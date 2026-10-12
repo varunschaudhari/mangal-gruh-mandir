@@ -8,14 +8,15 @@ import PageHeader from '../../components/ui/PageHeader.jsx';
 import { fDateTime, localDateStr } from '../../utils/formatters.js';
 import toast from 'react-hot-toast';
 import { saveFile } from '../../utils/fileSaver.js';
+import { useT } from '../../i18n/index.jsx';
 
 // ── Date shortcut helpers ─────────────────────────────────────────────────────
 
 const isoDate = (d) => localDateStr(d);
 
 const DATE_SHORTCUTS = [
-  { label: 'Today',      get: () => { const t = isoDate(new Date()); return { dateFrom: t, dateTo: t }; } },
-  { label: 'Yesterday',  get: () => { const d = new Date(); d.setDate(d.getDate() - 1); const t = isoDate(d); return { dateFrom: t, dateTo: t }; } },
+  { label: 'Today',      get: () => { const txn = isoDate(new Date()); return { dateFrom: txn, dateTo: txn }; } },
+  { label: 'Yesterday',  get: () => { const d = new Date(); d.setDate(d.getDate() - 1); const txn = isoDate(d); return { dateFrom: txn, dateTo: txn }; } },
   { label: 'This Week',  get: () => { const now = new Date(); const mon = new Date(now); mon.setDate(now.getDate() - ((now.getDay() + 6) % 7)); return { dateFrom: isoDate(mon), dateTo: isoDate(now) }; } },
   { label: 'This Month', get: () => { const now = new Date(); return { dateFrom: isoDate(new Date(now.getFullYear(), now.getMonth(), 1)), dateTo: isoDate(now) }; } },
   { label: 'Last Month', get: () => { const now = new Date(); return { dateFrom: isoDate(new Date(now.getFullYear(), now.getMonth() - 1, 1)), dateTo: isoDate(new Date(now.getFullYear(), now.getMonth(), 0)) }; } },
@@ -235,6 +236,7 @@ function fmt(v) {
 }
 
 function DiffView({ before, after, meta }) {
+  const t = useT();
   // Side-by-side diff when we have before/after
   if (before || after) {
     const allKeys = [...new Set([...Object.keys(before || {}), ...Object.keys(after || {})])];
@@ -243,9 +245,9 @@ function DiffView({ before, after, meta }) {
         <table className="w-full text-xs border-collapse">
           <thead>
             <tr className="bg-gray-50">
-              <th className="text-left px-3 py-1.5 text-gray-500 font-semibold w-1/4">Field</th>
-              <th className="text-left px-3 py-1.5 text-orange-600 font-semibold w-[37.5%]">Before</th>
-              <th className="text-left px-3 py-1.5 text-green-600 font-semibold w-[37.5%]">After</th>
+              <th className="text-left px-3 py-1.5 text-gray-500 font-semibold w-1/4">{t('Field')}</th>
+              <th className="text-left px-3 py-1.5 text-orange-600 font-semibold w-[37.5%]">{t('Before')}</th>
+              <th className="text-left px-3 py-1.5 text-green-600 font-semibold w-[37.5%]">{t('After')}</th>
             </tr>
           </thead>
           <tbody>
@@ -269,7 +271,7 @@ function DiffView({ before, after, meta }) {
         </table>
         {meta && (
           <div className="mt-2 pt-2 border-t">
-            <p className="text-xs font-semibold text-blue-600 mb-1 px-3">Details</p>
+            <p className="text-xs font-semibold text-blue-600 mb-1 px-3">{t('Details')}</p>
             {Object.entries(meta).map(([k, v]) => (
               <div key={k} className="flex gap-2 text-xs px-3 py-0.5">
                 <span className="text-gray-500 w-32 shrink-0">{k}:</span>
@@ -304,6 +306,7 @@ function DiffView({ before, after, meta }) {
 // ── Log row ───────────────────────────────────────────────────────────────────
 
 function LogRow({ log }) {
+  const t = useT();
   const [expanded, setExpanded] = useState(false);
   const hasDetails  = log.before || log.after || log.meta;
   const actionClass = ACTION_COLORS[log.action] || 'bg-gray-100 text-gray-700';
@@ -321,7 +324,7 @@ function LogRow({ log }) {
           {fDateTime(log.timestamp)}
         </td>
         <td className="py-2 px-3 text-sm">
-          <div className="font-medium">{log.user?.name || <span className="text-gray-400 italic">System</span>}</div>
+          <div className="font-medium">{log.user?.name || <span className="text-gray-400 italic">{t('System')}</span>}</div>
           {log.user?.role && <div className="text-xs text-gray-400">{log.user.role}</div>}
         </td>
         <td className="py-2 px-3">
@@ -365,6 +368,7 @@ function LogRow({ log }) {
 // ── Main component ────────────────────────────────────────────────────────────
 
 const AuditLog = () => {
+  const t = useT();
   const [filters, setFilters] = useState({
     page: 1, limit: 50,
     dateFrom: '', dateTo: '',
@@ -401,7 +405,7 @@ const AuditLog = () => {
       const res = await exportAuditLogsExcel(params);
       await saveFile(new Blob([res.data]), 'audit-log.xlsx');
     } catch {
-      toast.error('Export failed');
+      toast.error(t('Export failed'));
     } finally {
       setExporting(false);
     }
@@ -419,7 +423,7 @@ const AuditLog = () => {
             className="flex items-center gap-2 px-3 py-2 text-sm border rounded hover:bg-gray-50 disabled:opacity-50"
           >
             <Download size={15} />
-            {exporting ? 'Exporting…' : 'Export Excel'}
+            {exporting ? t('Exporting…') : t('Export Excel')}
           </button>
         }
       />
@@ -430,12 +434,12 @@ const AuditLog = () => {
         {/* Row 1: Search | Staff member | Quick date range */}
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
           <div className="col-span-2">
-            <label className="block text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-1">Search</label>
+            <label className="block text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-1">{t('Search')}</label>
             <div className="relative">
               <Search size={14} className="absolute left-2.5 top-2.5 text-gray-400" />
               <input
                 type="text"
-                placeholder="Entity ID, user name, action…"
+                placeholder={t('Entity ID, user name, action…')}
                 value={filters.search}
                 onChange={(e) => set('search', e.target.value)}
                 className="pl-8 w-full border rounded px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500"
@@ -444,13 +448,13 @@ const AuditLog = () => {
           </div>
 
           <div className="col-span-2">
-            <label className="block text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-1">Staff Member</label>
+            <label className="block text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-1">{t('Staff Member')}</label>
             <select
               value={filters.userId}
               onChange={(e) => set('userId', e.target.value)}
               className="w-full border rounded px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500"
             >
-              <option value="">All Users</option>
+              <option value="">{t('All Users')}</option>
               {users.map((u) => (
                 <option key={u._id} value={u._id}>{u.name}{u.role ? ` (${u.role})` : ''}</option>
               ))}
@@ -458,7 +462,7 @@ const AuditLog = () => {
           </div>
 
           <div className="col-span-2">
-            <label className="block text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-1">Quick Range</label>
+            <label className="block text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-1">{t('Quick Range')}</label>
             <div className="flex flex-wrap gap-1.5">
               {DATE_SHORTCUTS.map(({ label, get }) => (
                 <button
@@ -475,7 +479,7 @@ const AuditLog = () => {
                       : 'border-gray-200 text-gray-500 hover:border-indigo-300 hover:text-indigo-600'
                   }`}
                 >
-                  {label}
+                  {t(label)}
                 </button>
               ))}
             </div>
@@ -485,7 +489,7 @@ const AuditLog = () => {
         {/* Row 2: Date from | Date to | Entity | Action | Clear */}
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
           <div>
-            <label className="block text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-1">From</label>
+            <label className="block text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-1">{t('From')}</label>
             <input
               type="date" value={filters.dateFrom}
               onChange={(e) => { set('dateFrom', e.target.value); setActiveShortcut(''); }}
@@ -493,7 +497,7 @@ const AuditLog = () => {
             />
           </div>
           <div>
-            <label className="block text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-1">To</label>
+            <label className="block text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-1">{t('To')}</label>
             <input
               type="date" value={filters.dateTo}
               onChange={(e) => { set('dateTo', e.target.value); setActiveShortcut(''); }}
@@ -501,25 +505,25 @@ const AuditLog = () => {
             />
           </div>
           <div>
-            <label className="block text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-1">Entity</label>
+            <label className="block text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-1">{t('Entity')}</label>
             <select
               value={filters.entity}
               onChange={(e) => set('entity', e.target.value)}
               className="w-full border rounded px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500"
             >
-              {ENTITIES.map((e) => <option key={e} value={e}>{e || 'All Entities'}</option>)}
+              {ENTITIES.map((e) => <option key={e} value={e}>{e || t('All Entities')}</option>)}
             </select>
           </div>
           <div className="col-span-2">
-            <label className="block text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-1">Action</label>
+            <label className="block text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-1">{t('Action')}</label>
             <select
               value={filters.action}
               onChange={(e) => set('action', e.target.value)}
               className="w-full border rounded px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500"
             >
-              <option value="">All Actions</option>
+              <option value="">{t('All Actions')}</option>
               {ACTION_GROUPS.map((g) => (
-                <optgroup key={g.label} label={g.label}>
+                <optgroup key={g.label} label={t(g.label)}>
                   {g.actions.map((a) => (
                     <option key={a} value={a}>{ACTION_LABELS[a] || a}</option>
                   ))}
@@ -533,7 +537,7 @@ const AuditLog = () => {
                 onClick={() => { setFilters({ page: 1, limit: 50, dateFrom: '', dateTo: '', entity: '', action: '', userId: '', search: '' }); setActiveShortcut(''); }}
                 className="text-xs text-gray-400 hover:text-gray-700 underline"
               >
-                Clear all
+                {t('Clear all')}
               </button>
             )}
           </div>
@@ -544,21 +548,21 @@ const AuditLog = () => {
       {filters.userId && (
         <div className="flex items-center gap-2 px-4 py-2.5 bg-indigo-50 border border-indigo-200 rounded-lg mb-3 text-sm">
           <span className="font-semibold text-indigo-900">
-            {users.find((u) => u._id === filters.userId)?.name || 'Unknown User'}
+            {users.find((u) => u._id === filters.userId)?.name || t('Unknown User')}
           </span>
           {(filters.dateFrom || filters.dateTo) && (
             <span className="text-indigo-600 text-xs">
-              · {filters.dateFrom || '…'} → {filters.dateTo || 'now'}
+              · {filters.dateFrom || '…'} → {filters.dateTo || t('now')}
             </span>
           )}
           {pagination.total !== undefined && (
             <span className="ml-auto text-xs text-indigo-500 font-medium tabular-nums">
-              {pagination.total} {pagination.total === 1 ? 'entry' : 'entries'}
+              {pagination.total} {pagination.total === 1 ? t('entry') : t('entries')}
             </span>
           )}
           <button
             onClick={() => set('userId', '')}
-            title="Remove user filter"
+            title={t('Remove user filter')}
             className="text-indigo-400 hover:text-indigo-700 transition-colors ml-1"
           >
             <X size={14} />
@@ -571,20 +575,20 @@ const AuditLog = () => {
         <table className="w-full text-sm">
           <thead className="bg-gray-50 border-b">
             <tr>
-              <th className="text-left py-3 px-3 text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">Time</th>
-              <th className="text-left py-3 px-3 text-xs font-medium text-gray-500 uppercase tracking-wider">User</th>
-              <th className="text-left py-3 px-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Action</th>
-              <th className="text-left py-3 px-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Entity</th>
-              <th className="text-left py-3 px-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Ref</th>
+              <th className="text-left py-3 px-3 text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">{t('Time')}</th>
+              <th className="text-left py-3 px-3 text-xs font-medium text-gray-500 uppercase tracking-wider">{t('User')}</th>
+              <th className="text-left py-3 px-3 text-xs font-medium text-gray-500 uppercase tracking-wider">{t('Action')}</th>
+              <th className="text-left py-3 px-3 text-xs font-medium text-gray-500 uppercase tracking-wider">{t('Entity')}</th>
+              <th className="text-left py-3 px-3 text-xs font-medium text-gray-500 uppercase tracking-wider">{t('Ref')}</th>
               <th className="text-left py-3 px-3 text-xs font-medium text-gray-500 uppercase tracking-wider">IP</th>
               <th className="py-3 px-3 w-8" />
             </tr>
           </thead>
           <tbody>
             {isLoading ? (
-              <tr><td colSpan={7} className="py-12 text-center text-gray-400">Loading…</td></tr>
+              <tr><td colSpan={7} className="py-12 text-center text-gray-400">{t('Loading…')}</td></tr>
             ) : logs.length === 0 ? (
-              <tr><td colSpan={7} className="py-12 text-center text-gray-400">No audit log entries found</td></tr>
+              <tr><td colSpan={7} className="py-12 text-center text-gray-400">{t('No audit log entries found')}</td></tr>
             ) : (
               logs.map((log) => <LogRow key={log._id} log={log} />)
             )}
@@ -596,19 +600,19 @@ const AuditLog = () => {
       {pagination.totalPages > 1 && (
         <div className="flex items-center justify-between mt-4 text-sm text-gray-600">
           <span>
-            Showing {((filters.page - 1) * filters.limit) + 1}–{Math.min(filters.page * filters.limit, pagination.total)} of {pagination.total}
+            {t('Showing')} {((filters.page - 1) * filters.limit) + 1}–{Math.min(filters.page * filters.limit, pagination.total)} {t('of')} {pagination.total}
           </span>
           <div className="flex gap-2">
             <button
               disabled={filters.page <= 1}
               onClick={() => set('page', filters.page - 1)}
               className="px-3 py-1 border rounded disabled:opacity-40 hover:bg-gray-50"
-            >Previous</button>
+            >{t('Previous')}</button>
             <button
               disabled={filters.page >= pagination.totalPages}
               onClick={() => set('page', filters.page + 1)}
               className="px-3 py-1 border rounded disabled:opacity-40 hover:bg-gray-50"
-            >Next</button>
+            >{t('Next')}</button>
           </div>
         </div>
       )}

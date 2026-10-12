@@ -1,7 +1,6 @@
 import mongoose from 'mongoose';
 import StockBatch from '../models/StockBatch.js';
 import StockBalance from '../models/StockBalance.js';
-import StockTransaction from '../models/StockTransaction.js';
 
 const { Types: { ObjectId } } = mongoose;
 

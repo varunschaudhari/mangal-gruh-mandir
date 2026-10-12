@@ -220,17 +220,14 @@ Do a `verify` every month or two — an untested backup isn't a backup.
 
 ## 11. Attendance module (biometric machine)
 
-**First deploy of the attendance module** — this release changes `nginx/conf.d/app.conf` (a new
-`/iclock/` route for the machine), so follow the nginx note at the bottom of this file:
+**First deploy of the attendance module** — the nginx config has an `/iclock/` route for the
+machine (in `nginx/templates/app.conf.template`; see the nginx notes at the bottom of this file):
 
 ```bash
 cd ~/mangal-gruh-mandir
-git checkout -- nginx/conf.d/app.conf          # undo the local domain edit so pull works
 git pull
-sed -i "s/yourdomain.com/mandir.aumora.io/g" nginx/conf.d/app.conf
 docker compose up -d --build
 docker compose exec server npm run migrate:attendance   # admin permissions + "Attendance Supervisor" role
-docker compose restart nginx
 ```
 
 Check the machine endpoint answers (a 403 "Device not approved" is the expected reply):
@@ -308,9 +305,10 @@ docker compose exec server npm run migrate:bookings
 
 This adds the `bookings:*` permissions to the existing roles, creates the **Booking Counter**
 role, and — only the first time — the 6 seva types and 14 batches from the temple website.
-Running it again never overwrites changes made in the app. **Run it again after updating to the
-version with shift close / cash handover** — that adds `bookings:cash` (see and verify everyone's
-cash handovers) to Admin and Cashier.
+Running it again never overwrites changes made in the app. **Run it again after each update that
+adds booking permissions:** shift close / cash handover adds `bookings:cash` (see and verify
+everyone's cash handovers) to Admin and Cashier; hall check-in adds `bookings:checkin` to Admin,
+Staff and Booking Counter and creates the **Hall Check-in** role (scanning only).
 
 Then, in **Bookings → Booking Setup**:
 1. **Batches:** set the real capacity of each batch. 50 is a placeholder; the website didn't publish
@@ -342,6 +340,24 @@ the handover slip. A cashier or admin checks the cash and marks it verified in
 **Bookings → Cash Handover**. A person's first ever close counts their bookings from the start of
 that day; after that, each close covers everything since their previous one.
 
+**Hall check-in:** at the hall entrance, staff open **Bookings → Hall Check-in** (or the app-bar
+scanner in the phone app) and scan the QR on the devotee's slip — phone camera, webcam or a USB
+handheld scanner, or type the receipt number. A valid slip is marked checked in once; a reused,
+cancelled or wrong-day slip is refused, and a slip for another hall or a finished batch can be let
+in anyway (recorded). The day sheet shows who has arrived. Give hall volunteers the *Hall Check-in*
+role: it can scan, but cannot see the booking register or devotees' phone numbers.
+
+**Hall screen (TV):** on a TV, tablet or PC at each hall, sign in as a hall user and open
+`https://<domain>/hall-screen?hall=H1` (or **Bookings → Hall Screen**). It shows the batch running
+now with every serial number — green once that devotee has checked in — and the next batch, and
+refreshes itself. Add `&names=0` to show serial numbers only. Use the browser's full-screen / kiosk
+mode; the screen stays on while the page is open.
+
+**Fill rate and no-shows:** **Bookings → Booking Reports → Attendance** — seats booked against
+batch capacity (as set in Booking Setup), and devotees who booked but never checked in, by batch,
+seva, weekday and day. Only days on which the hall scanned slips count for no-shows. The register's
+*Hall check-in → Did not come* filter lists them for follow-up calls (and exports to Excel).
+
 Booking income is counted in **Monthly P&L** on the day it's paid. The old admin panel at
 admin.mangalagrahmandir.in stays as it is for older bookings.
 
@@ -362,11 +378,20 @@ See them under **Admin → App Errors** (grouped, with a count, the screen, app 
 9:00 / 9:30 alerts and the 8:30 push summary follow the IST calendar.
 
 ## Notes
-- **nginx config is edited in place by `init-letsencrypt.sh`** (it replaces `yourdomain.com` in
-  `nginx/conf.d/app.conf`). That makes the server's copy differ from git, so any future change to
-  `app.conf` in the repo will block `git pull` there. Before pulling such a change, run
-  `git checkout -- nginx/conf.d/app.conf` on the server, pull, then re-apply the domain with
-  `sed -i "s/yourdomain.com/mandir.aumora.io/g" nginx/conf.d/app.conf` and `docker compose restart nginx`.
+- **nginx config is a template**: `nginx/templates/app.conf.template` contains `${DOMAIN}`, and the
+  nginx container fills it in from `DOMAIN` in the root `.env` each time it starts. Nothing on the
+  server is edited, so `git pull` never conflicts. Change the domain = edit `.env`, then
+  `docker compose up -d nginx`.
+- **One-time step when first pulling the template change** (servers set up before it had the domain
+  written into `nginx/conf.d/app.conf`, which blocks the pull):
+  ```bash
+  cd ~/mangal-gruh-mandir
+  grep DOMAIN .env                                  # must show DOMAIN=mandir.aumora.io
+  git checkout -- nginx/conf.d/app.conf             # drop the old local domain edit
+  git pull
+  docker compose up -d --build
+  curl -sI https://mandir.aumora.io | head -1       # expect HTTP/2 200
+  ```
 - MongoDB runs on **Atlas**, not in Docker — there is no `mongodb` container or `mongo_data` volume.
 - The client calls the API at the relative path `/api`, proxied by nginx to `server:5000` — no build-time API URL needed.
 - Only **nginx** exposes public ports (80/443); server and client are reachable only on the internal `mgm_net` network.

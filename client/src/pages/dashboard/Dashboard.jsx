@@ -23,6 +23,7 @@ import { usePermissions } from '../../hooks/usePermissions.js';
 import { useIsMobile } from '../../hooks/useMediaQuery.js';
 import MahaprasadLiveTile from '../../components/mahaprasad/MahaprasadLiveTile.jsx';
 import { useT } from '../../i18n/index.jsx';
+import { useTemple } from '../../utils/temple.js';
 
 const TYPE_LABELS = {
   STOCK_IN: 'Stock In', STOCK_OUT: 'Stock Out',
@@ -156,6 +157,7 @@ const AttentionList = ({ items }) => {
 
 const Dashboard = () => {
   const t = useT();
+  const { name: templeName } = useTemple();
   const { user } = useAuth();
   const { can } = usePermissions();
   const isMobile = useIsMobile();
@@ -260,7 +262,7 @@ const Dashboard = () => {
         subtitle={
           <>
             <span className="lg:hidden">{todayLabel}</span>
-            <span className="hidden lg:inline">{t('Mangal Grah Mandir, Amalner — Stock Management')}</span>
+            <span className="hidden lg:inline">{t('{temple} — Stock Management', { temple: t(templeName) })}</span>
           </>
         }
       />

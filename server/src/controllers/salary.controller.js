@@ -3,7 +3,6 @@ import Expense from '../models/Expense.js';
 import PayrollSettings from '../models/PayrollSettings.js';
 import SalaryAdvance from '../models/SalaryAdvance.js';
 import SalaryRun from '../models/SalaryRun.js';
-import Settings from '../models/Settings.js';
 import { monthRange } from '../services/attendance/attendance.service.js';
 import { runTotals } from '../services/salary/payroll.js';
 import {
@@ -15,6 +14,7 @@ import { localDateStr } from '../utils/dates.js';
 import ApiError from '../utils/ApiError.js';
 import ApiResponse from '../utils/ApiResponse.js';
 import asyncHandler from '../utils/asyncHandler.js';
+import { temple } from '../services/temple.service.js';
 
 const MONTH = /^\d{4}-\d{2}$/;
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
@@ -32,7 +32,6 @@ async function findRun(month, statuses) {
 
 async function runView(run, month) {
   const { to } = monthRange(month);
-  const temple = await Settings.findOne().select('templeName templeAddress templePhone').lean();
   let advances = [];
   if (run) {
     const ids = run.lines.map((l) => l.staff);
@@ -47,7 +46,7 @@ async function runView(run, month) {
     run,
     totals: run ? runTotals(run.lines) : null,
     advances,
-    temple: { name: temple?.templeName || 'Mangal Grah Mandir', address: temple?.templeAddress || '', phone: temple?.templePhone || '' },
+    temple: { name: temple().name, address: temple().address, phone: temple().phone },
   };
 }
 
@@ -188,8 +187,7 @@ export const downloadFile = asyncHandler(async (req, res) => {
   const bankLines = run.lines.filter((l) => l.paymentMode !== 'cash' && l.netPay > 0);
   let body;
   if (kind === 'register.xlsx') {
-    const temple = await Settings.findOne().select('templeName').lean();
-    body = await salaryRegisterXlsx({ run, label, temple: temple?.templeName || 'Mangal Grah Mandir' });
+    body = await salaryRegisterXlsx({ run, label, temple: temple().name });
   } else if (kind === 'bank.xlsx') body = await bankXlsx({ lines: bankLines, narration });
   else if (kind === 'bank.csv') body = bankCsv({ lines: bankLines, narration });
   else if (kind === 'ecr.txt') body = ecrText(run.lines);

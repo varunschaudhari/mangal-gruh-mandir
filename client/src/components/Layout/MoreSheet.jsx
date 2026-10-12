@@ -12,6 +12,7 @@ import { ROLE_LABELS } from '../../utils/permissions.js';
 import { isNative } from '../../utils/platform.js';
 import haptics from '../../utils/haptics.js';
 import { useT, LanguageSwitch } from '../../i18n/index.jsx';
+import { useTemple } from '../../utils/temple.js';
 
 // Full menu for phones/tablets, opened from the "More" tab. Mirrors the desktop sidebar.
 const MoreSheet = ({ open, onClose }) => {
@@ -21,6 +22,7 @@ const MoreSheet = ({ open, onClose }) => {
   const badges = useNavBadges();
   const [version, setVersion] = useState(null);
   const t = useT();
+  const { name: templeName } = useTemple();
 
   useEffect(() => {
     if (open && isNative && !version) {
@@ -111,7 +113,7 @@ const MoreSheet = ({ open, onClose }) => {
         </div>
 
         <p className="pb-2 text-center text-xs text-gray-400">
-          {t('Mangal Grah Mandir, Amalner')}{version && ` · v${version}`}
+          {t(templeName)}{version && ` · v${version}`}
         </p>
       </div>
     </Sheet>

@@ -10,6 +10,7 @@ import Badge from '../../components/ui/Badge.jsx';
 import toast from 'react-hot-toast';
 import { saveFile } from '../../utils/fileSaver.js';
 import { localDateStr } from '../../utils/formatters.js';
+import { useT, tNow } from '../../i18n/index.jsx';
 
 const col = createColumnHelper();
 
@@ -21,22 +22,25 @@ function fDate(d) {
 const downloadBlob = (blob, filename) => saveFile(blob, filename);
 
 // ── Stat card ───────────────────────────────────────────────────────────────
-const Stat = ({ icon: Icon, label, value, color, bg, border }) => (
+const Stat = ({ icon: Icon, label, value, color, bg, border }) => {
+  const t = useT();
+  return (
   <div className={`rounded-xl border-l-4 ${border} ${bg} px-4 py-3 flex items-center gap-3`}>
     <Icon className={`h-5 w-5 shrink-0 ${color}`} />
     <div>
       <p className={`text-2xl font-bold ${color}`}>{value}</p>
-      <p className="text-xs text-gray-500 font-medium">{label}</p>
+      <p className="text-xs text-gray-500 font-medium">{t(label)}</p>
     </div>
   </div>
 );
+};
 
 // ── Utilization Tab ─────────────────────────────────────────────────────────
 const utilColumns = [
   col.accessor('assetName', { header: 'Asset',          cell: (i) => <span className="font-medium text-gray-900">{i.getValue()}</span> }),
   col.accessor('category',  { header: 'Category', size: 110, cell: (i) => <Badge variant="blue">{i.getValue()}</Badge> }),
   col.accessor('totalBorrows',  { header: 'Total Borrows', size: 100, cell: (i) => <span className="font-semibold">{i.getValue()}</span> }),
-  col.accessor('avgDurationDays', { header: 'Avg Duration', size: 110, cell: (i) => <span>{i.getValue() || 0} days</span> }),
+  col.accessor('avgDurationDays', { header: 'Avg Duration', size: 110, cell: (i) => <span>{i.getValue() || 0} {tNow('days')}</span> }),
   col.accessor('checkedOutNow', {
     header: 'Currently Out', size: 110,
     cell: (i) => i.getValue() > 0
@@ -69,9 +73,9 @@ const fineColumns = [
     id: 'fineStatus', header: 'Fine Status', size: 100,
     cell: ({ row }) => {
       const { fineApplied, fineWaived, lateDays } = row.original;
-      if (fineApplied) return <Badge variant="red">Applied</Badge>;
-      if (fineWaived)  return <Badge variant="gray">Waived</Badge>;
-      if (lateDays > 0) return <Badge variant="yellow">Pending</Badge>;
+      if (fineApplied) return <Badge variant="red">{tNow('Applied')}</Badge>;
+      if (fineWaived)  return <Badge variant="gray">{tNow('Waived')}</Badge>;
+      if (lateDays > 0) return <Badge variant="yellow">{tNow('Pending')}</Badge>;
       return <span className="text-gray-400">—</span>;
     },
   }),
@@ -80,6 +84,7 @@ const fineColumns = [
 
 // ── Main Page ───────────────────────────────────────────────────────────────
 const AssetReports = () => {
+  const t = useT();
   const [tab,     setTab]     = useState('utilization');
   const [from,    setFrom]    = useState('');
   const [to,      setTo]      = useState('');
@@ -108,7 +113,7 @@ const AssetReports = () => {
     try {
       const res = await exportAssetExcel({ from: from || undefined, to: to || undefined });
       downloadBlob(res.data, `asset-report-${localDateStr()}.xlsx`);
-    } catch { toast.error('Export failed'); }
+    } catch { toast.error(t('Export failed')); }
     finally { setExporting(false); }
   };
 
@@ -117,7 +122,7 @@ const AssetReports = () => {
     try {
       const res = await exportAssetPDF({ from: from || undefined, to: to || undefined });
       downloadBlob(res.data, `asset-report-${localDateStr()}.pdf`);
-    } catch { toast.error('Export failed'); }
+    } catch { toast.error(t('Export failed')); }
     finally { setExporting(false); }
   };
 
@@ -130,7 +135,7 @@ const AssetReports = () => {
         actions={
           <div className="flex gap-2">
             <button onClick={handleExportExcel} disabled={exporting} className="btn-secondary flex items-center gap-2 text-sm">
-              <Download className="h-4 w-4" /> Excel
+              <Download className="h-4 w-4" /> {t('Excel')}
             </button>
             <button onClick={handleExportPDF} disabled={exporting} className="btn-secondary flex items-center gap-2 text-sm">
               <FileText className="h-4 w-4" /> PDF
@@ -142,23 +147,23 @@ const AssetReports = () => {
       {/* Date range filter */}
       <div className="flex flex-wrap gap-3 items-center">
         <div className="flex items-center gap-2">
-          <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">From</label>
+          <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">{t('From')}</label>
           <input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className="input text-sm py-1.5" />
         </div>
         <div className="flex items-center gap-2">
-          <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">To</label>
+          <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">{t('To')}</label>
           <input type="date" value={to} max={localDateStr()} onChange={(e) => setTo(e.target.value)} className="input text-sm py-1.5" />
         </div>
         {(from || to) && (
-          <button onClick={() => { setFrom(''); setTo(''); }} className="text-xs text-gray-400 hover:text-gray-600 underline">Clear</button>
+          <button onClick={() => { setFrom(''); setTo(''); }} className="text-xs text-gray-400 hover:text-gray-600 underline">{t('Clear')}</button>
         )}
       </div>
 
       {/* Tabs */}
       <div className="flex gap-1 border-b border-gray-200">
         {[
-          { key: 'utilization', icon: BarChart2, label: 'Utilization' },
-          { key: 'fines',       icon: IndianRupee, label: 'Fine Collection' },
+          { key: 'utilization', icon: BarChart2, label: t('Utilization') },
+          { key: 'fines',       icon: IndianRupee, label: t('Fine Collection') },
         ].map(({ key, icon: Icon, label }) => (
           <button
             key={key} onClick={() => setTab(key)}
@@ -166,7 +171,7 @@ const AssetReports = () => {
               tab === key ? 'border-primary-600 text-primary-600' : 'border-transparent text-gray-500 hover:text-gray-700'
             }`}
           >
-            <Icon className="h-4 w-4" /> {label}
+            <Icon className="h-4 w-4" /> {t(label)}
           </button>
         ))}
       </div>
@@ -175,10 +180,10 @@ const AssetReports = () => {
       {tab === 'utilization' && (
         <div className="space-y-4">
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <Stat icon={Package}      label="Total Assets Tracked"  value={utilData.length}                               color="text-purple-600" bg="bg-purple-50" border="border-purple-400" />
-            <Stat icon={BarChart2}    label="Total Borrows"         value={utilData.reduce((s, r) => s + r.totalBorrows, 0)} color="text-blue-600"   bg="bg-blue-50"   border="border-blue-400"   />
-            <Stat icon={AlertTriangle} label="Currently Overdue"    value={utilData.reduce((s, r) => s + r.overdueNow, 0)}  color="text-red-600"    bg="bg-red-50"    border="border-red-400"    />
-            <Stat icon={Package}      label="Total Damages"         value={utilData.reduce((s, r) => s + r.damageCount, 0)} color="text-amber-600"  bg="bg-amber-50"  border="border-amber-400"  />
+            <Stat icon={Package}      label={t('Total Assets Tracked')}  value={utilData.length}                               color="text-purple-600" bg="bg-purple-50" border="border-purple-400" />
+            <Stat icon={BarChart2}    label={t('Total Borrows')}         value={utilData.reduce((s, r) => s + r.totalBorrows, 0)} color="text-blue-600"   bg="bg-blue-50"   border="border-blue-400"   />
+            <Stat icon={AlertTriangle} label={t('Currently Overdue')}    value={utilData.reduce((s, r) => s + r.overdueNow, 0)}  color="text-red-600"    bg="bg-red-50"    border="border-red-400"    />
+            <Stat icon={Package}      label={t('Total Damages')}         value={utilData.reduce((s, r) => s + r.damageCount, 0)} color="text-amber-600"  bg="bg-amber-50"  border="border-amber-400"  />
           </div>
           <DataTable columns={utilColumns} data={utilData} loading={utilLoading} />
         </div>
@@ -188,10 +193,10 @@ const AssetReports = () => {
       {tab === 'fines' && (
         <div className="space-y-4">
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <Stat icon={IndianRupee}   label="Total Fines Collected" value={`₹${(fineSummary.totalFineAmount || 0).toLocaleString('en-IN')}`} color="text-green-600"  bg="bg-green-50"  border="border-green-400"  />
-            <Stat icon={IndianRupee}   label="Fines Applied"         value={fineSummary.fineAppliedCount || 0}                                color="text-blue-600"   bg="bg-blue-50"   border="border-blue-400"   />
-            <Stat icon={Package}       label="Fines Waived"          value={fineSummary.fineWaivedCount  || 0}                                color="text-gray-600"   bg="bg-gray-50"   border="border-gray-400"   />
-            <Stat icon={AlertTriangle} label="Pending (Overdue)"     value={fineSummary.overdueCount     || 0}                                color="text-red-600"    bg="bg-red-50"    border="border-red-400"    />
+            <Stat icon={IndianRupee}   label={t('Total Fines Collected')} value={`₹${(fineSummary.totalFineAmount || 0).toLocaleString('en-IN')}`} color="text-green-600"  bg="bg-green-50"  border="border-green-400"  />
+            <Stat icon={IndianRupee}   label={t('Fines Applied')}         value={fineSummary.fineAppliedCount || 0}                                color="text-blue-600"   bg="bg-blue-50"   border="border-blue-400"   />
+            <Stat icon={Package}       label={t('Fines Waived')}          value={fineSummary.fineWaivedCount  || 0}                                color="text-gray-600"   bg="bg-gray-50"   border="border-gray-400"   />
+            <Stat icon={AlertTriangle} label={t('Pending (Overdue)')}     value={fineSummary.overdueCount     || 0}                                color="text-red-600"    bg="bg-red-50"    border="border-red-400"    />
           </div>
           <DataTable columns={fineColumns} data={fineTxns} loading={fineLoading} />
         </div>

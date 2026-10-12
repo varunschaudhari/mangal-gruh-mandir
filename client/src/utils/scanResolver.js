@@ -3,6 +3,7 @@ import { lookupAssetUnit } from '../api/assetUnit.api.js';
 
 // Work out where a scanned code should take the user. The labels this app prints:
 //   MP-20261009-042                      Mahaprasad coupon          → Redeem screen
+//   https://…/r/<code>                   pooja booking slip          → Hall check-in (or the receipt)
 //   https://…/assets/<id>/history        asset label (assetLabel.js) → asset history
 //   MGM-AST-007-01                       asset unit sticker          → that asset's units
 //   PRD-0012 / a shop barcode (EAN…)     product (code or barcode)   → product details
@@ -11,8 +12,10 @@ import { lookupAssetUnit } from '../api/assetUnit.api.js';
 const COUPON = /^MP-\d{8}-\d+$/i;
 const ASSET_UNIT = /^MGM-AST-[\w-]+$/i;
 const ASSET_PATH = /^\/assets\/[a-f0-9]{24}\/history$/;
+const RECEIPT_PATH = /^\/r\/([A-Za-z0-9_-]{10,40})\/?$/;
 
-export async function resolveScan(text) {
+// canCheckIn: the user may check devotees in at the hall (bookings:checkin).
+export async function resolveScan(text, { canCheckIn = false } = {}) {
   const code = String(text || '').trim();
   if (!code) return { error: 'Nothing was scanned' };
 
@@ -22,6 +25,8 @@ export async function resolveScan(text) {
     try {
       const { pathname } = new URL(code);
       if (ASSET_PATH.test(pathname)) return { to: pathname };
+      const receipt = RECEIPT_PATH.exec(pathname);
+      if (receipt) return { to: canCheckIn ? `/bookings/check-in?code=${receipt[1]}` : `/r/${receipt[1]}` };
     } catch { /* not a URL after all */ }
     return { error: 'This QR code is not from Mangal Grah Mandir' };
   }

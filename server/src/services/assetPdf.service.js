@@ -1,5 +1,6 @@
 import PDFDocument from 'pdfkit';
 import { localDateStr } from '../utils/dates.js';
+import { temple } from './temple.service.js';
 
 const C = { primary: '#7c3aed', dark: '#1f2937', gray: '#6b7280', light: '#f5f3ff', white: '#ffffff', red: '#dc2626' };
 const STATUS_LABELS = { approved: 'Approved', checked_out: 'Checked Out', returned: 'Returned', overdue: 'Overdue', cancelled: 'Cancelled' };
@@ -22,7 +23,7 @@ export function generateAssetReportPDF(res, { transactions, from, to }) {
   // ── Header ────────────────────────────────────────────────────────────────
   doc.rect(LEFT, 30, W, 56).fill(C.primary);
   doc.fillColor(C.white).fontSize(16).font('Helvetica-Bold')
-    .text('Mangal Grah Mandir, Amalner', LEFT + 10, 40, { width: W - 20 });
+    .text(temple().name, LEFT + 10, 40, { width: W - 20 });
   doc.fontSize(9).font('Helvetica')
     .text('Asset Borrow Transactions Report', LEFT + 10, 60);
 
@@ -119,7 +120,7 @@ export function generateAssetReportPDF(res, { transactions, from, to }) {
   for (let i = 0; i < pageCount; i++) {
     doc.switchToPage(i);
     doc.fillColor(C.gray).fontSize(7).font('Helvetica')
-      .text(`Page ${i + 1} of ${pageCount}  ·  Mangal Grah Mandir Asset Management`, LEFT, doc.page.height - 30, { width: W, align: 'center' });
+      .text(`Page ${i + 1} of ${pageCount}  ·  ${temple().name} · Asset Management`, LEFT, doc.page.height - 30, { width: W, align: 'center' });
   }
 
   doc.end();

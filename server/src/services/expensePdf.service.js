@@ -1,4 +1,5 @@
 import PDFDocument from 'pdfkit';
+import { temple } from './temple.service.js';
 
 const C = { primary: '#ea580c', dark: '#1f2937', gray: '#6b7280', light: '#fff7ed', white: '#ffffff' };
 
@@ -13,7 +14,7 @@ const CATEGORY_LABELS = {
 const PM_LABELS   = { cash: 'Cash', upi: 'UPI', cheque: 'Cheque', bank: 'Bank transfer' };
 const STATUS_LABELS = { pending_approval: 'Pending', approved: 'Approved', rejected: 'Rejected', voided: 'Voided' };
 
-export function generateExpenseReport(res, { expenses, from, to, templeName = 'Mangal Grah Mandir, Amalner' }) {
+export function generateExpenseReport(res, { expenses, from, to, templeName = temple().name }) {
   const doc = new PDFDocument({ size: 'A4', margin: 50, bufferPages: true });
   const fileName = `Expenses-${from || 'all'}-to-${to || 'all'}.pdf`;
   res.setHeader('Content-Type', 'application/pdf');

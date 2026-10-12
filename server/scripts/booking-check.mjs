@@ -18,7 +18,10 @@ const check = (ok, label, extra = '') => {
 const pad = (n) => String(n).padStart(2, '0');
 const key = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 const tomorrow = (() => { const d = new Date(); d.setDate(d.getDate() + 1); return key(d); })();
-const nextTuesday = (() => { const d = new Date(); d.setDate(d.getDate() + 1); while (d.getDay() !== 2) d.setDate(d.getDate() + 1); return key(d); })();
+// Panchamrit is done on Tuesdays only. Keep its date clear of `tomorrow` (most checks use tomorrow),
+// so the checks pass whatever day of the week they run.
+const nextTuesday = (() => { const d = new Date(); d.setDate(d.getDate() + 2); while (d.getDay() !== 2) d.setDate(d.getDate() + 1); return key(d); })();
+const notTuesday = (() => { const d = new Date(); d.setDate(d.getDate() + 1); if (d.getDay() === 2) d.setDate(d.getDate() + 1); return key(d); })();
 
 // Signs in and returns api(method, path, body) → { status, type, body } for that user.
 async function login(email, password) {
@@ -105,7 +108,7 @@ async function main() {
   const p1 = await api('POST', '/bookings', { sevaType: panch._id, date: nextTuesday, devotee: { name: 'Family A', phone: '9822000001' }, paymentMode: 'card' });
   const p2 = await api('POST', '/bookings', { sevaType: panch._id, date: nextTuesday, devotee: { name: 'Family B', phone: '9822000002' }, paymentMode: 'card' });
   check(p1.status === 201 && p2.status === 409, 'Panchamrit: one family per Tuesday');
-  const wrongDay = await api('POST', '/bookings', { sevaType: panch._id, date: tomorrow === nextTuesday ? key(new Date(Date.now() + 2 * 864e5)) : tomorrow, devotee: { name: 'X', phone: '9822000003' }, paymentMode: 'cash' });
+  const wrongDay = await api('POST', '/bookings', { sevaType: panch._id, date: notTuesday, devotee: { name: 'X', phone: '9822000003' }, paymentMode: 'cash' });
   check(wrongDay.status === 400, 'Panchamrit cannot be booked on other days');
 
   const partial = await api('POST', '/booking-setup/closures', { date: tomorrow, reason: 'Panchamrit only', sevaTypes: [panch._id] });
@@ -231,6 +234,59 @@ async function main() {
   const listed = shifts.items.find((x) => x._id === sh._id);
   check(shifts.total === 3 && listed?.voidedAfterClose?.count === 1 && listed.voidedAfterClose.amount === 810 && shifts.summary.short === -100,
     'handover list flags voids after closing and totals the shortfall', JSON.stringify({ total: shifts.total, late: listed?.voidedAfterClose, summary: shifts.summary }));
+
+  // ── Hall check-in ───────────────────────────────────────────────────────────
+  // Bhomyag (date fixed with the office, no batch) can be booked for today at any hour.
+  const today = key(new Date());
+  const bhom = setup.sevaTypes.find((s) => s.code === 'BHOM');
+  const visit = await api('POST', '/bookings', { sevaType: bhom._id, date: today, devotee: { name: 'Hall Visitor', phone: '9822000055' }, paymentMode: 'upi', peopleCount: 3 });
+  const vb = visit.body.data;
+  const ci = await api('POST', '/bookings/check-in', { code: vb.receiptUrl });
+  check(visit.status === 201 && ci.status === 200 && ci.body.data.result === 'ok' && ci.body.data.checkedIn && Boolean(ci.body.data.booking.checkedInBy?.name),
+    'scanning the slip\'s QR checks the devotee in', JSON.stringify(ci.body).slice(0, 200));
+  const rescan = await api('POST', '/bookings/check-in', { code: vb.receiptUrl });
+  check(rescan.body.data.result === 'already' && !rescan.body.data.checkedIn, 'scanning the same slip again shows it was already used');
+  check((await api('POST', '/bookings/check-in', { code: String(vb.seq) })).body.data.booking?.receiptNo === vb.receiptNo, 'the receipt number typed in finds the booking');
+  check((await api('POST', '/bookings/check-in', { code: late.body.data.receiptNo })).body.data.result === 'early', 'a slip for another day is refused');
+  check((await api('POST', '/bookings/check-in', { code: b1.receiptNo })).body.data.result === 'voided', 'a voided booking is refused');
+  check((await api('POST', '/bookings/check-in', { code: postOk.body.data.receiptNo })).body.data.result === 'no-visit', 'Post Abhishek has nothing to check in');
+  const foreign = await api('POST', '/bookings/check-in', { code: 'https://example.com/promo' });
+  const unknown = await api('POST', '/bookings/check-in', { code: 'ABH/2099-00/99999' });
+  check(foreign.status === 400 && unknown.status === 404, 'other QR codes and unknown receipts are explained');
+
+  const undone = await api('DELETE', `/bookings/${vb._id}/check-in`);
+  check(undone.status === 200 && !undone.body.data.checkedInAt, 'a check-in made by mistake can be undone');
+  check((await api('POST', `/bookings/${vb._id}/check-in`, {})).body.data.result === 'ok', 'check in by hand from the booking');
+
+  const arrivals = (await api('GET', '/bookings/check-in/summary')).body.data;
+  check(arrivals.totals.arrived === 1 && arrivals.totals.arrivedPeople === 3 && arrivals.recent[0]?.receiptNo === vb.receiptNo && arrivals.halls.length >= 3,
+    'arrivals summary: who has come, per batch and in total', JSON.stringify(arrivals.totals));
+  const sheetToday = (await api('GET', `/bookings/reports/day-sheet?date=${today}`)).body.data;
+  check(sheetToday.groups.some((g) => g.arrived === 1 && g.arrivedPeople === 3), 'the day sheet counts arrivals');
+  const pubVisit = await (await fetch(`${BASE}/api/public/receipts/${vb.receiptUrl.split('/r/')[1]}`)).json();
+  check(Boolean(pubVisit.data?.checkedInAt), 'the devotee\'s receipt page shows the check-in');
+
+  const board = await api('GET', '/bookings/hall-board');
+  const visitorTile = board.body.data?.groups?.flatMap((g) => g.bookings).find((x) => x.name === 'Hall Visitor');
+  check(board.status === 200 && visitorTile?.arrived === true && visitorTile.people === 3 && !JSON.stringify(board.body).includes('9822000055'),
+    'hall screen lists today\'s serials with who has arrived — names only, no phone numbers');
+
+  // Fill rate / no-shows (only today and future here, so no no-show days yet)
+  const att = (await api('GET', `/bookings/reports/attendance?to=${tomorrow}`)).body.data;
+  check(att?.from === today && att.fill.totals.capacity > 0 && att.fill.totals.booked > 0 && att.fill.byBatch.length >= 14 && att.noShow.scannedDays === 0,
+    'attendance report: fill rate from the first booking day, no no-shows before any past day', JSON.stringify(att?.fill?.totals));
+  const arrivedList = (await api('GET', '/bookings?arrival=arrived')).body.data;
+  const noShowList = (await api('GET', '/bookings?arrival=noshow')).body.data;
+  check(arrivedList.items.some((x) => x.receiptNo === vb.receiptNo) && noShowList.total === 0, 'register filters arrived / no-show bookings');
+
+  // Hall staff: scan only — no register, no counter
+  const hallEmail = `hall-${Date.now()}@test.local`;
+  await api('POST', '/users', { name: 'Hall Check', email: hallEmail, password: 'Hall-Pass-123!', role: 'hall_checkin', phone: '', departments: [], isActive: true });
+  const hall = await login(hallEmail, 'Hall-Pass-123!');
+  const hallScan = await hall('POST', '/bookings/check-in', { code: vb.receiptUrl });
+  check(hallScan.status === 200 && hallScan.body.data.result === 'already' && (await hall('GET', '/bookings/check-in/summary')).status === 200
+    && (await hall('GET', '/bookings/hall-board')).status === 200, 'hall staff can scan slips, see arrivals and run the hall screen');
+  check((await hall('GET', '/bookings')).status === 403 && (await hall('POST', '/bookings', {})).status === 403, 'hall staff cannot open the register or book');
 
   await api('PUT', `/booking-setup/batches/${batch._id}`, { capacity: 50 });
   console.log(failed ? `\n${failed} booking check(s) failed` : '\nBooking checks OK');

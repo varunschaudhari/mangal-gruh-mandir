@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { ChevronLeft, ChevronRight, ChevronDown, Printer, RefreshCw, Search, Users, Phone, StickyNote, CalendarDays } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ChevronDown, Printer, RefreshCw, Search, Users, Phone, StickyNote, CalendarDays, CheckCircle2 } from 'lucide-react';
 import PageHeader from '../../components/ui/PageHeader.jsx';
 import Badge from '../../components/ui/Badge.jsx';
 import Spinner, { PageLoader } from '../../components/ui/Spinner.jsx';
@@ -12,7 +12,7 @@ import { localDateStr } from '../../utils/formatters.js';
 import { useIsMobile } from '../../hooks/useMediaQuery.js';
 import haptics from '../../utils/haptics.js';
 import { useLanguage, useT } from '../../i18n/index.jsx';
-import { PRINT_FONT, addDays, esc, fmtDay, nBookings, nPeople, parseDay } from '../../components/booking/registerUtils.js';
+import { PRINT_FONT, addDays, esc, fmtDay, fmtTime, nBookings, nPeople, parseDay } from '../../components/booking/registerUtils.js';
 
 // Who is coming on a puja date, batch by batch and in serial order — what the hall
 // volunteers check devotees against and what the pujaris read the sankalp from.
@@ -286,6 +286,7 @@ export default function BookingDaySheet() {
                     <p className="text-sm font-bold text-gray-900">{nBookings(t, g.bookings.length)}</p>
                     <p>{nPeople(t, g.people)}</p>
                     {g.capacity > 0 && <p className="text-gray-400">{t('Capacity {n}', { n: g.capacity })}</p>}
+                    {g.arrived > 0 && <p className="font-semibold text-green-700">{t('{n} of {total} arrived', { n: g.arrived, total: g.bookings.length })}</p>}
                   </div>
                   <button onClick={() => print([g])} className="btn-ghost shrink-0 p-2" title={t('Print this batch')} aria-label={t('Print this batch')}>
                     <Printer className="h-4 w-4" />
@@ -297,7 +298,7 @@ export default function BookingDaySheet() {
                     {g.bookings.map((b) => (
                       <li key={b._id || b.receiptNo}>
                         <button onClick={() => { haptics.tap(); setSelected(b); }} className="flex w-full gap-3 px-3 py-2.5 text-left active:bg-gray-50">
-                          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gray-900 text-sm font-bold text-white tabular-nums">
+                          <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-bold text-white tabular-nums ${b.checkedInAt ? 'bg-green-600' : 'bg-gray-900'}`}>
                             {b.serialNo ?? '—'}
                           </span>
                           <span className="min-w-0 flex-1">
@@ -317,6 +318,9 @@ export default function BookingDaySheet() {
                               <span className="block text-xs text-gray-600">{t('Family')}: {b.devotee.familyNames.join(', ')}</span>
                             )}
                             <span className="block font-mono text-[11px] text-gray-400">{b.receiptNo} · {b.devotee?.phone}</span>
+                            {b.checkedInAt && (
+                              <span className="mt-0.5 inline-flex items-center gap-1 text-xs font-semibold text-green-700"><CheckCircle2 className="h-3.5 w-3.5" />{t('Checked in {time}', { time: fmtTime(b.checkedInAt) })}</span>
+                            )}
                             {b.notes && (
                               <span className="mt-0.5 flex items-start gap-1 text-xs text-amber-700"><StickyNote className="mt-0.5 h-3 w-3 shrink-0" />{b.notes}</span>
                             )}
@@ -348,10 +352,13 @@ export default function BookingDaySheet() {
                       <tbody className="divide-y divide-gray-100 bg-white">
                         {g.bookings.map((b) => (
                           <tr key={b._id || b.receiptNo} onClick={() => setSelected(b)} className="cursor-pointer hover:bg-orange-50/50">
-                            <td className="table-td px-2 text-center text-base font-bold tabular-nums text-gray-900">{b.serialNo ?? '—'}</td>
+                            <td className={`table-td px-2 text-center text-base font-bold tabular-nums ${b.checkedInAt ? 'text-green-700' : 'text-gray-900'}`}>{b.serialNo ?? '—'}</td>
                             <td className="table-td break-words">
                               <p className="font-medium text-gray-900">{b.devotee?.name}</p>
                               {many && <p className="text-xs text-primary-700">{sevaText(b.sevaName)}</p>}
+                              {b.checkedInAt && (
+                                <p className="inline-flex items-center gap-1 text-xs font-semibold text-green-700"><CheckCircle2 className="h-3.5 w-3.5" />{t('Checked in {time}', { time: fmtTime(b.checkedInAt) })}</p>
+                              )}
                             </td>
                             <td className="table-td break-words">{b.devotee?.gotra || '—'}</td>
                             <td className="table-td break-words">{b.devotee?.familyNames?.join(', ') || '—'}</td>

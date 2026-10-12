@@ -20,6 +20,7 @@ import { useDebounce } from '../../hooks/useDebounce.js';
 import toast from 'react-hot-toast';
 import { saveFile } from '../../utils/fileSaver.js';
 import { localDateStr } from '../../utils/formatters.js';
+import { useT } from '../../i18n/index.jsx';
 
 const STATUS_COLORS = { approved: 'blue', checked_out: 'green', returned: 'gray', overdue: 'red', cancelled: 'gray' };
 const STATUS_LABELS = { approved: 'Approved', checked_out: 'Checked Out', returned: 'Returned', overdue: 'Overdue', cancelled: 'Cancelled' };
@@ -31,22 +32,23 @@ const downloadBlob = (blob, filename) => saveFile(blob, filename);
 
 // ── Checkout Modal ──────────────────────────────────────────────────────────
 const CheckoutModal = ({ txn, onClose, onSuccess }) => {
+  const t = useT();
   const qc = useQueryClient();
   const [condition, setCondition] = useState('good');
   const mutation = useMutation({
     mutationFn: () => checkoutAsset(txn._id, { conditionAtCheckout: condition }),
-    onSuccess: () => { toast.success('Asset handed over'); qc.invalidateQueries({ queryKey: ['asset-transactions'] }); qc.invalidateQueries({ queryKey: ['asset-counts'] }); onSuccess(); },
-    onError: (err) => toast.error(err.response?.data?.message || 'Failed'),
+    onSuccess: () => { toast.success(t('Asset handed over')); qc.invalidateQueries({ queryKey: ['asset-transactions'] }); qc.invalidateQueries({ queryKey: ['asset-counts'] }); onSuccess(); },
+    onError: (err) => toast.error(err.response?.data?.message || t('Failed')),
   });
   return (
     <Modal open onClose={onClose} title="Hand Over Asset" size="sm">
       <div className="space-y-4">
         <p className="text-sm text-gray-600">
-          Handing <span className="font-semibold text-gray-900">{txn.asset?.name}</span> × {txn.quantityBorrowed} to{' '}
+          {t('Handing')} <span className="font-semibold text-gray-900">{txn.asset?.name}</span> × {txn.quantityBorrowed} {t('to')}{' '}
           <span className="font-semibold text-gray-900">{txn.externalBorrower?.name || txn.borrower?.name}</span>
         </p>
         <div>
-          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Condition at handover <span className="text-red-400">*</span></p>
+          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">{t('Condition at handover')} <span className="text-red-400">*</span></p>
           <div className="flex gap-2">
             {[['good','Good','border-green-400 bg-green-50 text-green-700'],['fair','Fair','border-yellow-400 bg-yellow-50 text-yellow-700'],['damaged','Damaged','border-red-400 bg-red-50 text-red-700']].map(([v,l,cls]) => (
               <button key={v} type="button" onClick={() => setCondition(v)}
@@ -55,9 +57,9 @@ const CheckoutModal = ({ txn, onClose, onSuccess }) => {
           </div>
         </div>
         <div className="flex justify-end gap-2 pt-1">
-          <button onClick={onClose} className="btn-secondary">Cancel</button>
+          <button onClick={onClose} className="btn-secondary">{t('Cancel')}</button>
           <button onClick={() => mutation.mutate()} disabled={mutation.isPending} className="btn-primary">
-            {mutation.isPending ? 'Processing…' : 'Confirm Handover'}
+            {mutation.isPending ? t('Processing…') : t('Confirm Handover')}
           </button>
         </div>
       </div>
@@ -67,6 +69,7 @@ const CheckoutModal = ({ txn, onClose, onSuccess }) => {
 
 // ── Extend Modal ────────────────────────────────────────────────────────────
 const ExtendModal = ({ txn, onClose, onSuccess }) => {
+  const t = useT();
   const qc = useQueryClient();
   const [newReturnDate, setNewReturnDate] = useState('');
   const [approvedBy, setApprovedBy] = useState('');
@@ -79,36 +82,36 @@ const ExtendModal = ({ txn, onClose, onSuccess }) => {
   const maxDate = new Date(); maxDate.setDate(maxDate.getDate() + maxDays);
   const mutation = useMutation({
     mutationFn: () => extendBorrow(txn._id, { newReturnDate, approvedBy, notes: notes || undefined }),
-    onSuccess: () => { toast.success('Borrow period extended'); qc.invalidateQueries({ queryKey: ['asset-transactions'] }); onSuccess(); },
-    onError: (err) => toast.error(err.response?.data?.message || 'Failed'),
+    onSuccess: () => { toast.success(t('Borrow period extended')); qc.invalidateQueries({ queryKey: ['asset-transactions'] }); onSuccess(); },
+    onError: (err) => toast.error(err.response?.data?.message || t('Failed')),
   });
   return (
     <Modal open onClose={onClose} title="Extend Return Date">
       <div className="space-y-4">
         <p className="text-sm text-gray-600">
           <span className="font-semibold text-gray-900">{txn.asset?.name}</span> — {txn.externalBorrower?.name || txn.borrower?.name}
-          <span className="ml-2 text-xs bg-amber-50 text-amber-700 border border-amber-200 rounded px-2 py-0.5">Current due: {fmt(txn.expectedReturnDate)}</span>
+          <span className="ml-2 text-xs bg-amber-50 text-amber-700 border border-amber-200 rounded px-2 py-0.5">{t('Current due:')} {fmt(txn.expectedReturnDate)}</span>
         </p>
         <div>
-          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">New Return Date <span className="text-red-400">*</span></p>
+          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">{t('New Return Date')} <span className="text-red-400">*</span></p>
           <input type="date" min={today} max={localDateStr(maxDate)} value={newReturnDate} onChange={(e) => setNewReturnDate(e.target.value)} className="input" />
-          <p className="mt-1 text-xs text-gray-400">Max {maxDays} days from today</p>
+          <p className="mt-1 text-xs text-gray-400">{t('Max')} {maxDays} {t('days from today')}</p>
         </div>
         <div>
-          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Approved By <span className="text-red-400">*</span></p>
+          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">{t('Approved By')} <span className="text-red-400">*</span></p>
           <select value={approvedBy} onChange={(e) => setApprovedBy(e.target.value)} className="input">
-            <option value="">— Select trustee —</option>
+            <option value="">{t('— Select trustee —')}</option>
             {approvers.map((u) => <option key={u._id} value={u._id}>{u.name}</option>)}
           </select>
         </div>
         <div>
-          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Reason</p>
-          <input type="text" value={notes} onChange={(e) => setNotes(e.target.value)} className="input" placeholder="Optional" />
+          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">{t('Reason')}</p>
+          <input type="text" value={notes} onChange={(e) => setNotes(e.target.value)} className="input" placeholder={t('Optional')} />
         </div>
         <div className="flex justify-end gap-2 pt-1">
-          <button onClick={onClose} className="btn-secondary">Cancel</button>
+          <button onClick={onClose} className="btn-secondary">{t('Cancel')}</button>
           <button onClick={() => mutation.mutate()} disabled={mutation.isPending || !newReturnDate || !approvedBy} className="btn-primary">
-            {mutation.isPending ? 'Extending…' : 'Extend Borrow'}
+            {mutation.isPending ? t('Extending…') : t('Extend Borrow')}
           </button>
         </div>
       </div>
@@ -118,27 +121,28 @@ const ExtendModal = ({ txn, onClose, onSuccess }) => {
 
 // ── Cancel Modal ────────────────────────────────────────────────────────────
 const CancelModal = ({ txn, onClose, onSuccess }) => {
+  const t = useT();
   const qc = useQueryClient();
   const [reason, setReason] = useState('');
   const mutation = useMutation({
     mutationFn: () => cancelBorrow(txn._id, { cancellationReason: reason || undefined }),
-    onSuccess: () => { toast.success('Request cancelled'); qc.invalidateQueries({ queryKey: ['asset-transactions'] }); qc.invalidateQueries({ queryKey: ['asset-counts'] }); onSuccess(); },
-    onError: (err) => toast.error(err.response?.data?.message || 'Failed'),
+    onSuccess: () => { toast.success(t('Request cancelled')); qc.invalidateQueries({ queryKey: ['asset-transactions'] }); qc.invalidateQueries({ queryKey: ['asset-counts'] }); onSuccess(); },
+    onError: (err) => toast.error(err.response?.data?.message || t('Failed')),
   });
   return (
     <Modal open onClose={onClose} title="Cancel Borrow Request" size="sm">
       <div className="space-y-4">
         <p className="text-sm text-gray-600">
-          Cancel <span className="font-semibold text-gray-900">{txn.asset?.name}</span> for <span className="font-semibold text-gray-900">{txn.externalBorrower?.name || txn.borrower?.name}</span>?
+          {t('Cancel')} <span className="font-semibold text-gray-900">{txn.asset?.name}</span> {t('for')} <span className="font-semibold text-gray-900">{txn.externalBorrower?.name || txn.borrower?.name}</span>?
         </p>
         <div>
-          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Reason (optional)</p>
-          <input type="text" value={reason} onChange={(e) => setReason(e.target.value)} className="input" placeholder="e.g. Staff no longer needs it" />
+          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">{t('Reason (optional)')}</p>
+          <input type="text" value={reason} onChange={(e) => setReason(e.target.value)} className="input" placeholder={t('e.g. Staff no longer needs it')} />
         </div>
         <div className="flex justify-end gap-2 pt-1">
-          <button onClick={onClose} className="btn-secondary">Keep</button>
+          <button onClick={onClose} className="btn-secondary">{t('Keep')}</button>
           <button onClick={() => mutation.mutate()} disabled={mutation.isPending} className="btn-danger">
-            {mutation.isPending ? 'Cancelling…' : 'Yes, Cancel'}
+            {mutation.isPending ? t('Cancelling…') : t('Yes, Cancel')}
           </button>
         </div>
       </div>
@@ -148,6 +152,7 @@ const CancelModal = ({ txn, onClose, onSuccess }) => {
 
 // ── More Actions Dropdown ───────────────────────────────────────────────────
 const MoreMenu = ({ txn, onExtend, onCancel, onReminder, reminderPending }) => {
+  const t = useT();
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
   const { status } = txn;
@@ -171,18 +176,18 @@ const MoreMenu = ({ txn, onExtend, onCancel, onReminder, reminderPending }) => {
         <div className="absolute right-0 top-8 z-20 bg-white border border-gray-200 rounded-xl shadow-lg py-1 w-40">
           <button onClick={(e) => { e.stopPropagation(); setOpen(false); onExtend(txn); }}
             className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">
-            <CalendarPlus className="h-3.5 w-3.5 text-purple-500" /> Extend
+            <CalendarPlus className="h-3.5 w-3.5 text-purple-500" /> {t('Extend')}
           </button>
           <button onClick={(e) => { e.stopPropagation(); setOpen(false); onReminder(txn._id); }} disabled={reminderPending}
             className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50">
-            <Bell className="h-3.5 w-3.5 text-orange-500" /> Send Reminder
+            <Bell className="h-3.5 w-3.5 text-orange-500" /> {t('Send Reminder')}
           </button>
           {status === 'approved' && (
             <>
               <div className="my-1 border-t border-gray-100" />
               <button onClick={(e) => { e.stopPropagation(); setOpen(false); onCancel(txn); }}
                 className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-red-600 hover:bg-red-50">
-                <XCircle className="h-3.5 w-3.5" /> Cancel Request
+                <XCircle className="h-3.5 w-3.5" /> {t('Cancel Request')}
               </button>
             </>
           )}
@@ -194,6 +199,7 @@ const MoreMenu = ({ txn, onExtend, onCancel, onReminder, reminderPending }) => {
 
 // ── Export Dropdown ─────────────────────────────────────────────────────────
 const ExportMenu = ({ statusFilter, searchInput }) => {
+  const t = useT();
   const [open, setOpen]   = useState(false);
   const [loading, setLoading] = useState(null); // 'excel' | 'pdf'
   const ref = useRef(null);
@@ -220,7 +226,7 @@ const ExportMenu = ({ statusFilter, searchInput }) => {
         const res = await exportAssetPDF(params);
         downloadBlob(res.data, `borrows-${localDateStr()}.pdf`);
       }
-    } catch { toast.error('Export failed'); }
+    } catch { toast.error(t('Export failed')); }
     finally { setLoading(null); }
   };
 
@@ -230,13 +236,13 @@ const ExportMenu = ({ statusFilter, searchInput }) => {
         className="btn-secondary flex items-center gap-2 text-sm disabled:opacity-50">
         {loading ? <div className="h-4 w-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" />
                  : <Download className="h-4 w-4" />}
-        Export
+        {t('Export')}
       </button>
       {open && (
         <div className="absolute right-0 top-10 z-20 bg-white border border-gray-200 rounded-xl shadow-lg py-1 w-36">
           <button onClick={() => doExport('excel')}
             className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">
-            <FileSpreadsheet className="h-4 w-4 text-green-600" /> Excel (.xlsx)
+            <FileSpreadsheet className="h-4 w-4 text-green-600" /> {t('Excel (.xlsx)')}
           </button>
           <button onClick={() => doExport('pdf')}
             className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">
@@ -250,6 +256,7 @@ const ExportMenu = ({ statusFilter, searchInput }) => {
 
 // ── Main List ───────────────────────────────────────────────────────────────
 const AssetTransactions = () => {
+  const t = useT();
   const { can }  = usePermissions();
   const navigate = useNavigate();
   const qc       = useQueryClient();
@@ -283,18 +290,18 @@ const AssetTransactions = () => {
 
   const reminderMut = useMutation({
     mutationFn: (id) => sendManualReminder(id),
-    onSuccess: () => toast.success('Reminder sent'),
-    onError: (err) => toast.error(err.response?.data?.message || 'Failed'),
+    onSuccess: () => toast.success(t('Reminder sent')),
+    onError: (err) => toast.error(err.response?.data?.message || t('Failed')),
   });
 
   const bulkMut = useMutation({
     mutationFn: bulkSendReminders,
     onSuccess: (res) => {
       const { sent, total } = res.data?.data || {};
-      toast.success(`Reminders sent to ${sent} of ${total} overdue borrower(s)`);
+      toast.success(t('Reminders sent to {sent} of {total} overdue borrower(s)', { sent, total }));
       qc.invalidateQueries({ queryKey: ['asset-transactions'] });
     },
-    onError: (err) => toast.error(err.response?.data?.message || 'Failed'),
+    onError: (err) => toast.error(err.response?.data?.message || t('Failed')),
   });
 
   const setFilter = (val) => {
@@ -324,7 +331,7 @@ const AssetTransactions = () => {
                 onClick={(e) => { e.stopPropagation(); navigate(`/assets/borrows/groups/${grp._id}`); }}
                 className="mt-0.5 flex items-center gap-1 text-xs text-purple-600 hover:underline"
               >
-                <Layers className="h-3 w-3" /> View group
+                <Layers className="h-3 w-3" /> {t('View group')}
               </button>
             )}
           </div>
@@ -343,7 +350,7 @@ const AssetTransactions = () => {
             {isExternal ? (
               <div className="flex items-center gap-1.5">
                 <span className="font-medium text-gray-900">{name}</span>
-                <span className="text-[10px] font-semibold bg-amber-100 text-amber-700 border border-amber-200 rounded-full px-1.5 py-0.5 leading-none">External</span>
+                <span className="text-[10px] font-semibold bg-amber-100 text-amber-700 border border-amber-200 rounded-full px-1.5 py-0.5 leading-none">{t('External')}</span>
               </div>
             ) : (
               <button
@@ -354,7 +361,7 @@ const AssetTransactions = () => {
               </button>
             )}
             {group && isSubItem && (
-              <p className="text-xs text-purple-600 font-mono mt-0.5">{group.groupNumber} · multi-item</p>
+              <p className="text-xs text-purple-600 font-mono mt-0.5">{group.groupNumber} {t('· multi-item')}</p>
             )}
           </div>
         );
@@ -391,13 +398,13 @@ const AssetTransactions = () => {
             {can('assets:manage') && status === 'approved' && (
               <button onClick={() => setCheckoutTarget(row.original)}
                 className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-green-600 text-white hover:bg-green-700 transition-colors">
-                <ShoppingBag className="h-3.5 w-3.5" /> Hand Over
+                <ShoppingBag className="h-3.5 w-3.5" /> {t('Hand Over')}
               </button>
             )}
             {can('assets:manage') && (status === 'checked_out' || status === 'overdue') && (
               <button onClick={() => navigate(`/assets/borrows/${_id}/return`)}
                 className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors">
-                <RotateCcw className="h-3.5 w-3.5" /> Return
+                <RotateCcw className="h-3.5 w-3.5" /> {t('Return')}
               </button>
             )}
             {can('assets:manage') && isActive && (
@@ -427,12 +434,12 @@ const AssetTransactions = () => {
               <button onClick={() => bulkMut.mutate()} disabled={bulkMut.isPending}
                 className="btn-danger flex items-center gap-2 text-sm">
                 <Bell className="h-4 w-4" />
-                {bulkMut.isPending ? 'Sending…' : `Remind All (${total})`}
+                {bulkMut.isPending ? t('Sending…') : t('Remind All ({n})', { n: total })}
               </button>
             )}
             <ExportMenu statusFilter={statusFilter} searchInput={debouncedSearch} />
             {can('assets:manage') && (
-              <Link to="/assets/borrows/new" className="btn-primary"><Plus className="h-4 w-4" /> New Request</Link>
+              <Link to="/assets/borrows/new" className="btn-primary"><Plus className="h-4 w-4" /> {t('New Request')}</Link>
             )}
           </div>
         }
@@ -443,13 +450,13 @@ const AssetTransactions = () => {
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
           <input type="text" value={searchInput} onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search borrower, asset or ref no…" className="input pl-9 text-sm" />
+            placeholder={t('Search borrower, asset or ref no…')} className="input pl-9 text-sm" />
         </div>
         <div className="flex gap-1.5 flex-wrap">
           {[['', 'All'], ['approved', 'Approved'], ['checked_out', 'Checked Out'], ['overdue', 'Overdue'], ['returned', 'Returned'], ['cancelled', 'Cancelled']].map(([val, label]) => (
             <button key={val} onClick={() => setFilter(val)}
               className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${statusFilter === val ? 'bg-primary-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
-              {label}
+              {t(label)}
             </button>
           ))}
         </div>
@@ -464,7 +471,7 @@ const AssetTransactions = () => {
 
       {pages > 1 && (
         <div className="flex items-center justify-between pt-1">
-          <p className="text-xs text-gray-500">{total} result{total !== 1 ? 's' : ''} · Page {page} of {pages}</p>
+          <p className="text-xs text-gray-500">{total} {t('result')}{total !== 1 ? 's' : ''} {t('· Page')} {page} {t('of')} {pages}</p>
           <div className="flex gap-2">
             <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1} className="btn-secondary p-1.5 disabled:opacity-40"><ChevronLeft className="h-4 w-4" /></button>
             <button onClick={() => setPage((p) => Math.min(pages, p + 1))} disabled={page === pages} className="btn-secondary p-1.5 disabled:opacity-40"><ChevronRight className="h-4 w-4" /></button>

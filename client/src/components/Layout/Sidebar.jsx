@@ -5,6 +5,7 @@ import { usePermissions } from '../../hooks/usePermissions.js';
 import { useNavBadges } from '../../hooks/useNavBadges.js';
 import { navConfig } from './navConfig.js';
 import { useT } from '../../i18n/index.jsx';
+import { useTemple } from '../../utils/temple.js';
 
 const NavItem = ({ item, can, onNavigate, badges = {} }) => {
   const location = useLocation();
@@ -93,6 +94,7 @@ const NavItem = ({ item, can, onNavigate, badges = {} }) => {
 const Sidebar = () => {
   const { can } = usePermissions();
   const t = useT();
+  const { name: templeName } = useTemple();
   const badges  = useNavBadges();
 
   return (
@@ -105,12 +107,12 @@ const Sidebar = () => {
           <div className="flex h-12 w-12 items-center justify-center rounded-md bg-white p-1">
             <img
               src="/logo.png"
-              alt="Mangal Grah Mandir"
+              alt={templeName}
               className="h-10 w-10 rounded object-contain"
             />
           </div>
           <div>
-            <p className="text-xs font-bold leading-tight text-white">{t('Mangal Grah Mandir')}</p>
+            <p className="text-xs font-bold leading-tight text-white">{t(templeName)}</p>
             <p className="text-xs text-gray-400">{t('Stock Management')}</p>
           </div>
         </div>

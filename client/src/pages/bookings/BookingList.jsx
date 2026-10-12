@@ -107,6 +107,7 @@ export default function BookingList() {
   const [paymentMode, setPaymentMode] = useState(() => params.get('paymentMode') || '');
   const [createdBy, setCreatedBy] = useState(() => params.get('createdBy') || '');
   const [status, setStatus] = useState(() => (['voided', 'all'].includes(params.get('status')) ? params.get('status') : 'confirmed'));
+  const [arrival, setArrival] = useState(() => (['arrived', 'noshow'].includes(params.get('arrival')) ? params.get('arrival') : ''));
   const [selected, setSelected] = useState(null);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [exporting, setExporting] = useState(false);
@@ -124,16 +125,17 @@ export default function BookingList() {
     paymentMode: paymentMode || undefined,
     createdBy: createdBy || undefined,
     status,
-  }), [q, range.from, range.to, dateField, sevaType, paymentMode, createdBy, status]);
+    arrival: arrival || undefined,
+  }), [q, range.from, range.to, dateField, sevaType, paymentMode, createdBy, status, arrival]);
 
   // Keep the URL in step so Back returns to the same view (only when it actually changed).
   useEffect(() => {
     const next = { range: preset === 'today' ? '' : preset, dateField: dateField === 'paid' ? '' : dateField };
     if (preset === 'custom') Object.assign(next, { from: custom.from, to: custom.to });
-    Object.assign(next, { q, sevaType, paymentMode, createdBy, status: status === 'confirmed' ? '' : status });
+    Object.assign(next, { q, sevaType, paymentMode, createdBy, status: status === 'confirmed' ? '' : status, arrival });
     const qs = new URLSearchParams(Object.entries(next).filter(([, v]) => v));
     if (qs.toString() !== params.toString()) setParams(qs, { replace: true });
-  }, [preset, dateField, custom.from, custom.to, q, sevaType, paymentMode, createdBy, status, params, setParams]);
+  }, [preset, dateField, custom.from, custom.to, q, sevaType, paymentMode, createdBy, status, arrival, params, setParams]);
 
   // Any filter change goes back to page 1 (no effect needed: the page belongs to a filter set).
   const filterKey = JSON.stringify(filters);
@@ -175,7 +177,7 @@ export default function BookingList() {
   const loading = isMobile ? feed.isLoading : list.isLoading;
   const fetching = isMobile ? feed.isFetching && !feed.isFetchingNextPage : list.isFetching;
 
-  const extraFilters = [sevaType, paymentMode, createdBy, status !== 'confirmed'].filter(Boolean).length;
+  const extraFilters = [sevaType, paymentMode, createdBy, status !== 'confirmed', arrival].filter(Boolean).length;
   const anyFilter = extraFilters > 0 || preset !== 'today' || dateField !== 'paid' || !!search;
 
   const pickPreset = (key) => {
@@ -193,7 +195,7 @@ export default function BookingList() {
   };
   const clearAll = () => {
     setSearch(''); setDateField('paid'); setPreset('today'); setCustom({ from: '', to: '' });
-    setSevaType(''); setPaymentMode(''); setCreatedBy(''); setStatus('confirmed');
+    setSevaType(''); setPaymentMode(''); setCreatedBy(''); setStatus('confirmed'); setArrival('');
   };
 
   const doExport = async () => {
@@ -247,6 +249,12 @@ export default function BookingList() {
       </Select>
       <Select label={t('Status')} value={status} onChange={setStatus}>
         {STATUSES.map((s) => <option key={s.value} value={s.value}>{t(s.label)}</option>)}
+      </Select>
+      {/* Hall check-in: who came, and who booked for a past day but never came */}
+      <Select label={t('Hall check-in')} value={arrival} onChange={setArrival}>
+        <option value="">{t('Everyone')}</option>
+        <option value="arrived">{t('Checked in')}</option>
+        <option value="noshow">{t('Did not come (no-show)')}</option>
       </Select>
     </>
   );
@@ -314,7 +322,7 @@ export default function BookingList() {
             <PresetChips preset={preset} dateField={dateField} onPick={pickPreset} className="flex-wrap" />
           </div>
           {customDates}
-          <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">{filterFields}</div>
+          <div className="grid grid-cols-2 gap-2 lg:grid-cols-5">{filterFields}</div>
           {anyFilter && (
             <button onClick={clearAll} className="inline-flex items-center gap-1 text-xs font-medium text-primary-700 hover:underline">
               <X className="h-3.5 w-3.5" /> {t('Clear filters')}

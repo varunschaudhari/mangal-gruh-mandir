@@ -1,4 +1,5 @@
 import PDFDocument from 'pdfkit';
+import { temple } from './temple.service.js';
 
 const C = { primary: '#ea580c', dark: '#1f2937', gray: '#6b7280', light: '#fff7ed', white: '#ffffff' };
 const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
@@ -14,7 +15,7 @@ export function generatePaymentVoucher(res, { payment, supplier, settings }) {
 
   const W    = doc.page.width - 100;
   const LEFT = 50;
-  const templeName = settings?.templeName || 'Mangal Grah Mandir, Amalner';
+  const templeName = settings?.templeName || temple().name;
 
   // Header
   doc.rect(LEFT, 40, W, 60).fill(C.primary);

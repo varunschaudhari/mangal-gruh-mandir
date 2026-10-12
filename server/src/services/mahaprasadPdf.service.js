@@ -3,6 +3,7 @@ import QRCode from 'qrcode';
 import { existsSync } from 'fs';
 import { fileURLToPath } from 'url';
 import path from 'path';
+import { temple } from './temple.service.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
@@ -98,7 +99,7 @@ async function drawCoupon(doc, coupon, settings, cx, cy) {
   // ── Header: temple name ───────────────────────────────────────────────────
   const nameX = x + (hasLogo ? LOGO_SZ + 18 : 10);
   const nameW = w - (nameX - x) - 68;
-  const templeName = settings?.templeName || 'Mangal Grah Mandir';
+  const templeName = settings?.templeName || temple().name;
 
   doc.font('Helvetica-Bold').fontSize(8.5).fillColor(C.headerText)
     .text(templeName.toUpperCase(), nameX, y + 11, { width: nameW, lineBreak: false });

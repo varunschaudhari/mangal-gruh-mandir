@@ -1,0 +1,6 @@
+{
+  "name": "mgm-shared",
+  "private": true,
+  "description": "Plain JavaScript used by both the server and the client (no dependencies, no Node or browser APIs)",
+  "type": "module"
+}
