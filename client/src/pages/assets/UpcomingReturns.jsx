@@ -41,7 +41,7 @@ const BorrowCard = ({ txn, navigate, can }) => {
               <span className="font-semibold text-sm truncate">{txn.asset?.name}</span>
               <span className="text-xs font-mono opacity-60 shrink-0">×{txn.quantityBorrowed}</span>
             </div>
-            <p className="text-xs opacity-75">{txn.borrower?.name} · {txn.asset?.category}</p>
+            <p className="text-xs opacity-75">{txn.borrower?.name || txn.externalBorrower?.name} · {txn.asset?.category}</p>
           </div>
           <div className="text-right shrink-0">
             <p className="text-xs font-bold">

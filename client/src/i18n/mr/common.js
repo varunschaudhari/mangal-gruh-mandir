@@ -15,6 +15,7 @@ export default {
   'Home': 'मुख्यपृष्ठ',
   'Dashboard': 'डॅशबोर्ड',
   'More': 'अधिक',
+  'Recently used': 'अलीकडे वापरलेले',
   'Quick actions': 'झटपट कामे',
   'Purchases': 'खरेदी',
   'Purchase Register': 'खरेदी नोंदवही',

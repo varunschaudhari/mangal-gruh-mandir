@@ -20,6 +20,8 @@
     "migrate:attendance": "node src/migrations/addAttendancePermissions.js",
     "seed:attendance-demo": "node src/seeds/attendanceDemo.seed.js",
     "seed:attendance-demo:remove": "node src/seeds/attendanceDemo.seed.js --remove",
+    "seed:demo": "node src/seeds/demoDay.seed.js",
+    "seed:demo:remove": "node src/seeds/demoDay.seed.js --remove",
     "migrate:bookings": "node src/migrations/addBookingModule.js",
     "migrate:roles": "node src/migrations/syncRoles.js",
     "seed:mahaprasad-occasions": "node src/seeds/mahaprasadOccasions.seed.js",

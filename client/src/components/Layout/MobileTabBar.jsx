@@ -32,7 +32,7 @@ const TabButton = ({ label, icon: Icon, active, badge, dot, onClick }) => (
 );
 
 // Phones and tablets (< lg). Hidden on full-screen task routes and while the keyboard is up.
-const MobileTabBar = ({ onMore, onQuickActions, onReselect }) => {
+const MobileTabBar = ({ onQuickActions, onReselect }) => {
   const { pathname } = useLocation();
   const t = useT();
   const navigate = useNavigate();
@@ -85,7 +85,7 @@ const MobileTabBar = ({ onMore, onQuickActions, onReselect }) => {
           icon={LayoutGrid}
           active={active === 'more'}
           dot={moreBadge}
-          onClick={() => { haptics.tap(); onMore(); }}
+          onClick={() => go('more', '/more')}
         />
       </div>
     </nav>

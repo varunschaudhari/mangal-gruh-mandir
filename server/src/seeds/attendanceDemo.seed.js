@@ -31,7 +31,7 @@ import User from '../models/User.js';
 import { localDateStr } from '../utils/dates.js';
 
 const CODE = /^DEMO-/;
-const DEMO_EMAIL = /@demo\.mandir\.local$/;
+const DEMO_EMAIL = /^demo-\d+@demo\.mandir\.local$/;   // only its own users (demoDay.seed.js has other staff on this domain)
 const DEVICE = 'DEMO-MACHINE';
 
 // name, designation, gender, weekly off (0 = Sun), salary, basic, pf, esi, extra

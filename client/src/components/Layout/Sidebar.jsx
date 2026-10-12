@@ -90,7 +90,7 @@ const NavItem = ({ item, can, onNavigate, badges = {} }) => {
   );
 };
 
-// Desktop-only (lg+). Phones and tablets use MobileTabBar + MoreSheet instead.
+// Desktop-only (lg+). Phones and tablets use MobileTabBar and the More page (/more) instead.
 const Sidebar = () => {
   const { can } = usePermissions();
   const t = useT();

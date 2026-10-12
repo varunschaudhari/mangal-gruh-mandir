@@ -17,7 +17,7 @@ export async function recomputeBalance(productId, departmentId) {
     { $group: { _id: null, total: { $sum: '$remainingQty' }, lastDate: { $max: '$createdAt' } } },
   ]);
 
-  const qty = result[0]?.total ?? 0;
+  const qty = +(result[0]?.total ?? 0).toFixed(6);   // 2.3 + 5.4 = 7.699999999999999 → 7.7
   const lastDate = result[0]?.lastDate ?? null;
 
   await StockBalance.findOneAndUpdate(
@@ -50,5 +50,5 @@ export async function getBalance(productId, departmentId) {
     { $match: { product: new ObjectId(productId), department: new ObjectId(departmentId), isVoided: false } },
     { $group: { _id: null, total: { $sum: '$remainingQty' } } },
   ]);
-  return result[0]?.total ?? 0;
+  return +(result[0]?.total ?? 0).toFixed(6);
 }

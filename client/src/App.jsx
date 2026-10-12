@@ -10,6 +10,8 @@ import AppLock from './components/AppLock.jsx';
 
 // Screens load on first use (only Login is in the main bundle).
 import Login from './pages/auth/Login.jsx';
+// Not lazy: Back to More should land on a full page at once, so its scroll position can be restored.
+import MorePage from './pages/MorePage.jsx';
 const Dashboard = lazyPage(() => import('./pages/dashboard/Dashboard.jsx'));
 const ProductList = lazyPage(() => import('./pages/masters/products/ProductList.jsx'));
 const ProductForm = lazyPage(() => import('./pages/masters/products/ProductForm.jsx'));
@@ -122,6 +124,7 @@ const App = () => (
         <Route path="/" element={<Navigate to="/dashboard" replace />} />
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/profile" element={<Profile />} />
+        <Route path="/more" element={<MorePage />} />
         <Route path="/change-password" element={<ChangePassword />} />
 
         {/* Transactions */}

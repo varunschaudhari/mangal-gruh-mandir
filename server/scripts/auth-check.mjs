@@ -75,6 +75,17 @@ if (process.env.JWT_SECRET && process.env.MONGO_URI) {
   console.log('– legacy-token check skipped (needs JWT_SECRET and MONGO_URI)');
 }
 
+// Sign-in limits: correct sign-ins never count; wrong passwords lock only that account
+// (temple counters share one internet connection, so one person's typos mustn't lock out the rest).
+const limit = Number(process.env.LOGIN_RATE_LIMIT) || 10;
+let allIn = true;
+for (let i = 0; i < limit + 2; i++) allIn = (await post('/auth/login', { email: EMAIL, password: PASSWORD })).status === 200 && allIn;
+check(`${limit + 2} correct sign-ins in a row are never blocked`, allIn);
+const guessed = `guess-${Date.now()}@test.local`;
+for (let i = 0; i < limit; i++) await post('/auth/login', { email: guessed, password: 'Wrong-Pass-123!' });
+check('repeated wrong passwords lock that account for a while', (await post('/auth/login', { email: guessed, password: 'Wrong-Pass-123!' })).status === 429);
+check('…without blocking anyone else on the same connection', (await post('/auth/login', { email: EMAIL, password: PASSWORD })).status === 200);
+
 if (failures.length) {
   console.error(`\n${failures.length} session check(s) failed`);
   process.exit(1);

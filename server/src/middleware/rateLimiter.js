@@ -1,14 +1,32 @@
 import crypto from 'crypto';
 import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
 
-export const loginLimiter = rateLimit({
+// Sign-in protection against password guessing. Only WRONG passwords count (a correct sign-in
+// never does), and per account on each connection: all the temple's counters share one internet
+// connection, so one person's typos must not lock everyone else out.
+const loginKey = (req) => `${ipKeyGenerator(req.ip)}|${String(req.body?.email || '').trim().toLowerCase()}`;
+
+const accountLoginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  // Sign-in attempts per IP. CI raises it: its check scripts sign in as several test users.
-  max: Number(process.env.LOGIN_RATE_LIMIT) || 10,
-  message: { success: false, message: 'Too many login attempts. Please try again in 15 minutes.' },
+  max: Number(process.env.LOGIN_RATE_LIMIT) || 10, // wrong passwords per account per connection
+  keyGenerator: loginKey,
+  skipSuccessfulRequests: true,
+  message: { success: false, message: 'Too many wrong passwords for this account. Please try again in 15 minutes.' },
   standardHeaders: true,
   legacyHeaders: false,
 });
+
+// Someone trying many different accounts from one connection.
+const connectionLoginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 100, // wrong passwords per connection, all accounts together
+  skipSuccessfulRequests: true,
+  message: { success: false, message: 'Too many wrong passwords from this connection. Please try again in 15 minutes.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+export const loginLimiter = [connectionLoginLimiter, accountLoginLimiter];
 
 // Signed-in requests are counted per session, not per IP: all the temple's counters share
 // one internet connection, and on a busy Tuesday they'd otherwise share one limit.

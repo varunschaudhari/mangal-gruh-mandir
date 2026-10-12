@@ -1,5 +1,5 @@
 import { Suspense, useEffect, useRef, useState } from 'react';
-import { Outlet, useLocation } from 'react-router-dom';
+import { Outlet, useLocation, useNavigationType } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { App } from '@capacitor/app';
 import { RefreshCw, CloudOff } from 'lucide-react';
@@ -7,7 +7,6 @@ import Sidebar from './Sidebar.jsx';
 import { PageLoader } from '../ui/Spinner.jsx';
 import Navbar from './Navbar.jsx';
 import MobileTabBar from './MobileTabBar.jsx';
-import MoreSheet from './MoreSheet.jsx';
 import QuickActionsSheet from './QuickActionsSheet.jsx';
 import { AppBarProvider } from './AppBarContext.jsx';
 import { isTaskRoute } from './navConfig.js';
@@ -45,11 +44,22 @@ const useOnline = () => {
   return online;
 };
 
+// Scroll to `y` once the page is tall enough (data or code may still be arriving), for up to ~1 s.
+const restoreScroll = (el, y) => {
+  let tries = 0;
+  const step = () => {
+    el.scrollTo(0, y);
+    if (Math.abs(el.scrollTop - y) > 2 && tries++ < 60) requestAnimationFrame(step);
+  };
+  step();
+};
+
 const AppLayout = () => {
-  const [moreOpen, setMoreOpen] = useState(false);
   const [quickOpen, setQuickOpen] = useState(false);
   const mainRef = useRef(null);
-  const { pathname } = useLocation();
+  const location = useLocation();
+  const { pathname } = location;
+  const navType = useNavigationType();
   const queryClient = useQueryClient();
   const isTouchLayout = useMediaQuery('(max-width: 1023px)');
   const online = useOnline();
@@ -57,8 +67,24 @@ const AppLayout = () => {
   useRefreshOnResume(queryClient);
   usePushNotifications();
 
-  // <main> is the scroll container, so reset it on navigation like a page load would.
-  useEffect(() => { mainRef.current?.scrollTo(0, 0); }, [pathname]);
+  // <main> is the scroll container. Like a browser: a new page starts at the top, and Back
+  // (or the Android back button) returns to where that page was scrolled — e.g. the More menu.
+  const scrolled = useRef(new Map()); // history entry key → scrollTop
+  const lastPath = useRef(pathname);
+  useEffect(() => {
+    const el = mainRef.current;
+    if (!el) return undefined;
+    const remember = () => scrolled.current.set(location.key, el.scrollTop);
+    el.addEventListener('scroll', remember, { passive: true });
+    return () => el.removeEventListener('scroll', remember);
+  }, [location.key]);
+  useEffect(() => {
+    const el = mainRef.current;
+    const saved = navType === 'POP' ? scrolled.current.get(location.key) : undefined;
+    if (el && saved != null) restoreScroll(el, saved);
+    else if (el && lastPath.current !== pathname) el.scrollTo(0, 0); // same page, new filters: stay put
+    lastPath.current = pathname;
+  }, [location.key, navType, pathname]);
 
   const { pull, refreshing, threshold } = usePullToRefresh(
     mainRef,
@@ -108,11 +134,9 @@ const AppLayout = () => {
         </div>
 
         <MobileTabBar
-          onMore={() => setMoreOpen(true)}
           onQuickActions={() => setQuickOpen(true)}
           onReselect={() => mainRef.current?.scrollTo({ top: 0, behavior: 'smooth' })}
         />
-        <MoreSheet open={moreOpen} onClose={() => setMoreOpen(false)} />
         <QuickActionsSheet open={quickOpen} onClose={() => setQuickOpen(false)} />
       </div>
     </AppBarProvider>

@@ -10,7 +10,7 @@ export const useMobileNav = () => {
   return useMemo(() => {
     const quickActions = QUICK_ACTIONS.filter((a) => can(a.permission));
     const tabs = getMobileTabs(role, can, quickActions.length ? 2 : 3);
-    const rootPaths = ['/dashboard', ...tabs.map((t) => t.to)];
+    const rootPaths = ['/dashboard', '/more', ...tabs.map((t) => t.to)];
     return { tabs, quickActions, rootPaths };
     // `can` is recreated every render; the user's permissions are what matter.
     // eslint-disable-next-line react-hooks/exhaustive-deps
