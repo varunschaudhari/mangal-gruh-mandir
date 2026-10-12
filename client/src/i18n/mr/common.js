@@ -381,4 +381,6 @@ export default {
   'Not for now': 'आत्ता नाही',
   'Live': 'थेट',
   'Updating every few seconds': 'दर काही सेकंदांनी अद्ययावत',
+  'Smaller text': 'अक्षरे लहान करा',
+  'Larger text': 'अक्षरे मोठी करा',
 };

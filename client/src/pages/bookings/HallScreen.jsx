@@ -16,6 +16,18 @@ import { useHallEvents } from '../../utils/hallLive.js';
 // tile pulses. No sidebar, refreshes itself, keeps the screen on. Names only, never phone numbers.
 
 const SPOTLIGHT_MS = 8000;
+
+// Text size: the whole screen scales together (numbers, names, times, clock). Automatic by
+// screen width — a TV is read from across the hall — or chosen with A− / A+ (remembered on this
+// device) or fixed in the link (?size=150).
+const SIZES = [1, 1.15, 1.3, 1.5, 1.75, 2];
+const SIZE_KEY = 'mgm-hall-size';
+const autoSize = () => (window.innerWidth >= 1800 ? 1.3 : window.innerWidth >= 1280 ? 1.15 : 1);
+const chosenSize = (param) => {
+  const fromLink = Number(param) / 100;
+  if (SIZES.includes(fromLink)) return fromLink;
+  try { const saved = Number(localStorage.getItem(SIZE_KEY)); return SIZES.includes(saved) ? saved : null; } catch { return null; }
+};
 const timeText = (d) => new Date(d).toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit' });
 const startOf = (label) => String(label || '').split(/\s*[–-]\s*/)[0];
 
@@ -192,6 +204,27 @@ export default function HallScreen() {
   const hall = params.has('hall') ? params.get('hall') : savedHall();
   const names = params.get('names') !== '0';
   const [now, setNow] = useState(() => new Date());
+  const [chosen, setChosen] = useState(() => chosenSize(params.get('size')));   // null = automatic
+  const [auto, setAuto] = useState(autoSize);
+  const scale = chosen ?? auto;
+  useEffect(() => {
+    const onResize = () => setAuto(autoSize());
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
+  // rem-based sizes all follow the page's root font size; put it back when leaving the screen
+  useEffect(() => {
+    const html = document.documentElement;
+    const before = html.style.fontSize;
+    html.style.fontSize = `${scale * 100}%`;
+    return () => { html.style.fontSize = before; };
+  }, [scale]);
+  const stepSize = (dir) => {
+    const at = SIZES.reduce((best, v, i) => (Math.abs(v - scale) < Math.abs(SIZES[best] - scale) ? i : best), 0);
+    const next = SIZES[Math.min(SIZES.length - 1, Math.max(0, at + dir))];
+    setChosen(next);
+    try { localStorage.setItem(SIZE_KEY, String(next)); } catch { /* private window */ }
+  };
   const [full, setFull] = useState(Boolean(document.fullscreenElement));
   const allowed = can('bookings:checkin');
 
@@ -298,6 +331,11 @@ export default function HallScreen() {
             {data.halls.map((h) => <option key={h} value={h}>{h}</option>)}
           </select>
         )}
+        <button type="button" onClick={() => stepSize(-1)} disabled={scale <= SIZES[0]} title={t('Smaller text')} aria-label={t('Smaller text')}
+          className="flex h-10 min-w-10 items-center justify-center rounded-full px-2 text-sm font-bold text-slate-200 hover:bg-slate-800 disabled:opacity-30">A−</button>
+        <span className="min-w-[3ch] text-center text-xs tabular-nums text-slate-400">{Math.round(scale * 100)}%</span>
+        <button type="button" onClick={() => stepSize(1)} disabled={scale >= SIZES[SIZES.length - 1]} title={t('Larger text')} aria-label={t('Larger text')}
+          className="flex h-10 min-w-10 items-center justify-center rounded-full px-2 text-lg font-bold text-slate-200 hover:bg-slate-800 disabled:opacity-30">A+</button>
         <button type="button" onClick={() => setParam('names', names ? '0' : null)} title={names ? t('Hide names') : t('Show names')} aria-label={names ? t('Hide names') : t('Show names')}
           className="flex h-10 w-10 items-center justify-center rounded-full text-slate-200 hover:bg-slate-800">
           {names ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
