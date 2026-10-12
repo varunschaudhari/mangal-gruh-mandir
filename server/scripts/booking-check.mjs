@@ -297,6 +297,12 @@ async function main() {
   check((await api('PUT', `/booking-setup/halls/${h1._id}`, { code: 'H9' })).status === 400, 'a hall code cannot be changed');
   const optNames = (await api('GET', '/bookings/options')).body.data.settings.hallNames;
   check(optNames?.H1?.name === 'Shri Mangal Sabhagruh' && optNames.H1.nameMr === 'श्री मंगल सभागृह', 'booking options carry the hall names for slips', JSON.stringify(optNames));
+  const h1Board = (await hall('GET', '/bookings/hall-board?hall=H1')).body.data;
+  const ahead = h1Board.tomorrow;
+  const bookedTomorrowH1 = (await api('GET', `/bookings?pujaDate=${tomorrow}&limit=200`)).body.data.items
+    .filter((x) => x.hall === 'H1').length;
+  check(ahead?.date === tomorrow && ahead.batches > 0 && /AM|PM/.test(ahead.first) && ahead.bookings === bookedTomorrowH1 && ahead.closed === null,
+    'the hall screen shows tomorrow: first batch and bookings so far for that hall', JSON.stringify({ ahead, bookedTomorrowH1 }));
   const boardNames = (await hall('GET', '/bookings/hall-board')).body.data.hallNames;
   const summaryNames = (await hall('GET', '/bookings/check-in/summary')).body.data.hallNames;
   check(boardNames?.H1?.name === 'Shri Mangal Sabhagruh' && summaryNames?.H1?.name === 'Shri Mangal Sabhagruh', 'hall staff see the new name on the hall screen and the scanner');
