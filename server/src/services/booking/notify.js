@@ -3,16 +3,18 @@ import Booking from '../../models/Booking.js';
 import BookingSettings from '../../models/BookingSettings.js';
 import Settings from '../../models/Settings.js';
 import { logger } from '../../utils/logger.js';
+import { hallNames, hallTitle } from './halls.js';
 
 // Public web address of the app, for receipt links sent to devotees.
 const appUrl = () => (process.env.PUBLIC_APP_URL || (process.env.CLIENT_URL || 'https://mandir.aumora.io').split(',')[0]).trim().replace(/\/$/, '');
 
 export const receiptUrl = (booking) => `${appUrl()}/r/${booking.receiptToken}`;
 
-const whenText = (b) => {
+const whenText = (b, halls) => {
   if (!b.dateKey) return 'on your behalf';
   const date = new Date(b.performDate).toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
-  return [date, b.batchLabel, b.hall && `Hall ${b.hall}`].filter(Boolean).join(', ');
+  const title = hallTitle(b.hall, halls);
+  return [date, b.batchLabel, b.hall && (title === b.hall ? `Hall ${b.hall}` : title)].filter(Boolean).join(', ');
 };
 
 /**
@@ -20,7 +22,7 @@ const whenText = (b) => {
  *   "Namaste {{1}}, your {{2}} at Shri Mangal Grah Mandir, Amalner is booked for {{3}}.
  *    Receipt {{4}}: {{5}}"
  */
-async function sendWhatsApp(booking, cfg, template) {
+async function sendWhatsApp(booking, cfg, template, halls) {
   await axios.post(
     `https://graph.facebook.com/v19.0/${cfg.phoneNumberId}/messages`,
     {
@@ -32,7 +34,7 @@ async function sendWhatsApp(booking, cfg, template) {
         language: { code: 'en' },
         components: [{
           type: 'body',
-          parameters: [booking.devotee.name, booking.sevaName, whenText(booking), booking.receiptNo, receiptUrl(booking)]
+          parameters: [booking.devotee.name, booking.sevaName, whenText(booking, halls), booking.receiptNo, receiptUrl(booking)]
             .map((text) => ({ type: 'text', text: String(text) })),
         }],
       },
@@ -42,12 +44,12 @@ async function sendWhatsApp(booking, cfg, template) {
 }
 
 // SMS via an MSG91 Flow with a DLT-approved template using ##name##, ##seva##, ##when##, ##receipt##, ##link##.
-async function sendSms(booking, cfg, templateId) {
+async function sendSms(booking, cfg, templateId, halls) {
   await axios.post(
     'https://api.msg91.com/api/v5/flow/',
     {
       template_id: templateId, short_url: '1', mobiles: `91${booking.devotee.phone}`,
-      name: booking.devotee.name, seva: booking.sevaName, when: whenText(booking),
+      name: booking.devotee.name, seva: booking.sevaName, when: whenText(booking, halls),
       receipt: booking.receiptNo, link: receiptUrl(booking),
     },
     { headers: { authkey: cfg.authKey, 'Content-Type': 'application/json' }, timeout: 15000 },
@@ -61,14 +63,14 @@ async function sendSms(booking, cfg, templateId) {
 export async function sendReceipt(booking, { force = false } = {}) {
   const result = { whatsapp: 'off', sms: 'off' };
   try {
-    const [settings, bs] = await Promise.all([Settings.getOrCreate(), BookingSettings.getOrCreate()]);
+    const [settings, bs, halls] = await Promise.all([Settings.getOrCreate(), BookingSettings.getOrCreate(), hallNames()]);
     const wa = {
       phoneNumberId: settings.waPhoneNumberId || process.env.WA_PHONE_NUMBER_ID,
       accessToken: settings.waAccessToken || process.env.WA_ACCESS_TOKEN,
     };
     if (settings.waEnabled && wa.phoneNumberId && wa.accessToken && (force || bs.whatsappAuto) && bs.whatsappTemplate) {
       try {
-        await sendWhatsApp(booking, wa, bs.whatsappTemplate);
+        await sendWhatsApp(booking, wa, bs.whatsappTemplate, halls);
         result.whatsapp = 'sent';
         await Booking.updateOne({ _id: booking._id }, { $set: { whatsappSentAt: new Date() } });
       } catch (err) {
@@ -79,7 +81,7 @@ export async function sendReceipt(booking, { force = false } = {}) {
     const sms = { authKey: settings.msg91AuthKey || process.env.MSG91_AUTH_KEY };
     if (settings.smsEnabled && sms.authKey && (force || bs.smsAuto) && bs.smsTemplateId) {
       try {
-        await sendSms(booking, sms, bs.smsTemplateId);
+        await sendSms(booking, sms, bs.smsTemplateId, halls);
         result.sms = 'sent';
         await Booking.updateOne({ _id: booking._id }, { $set: { smsSentAt: new Date() } });
       } catch (err) {

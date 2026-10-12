@@ -18,6 +18,19 @@ export const fmtPujaDate = (b) => (b.dateKey
 const fmtPaid = (d) => new Date(d).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 const rupees = (n) => `Rs. ${Math.round(n || 0).toLocaleString('en-IN')}`;
 
+// The hall's names (Setup → Halls): carried on the booking by the public receipt, otherwise
+// from the hall list in the booking options (settings.hallNames = { H1: { name, nameMr } }).
+const hallOf = (b, settings = {}) => {
+  const h = settings.hallNames?.[b.hall] || {};
+  return { name: b.hallName || h.name || '', nameMr: b.hallNameMr || h.nameMr || '' };
+};
+/** "Shri Mangal Sabhagruh (H1)" — or "H1" for a hall with no name. */
+export const hallText = (b, settings) => {
+  if (!b.hall) return '';
+  const { name } = hallOf(b, settings);
+  return name ? `${name} (${b.hall})` : b.hall;
+};
+
 // Indian numbering: 6300 → "Six Thousand Three Hundred"
 export function amountInWords(amount) {
   const n = Math.floor(amount || 0);
@@ -36,8 +49,10 @@ export function amountInWords(amount) {
 }
 
 /** Pre-filled WhatsApp message to the devotee with the receipt link (works without the WhatsApp API). */
-export function whatsappShareUrl(b) {
-  const when = b.dateKey ? `${fmtPujaDate(b)}${b.batchLabel ? `, ${b.batchLabel}` : ''}${b.hall ? `, Hall ${b.hall}` : ''}` : 'on your behalf';
+export function whatsappShareUrl(b, settings = {}) {
+  const hall = hallText(b, settings);
+  const where = !hall ? '' : hall === b.hall ? `, Hall ${b.hall}` : `, ${hall}`;
+  const when = b.dateKey ? `${fmtPujaDate(b)}${b.batchLabel ? `, ${b.batchLabel}` : ''}${where}` : 'on your behalf';
   const text = `Namaste ${b.devotee?.name || ''}, your ${b.sevaName} at Shri Mangal Grah Mandir, Amalner is booked for ${when}.`
     + `\nReceipt ${b.receiptNo}${b.serialNo ? ` · Serial ${b.serialNo}` : ''}\n${b.receiptUrl || ''}`;
   const phone = String(b.devotee?.phone || '').replace(/\D/g, '');
@@ -120,6 +135,11 @@ export async function drawSlip(b, settings = {}) {
     });
     ctx.fillStyle = '#000'; y += bh + Math.round(12 * s);
   }
+  // The hall's name under the boxes, so the devotee knows where H1 is
+  const hall = b.hall ? hallOf(b, settings) : null;
+  if (hall?.name) text(`${hall.name} (${b.hall})`, 24, { weight: 700, align: 'center', gap: 0 });
+  if (hall?.nameMr && hall.nameMr !== hall.name) text(hall.nameMr, 24, { weight: 700, align: 'center', gap: 0 });
+  if (hall?.name || hall?.nameMr) y += Math.round(8 * s);
   rule();
   text(b.devotee?.name, 28, { weight: 700, gap: 2 });
   text(b.devotee?.phone, 22, { gap: 2 });
@@ -173,7 +193,7 @@ export async function bookingReceiptHtml(b, settings = {}, { autoPrint = true } 
     ['Seva', esc(b.sevaName)],
     b.dateKey && ['Puja date', esc(fmtPujaDate(b))],
     b.batchLabel && [b.schedule === 'batch' ? 'Batch' : 'Time', esc(b.batchLabel)],
-    b.hall && ['Hall', `<b>${esc(b.hall)}</b>`],
+    b.hall && ['Hall', `<b>${esc(hallText(b, settings))}</b>${hallOf(b, settings).nameMr ? `<br>${esc(hallOf(b, settings).nameMr)}` : ''}`],
     b.serialNo && ['Serial no.', `<b>${esc(b.serialNo)}</b>`],
     ['Devotee', `<b>${esc(d.name)}</b>`],
     d.phone && ['Mobile', esc(d.phone)],

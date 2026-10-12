@@ -4,6 +4,7 @@ import Sheet from '../../ui/Sheet.jsx';
 import { useLanguage, useT } from '../../../i18n/index.jsx';
 import { fmtDay, toKey } from './counterUtils.js';
 import { HallBadge } from './bits.jsx';
+import { useHallNames } from '../../../utils/halls.js';
 import { sevaNames } from './SevaTiles.jsx';
 
 const Row = ({ label, children }) => (children || children === 0 ? (
@@ -21,6 +22,7 @@ const Row = ({ label, children }) => (children || children === 0 ? (
 export default function DuplicateSheet({ booking, sevaTypes = [], onCancel, onBookAgain }) {
   const t = useT();
   const { lang } = useLanguage();
+  const halls = useHallNames();
   const cancelRef = useRef(null);
   const open = Boolean(booking);
 
@@ -49,7 +51,7 @@ export default function DuplicateSheet({ booking, sevaTypes = [], onCancel, onBo
           <Row label={t('Seva')}>{sevaName}</Row>
           <Row label={b.dateKey ? t('Puja date') : t('Booked on')}>{day && fmtDay(day, lang, { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}</Row>
           <Row label={t('Batch')}>{b.batchLabel}</Row>
-          <Row label={t('Hall')}>{b.hall && <HallBadge hall={b.hall} />}</Row>
+          <Row label={t('Hall')}>{b.hall && <span className="inline-flex items-center gap-1.5"><HallBadge hall={b.hall} />{halls.name(b.hall)}</span>}</Row>
           <Row label={t('Serial')}>{b.serialNo}</Row>
         </dl>
         <p className="text-xs text-gray-500">{t('Book again only if the devotee really wants a second booking.')}</p>

@@ -13,6 +13,7 @@ import {
 } from '../services/booking/booking.service.js';
 import { checkInByCode, checkInById, checkInSummary, hallBoard, undoCheckIn } from '../services/booking/checkin.service.js';
 import { onHallEvent, publishHallEvent } from '../services/booking/hallEvents.js';
+import { hallNames } from '../services/booking/halls.js';
 import { receiptUrl, sendReceipt } from '../services/booking/notify.js';
 import { attendanceReport, daySheet, registerFilter, summary } from '../services/booking/reports.js';
 import { bookingsExcel, summaryPdf } from '../services/booking/exports.js';
@@ -31,11 +32,12 @@ const can = async (req, perm) => {
 
 // GET /bookings/options — what the counter and the register need to start
 export const getOptions = asyncHandler(async (req, res) => {
-  const [allSevaTypes, settings, temple, staffIds] = await Promise.all([
+  const [allSevaTypes, settings, temple, staffIds, names] = await Promise.all([
     SevaType.find().sort({ sortOrder: 1, name: 1 }).lean(),
     BookingSettings.getOrCreate(),
     Settings.getOrCreate(),
     Booking.distinct('createdBy'),
+    hallNames(),
   ]);
   const staff = await User.find({ _id: { $in: staffIds } }).select('name').sort({ name: 1 }).lean();
   res.json(new ApiResponse(200, {
@@ -48,6 +50,7 @@ export const getOptions = asyncHandler(async (req, res) => {
       receiptFooter: settings.receiptFooter,
       whatsappAuto: Boolean(temple.waEnabled && settings.whatsappAuto),
       templeName: temple.templeName, templeAddress: temple.templeAddress, templePhone: temple.templePhone,
+      hallNames: names,   // { H1: { name, nameMr } } — slips and screens show "Name (H1)"
     },
   }));
 });
@@ -218,7 +221,7 @@ export const exportExcel = asyncHandler(async (req, res) => {
   const count = await Booking.countDocuments(filter);
   if (count > 50000) throw new ApiError(400, `${count} bookings — narrow the date range (max 50,000 per file)`);
   const bookings = await Booking.find(filter).sort({ paidAt: 1 }).populate('createdBy', 'name').lean();
-  await bookingsExcel(res, { bookings });
+  await bookingsExcel(res, { bookings, halls: await hallNames() });
 });
 
 // GET /bookings/reports/summary?from=&to=
@@ -246,15 +249,17 @@ export const reportDaySheet = asyncHandler(async (req, res) => {
 export const publicReceipt = asyncHandler(async (req, res) => {
   const token = String(req.params.token || '');
   if (!/^[A-Za-z0-9_-]{10,40}$/.test(token)) throw new ApiError(404, 'Receipt not found');
-  const [b, temple, settings] = await Promise.all([
+  const [b, temple, settings, names] = await Promise.all([
     Booking.findOne({ receiptToken: token }).lean(),
     Settings.getOrCreate(),
     BookingSettings.getOrCreate(),
+    hallNames(),
   ]);
   if (!b) throw new ApiError(404, 'Receipt not found');
   res.json(new ApiResponse(200, {
     receiptNo: b.receiptNo, status: b.status, sevaName: b.sevaName, schedule: b.schedule, amount: b.amount,
     performDate: b.performDate, dateKey: b.dateKey, batchLabel: b.batchLabel, hall: b.hall, serialNo: b.serialNo,
+    hallName: names[b.hall]?.name || '', hallNameMr: names[b.hall]?.nameMr || '',
     devotee: { name: b.devotee.name, phone: `XXXXXX${b.devotee.phone.slice(-4)}`, gotra: b.devotee.gotra, familyNames: b.devotee.familyNames },
     peopleCount: b.peopleCount, paymentMode: b.paymentMode, paidAt: b.paidAt, checkedInAt: b.checkedInAt || null,
     temple: { name: temple.templeName, address: temple.templeAddress, phone: temple.templePhone },

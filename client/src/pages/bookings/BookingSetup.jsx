@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router-dom';
-import { CalendarX2, Clock, Eye, Flower2, Settings2 } from 'lucide-react';
+import { Building2, CalendarX2, Clock, Eye, Flower2, Settings2 } from 'lucide-react';
 import PageHeader from '../../components/ui/PageHeader.jsx';
 import { PageLoader } from '../../components/ui/Spinner.jsx';
 import { getBookingSetup } from '../../api/booking.api.js';
@@ -8,6 +8,7 @@ import { usePermissions } from '../../hooks/usePermissions.js';
 import { useT } from '../../i18n/index.jsx';
 import { SETUP_KEY } from '../../components/booking/setup/setupUi.jsx';
 import SevaTypesTab from '../../components/booking/setup/SevaTypesTab.jsx';
+import HallsTab from '../../components/booking/setup/HallsTab.jsx';
 import BatchesTab from '../../components/booking/setup/BatchesTab.jsx';
 import ClosuresTab from '../../components/booking/setup/ClosuresTab.jsx';
 import SettingsTab from '../../components/booking/setup/SettingsTab.jsx';
@@ -17,6 +18,7 @@ import SettingsTab from '../../components/booking/setup/SettingsTab.jsx';
 
 const TABS = [
   { id: 'sevas', label: /*t*/ 'Seva types', icon: Flower2, Panel: SevaTypesTab },
+  { id: 'halls', label: /*t*/ 'Halls', icon: Building2, Panel: HallsTab },
   { id: 'batches', label: /*t*/ 'Batches', icon: Clock, Panel: BatchesTab },
   { id: 'closed', label: /*t*/ 'Closed dates', icon: CalendarX2, Panel: ClosuresTab },
   { id: 'settings', label: /*t*/ 'Settings', icon: Settings2, Panel: SettingsTab },
@@ -38,12 +40,12 @@ export default function BookingSetup() {
     <div>
       <PageHeader
         title="Booking Setup"
-        subtitle="Sevas and prices, batches, closed dates and receipts"
+        subtitle="Sevas and prices, halls, batches, closed dates and receipts"
         breadcrumbs={[{ label: 'Pooja Booking', to: '/bookings' }, { label: 'Booking Setup' }]}
       />
 
-      {/* Tabs: four equal buttons on phones, an underlined row from `sm` up */}
-      <div role="tablist" aria-label={t('Booking Setup')} className="-mx-1 mb-4 grid grid-cols-4 gap-1 sm:mx-0 sm:mb-6 sm:flex sm:gap-1 sm:border-b sm:border-gray-200">
+      {/* Tabs: five equal buttons on phones, an underlined row from `sm` up */}
+      <div role="tablist" aria-label={t('Booking Setup')} className="-mx-1 mb-4 grid grid-cols-5 gap-1 sm:mx-0 sm:mb-6 sm:flex sm:gap-1 sm:border-b sm:border-gray-200">
         {TABS.map(({ id, label, icon: Icon }) => {
           const active = tab.id === id;
           return (

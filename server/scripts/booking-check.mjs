@@ -288,6 +288,37 @@ async function main() {
     && (await hall('GET', '/bookings/hall-board')).status === 200, 'hall staff can scan slips, see arrivals and run the hall screen');
   check((await hall('GET', '/bookings')).status === 403 && (await hall('POST', '/bookings', {})).status === 403, 'hall staff cannot open the register or book');
 
+  // ── Halls: fixed code, names that can change, batches only in listed halls ──
+  const halls = (await api('GET', '/booking-setup')).body.data.halls;
+  const h1 = halls.find((h) => h.code === 'H1');
+  check(['H1', 'H2', 'H3'].every((c) => halls.some((h) => h.code === c)), 'the halls list holds every hall the batches use', JSON.stringify(halls.map((h) => h.code)));
+  const renamed = await api('PUT', `/booking-setup/halls/${h1._id}`, { name: 'Shri Mangal Sabhagruh', nameMr: 'श्री मंगल सभागृह' });
+  check(renamed.status === 200 && renamed.body.data.code === 'H1', 'a hall can be renamed', JSON.stringify(renamed.body));
+  check((await api('PUT', `/booking-setup/halls/${h1._id}`, { code: 'H9' })).status === 400, 'a hall code cannot be changed');
+  const optNames = (await api('GET', '/bookings/options')).body.data.settings.hallNames;
+  check(optNames?.H1?.name === 'Shri Mangal Sabhagruh' && optNames.H1.nameMr === 'श्री मंगल सभागृह', 'booking options carry the hall names for slips', JSON.stringify(optNames));
+  const boardNames = (await hall('GET', '/bookings/hall-board')).body.data.hallNames;
+  const summaryNames = (await hall('GET', '/bookings/check-in/summary')).body.data.hallNames;
+  check(boardNames?.H1?.name === 'Shri Mangal Sabhagruh' && summaryNames?.H1?.name === 'Shri Mangal Sabhagruh', 'hall staff see the new name on the hall screen and the scanner');
+  const pubHall = (await (await fetch(`${BASE}/api/public/receipts/${vb.receiptUrl.split('/r/')[1]}`)).json()).data;
+  check(pubHall.hall === vb.hall && (vb.hall !== 'H1' || pubHall.hallName === 'Shri Mangal Sabhagruh'), 'an old booking’s receipt shows the hall’s new name, same code', JSON.stringify({ hall: pubHall.hall, name: pubHall.hallName }));
+
+  const h4 = await api('POST', '/booking-setup/halls', { code: 'h4', name: 'Annex' });
+  check(h4.status === 201 && h4.body.data.code === 'H4', 'a new hall can be added (code in capitals)', JSON.stringify(h4.body));
+  check((await api('POST', '/booking-setup/halls', { code: 'H4' })).status === 409, 'the same hall code cannot be added twice');
+  check((await api('POST', '/booking-setup/halls', { code: 'Main hall!' })).status === 400, 'a hall code must be short capitals / digits');
+  const slot = { start: '16:00', end: '17:00', capacity: 10 };
+  check((await api('POST', '/booking-setup/batches', { ...slot, hall: 'ZZ' })).status === 400, 'a batch cannot use a hall that is not in the list');
+  const b4 = await api('POST', '/booking-setup/batches', { ...slot, hall: 'H4' });
+  check(b4.status === 201, 'a batch can be put in the new hall', JSON.stringify(b4.body));
+  check((await api('PUT', `/booking-setup/halls/${h4.body.data._id}`, { isActive: false })).status === 400, 'a hall with active batches cannot be switched off');
+  check((await api('DELETE', `/booking-setup/halls/${h1._id}`)).status === 400, 'a hall in use cannot be deleted');
+  await api('DELETE', `/booking-setup/batches/${b4.body.data._id}`);
+  check((await api('PUT', `/booking-setup/halls/${h4.body.data._id}`, { isActive: false })).status === 200
+    && (await api('POST', '/booking-setup/batches', { ...slot, hall: 'H4' })).status === 400, 'a switched-off hall cannot get new batches');
+  check((await api('DELETE', `/booking-setup/halls/${h4.body.data._id}`)).status === 200, 'an unused hall can be deleted');
+  await api('PUT', `/booking-setup/halls/${h1._id}`, { name: '', nameMr: '' });
+
   await api('PUT', `/booking-setup/batches/${batch._id}`, { capacity: 50 });
   console.log(failed ? `\n${failed} booking check(s) failed` : '\nBooking checks OK');
   process.exit(failed ? 1 : 0);

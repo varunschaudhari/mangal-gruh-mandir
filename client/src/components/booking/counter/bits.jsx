@@ -57,11 +57,11 @@ export const Toggle = ({ checked, onChange, children, hint }) => (
 const HALL_COLORS = ['bg-blue-100 text-blue-800', 'bg-purple-100 text-purple-800', 'bg-teal-100 text-teal-800', 'bg-amber-100 text-amber-800'];
 
 /** Hall code (H1, H2, H3…) with a steady colour per hall so staff can tell them apart at a glance. */
-export const HallBadge = ({ hall, className = '' }) => {
+export const HallBadge = ({ hall, title, className = '' }) => {
   if (!hall) return null;
   const n = Number(String(hall).match(/\d+/)?.[0]);
   const color = Number.isFinite(n) && n > 0 ? HALL_COLORS[(n - 1) % HALL_COLORS.length] : 'bg-gray-100 text-gray-700';
-  return <span className={`inline-flex items-center rounded-md px-1.5 py-0.5 text-xs font-bold ${color} ${className}`}>{hall}</span>;
+  return <span title={title && title !== hall ? title : undefined} className={`inline-flex items-center rounded-md px-1.5 py-0.5 text-xs font-bold ${color} ${className}`}>{hall}</span>;
 };
 
 /** Short confirmation sound after a booking (silently skipped where audio isn't allowed). */

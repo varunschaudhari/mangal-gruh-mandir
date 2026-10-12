@@ -2,6 +2,7 @@ import ExcelJS from 'exceljs';
 import { formatAddress } from '../../utils/address.js';
 import PDFDocument from 'pdfkit';
 import { localDateStr } from '../../utils/dates.js';
+import { hallTitle } from './halls.js';
 
 const HDR_FILL = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFEA580C' } };
 const BORDER = { top: { style: 'thin' }, bottom: { style: 'thin' }, left: { style: 'thin' }, right: { style: 'thin' } };
@@ -11,7 +12,7 @@ const fmtTime = (d) => (d ? new Date(d).toLocaleTimeString('en-IN', { hour: '2-d
 const money = (n) => `Rs. ${Math.round(n || 0).toLocaleString('en-IN')}`; // Helvetica has no ₹ glyph
 
 /** Booking register as .xlsx */
-export async function bookingsExcel(res, { bookings, title }) {
+export async function bookingsExcel(res, { bookings, title, halls = {} }) {
   const wb = new ExcelJS.Workbook();
   wb.creator = 'Mangal Grah Mandir';
   const ws = wb.addWorksheet('Bookings');
@@ -22,7 +23,7 @@ export async function bookingsExcel(res, { bookings, title }) {
     { header: 'Seva', key: 'seva', width: 26 },
     { header: 'Puja Date', key: 'pujaDate', width: 13 },
     { header: 'Batch', key: 'batch', width: 20 },
-    { header: 'Hall', key: 'hall', width: 7 },
+    { header: 'Hall', key: 'hall', width: 22 },
     { header: 'Serial', key: 'serial', width: 7 },
     { header: 'Name', key: 'name', width: 26 },
     { header: 'Phone', key: 'phone', width: 13 },
@@ -49,7 +50,7 @@ export async function bookingsExcel(res, { bookings, title }) {
   for (const b of bookings) {
     ws.addRow({
       receiptNo: b.receiptNo, paidOn: fmtDate(b.paidAt), paidTime: fmtTime(b.paidAt), seva: b.sevaName,
-      pujaDate: fmtDate(b.performDate), batch: b.batchLabel, hall: b.hall, serial: b.serialNo ?? '',
+      pujaDate: fmtDate(b.performDate), batch: b.batchLabel, hall: hallTitle(b.hall, halls), serial: b.serialNo ?? '',
       name: b.devotee?.name, phone: b.devotee?.phone, address: formatAddress(b.devotee), gotra: b.devotee?.gotra,
       family: (b.devotee?.familyNames || []).join(', '), rashi: b.devotee?.rashi, nakshatra: b.devotee?.nakshatra,
       email: b.devotee?.email, notes: b.notes, channel: b.channel === 'online' ? 'Online' : 'Counter', people: b.peopleCount,

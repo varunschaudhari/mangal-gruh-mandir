@@ -2,6 +2,7 @@ import { AlertTriangle, CheckCircle2, Info, RefreshCw, RotateCcw, Users, X, XCir
 import { useLanguage, useT } from '../../../i18n/index.jsx';
 import Spinner from '../../ui/Spinner.jsx';
 import { HallBadge } from '../counter/bits.jsx';
+import { hallHeading, hallName, hallTitle } from '../../../utils/halls.js';
 import { fmtDay } from '../counter/counterUtils.js';
 import { fmtTime, nPeople } from '../registerUtils.js';
 import { arrivedPercent, batchState, isLetIn, overrideText, verdictOf } from './checkInUtils.js';
@@ -25,7 +26,7 @@ const Tile = ({ label, value }) => (
  * The answer to one scan, readable at arm's length.
  * `view` = { data: { result, checkedIn, canOverride, booking }, code } or { error }.
  */
-export function CheckInResult({ view, sevaNameOf, onOverride, onUndo, onDismiss, busy, undoing }) {
+export function CheckInResult({ view, sevaNameOf, hallNames, onOverride, onUndo, onDismiss, busy, undoing }) {
   const t = useT();
   const { lang } = useLanguage();
 
@@ -55,7 +56,7 @@ export function CheckInResult({ view, sevaNameOf, onOverride, onUndo, onDismiss,
   const detail = {
     overridden: t(overrideText(b.checkInOverride)),
     already: t('Checked in at {time} by {name}', { time: fmtTime(b.checkedInAt), name: b.checkedInBy?.name || '—' }),
-    'other-hall': t('Send the devotee to hall {hall}', { hall: b.hall }),
+    'other-hall': t('Send the devotee to {hall}', { hall: hallHeading(t, b.hall, hallNames, lang) }),
     'batch-over': t('The {batch} batch has finished', { batch: b.batchLabel }),
     early: t('Booked for {when}', { when }),
     past: t('Booked for {when}', { when }),
@@ -83,7 +84,7 @@ export function CheckInResult({ view, sevaNameOf, onOverride, onUndo, onDismiss,
         {b.serialNo != null && <Tile label={t('Serial')} value={b.serialNo} />}
         <div className="min-w-0 flex-1 rounded-xl bg-white/70 px-3 py-2">
           <p className="break-words text-lg font-bold leading-tight text-gray-900">{b.devotee?.name}</p>
-          <p className="mt-0.5 text-sm text-gray-700">{[seva, b.batchLabel].filter(Boolean).join(' · ')}</p>
+          <p className="mt-0.5 text-sm text-gray-700">{[seva, b.batchLabel, hallName(b.hall, hallNames, lang)].filter(Boolean).join(' · ')}</p>
           <p className="mt-0.5 flex flex-wrap items-center gap-x-2 text-sm text-gray-600">
             <span className="inline-flex items-center gap-1 font-semibold text-gray-800"><Users className="h-3.5 w-3.5" /> {nPeople(t, b.peopleCount || 1)}</span>
             {b.devotee?.gotra && <span>{t('Gotra')}: {b.devotee.gotra}</span>}
@@ -115,13 +116,14 @@ export function CheckInResult({ view, sevaNameOf, onOverride, onUndo, onDismiss,
 /** Today's arrivals: in total and per batch, with the running batch marked. */
 export function Arrivals({ query, hall }) {
   const t = useT();
+  const { lang } = useLanguage();
   const s = query.data;
   const now = new Date();
   return (
     <div className="card p-4">
       <div className="mb-2 flex items-center justify-between gap-2">
         <h2 className="text-xs font-semibold uppercase tracking-wider text-gray-500">
-          {t('Arrivals today')}{hall ? ` · ${hall}` : ''}
+          {t('Arrivals today')}{hall ? ` · ${hallTitle(hall, s?.hallNames, lang)}` : ''}
         </h2>
         <button type="button" onClick={() => query.refetch()} aria-label={t('Refresh')} title={t('Refresh')}
           className="rounded-md p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 max-lg:p-2.5">
@@ -150,7 +152,7 @@ export function Arrivals({ query, hall }) {
                   <div className="flex items-center gap-2 text-sm">
                     <span className="min-w-0 flex-1 truncate font-semibold text-gray-800">{g.label || g.sevaNames.join(', ')}</span>
                     {state === 'now' && <span className="rounded bg-primary-600 px-1.5 py-0.5 text-[10px] font-bold uppercase text-white">{t('Now')}</span>}
-                    <HallBadge hall={g.hall} />
+                    <HallBadge hall={g.hall} title={hallTitle(g.hall, s?.hallNames, lang)} />
                     <span className="w-14 shrink-0 text-right font-bold tabular-nums text-gray-900">{g.arrived}/{g.bookings}</span>
                   </div>
                   <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-gray-200" aria-hidden="true">

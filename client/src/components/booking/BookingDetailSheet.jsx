@@ -11,6 +11,7 @@ import Badge from '../ui/Badge.jsx';
 import Spinner from '../ui/Spinner.jsx';
 import { checkInBooking, getBooking, getBookingOptions, resendReceipt, undoCheckIn, voidBooking } from '../../api/booking.api.js';
 import { printBookingReceipt, printBookingSlip, whatsappShareUrl, fmtPujaDate } from '../../utils/bookingReceipt.js';
+import { hallName } from '../../utils/halls.js';
 import { usePermissions } from '../../hooks/usePermissions.js';
 import { localDateStr } from '../../utils/formatters.js';
 import haptics from '../../utils/haptics.js';
@@ -199,7 +200,7 @@ export default function BookingDetailSheet({ booking: initial, onClose }) {
   // Seva name in Marathi when the seva type has one (day-sheet rows carry only the name).
   const seva = (options?.sevaTypes || []).find((s) => String(s._id) === String(b.sevaType) || s.name === b.sevaName);
   const sevaName = (lang === 'mr' && seva?.nameMr) || b.sevaName;
-  const waUrl = whatsappShareUrl(b);
+  const waUrl = whatsappShareUrl(b, settings);
   // Edit / move need the full record (all devotee fields, batch, shift, who took it).
   const canFix = Boolean(full) && !voided && can('bookings:create');
 
@@ -310,6 +311,9 @@ export default function BookingDetailSheet({ booking: initial, onClose }) {
                 </div>
               )}
             </div>
+          )}
+          {b.hall && hallName(b.hall, settings.hallNames, lang) && (
+            <p className="mt-1.5 text-sm text-gray-700">{t('Hall')}: <b>{hallName(b.hall, settings.hallNames, lang)} ({b.hall})</b></p>
           )}
         </div>
 

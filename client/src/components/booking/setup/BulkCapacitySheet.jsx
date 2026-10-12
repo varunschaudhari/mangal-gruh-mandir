@@ -3,17 +3,20 @@ import toast from 'react-hot-toast';
 import Sheet from '../../ui/Sheet.jsx';
 import { FormField } from '../../ui/FormField.jsx';
 import { updateBookingBatch } from '../../../api/booking.api.js';
-import { useT } from '../../../i18n/index.jsx';
-import { batchTime, errText, hallList, useRefreshBookings } from './setupUi.jsx';
+import { useLanguage, useT } from '../../../i18n/index.jsx';
+import { hallHeading } from '../../../utils/halls.js';
+import { batchTime, errText, hallList, hallNamesOf, useRefreshBookings } from './setupUi.jsx';
 
 /**
  * Sets one capacity on many batches — the selected ones, one hall, or all — by saving
  * each batch in turn, with progress. Batches already at that number are skipped.
  */
-export default function BulkCapacitySheet({ batches, selectedIds, capacityUnit, onClose, onDone }) {
+export default function BulkCapacitySheet({ batches, halls: hallRows = [], selectedIds, capacityUnit, onClose, onDone }) {
   const t = useT();
+  const { lang } = useLanguage();
   const refresh = useRefreshBookings();
-  const halls = hallList(batches);
+  const halls = hallList(batches, hallRows).filter((h) => batches.some((b) => b.hall === h));
+  const names = hallNamesOf(hallRows);
   const [scope, setScope] = useState(selectedIds.length ? 'selected' : 'active');
   const [value, setValue] = useState('');
   const [progress, setProgress] = useState(null); // { done, total }
@@ -52,7 +55,7 @@ export default function BulkCapacitySheet({ batches, selectedIds, capacityUnit, 
     selectedIds.length > 0 && { id: 'selected', label: t('Ticked batches'), count: selectedIds.length },
     { id: 'active', label: t('All active batches'), count: batches.filter((b) => b.isActive).length },
     batches.some((b) => !b.isActive) && { id: 'all', label: t('All batches, including switched-off ones'), count: batches.length },
-    ...halls.map((h) => ({ id: `hall:${h}`, label: t('Every batch in hall {hall}', { hall: h }), count: batches.filter((b) => b.hall === h).length })),
+    ...halls.map((h) => ({ id: `hall:${h}`, label: t('Every batch in {hall}', { hall: hallHeading(t, h, names, lang) }), count: batches.filter((b) => b.hall === h).length })),
   ].filter(Boolean);
 
   const footer = (

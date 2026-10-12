@@ -1,6 +1,7 @@
 import Booking from '../models/Booking.js';
 import BookingBatch from '../models/BookingBatch.js';
 import BookingClosure from '../models/BookingClosure.js';
+import BookingHall, { HALL_CODE } from '../models/BookingHall.js';
 import BookingSettings from '../models/BookingSettings.js';
 import SevaType, { SCHEDULES } from '../models/SevaType.js';
 import ApiError from '../utils/ApiError.js';
@@ -8,19 +9,21 @@ import ApiResponse from '../utils/ApiResponse.js';
 import asyncHandler from '../utils/asyncHandler.js';
 import { logAction } from '../services/audit.service.js';
 import { addDays, dateKeyOf, isDateKey } from '../services/booking/rules.js';
+import { listHalls } from '../services/booking/halls.js';
 
 const pick = (obj, keys) => Object.fromEntries(keys.filter((k) => obj?.[k] !== undefined).map((k) => [k, obj[k]]));
 const weekdays = (w) => (Array.isArray(w) ? [...new Set(w.map(Number).filter((d) => d >= 0 && d <= 6))].sort() : undefined);
 
 // GET /booking-setup
 export const getSetup = asyncHandler(async (req, res) => {
-  const [sevaTypes, batches, closures, settings] = await Promise.all([
+  const [sevaTypes, batches, closures, settings, halls] = await Promise.all([
     SevaType.find().sort({ sortOrder: 1, name: 1 }).lean(),
     BookingBatch.find().sort({ start: 1, hall: 1 }).lean(),
     BookingClosure.find({ date: { $gte: addDays(dateKeyOf(), -30) } }).sort({ date: 1 }).lean(),
     BookingSettings.getOrCreate(),
+    listHalls({ sync: true }),
   ]);
-  res.json(new ApiResponse(200, { sevaTypes, batches, closures, settings }));
+  res.json(new ApiResponse(200, { sevaTypes, batches, closures, settings, halls }));
 });
 
 // ── Seva types ────────────────────────────────────────────────────────────────
@@ -60,24 +63,93 @@ export const deleteSevaType = asyncHandler(async (req, res) => {
   res.json(new ApiResponse(200, null, 'Seva type deleted'));
 });
 
+// ── Halls ─────────────────────────────────────────────────────────────────────
+// The code is fixed once added (batches, bookings and printed slips carry it); the names can
+// change any time. A hall can be removed only while nothing uses it — otherwise switch it off.
+
+const hallFields = (body) => {
+  const data = pick(body, ['name', 'nameMr', 'isActive', 'sortOrder']);
+  for (const k of ['name', 'nameMr']) if (data[k] !== undefined) data[k] = String(data[k] ?? '').trim().slice(0, 60);
+  if (data.isActive !== undefined) data.isActive = Boolean(data.isActive);
+  if (data.sortOrder !== undefined) data.sortOrder = Number(data.sortOrder) || 0;
+  return data;
+};
+
+export const createHall = asyncHandler(async (req, res) => {
+  const code = String(req.body?.code || '').trim().toUpperCase();
+  if (!HALL_CODE.test(code)) throw new ApiError(400, 'Hall code: up to 8 capital letters or digits, like H1');
+  if (await BookingHall.exists({ code })) throw new ApiError(409, `Hall ${code} is already in the list`);
+  const data = hallFields(req.body);
+  if (data.sortOrder === undefined) data.sortOrder = await BookingHall.countDocuments();
+  const hall = await BookingHall.create({ ...data, code });
+  logAction(req, { action: 'booking.hall_create', entity: 'BookingHall', entityId: hall.code, entityRef: hall._id, after: { name: hall.name, nameMr: hall.nameMr } });
+  res.status(201).json(new ApiResponse(201, hall, 'Hall added'));
+});
+
+export const updateHall = asyncHandler(async (req, res) => {
+  const before = await BookingHall.findById(req.params.id).lean();
+  if (!before) throw new ApiError(404, 'Hall not found');
+  if (req.body?.code !== undefined && String(req.body.code).trim().toUpperCase() !== before.code.toUpperCase()) {
+    throw new ApiError(400, 'The hall code can’t be changed — slips already carry it. Change the name instead.');
+  }
+  const data = hallFields(req.body);
+  if (data.isActive === false && before.isActive) {
+    const n = await BookingBatch.countDocuments({ hall: before.code, isActive: true });
+    if (n) throw new ApiError(400, `${n} active batch${n === 1 ? ' uses' : 'es use'} hall ${before.code} — switch ${n === 1 ? 'it' : 'them'} off or move ${n === 1 ? 'it' : 'them'} to another hall first`);
+  }
+  const hall = await BookingHall.findByIdAndUpdate(req.params.id, data, { returnDocument: 'after', runValidators: true });
+  logAction(req, {
+    action: 'booking.hall_update', entity: 'BookingHall', entityId: hall.code, entityRef: hall._id,
+    before: { name: before.name, nameMr: before.nameMr, isActive: before.isActive }, after: { name: hall.name, nameMr: hall.nameMr, isActive: hall.isActive },
+  });
+  res.json(new ApiResponse(200, hall, 'Hall saved'));
+});
+
+export const deleteHall = asyncHandler(async (req, res) => {
+  const hall = await BookingHall.findById(req.params.id).lean();
+  if (!hall) throw new ApiError(404, 'Hall not found');
+  if (await BookingBatch.exists({ hall: hall.code })) throw new ApiError(400, `Batches use hall ${hall.code} — move them to another hall or delete them first`);
+  if (await Booking.exists({ hall: hall.code })) throw new ApiError(400, `Hall ${hall.code} has bookings — switch it off instead`);
+  await BookingHall.deleteOne({ _id: hall._id });
+  logAction(req, { action: 'booking.hall_delete', entity: 'BookingHall', entityId: hall.code, entityRef: hall._id });
+  res.json(new ApiResponse(200, null, 'Hall deleted'));
+});
+
 // ── Batches ───────────────────────────────────────────────────────────────────
 
 const batchPayload = (body) => {
   const data = pick(body, ['start', 'end', 'hall', 'capacity', 'isActive']);
   if (data.start && data.end && data.end <= data.start) throw new ApiError(400, 'End time must be after the start time');
+  if (data.hall !== undefined) data.hall = String(data.hall || '').trim();
   if (body.weekdays !== undefined) data.weekdays = weekdays(body.weekdays);
   if (body.sevaTypes !== undefined) data.sevaTypes = Array.isArray(body.sevaTypes) ? body.sevaTypes : [];
   return data;
 };
 
+// A batch's hall must be one from Setup → Halls, and switched on (unless the batch already had it).
+async function checkHall(code, current) {
+  if (code === undefined || code === current) return;
+  const hall = await BookingHall.findOne({ code }).lean();
+  if (!hall) throw new ApiError(400, 'Choose a hall from the list (Setup → Halls)');
+  if (!hall.isActive) throw new ApiError(400, `Hall ${code} is switched off — switch it on in Setup → Halls first`);
+}
+
 export const createBatch = asyncHandler(async (req, res) => {
-  const batch = await BookingBatch.create(batchPayload(req.body));
+  const data = batchPayload(req.body);
+  if (!data.hall) throw new ApiError(400, 'Choose a hall');
+  await checkHall(data.hall);
+  const batch = await BookingBatch.create(data);
   logAction(req, { action: 'booking.batch_create', entity: 'BookingBatch', entityId: `${batch.start} ${batch.hall}`, entityRef: batch._id });
   res.status(201).json(new ApiResponse(201, batch, 'Batch added'));
 });
 
 export const updateBatch = asyncHandler(async (req, res) => {
-  const batch = await BookingBatch.findByIdAndUpdate(req.params.id, batchPayload(req.body), { returnDocument: 'after', runValidators: true });
+  const before = await BookingBatch.findById(req.params.id).lean();
+  if (!before) throw new ApiError(404, 'Batch not found');
+  const data = batchPayload(req.body);
+  if (data.hall === '') throw new ApiError(400, 'Choose a hall');
+  await checkHall(data.hall, before.hall);
+  const batch = await BookingBatch.findByIdAndUpdate(req.params.id, data, { returnDocument: 'after', runValidators: true });
   if (!batch) throw new ApiError(404, 'Batch not found');
   logAction(req, { action: 'booking.batch_update', entity: 'BookingBatch', entityId: `${batch.start} ${batch.hall}`, entityRef: batch._id, after: { capacity: batch.capacity, isActive: batch.isActive } });
   res.json(new ApiResponse(200, batch, 'Batch saved'));

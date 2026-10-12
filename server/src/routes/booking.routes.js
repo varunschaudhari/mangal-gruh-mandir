@@ -7,8 +7,8 @@ import {
 } from '../controllers/booking.controller.js';
 import * as shifts from '../controllers/bookingShift.controller.js';
 import {
-  createBatch, createClosure, createSevaType, deleteBatch, deleteClosure, deleteSevaType,
-  getSetup, updateBatch, updateSettings, updateSevaType,
+  createBatch, createClosure, createHall, createSevaType, deleteBatch, deleteClosure, deleteHall, deleteSevaType,
+  getSetup, updateBatch, updateHall, updateSettings, updateSevaType,
 } from '../controllers/bookingSetup.controller.js';
 
 // /bookings — counter, register, reports
@@ -40,13 +40,15 @@ bookingRouter.route('/:id/check-in')
   .post(authorize('bookings:checkin'), checkInOne)
   .delete(authorize('bookings:checkin'), undoCheckInOne);
 
-// /booking-setup — seva types, batches, closed dates, settings
+// /booking-setup — seva types, halls, batches, closed dates, settings
 export const bookingSetupRouter = Router();
 bookingSetupRouter.use(protect);
 bookingSetupRouter.get('/', authorize('bookings:read'), getSetup);
 bookingSetupRouter.use(authorize('bookings:manage'));
 bookingSetupRouter.post('/seva-types', createSevaType);
 bookingSetupRouter.route('/seva-types/:id').put(updateSevaType).delete(deleteSevaType);
+bookingSetupRouter.post('/halls', createHall);
+bookingSetupRouter.route('/halls/:id').put(updateHall).delete(deleteHall);
 bookingSetupRouter.post('/batches', createBatch);
 bookingSetupRouter.route('/batches/:id').put(updateBatch).delete(deleteBatch);
 bookingSetupRouter.post('/closures', createClosure);

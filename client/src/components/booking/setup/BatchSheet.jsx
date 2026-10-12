@@ -2,21 +2,28 @@ import { useMemo, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { useMutation } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
+import { Link } from 'react-router-dom';
 import { TriangleAlert } from 'lucide-react';
 import Sheet from '../../ui/Sheet.jsx';
 import { FormField, FormRow } from '../../ui/FormField.jsx';
 import { createBookingBatch, updateBookingBatch } from '../../../api/booking.api.js';
-import { useT } from '../../../i18n/index.jsx';
+import { useLanguage, useT } from '../../../i18n/index.jsx';
+import { hallHeading, hallName, hallTitle } from '../../../utils/halls.js';
 import {
-  ALL_DAYS, SwitchRow, WeekdayChips, batchTime, errText, hallList, isEveryDay, lengthText, to12h, toMinutes, useRefreshBookings,
+  ALL_DAYS, HallChip, SwitchRow, WeekdayChips, batchTime, errText, hallList, hallNamesOf, isEveryDay, lengthText, to12h, toMinutes, useRefreshBookings,
 } from './setupUi.jsx';
 
 /** Add / edit a batch. `batch` = the one being edited, or {} for a new one. */
-export default function BatchSheet({ batch, onClose, batches = [], sevaTypes = [], capacityUnit }) {
+export default function BatchSheet({ batch, onClose, batches = [], halls: hallRows = [], sevaTypes = [], capacityUnit }) {
   const t = useT();
+  const { lang } = useLanguage();
   const refresh = useRefreshBookings();
   const isNew = !batch?._id;
-  const halls = hallList(batches);
+  const halls = hallList(batches, hallRows);
+  const names = hallNamesOf(hallRows);
+  // The halls a batch can be put in: those switched on, plus the one it already has
+  const choices = hallRows.filter((h) => h.isActive !== false || h.code === batch?.hall);
+  if (batch?.hall && !choices.some((h) => h.code === batch.hall)) choices.push({ code: batch.hall, name: '', isActive: true });
   // New batch: start where the last one ends, in the same hall, with the most common capacity
   const defaults = useMemo(() => {
     if (!isNew) {
@@ -41,13 +48,13 @@ export default function BatchSheet({ batch, onClose, batches = [], sevaTypes = [
 
   // Same hall, overlapping time → probably a mistake (not blocked: two groups can share a big hall)
   const clash = start && end && hall && batches.find((b) => b._id !== batch?._id
-    && b.hall.trim().toLowerCase() === hall.trim().toLowerCase()
+    && b.hall === hall
     && toMinutes(b.start) < toMinutes(end) && toMinutes(start) < toMinutes(b.end));
 
   const mut = useMutation({
     mutationFn: (data) => (isNew ? createBookingBatch(data) : updateBookingBatch(batch._id, data)),
     onSuccess: (_, data) => {
-      const label = `${batchTime(data)}, ${data.hall}`;
+      const label = `${batchTime(data)}, ${hallTitle(data.hall, names, lang)}`;
       toast.success(isNew ? t('Batch {label} added', { label }) : t('Batch {label} saved', { label }));
       refresh();
       onClose();
@@ -62,7 +69,7 @@ export default function BatchSheet({ batch, onClose, batches = [], sevaTypes = [
   const save = (v) => mut.mutate({
     start: v.start,
     end: v.end,
-    hall: v.hall.trim(),
+    hall: v.hall,
     capacity: Math.floor(Number(v.capacity)),
     weekdays: isEveryDay(v.weekdays) ? [...ALL_DAYS] : v.weekdays,
     sevaTypes: onlySome ? v.sevaTypes : [],
@@ -103,22 +110,24 @@ export default function BatchSheet({ batch, onClose, batches = [], sevaTypes = [
 
         <FormRow>
           <FormField label={t('Hall')} required error={errors.hall?.message}>
-            <input
-              {...register('hall', { validate: (v) => Boolean(v.trim()) || t('{label} is required', { label: t('Hall') }) })}
-              list="booking-halls" className="input" placeholder={t('e.g. {example}', { example: 'H1' })} autoComplete="off"
-            />
-            <datalist id="booking-halls">{halls.map((h) => <option key={h} value={h} />)}</datalist>
-            {halls.length > 0 && (
-              <div className="mt-2 flex flex-wrap gap-1.5">
-                {halls.map((h) => (
+            <input type="hidden" {...register('hall', { validate: (v) => Boolean(v) || t('Choose a hall') })} />
+            {choices.length > 0 ? (
+              <div className="flex flex-col gap-1.5" role="radiogroup" aria-label={t('Hall')}>
+                {choices.map((h) => (
                   <button
-                    key={h} type="button" onClick={() => setValue('hall', h, { shouldValidate: true, shouldDirty: true })}
-                    className={`h-11 min-w-[3rem] rounded-lg border px-3 text-sm font-semibold sm:h-8 ${hall === h ? 'border-primary-500 bg-primary-50 text-primary-700' : 'border-gray-200 text-gray-600 hover:border-gray-300'}`}
+                    key={h.code} type="button" role="radio" aria-checked={hall === h.code}
+                    onClick={() => setValue('hall', h.code, { shouldValidate: true, shouldDirty: true })}
+                    className={`flex min-h-[44px] items-center gap-2.5 rounded-lg border px-2.5 py-1.5 text-left text-sm sm:min-h-[38px] ${hall === h.code ? 'border-primary-500 bg-primary-50 text-primary-800' : 'border-gray-200 text-gray-700 hover:border-gray-300'}`}
                   >
-                    {h}
+                    <HallChip hall={h.code} halls={halls} />
+                    <span className="min-w-0 truncate font-medium">{hallName(h.code, names, lang) || <span className="text-gray-400">{t('No name yet')}</span>}</span>
                   </button>
                 ))}
               </div>
+            ) : (
+              <p className="rounded-lg bg-amber-50 p-3 text-sm text-amber-800">
+                {t('No halls yet.')} <Link to="?tab=halls" onClick={onClose} className="font-medium underline">{t('Add a hall first')}</Link>
+              </p>
             )}
           </FormField>
           <FormField
@@ -138,7 +147,7 @@ export default function BatchSheet({ batch, onClose, batches = [], sevaTypes = [
         {clash && (
           <p className="flex items-start gap-2 rounded-xl bg-amber-50 p-3 text-sm text-amber-800">
             <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0" />
-            {t('Hall {hall} already has a batch at {time}. Save anyway only if both groups fit in the hall.', { hall: clash.hall, time: batchTime(clash) })}
+            {t('{hall} already has a batch at {time}. Save anyway only if both groups fit in the hall.', { hall: hallHeading(t, clash.hall, names, lang), time: batchTime(clash) })}
           </p>
         )}
 

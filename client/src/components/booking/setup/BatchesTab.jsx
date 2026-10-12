@@ -6,11 +6,12 @@ import { Pencil, Plus, Trash2, TriangleAlert, Users, X } from 'lucide-react';
 import { ConfirmModal } from '../../ui/Modal.jsx';
 import { ActiveBadge } from '../../ui/Badge.jsx';
 import { deleteBookingBatch, updateBookingBatch } from '../../../api/booking.api.js';
-import { useT } from '../../../i18n/index.jsx';
+import { useLanguage, useT } from '../../../i18n/index.jsx';
+import { hallName, hallTitle } from '../../../utils/halls.js';
 import BatchSheet from './BatchSheet.jsx';
 import BulkCapacitySheet from './BulkCapacitySheet.jsx';
 import {
-  HallChip, Switch, batchTime, errText, hallList, lengthText, toMinutes, useRefreshBookings, weekdaysText,
+  HallChip, Switch, batchTime, errText, hallList, hallNamesOf, lengthText, toMinutes, useRefreshBookings, weekdaysText,
 } from './setupUi.jsx';
 
 const PART_OF_DAY = [
@@ -24,9 +25,13 @@ const DISMISS_KEY = 'mgm-booking-capacity-hint';
 export default function BatchesTab({ setup, canManage }) {
   const t = useT();
   const refresh = useRefreshBookings();
-  const { batches, sevaTypes, settings } = setup;
+  const { lang } = useLanguage();
+  const { batches, sevaTypes, settings, halls: hallRows = [] } = setup;
   const unit = settings.capacityUnit;
-  const halls = hallList(batches);
+  const halls = hallList(batches, hallRows);
+  const names = hallNamesOf(hallRows);
+  const title = (code) => hallTitle(code, names, lang);
+  const usedHalls = halls.filter((h) => batches.some((b) => b.hall === h));
 
   const [editing, setEditing] = useState(null);
   const [toDelete, setToDelete] = useState(null);
@@ -37,7 +42,7 @@ export default function BatchesTab({ setup, canManage }) {
   const [hintDismissed, setHintDismissed] = useState(() => { try { return localStorage.getItem(DISMISS_KEY) === '1'; } catch { return false; } });
 
   const sorted = useMemo(() => [...batches].sort((a, b) => a.start.localeCompare(b.start)
-    || a.hall.localeCompare(b.hall, undefined, { numeric: true })), [batches]);
+    || halls.indexOf(a.hall) - halls.indexOf(b.hall)), [batches, halls]);
   const groups = PART_OF_DAY.map((p, i) => ({
     label: p.label,
     rows: sorted.filter((b) => toMinutes(b.start) < p.until && toMinutes(b.start) >= (i ? PART_OF_DAY[i - 1].until : 0)),
@@ -58,7 +63,7 @@ export default function BatchesTab({ setup, canManage }) {
     mutationFn: ({ batch, isActive }) => updateBookingBatch(batch._id, { isActive }),
     onMutate: ({ batch }) => setBusyId(batch._id),
     onSuccess: (_, { batch, isActive }) => {
-      const label = `${batchTime(batch)}, ${batch.hall}`;
+      const label = `${batchTime(batch)}, ${title(batch.hall)}`;
       toast.success(isActive ? t('Batch {label} is now active', { label }) : t('Batch {label} is switched off', { label }));
       refresh();
       setBlocked(null);
@@ -70,7 +75,7 @@ export default function BatchesTab({ setup, canManage }) {
   const deleteMut = useMutation({
     mutationFn: (batch) => deleteBookingBatch(batch._id),
     onSuccess: (_, batch) => {
-      toast.success(t('Batch {label} deleted', { label: `${batchTime(batch)}, ${batch.hall}` }));
+      toast.success(t('Batch {label} deleted', { label: `${batchTime(batch)}, ${title(batch.hall)}` }));
       setSelected((cur) => cur.filter((id) => id !== batch._id));
       refresh();
       setToDelete(null);
@@ -99,7 +104,7 @@ export default function BatchesTab({ setup, canManage }) {
     : <ActiveBadge isActive={b.isActive} />);
   const checkbox = (b) => (
     <label className="-m-2 flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center md:h-8 md:w-8">
-      <input type="checkbox" className="h-5 w-5 rounded md:h-4 md:w-4" checked={selected.includes(b._id)} onChange={() => toggle(b._id)} aria-label={t('Tick {label}', { label: `${batchTime(b)} ${b.hall}` })} />
+      <input type="checkbox" className="h-5 w-5 rounded md:h-4 md:w-4" checked={selected.includes(b._id)} onChange={() => toggle(b._id)} aria-label={t('Tick {label}', { label: `${batchTime(b)} ${title(b.hall)}` })} />
     </label>
   );
 
@@ -108,7 +113,7 @@ export default function BatchesTab({ setup, canManage }) {
       {/* Summary + main actions */}
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-sm text-gray-500">
-          {t('{n} active batches in {halls} halls', { n: active.length, halls: halls.length })}
+          {t('{n} active batches in {halls} halls', { n: active.length, halls: new Set(active.map((b) => b.hall)).size })}
           {' · '}
           {unit === 'people' ? t('{n} people a day in all', { n: totalSeats }) : t('{n} bookings a day in all', { n: totalSeats })}
         </p>
@@ -152,8 +157,8 @@ export default function BatchesTab({ setup, canManage }) {
         <div className="flex flex-wrap items-center gap-1.5 text-sm">
           <span className="mr-1 text-gray-500">{t('Tick:')}</span>
           <button type="button" onClick={() => selectMany(batches.map((b) => b._id))} className="h-11 rounded-full border border-gray-200 bg-white px-3 font-medium text-gray-600 hover:border-gray-300 sm:h-8">{t('All')}</button>
-          {halls.map((h) => (
-            <button key={h} type="button" onClick={() => selectMany(batches.filter((b) => b.hall === h).map((b) => b._id))} className="h-11 rounded-full border border-gray-200 bg-white px-3 font-medium text-gray-600 hover:border-gray-300 sm:h-8">
+          {usedHalls.map((h) => (
+            <button key={h} type="button" onClick={() => selectMany(batches.filter((b) => b.hall === h).map((b) => b._id))} title={title(h)} className="h-11 rounded-full border border-gray-200 bg-white px-3 font-medium text-gray-600 hover:border-gray-300 sm:h-8">
               {t('Hall {hall}', { hall: h })}
             </button>
           ))}
@@ -182,7 +187,10 @@ export default function BatchesTab({ setup, canManage }) {
                   <div className={`min-w-0 flex-1 ${b.isActive ? '' : 'opacity-60'}`}>
                     <div className="flex items-center justify-between gap-2">
                       <span className="text-[15px] font-semibold text-gray-900">{batchTime(b)}</span>
-                      <HallChip hall={b.hall} halls={halls} />
+                      <span className="flex min-w-0 items-center gap-1.5">
+                        {hallName(b.hall, names, lang) && <span className="truncate text-xs text-gray-500">{hallName(b.hall, names, lang)}</span>}
+                        <HallChip hall={b.hall} halls={halls} />
+                      </span>
                     </div>
                     <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-sm text-gray-600">
                       <span><span className="font-semibold text-gray-900">{b.capacity}</span> {t('seats')}</span>
@@ -227,7 +235,12 @@ export default function BatchesTab({ setup, canManage }) {
                       <span className="font-medium text-gray-900">{batchTime(b)}</span>
                       <span className="ml-2 text-xs text-gray-400">{lengthText(t, b.start, b.end)}</span>
                     </td>
-                    <td className={`table-td ${b.isActive ? '' : 'opacity-60'}`}><HallChip hall={b.hall} halls={halls} /></td>
+                    <td className={`table-td ${b.isActive ? '' : 'opacity-60'}`}>
+                      <span className="flex items-center gap-2">
+                        <HallChip hall={b.hall} halls={halls} />
+                        <span className="max-w-[12rem] truncate text-xs text-gray-500">{hallName(b.hall, names, lang)}</span>
+                      </span>
+                    </td>
                     <td className={`table-td text-right text-base font-semibold text-gray-900 ${b.isActive ? '' : 'opacity-60'}`}>{b.capacity}</td>
                     <td className={`table-td ${b.isActive ? '' : 'opacity-60'}`}>{weekdaysText(t, b.weekdays)}</td>
                     <td className={`table-td max-w-[16rem] text-xs text-gray-500 ${b.isActive ? '' : 'opacity-60'}`}>{sevasText(b)}</td>
@@ -242,12 +255,12 @@ export default function BatchesTab({ setup, canManage }) {
       ))}
 
       {editing && (
-        <BatchSheet batch={editing} onClose={() => setEditing(null)} batches={batches} sevaTypes={sevaTypes} capacityUnit={unit} />
+        <BatchSheet batch={editing} onClose={() => setEditing(null)} batches={batches} halls={hallRows} sevaTypes={sevaTypes} capacityUnit={unit} />
       )}
 
       {bulkOpen && (
         <BulkCapacitySheet
-          batches={sorted} selectedIds={selected} capacityUnit={unit}
+          batches={sorted} halls={hallRows} selectedIds={selected} capacityUnit={unit}
           onClose={() => setBulkOpen(false)} onDone={() => setSelected([])}
         />
       )}
@@ -256,7 +269,7 @@ export default function BatchesTab({ setup, canManage }) {
         open={Boolean(toDelete)} onClose={() => setToDelete(null)}
         onConfirm={() => deleteMut.mutate(toDelete)} loading={deleteMut.isPending}
         title={/*t*/ 'Delete batch'}
-        message={toDelete && `${t('Delete the batch {label}? This cannot be undone.', { label: `${batchTime(toDelete)}, ${t('Hall {hall}', { hall: toDelete.hall })}` })} ${t('A batch that already has bookings cannot be deleted — switch it off instead.')}`}
+        message={toDelete && `${t('Delete the batch {label}? This cannot be undone.', { label: `${batchTime(toDelete)}, ${title(toDelete.hall)}` })} ${t('A batch that already has bookings cannot be deleted — switch it off instead.')}`}
       />
 
       <ConfirmModal

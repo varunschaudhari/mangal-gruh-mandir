@@ -11,6 +11,7 @@ import { usePermissions } from '../../hooks/usePermissions.js';
 import { useBackHandler } from '../../hooks/useBackHandler.js';
 import { useLanguage, useT } from '../../i18n/index.jsx';
 import { scanQrCode } from '../../utils/nativeScanner.js';
+import { hallTitle } from '../../utils/halls.js';
 import { isNative } from '../../utils/platform.js';
 import redeemFeedback from '../../utils/redeemFeedback.js';
 import haptics from '../../utils/haptics.js';
@@ -245,7 +246,7 @@ export default function BookingCheckIn() {
               {['', ...halls].map((h) => (
                 <button key={h || 'all'} type="button" role="radio" aria-checked={hall === h} onClick={() => chooseHall(h)}
                   className={`min-h-[40px] rounded-full px-4 text-sm font-semibold transition-colors ${hall === h ? 'bg-primary-600 text-white' : 'border border-gray-200 bg-white text-gray-600 hover:bg-gray-50'}`}>
-                  {h || t('All halls')}
+                  {h ? hallTitle(h, summaryQ.data?.hallNames, lang) : t('All halls')}
                 </button>
               ))}
             </div>
@@ -253,7 +254,7 @@ export default function BookingCheckIn() {
 
           {view && (
             <CheckInResult
-              view={view} sevaNameOf={sevaNameOf} busy={busy}
+              view={view} sevaNameOf={sevaNameOf} hallNames={summaryQ.data?.hallNames} busy={busy}
               onOverride={() => submit(view.code, { override: true })}
               onUndo={() => undoMut.mutate(view.data.booking._id)} undoing={undoMut.isPending}
               onDismiss={dismiss}

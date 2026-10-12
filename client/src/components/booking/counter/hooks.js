@@ -81,10 +81,10 @@ export function useReceiptActions(settings) {
   }, [settings, t]);
 
   const sendWhatsApp = useCallback((booking) => {
-    const url = whatsappShareUrl(booking);
+    const url = whatsappShareUrl(booking, settings);
     if (isNative) Browser.open({ url }).catch(() => toast.error(t('Could not open WhatsApp')));
     else window.open(url, '_blank', 'noopener');
-  }, [t]);
+  }, [settings, t]);
 
   return { printSlip, printA4, sendWhatsApp };
 }

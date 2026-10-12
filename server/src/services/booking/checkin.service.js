@@ -5,6 +5,7 @@ import BookingClosure from '../../models/BookingClosure.js';
 import SevaType from '../../models/SevaType.js';
 import Settings from '../../models/Settings.js';
 import ApiError from '../../utils/ApiError.js';
+import { hallNames, sortHallCodes } from './halls.js';
 import {
   batchLabel, batchStateAt, checkInVerdict, dateKeyOf, financialYear, isDateKey, labelTimes, receiptTokenOf, weekdayOf,
 } from './rules.js';
@@ -94,7 +95,7 @@ export async function undoCheckIn(id) {
 export async function checkInSummary({ date, hall } = {}) {
   const dateKey = isDateKey(date) ? date : dateKeyOf();
   const match = { dateKey, status: 'confirmed', ...(hall ? { hall: String(hall) } : {}) };
-  const [groups, recent, halls] = await Promise.all([
+  const [groups, recent, halls, names] = await Promise.all([
     Booking.aggregate([
       { $match: match },
       {
@@ -110,6 +111,7 @@ export async function checkInSummary({ date, hall } = {}) {
     ]),
     Booking.find({ ...match, checkedInAt: { $ne: null } }).sort({ checkedInAt: -1 }).limit(10).populate(POPULATE).lean(),
     BookingBatch.distinct('hall', { isActive: true }), // the halls a scanner can stand at
+    hallNames(),
   ]);
   const toMinutes = (label) => {
     const m = /^(\d{1,2}):(\d{2})\s*(AM|PM)/i.exec(label || '');
@@ -124,7 +126,8 @@ export async function checkInSummary({ date, hall } = {}) {
   const sum = (k) => rows.reduce((n, r) => n + r[k], 0);
   return {
     date: dateKey,
-    halls: halls.filter(Boolean).sort(),
+    halls: sortHallCodes(halls, names),
+    hallNames: names,
     totals: { bookings: sum('bookings'), people: sum('people'), arrived: sum('arrived'), arrivedPeople: sum('arrivedPeople') },
     groups: rows,
     recent: recent.map(brief),
@@ -143,7 +146,7 @@ export async function hallBoard({ hall, date } = {}) {
   const now = new Date();
   const minutes = now.getHours() * 60 + now.getMinutes();
   const hallFilter = hall ? { hall: String(hall) } : {};
-  const [bookings, batches, batchSevas, closedAllDay, halls, temple] = await Promise.all([
+  const [bookings, batches, batchSevas, closedAllDay, halls, temple, names] = await Promise.all([
     Booking.find({ dateKey, status: 'confirmed', ...hallFilter })
       .select('serialNo devotee.name peopleCount checkedInAt batch batchLabel hall sevaType sevaName schedule')
       .sort({ serialNo: 1 }).lean(),
@@ -152,6 +155,7 @@ export async function hallBoard({ hall, date } = {}) {
     BookingClosure.exists({ date: dateKey, $or: [{ sevaTypes: { $size: 0 } }, { sevaTypes: { $exists: false } }] }),
     BookingBatch.distinct('hall', { isActive: true }),
     Settings.getOrCreate(),
+    hallNames(),
   ]);
   // Marathi seva names for the screen (hall staff can't read the seva list themselves).
   const sevas = await SevaType.find({ _id: { $in: [...new Set(bookings.map((b) => String(b.sevaType)))] } }).select('nameMr').lean();
@@ -206,7 +210,8 @@ export async function hallBoard({ hall, date } = {}) {
     minutes,
     hall: hall ? String(hall) : '',
     templeName: temple?.templeName || '',
-    halls: halls.filter(Boolean).sort(),
+    halls: sortHallCodes(halls, names),
+    hallNames: names,
     recent,
     groups: [...groups.values()]
       .map((g) => ({ ...g, sevaNames: [...g.sevaNames].sort(), sevaNamesMr: [...g.sevaNamesMr] }))

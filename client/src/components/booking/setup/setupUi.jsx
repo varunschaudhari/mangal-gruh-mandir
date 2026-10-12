@@ -2,7 +2,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import Badge from '../../ui/Badge.jsx';
 import { useT } from '../../../i18n/index.jsx';
 
-// Shared bits for Bookings → Setup (seva types, batches, closed dates, settings).
+// Shared bits for Bookings → Setup (seva types, halls, batches, closed dates, settings).
 
 export const SETUP_KEY = ['booking-setup'];
 
@@ -75,12 +75,19 @@ export function ScheduleBadge({ schedule }) {
 
 // Halls get a steady colour so the same hall is easy to spot down the list.
 const HALL_COLOURS = ['bg-sky-100 text-sky-800', 'bg-emerald-100 text-emerald-800', 'bg-violet-100 text-violet-800', 'bg-amber-100 text-amber-800', 'bg-rose-100 text-rose-800', 'bg-teal-100 text-teal-800'];
-export const hallList = (batches) => [...new Set(batches.map((b) => b.hall).filter(Boolean))]
-  .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
-export function HallChip({ hall, halls, className = '' }) {
+/** Hall codes in Setup order (Setup → Halls), then any code a batch still uses that isn't in the list. */
+export const hallList = (batches, halls = []) => {
+  const listed = halls.map((h) => h.code);
+  const extra = [...new Set(batches.map((b) => b.hall).filter((c) => c && !listed.includes(c)))]
+    .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+  return [...listed, ...extra];
+};
+/** { H1: { name, nameMr } } from the Setup halls list — the shape hallTitle() takes. */
+export const hallNamesOf = (halls = []) => Object.fromEntries(halls.map((h) => [h.code, { name: h.name || '', nameMr: h.nameMr || '' }]));
+export function HallChip({ hall, halls, title, className = '' }) {
   const i = Math.max(0, halls.indexOf(hall));
   return (
-    <span className={`inline-flex min-w-[2.5rem] items-center justify-center rounded-md px-2 py-0.5 text-sm font-bold ${HALL_COLOURS[i % HALL_COLOURS.length]} ${className}`}>
+    <span title={title || undefined} className={`inline-flex min-w-[2.5rem] items-center justify-center rounded-md px-2 py-0.5 text-sm font-bold ${HALL_COLOURS[i % HALL_COLOURS.length]} ${className}`}>
       {hall}
     </span>
   );

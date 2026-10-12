@@ -31,7 +31,7 @@ export default {
   'This booking was cancelled': 'हे बुकिंग रद्द झाले आहे',
   'Nothing to check in': 'हजेरीची गरज नाही',
   'Not a valid slip': 'वैध स्लिप नाही',
-  'Send the devotee to hall {hall}': 'भाविकाला हॉल {hall} मध्ये पाठवा',
+  'Send the devotee to {hall}': 'भाविकाला {hall} मध्ये पाठवा',
   'The {batch} batch has finished': '{batch} ही बॅच संपली आहे',
   'Booked for {when}': '{when} साठी बुकिंग',
   'The receipt was voided at the counter — do not let in': 'काउंटरवर पावती रद्दबातल केली आहे — आत सोडू नका',

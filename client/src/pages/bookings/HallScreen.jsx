@@ -8,6 +8,7 @@ import { LanguageSwitch, useLanguage, useT } from '../../i18n/index.jsx';
 import { fmtDay } from '../../components/booking/counter/counterUtils.js';
 import { minutesUntil, pickBoard, savedHall, saveHall, tileSize } from '../../components/booking/checkin/checkInUtils.js';
 import { useHallEvents } from '../../utils/hallLive.js';
+import { hallHeading, hallTitle } from '../../utils/halls.js';
 
 // The hall screen: a TV or tablet at the hall shows the batch running now with every serial
 // number — green once that devotee has checked in at the entrance — the next batch, and a
@@ -68,7 +69,7 @@ function SerialGrid({ group, names, flash }) {
   );
 }
 
-function BatchBlock({ group, kind, names, now, showHall, flash }) {
+function BatchBlock({ group, kind, names, now, showHall, hallLabel, flash }) {
   const t = useT();
   const { lang } = useLanguage();
   const spaced = spacing(lang);
@@ -78,7 +79,7 @@ function BatchBlock({ group, kind, names, now, showHall, flash }) {
       <div className="mb-4 flex flex-wrap items-end justify-between gap-x-6 gap-y-2">
         <div className="min-w-0">
           <p className={`text-sm font-bold uppercase ${spaced} ${kind === 'now' ? 'text-amber-400' : 'text-sky-400'}`}>
-            {kind === 'now' ? t('Now') : t('Next')}{showHall && group.hall ? ` · ${t('Hall {hall}', { hall: group.hall })}` : ''}
+            {kind === 'now' ? t('Now') : t('Next')}{showHall && group.hall ? ` · ${hallLabel || group.hall}` : ''}
           </p>
           <p className="mt-1 text-3xl font-black text-white sm:text-4xl">{group.label}</p>
           <p className="mt-1 text-lg text-slate-300">
@@ -139,14 +140,14 @@ function DayStrip({ groups, board, showHall }) {
 }
 
 // Who was just scanned at the entrance: green when let in, amber with the reason when not.
-function Spotlight({ event, lang }) {
+function Spotlight({ event, lang, hallNames }) {
   const t = useT();
   if (!event) return null;
   const b = event.booking;
   const seva = (lang === 'mr' && b.sevaNameMr) || b.sevaName;
   const letIn = event.checkedIn;
   const reason = {
-    'other-hall': t('Hall {hall} — please go there', { hall: b.hall }),
+    'other-hall': t('{hall} — please go there', { hall: hallHeading(t, b.hall, hallNames, lang) }),
     'batch-over': t('Batch {label} is over — please see the counter', { label: b.batchLabel }),
     early: t('Booked for {date}', { date: b.dateKey ? fmtDay(b.dateKey, lang, { weekday: 'long', day: 'numeric', month: 'long' }) : '' }),
     past: t('Was booked for {date}', { date: b.dateKey ? fmtDay(b.dateKey, lang, { day: 'numeric', month: 'long' }) : '' }),
@@ -169,7 +170,7 @@ function Spotlight({ event, lang }) {
         <p className="truncate text-3xl font-black sm:text-4xl">{b.name}</p>
         <p className="mt-1 text-lg font-medium">
           {letIn
-            ? [b.people > 1 ? t('{n} people', { n: b.people }) : null, seva, b.batchLabel, b.hall ? t('Hall {hall}', { hall: b.hall }) : null].filter(Boolean).join(' · ')
+            ? [b.people > 1 ? t('{n} people', { n: b.people }) : null, seva, b.batchLabel, b.hall ? hallHeading(t, b.hall, hallNames, lang) : null].filter(Boolean).join(' · ')
             : reason || seva}
         </p>
       </div>
@@ -298,6 +299,8 @@ export default function HallScreen() {
   const mainKind = board.current.length ? 'now' : 'next';
   const upcoming = board.current.length ? board.next : [];
   const showHall = !hall;
+  const titleOf = (h) => hallTitle(h, data?.hallNames, lang);        // "Shri Mangal Sabhagruh (H1)" or "H1"
+  const headingOf = (h) => hallHeading(t, h, data?.hallNames, lang);  // … or "Hall H1"
   const spaced = spacing(lang);
   const totals = (data?.groups || []).reduce((s, g) => ({ bookings: s.bookings + g.bookings.length, arrived: s.arrived + g.arrived }), { bookings: 0, arrived: 0 });
 
@@ -307,7 +310,7 @@ export default function HallScreen() {
       <header className="mb-5 flex flex-wrap items-center justify-between gap-x-6 gap-y-2">
         <div className="min-w-0">
           <p className="truncate text-lg font-semibold text-amber-300">{data?.templeName || t('Mangal Grah Mandir')}</p>
-          <p className="text-3xl font-black sm:text-4xl">{hall ? t('Hall {hall}', { hall }) : t('All halls')}</p>
+          <p className="text-3xl font-black sm:text-4xl">{hall ? headingOf(hall) : t('All halls')}</p>
         </div>
         <div className="text-right">
           <p className="text-4xl font-black tabular-nums sm:text-6xl">{clockText(now)}</p>
@@ -319,7 +322,7 @@ export default function HallScreen() {
         </div>
       </header>
 
-      <Spotlight event={spot?.event} lang={lang} />
+      <Spotlight event={spot?.event} lang={lang} hallNames={data?.hallNames} />
       {allowed && data && <DayStrip groups={data.groups || []} board={board} showHall={showHall} />}
 
       {/* Controls: quiet until touched */}
@@ -328,7 +331,7 @@ export default function HallScreen() {
           <select value={hall} onChange={(e) => chooseHall(e.target.value)} aria-label={t('Hall')}
             className="h-10 rounded-full border-0 bg-slate-800 px-3 text-sm text-white focus:ring-2 focus:ring-amber-400">
             <option value="">{t('All halls')}</option>
-            {data.halls.map((h) => <option key={h} value={h}>{h}</option>)}
+            {data.halls.map((h) => <option key={h} value={h}>{titleOf(h)}</option>)}
           </select>
         )}
         <button type="button" onClick={() => stepSize(-1)} disabled={scale <= SIZES[0]} title={t('Smaller text')} aria-label={t('Smaller text')}
@@ -360,7 +363,7 @@ export default function HallScreen() {
         <p className="mt-16 text-center text-2xl text-red-300">{t('Could not load the hall screen — retrying…')}</p>
       ) : main.length ? (
         <div className={`grid gap-5 ${main.length > 1 ? 'xl:grid-cols-2' : ''}`}>
-          {main.map((g) => <BatchBlock key={g.key} group={g} kind={mainKind} names={names} now={now} showHall={showHall} flash={flash} />)}
+          {main.map((g) => <BatchBlock key={g.key} group={g} kind={mainKind} names={names} now={now} showHall={showHall} hallLabel={headingOf(g.hall)} flash={flash} />)}
         </div>
       ) : (
         <div className="mt-16 text-center">
@@ -376,7 +379,7 @@ export default function HallScreen() {
           {upcoming.map((g) => (
             <div key={g.key} className="rounded-2xl bg-slate-900 px-5 py-3 ring-1 ring-slate-800">
               <p className={`text-xs font-bold uppercase ${spaced} text-sky-400`}>
-                {t('Next')}{showHall && g.hall ? ` · ${t('Hall {hall}', { hall: g.hall })}` : ''}
+                {t('Next')}{showHall && g.hall ? ` · ${headingOf(g.hall)}` : ''}
               </p>
               <p className="text-xl font-bold">{g.label}</p>
               <p className="text-sm text-slate-400">

@@ -14,7 +14,7 @@ import { publicUrl } from '../../../utils/platform.js';
 import { localDateStr } from '../../../utils/formatters.js';
 import { usePermissions } from '../../../hooks/usePermissions.js';
 import { useT } from '../../../i18n/index.jsx';
-import { SwitchRow, batchTime, errText, financialYear, useRefreshBookings } from './setupUi.jsx';
+import { SwitchRow, batchTime, errText, financialYear, hallNamesOf, useRefreshBookings } from './setupUi.jsx';
 
 // The exact text the trust must get approved as a WhatsApp template (Meta), and the
 // MSG91 variables — must match server/src/services/booking/notify.js.
@@ -185,6 +185,7 @@ export default function SettingsTab({ setup, canManage }) {
         ...v,
         printerName: v.printerName || main?.mahaprasadPrinterName || '',
         templeName: main?.templeName,
+        hallNames: hallNamesOf(setup.halls),
       }), t('The printer did not answer. Check that QZ Tray is running on this computer and the printer name is right.'));
       toast.success(how === 'thermal' ? t('Test slip sent to the printer') : t('Test slip opened for printing'));
     } catch (err) {

@@ -371,7 +371,7 @@ export default {
   // ── Hall screen ──
   'No bookings yet — bookings made at the counter appear here': 'अजून बुकिंग नाही — काउंटरवर केलेले बुकिंग येथे दिसेल',
   'Today’s batches': 'आजच्या बॅच',
-  'Hall {hall} — please go there': 'हॉल {hall} — कृपया तिकडे जा',
+  '{hall} — please go there': '{hall} — कृपया तिकडे जा',
   'Batch {label} is over — please see the counter': '{label} ची बॅच संपली — कृपया काउंटरवर भेटा',
   'Booked for {date}': '{date} साठी बुकिंग',
   'Was booked for {date}': '{date} साठी बुकिंग होते',

@@ -3,6 +3,7 @@ import { CheckCircle2, FileText, Loader2, MessageCircle, Plus, Printer, UserRoun
 import Sheet from '../../ui/Sheet.jsx';
 import { useLanguage, useT } from '../../../i18n/index.jsx';
 import { isNative } from '../../../utils/platform.js';
+import { useHallNames } from '../../../utils/halls.js';
 import { fmtDay, fmtMoney } from './counterUtils.js';
 import { HallBadge, Kbd } from './bits.jsx';
 import { sevaNames } from './SevaTiles.jsx';
@@ -18,6 +19,7 @@ const GUARD_MS = 600; // ignore a double-pressed Enter right after booking
 export default function SuccessSheet({ booking, sevaTypes, whatsappAuto, onNew, onSameDevotee, onSlip, onA4, onWhatsApp }) {
   const t = useT();
   const { lang } = useLanguage();
+  const halls = useHallNames();
   const openedAt = useRef(0);
   const newBtn = useRef(null);
   const [busy, setBusy] = useState('');
@@ -89,6 +91,7 @@ export default function SuccessSheet({ booking, sevaTypes, whatsappAuto, onNew, 
               <div className="rounded-xl bg-gray-900 px-3 py-2 text-center text-white">
                 <p className="text-[11px] font-semibold uppercase tracking-wider text-gray-300">{t('Hall')}</p>
                 <p className="text-4xl font-black leading-tight">{b.hall}</p>
+                {halls.name(b.hall) && <p className="truncate text-xs font-medium text-gray-300">{halls.name(b.hall)}</p>}
               </div>
             ) : null}
           </div>
@@ -103,7 +106,7 @@ export default function SuccessSheet({ booking, sevaTypes, whatsappAuto, onNew, 
           </>)}
           {time && (<>
             <dt className="text-gray-500">{b.schedule === 'batch' ? t('Batch') : t('Time')}</dt>
-            <dd className="flex items-center gap-2 font-semibold text-gray-900">{time} {b.hall && <HallBadge hall={b.hall} />}</dd>
+            <dd className="flex items-center gap-2 font-semibold text-gray-900">{time} {b.hall && <HallBadge hall={b.hall} title={halls.title(b.hall)} />}</dd>
           </>)}
           <dt className="text-gray-500">{t('Devotee')}</dt>
           <dd className="min-w-0 truncate font-semibold text-gray-900">

@@ -27,6 +27,16 @@ describe('whatsappShareUrl', () => {
     expect(text).toContain('https://mandir.aumora.io/r/abc');
   });
 
+  it('names the hall with its code once the hall has a name', () => {
+    const names = { H1: { name: 'Shri Mangal Sabhagruh', nameMr: 'श्री मंगल सभागृह' } };
+    const text = decodeURIComponent(whatsappShareUrl(booking, { hallNames: names }).split('text=')[1]);
+    expect(text).toContain('7:00 AM – 8:15 AM, Shri Mangal Sabhagruh (H1).');
+    expect(text).not.toContain('Hall H1');
+    // The public receipt carries the name on the booking itself
+    const own = decodeURIComponent(whatsappShareUrl({ ...booking, hallName: 'Annex' }).split('text=')[1]);
+    expect(own).toContain('Annex (H1)');
+  });
+
   it('says "on your behalf" when there is no date', () => {
     const text = decodeURIComponent(whatsappShareUrl({ ...booking, dateKey: undefined }).split('text=')[1]);
     expect(text).toContain('on your behalf');

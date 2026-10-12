@@ -9,6 +9,7 @@ import BookingDetailSheet from '../../components/booking/BookingDetailSheet.jsx'
 import { getBookingOptions, getDaySheet } from '../../api/booking.api.js';
 import { printHtml } from '../../utils/printHtml.js';
 import { localDateStr } from '../../utils/formatters.js';
+import { hallHeading } from '../../utils/halls.js';
 import { useIsMobile } from '../../hooks/useMediaQuery.js';
 import haptics from '../../utils/haptics.js';
 import { useLanguage, useT } from '../../i18n/index.jsx';
@@ -27,7 +28,7 @@ const nextTuesday = (today) => {
 };
 
 /** A4 "Sankalp list" for the pujaris — one batch per page, Devanagari-safe fonts. */
-function sankalpHtml({ date, groups, t, sevaText }) {
+function sankalpHtml({ date, groups, t, sevaText, hallText }) {
   const dateLong = fmtDay(date, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
   const totalBookings = groups.reduce((s, g) => s + g.bookings.length, 0);
   const totalPeople = groups.reduce((s, g) => s + g.people, 0);
@@ -51,7 +52,7 @@ function sankalpHtml({ date, groups, t, sevaText }) {
     <section class="batch">
       <div class="bh">
         <div>
-          <h2>${esc(g.label || t('No fixed time'))}${g.hall ? ` &nbsp;·&nbsp; ${esc(t('Hall {hall}', { hall: g.hall }))}` : ''}</h2>
+          <h2>${esc(g.label || t('No fixed time'))}${g.hall ? ` &nbsp;·&nbsp; ${esc(hallText(g.hall))}` : ''}</h2>
           <p>${esc(g.sevaNames.map(sevaText).join(', '))}</p>
         </div>
         <div class="count">${esc(nBookings(t, g.bookings.length))}<br><span>${esc(nPeople(t, g.people))}</span></div>
@@ -131,6 +132,7 @@ export default function BookingDaySheet() {
 
   const sevaByName = useMemo(() => new Map((options?.allSevaTypes || options?.sevaTypes || []).map((s) => [s.name, s])), [options]);
   const sevaText = (name) => (lang === 'mr' && sevaByName.get(name)?.nameMr) || name;
+  const hallText = (code) => hallHeading(t, code, options?.settings?.hallNames, lang);
 
   const groups = useMemo(() => data?.groups || [], [data]);
   const halls = useMemo(() => [...new Set(groups.map((g) => g.hall).filter(Boolean))].sort(), [groups]);
@@ -166,7 +168,7 @@ export default function BookingDaySheet() {
 
   const print = (list) => {
     if (!list.length) return;
-    printHtml(sankalpHtml({ date, groups: list, t, sevaText }), {
+    printHtml(sankalpHtml({ date, groups: list, t, sevaText, hallText }), {
       filename: list.length === 1
         ? `Sankalp-${date}-${(list[0].hall || 'batch')}-${(list[0].label || '').split(' ')[0].replace(/\W/g, '')}.pdf`
         : `Sankalp-${date}.pdf`,
@@ -228,7 +230,7 @@ export default function BookingDaySheet() {
             ))}
             {halls.length > 1 && <span className="mx-1 w-px self-stretch bg-gray-200" aria-hidden="true" />}
             {halls.length > 1 && ['', ...halls].map((h) => (
-              <button key={h || 'all'} onClick={() => { haptics.select(); setHall(h); }}
+              <button key={h || 'all'} onClick={() => { haptics.select(); setHall(h); }} title={h ? hallText(h) : undefined}
                 className={`whitespace-nowrap rounded-full border px-3.5 py-1.5 text-sm font-medium max-sm:py-2 ${hall === h ? 'border-gray-800 bg-gray-800 text-white' : 'border-gray-200 bg-white text-gray-600'}`}>
                 {h ? t('Hall {hall}', { hall: h }) : t('All halls')}
               </button>
@@ -277,7 +279,7 @@ export default function BookingDaySheet() {
                     <div className="min-w-0">
                       <p className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
                         <span className="text-[15px] font-bold text-gray-900">{g.label || t('No fixed time')}</span>
-                        {g.hall && <Badge variant="orange">{t('Hall {hall}', { hall: g.hall })}</Badge>}
+                        {g.hall && <Badge variant="orange">{hallText(g.hall)}</Badge>}
                       </p>
                       <p className="truncate text-xs text-gray-600">{g.sevaNames.map(sevaText).join(', ')}</p>
                     </div>
