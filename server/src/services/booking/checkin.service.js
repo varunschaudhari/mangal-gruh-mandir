@@ -1,11 +1,12 @@
 import mongoose from 'mongoose';
 import Booking from '../../models/Booking.js';
 import BookingBatch from '../../models/BookingBatch.js';
+import BookingClosure from '../../models/BookingClosure.js';
 import SevaType from '../../models/SevaType.js';
 import Settings from '../../models/Settings.js';
 import ApiError from '../../utils/ApiError.js';
 import {
-  batchStateAt, checkInVerdict, dateKeyOf, financialYear, isDateKey, labelTimes, receiptTokenOf,
+  batchLabel, batchStateAt, checkInVerdict, dateKeyOf, financialYear, isDateKey, labelTimes, receiptTokenOf, weekdayOf,
 } from './rules.js';
 
 // Hall check-in: staff scan the QR on the devotee's slip (or type the receipt number) at the
@@ -131,44 +132,74 @@ export async function checkInSummary({ date, hall } = {}) {
 }
 
 /**
- * The hall screen (a TV at the hall): today's batches for one hall (or all), each with its
- * serials and who has arrived, and where it stands now ('now' / 'later' / 'over'). Names only —
- * never phone numbers.
+ * The hall screen (a TV at the hall): the day's batches for one hall (or all) from the
+ * timetable — including batches nobody has booked yet — each with its serials and who has
+ * arrived, and where it stands now ('now' / 'later' / 'over'); sevas without a batch (fixed
+ * time slots) from their bookings; and the latest arrivals. Names only — never phone numbers.
  */
 export async function hallBoard({ hall, date } = {}) {
   const today = dateKeyOf();
   const dateKey = isDateKey(date) ? date : today;
   const now = new Date();
   const minutes = now.getHours() * 60 + now.getMinutes();
-  const [bookings, halls, temple] = await Promise.all([
-    Booking.find({ dateKey, status: 'confirmed', ...(hall ? { hall: String(hall) } : {}) })
+  const hallFilter = hall ? { hall: String(hall) } : {};
+  const [bookings, batches, batchSevas, closedAllDay, halls, temple] = await Promise.all([
+    Booking.find({ dateKey, status: 'confirmed', ...hallFilter })
       .select('serialNo devotee.name peopleCount checkedInAt batch batchLabel hall sevaType sevaName schedule')
       .sort({ serialNo: 1 }).lean(),
+    BookingBatch.find({ isActive: true, ...hallFilter }).lean(),
+    SevaType.find({ isActive: true, schedule: 'batch' }).select('name nameMr').lean(),
+    BookingClosure.exists({ date: dateKey, $or: [{ sevaTypes: { $size: 0 } }, { sevaTypes: { $exists: false } }] }),
     BookingBatch.distinct('hall', { isActive: true }),
     Settings.getOrCreate(),
   ]);
   // Marathi seva names for the screen (hall staff can't read the seva list themselves).
   const sevas = await SevaType.find({ _id: { $in: [...new Set(bookings.map((b) => String(b.sevaType)))] } }).select('nameMr').lean();
-  const nameMr = new Map(sevas.map((s) => [String(s._id), s.nameMr]));
+  const nameMr = new Map([...batchSevas, ...sevas].map((s) => [String(s._id), s.nameMr]));
+  const stateOf = (label) => (dateKey === today ? batchStateAt(label, minutes) : dateKey < today ? 'over' : 'later');
   const groups = new Map();
-  for (const b of bookings) {
-    const key = `${b.batch || b.sevaName}|${b.batchLabel}|${b.hall}`;
-    if (!groups.has(key)) {
-      const times = labelTimes(b.batchLabel);
-      const state = dateKey === today ? batchStateAt(b.batchLabel, minutes) : dateKey < today ? 'over' : 'later';
-      groups.set(key, {
-        key, label: b.batchLabel || '', hall: b.hall || '', start: times?.start ?? null, end: times?.end ?? null, state,
-        sevaNames: new Set(), sevaNamesMr: new Set(), bookings: [], people: 0, arrived: 0, arrivedPeople: 0,
-      });
+  const addGroup = (key, label, hallName) => {
+    const times = labelTimes(label);
+    const g = {
+      key, label: label || '', hall: hallName || '', start: times?.start ?? null, end: times?.end ?? null, state: stateOf(label),
+      sevaNames: new Set(), sevaNamesMr: new Set(), bookings: [], people: 0, arrived: 0, arrivedPeople: 0,
+    };
+    groups.set(key, g);
+    return g;
+  };
+
+  // Every batch on the timetable for that day, booked or not (not on a day closed for all sevas)
+  if (!closedAllDay) {
+    const weekday = weekdayOf(dateKey);
+    for (const b of batches) {
+      if (b.weekdays?.length && !b.weekdays.includes(weekday)) continue;
+      const g = addGroup(`B:${b._id}`, batchLabel(b.start, b.end), b.hall);
+      const allowed = b.sevaTypes?.length ? batchSevas.filter((s) => b.sevaTypes.some((id) => String(id) === String(s._id))) : batchSevas;
+      for (const s of allowed) { g.sevaNames.add(s.name); g.sevaNamesMr.add(s.nameMr || s.name); }
     }
-    const g = groups.get(key);
+  }
+  for (const b of bookings) {
+    const key = b.batch ? `B:${b.batch}` : `${b.sevaName}|${b.batchLabel}|${b.hall}`;
+    const g = groups.get(key) || addGroup(key, b.batchLabel, b.hall);
     const people = b.peopleCount || 1;
     g.sevaNames.add(b.sevaName);
     g.sevaNamesMr.add(nameMr.get(String(b.sevaType)) || b.sevaName);
-    g.bookings.push({ serialNo: b.serialNo ?? null, name: b.devotee?.name || '', people, arrived: Boolean(b.checkedInAt) });
+    g.bookings.push({ _id: b._id, serialNo: b.serialNo ?? null, name: b.devotee?.name || '', people, arrived: Boolean(b.checkedInAt) });
     g.people += people;
     if (b.checkedInAt) { g.arrived += 1; g.arrivedPeople += people; }
   }
+  // Batch groups list the sevas actually booked when there are bookings, all its sevas otherwise
+  for (const g of groups.values()) {
+    if (!g.bookings.length) continue;
+    const booked = bookings.filter((b) => (b.batch ? `B:${b.batch}` : `${b.sevaName}|${b.batchLabel}|${b.hall}`) === g.key);
+    g.sevaNames = new Set(booked.map((b) => b.sevaName));
+    g.sevaNamesMr = new Set(booked.map((b) => nameMr.get(String(b.sevaType)) || b.sevaName));
+  }
+  const recent = bookings.filter((b) => b.checkedInAt).sort((a, b) => b.checkedInAt - a.checkedInAt).slice(0, 5)
+    .map((b) => ({
+      _id: b._id, serialNo: b.serialNo ?? null, name: b.devotee?.name || '', people: b.peopleCount || 1,
+      sevaName: b.sevaName, sevaNameMr: nameMr.get(String(b.sevaType)) || '', batchLabel: b.batchLabel || '', hall: b.hall || '', at: b.checkedInAt,
+    }));
   return {
     date: dateKey,
     now,
@@ -176,6 +207,7 @@ export async function hallBoard({ hall, date } = {}) {
     hall: hall ? String(hall) : '',
     templeName: temple?.templeName || '',
     halls: halls.filter(Boolean).sort(),
+    recent,
     groups: [...groups.values()]
       .map((g) => ({ ...g, sevaNames: [...g.sevaNames].sort(), sevaNamesMr: [...g.sevaNamesMr] }))
       .sort((a, b) => (a.start ?? -1) - (b.start ?? -1) || a.hall.localeCompare(b.hall)),

@@ -1,16 +1,23 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
-import { Check, Eye, EyeOff, Maximize2, Minimize2, Users, X } from 'lucide-react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { AlertTriangle, Check, Eye, EyeOff, Maximize2, Minimize2, Users, X } from 'lucide-react';
 import { getHallBoard } from '../../api/booking.api.js';
 import { usePermissions } from '../../hooks/usePermissions.js';
 import { LanguageSwitch, useLanguage, useT } from '../../i18n/index.jsx';
 import { fmtDay } from '../../components/booking/counter/counterUtils.js';
 import { minutesUntil, pickBoard, savedHall, saveHall, tileSize } from '../../components/booking/checkin/checkInUtils.js';
+import { useHallEvents } from '../../utils/hallLive.js';
 
 // The hall screen: a TV or tablet at the hall shows the batch running now with every serial
-// number — green once that devotee has checked in at the entrance — and the next batch. No
-// sidebar, refreshes itself, keeps the screen on. Names only, never phone numbers.
+// number — green once that devotee has checked in at the entrance — the next batch, and a
+// strip with the whole day's timetable. Each scan at the entrance arrives live: a card shows
+// who was just let in (or, in amber, why not — other hall, other day, batch over) and their
+// tile pulses. No sidebar, refreshes itself, keeps the screen on. Names only, never phone numbers.
+
+const SPOTLIGHT_MS = 8000;
+const timeText = (d) => new Date(d).toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit' });
+const startOf = (label) => String(label || '').split(/\s*[–-]\s*/)[0];
 
 const TILE = {
   lg: { grid: 'grid-cols-[repeat(auto-fill,minmax(9.5rem,1fr))]', num: 'text-5xl', name: 'text-base' },
@@ -28,13 +35,13 @@ const clockText = (d) => d.toLocaleTimeString('en-IN', { hour: 'numeric', minute
 const startsText = (t, label, wait) => (wait <= 0 ? t('starting now')
   : wait <= 90 ? t('starts in {n} min', { n: wait }) : t('starts at {time}', { time: String(label).split(/\s*[–-]\s*/)[0] }));
 
-function SerialGrid({ group, names }) {
+function SerialGrid({ group, names, flash }) {
   const size = TILE[tileSize(group.bookings.length)];
   return (
     <ul className={`grid gap-2.5 ${size.grid}`}>
       {group.bookings.map((b, i) => (
         <li key={`${b.serialNo ?? 'x'}-${i}`}
-          className={`relative rounded-2xl px-2 py-3 text-center transition-colors ${b.arrived ? 'bg-green-600 text-white' : 'bg-slate-800 text-slate-100 ring-1 ring-slate-700'}`}>
+          className={`relative rounded-2xl px-2 py-3 text-center transition-all ${b.arrived ? 'bg-green-600 text-white' : 'bg-slate-800 text-slate-100 ring-1 ring-slate-700'} ${flash?.has(String(b._id)) ? 'z-10 scale-110 animate-pulse ring-4 ring-amber-300' : ''}`}>
           {b.arrived && <Check className="absolute right-2 top-2 h-5 w-5" aria-hidden="true" />}
           <p className={`font-black leading-none tabular-nums ${size.num}`}>{b.serialNo ?? '—'}</p>
           {names && <p className={`mt-1.5 line-clamp-2 break-words font-medium leading-tight ${size.name} ${b.arrived ? 'text-green-50' : 'text-slate-300'}`}>{b.name}</p>}
@@ -49,7 +56,7 @@ function SerialGrid({ group, names }) {
   );
 }
 
-function BatchBlock({ group, kind, names, now, showHall }) {
+function BatchBlock({ group, kind, names, now, showHall, flash }) {
   const t = useT();
   const { lang } = useLanguage();
   const spaced = spacing(lang);
@@ -74,8 +81,106 @@ function BatchBlock({ group, kind, names, now, showHall }) {
           <p className="text-sm text-slate-400">{t('arrived')}</p>
         </div>
       </div>
-      <SerialGrid group={group} names={names} />
+      {group.bookings.length
+        ? <SerialGrid group={group} names={names} flash={flash} />
+        : <p className="rounded-2xl bg-slate-800/60 px-4 py-6 text-center text-xl text-slate-400">{t('No bookings yet — bookings made at the counter appear here')}</p>}
     </section>
+  );
+}
+
+// Every timed batch of the day in one row: done, running now, next, later.
+function DayStrip({ groups, board, showHall }) {
+  const t = useT();
+  const listRef = useRef(null);
+  const timed = groups.filter((g) => g.start != null);
+  const nowKeys = new Set(board.current.map((g) => g.key));
+  const nextKeys = new Set(board.next.map((g) => g.key));
+  const focusKey = board.current[0]?.key || board.next[0]?.key || '';
+  // Keep the batch running now (or the next one) in view when the strip is wider than the screen
+  useEffect(() => {
+    const el = listRef.current?.querySelector(`[data-key="${CSS.escape(focusKey)}"]`);
+    if (el) el.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' });
+  }, [focusKey]);
+  if (timed.length < 2) return null;
+  return (
+    <ol ref={listRef} className="mb-5 flex gap-2 overflow-x-auto pb-1" aria-label={t('Today’s batches')}>
+      {timed.map((g) => {
+        const state = nowKeys.has(g.key) ? 'now' : nextKeys.has(g.key) ? 'next' : g.state === 'over' || board.over.some((o) => o.key === g.key) ? 'over' : 'later';
+        const cls = {
+          now: 'bg-amber-400 text-slate-950',
+          next: 'bg-sky-900 text-sky-50 ring-1 ring-sky-400',
+          over: 'bg-slate-900 text-slate-500',
+          later: 'bg-slate-900 text-slate-200 ring-1 ring-slate-800',
+        }[state];
+        return (
+          <li key={g.key} data-key={g.key} className={`shrink-0 rounded-xl px-3 py-2 text-center ${cls}`}>
+            <p className="text-base font-bold tabular-nums">{startOf(g.label)}{showHall && g.hall ? ` · ${g.hall}` : ''}</p>
+            <p className="text-xs font-semibold tabular-nums">
+              {state === 'over' && <Check className="mr-0.5 inline h-3 w-3" aria-hidden="true" />}
+              {g.bookings.length ? `${g.arrived}/${g.bookings.length}` : '—'}
+            </p>
+          </li>
+        );
+      })}
+    </ol>
+  );
+}
+
+// Who was just scanned at the entrance: green when let in, amber with the reason when not.
+function Spotlight({ event, lang }) {
+  const t = useT();
+  if (!event) return null;
+  const b = event.booking;
+  const seva = (lang === 'mr' && b.sevaNameMr) || b.sevaName;
+  const letIn = event.checkedIn;
+  const reason = {
+    'other-hall': t('Hall {hall} — please go there', { hall: b.hall }),
+    'batch-over': t('Batch {label} is over — please see the counter', { label: b.batchLabel }),
+    early: t('Booked for {date}', { date: b.dateKey ? fmtDay(b.dateKey, lang, { weekday: 'long', day: 'numeric', month: 'long' }) : '' }),
+    past: t('Was booked for {date}', { date: b.dateKey ? fmtDay(b.dateKey, lang, { day: 'numeric', month: 'long' }) : '' }),
+    already: t('Already checked in at {time}', { time: b.checkedInAt ? timeText(b.checkedInAt) : '' }),
+    voided: t('This booking was cancelled'),
+    'no-visit': t('Postal seva — no visit to the hall'),
+  }[event.result];
+  return (
+    <div role="status" aria-live="assertive"
+      className={`fixed inset-x-4 top-4 z-20 mx-auto flex max-w-4xl items-center gap-5 rounded-3xl px-6 py-5 shadow-2xl sm:inset-x-8 ${letIn ? 'bg-green-600 text-white' : 'bg-amber-400 text-slate-950'}`}>
+      <div className="shrink-0 text-center">
+        <p className="text-sm font-bold uppercase">{t('Serial')}</p>
+        <p className="text-6xl font-black leading-none tabular-nums">{b.serialNo ?? '—'}</p>
+      </div>
+      <div className="min-w-0">
+        <p className="flex items-center gap-2 text-sm font-bold uppercase">
+          {letIn ? <Check className="h-5 w-5" aria-hidden="true" /> : <AlertTriangle className="h-5 w-5" aria-hidden="true" />}
+          {letIn ? t('Just arrived') : t('Not for now')}
+        </p>
+        <p className="truncate text-3xl font-black sm:text-4xl">{b.name}</p>
+        <p className="mt-1 text-lg font-medium">
+          {letIn
+            ? [b.people > 1 ? t('{n} people', { n: b.people }) : null, seva, b.batchLabel, b.hall ? t('Hall {hall}', { hall: b.hall }) : null].filter(Boolean).join(' · ')
+            : reason || seva}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function Recent({ items, showHall }) {
+  const t = useT();
+  if (!items?.length) return null;
+  return (
+    <div className="rounded-2xl bg-slate-900 px-5 py-3 ring-1 ring-slate-800">
+      <p className="mb-1 text-xs font-bold uppercase tracking-wider text-green-400">{t('Just arrived')}</p>
+      <ul className="space-y-0.5">
+        {items.slice(0, 5).map((r) => (
+          <li key={r._id} className="flex items-baseline gap-2 text-base">
+            <span className="w-10 text-right font-black tabular-nums text-white">{r.serialNo ?? '—'}</span>
+            <span className="min-w-0 truncate text-slate-200">{r.name}</span>
+            <span className="ml-auto shrink-0 text-sm text-slate-500">{[showHall && r.hall, timeText(r.at)].filter(Boolean).join(' · ')}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }
 
@@ -90,13 +195,37 @@ export default function HallScreen() {
   const [full, setFull] = useState(Boolean(document.fullscreenElement));
   const allowed = can('bookings:checkin');
 
+  const [spot, setSpot] = useState(null);              // { event, until }
+  const [flash, setFlash] = useState(() => new Map());  // booking id → until
+
+  const qc = useQueryClient();
+  const onEvent = useCallback((e) => {
+    qc.invalidateQueries({ queryKey: ['booking-hall-board'] });
+    if (e.type !== 'scan' || !e.booking) return;
+    const forHere = !hall || e.booking.hall === hall || e.entrance === hall || !e.booking.hall;
+    if (!forHere) return;
+    const until = Date.now() + SPOTLIGHT_MS;
+    setSpot({ event: e, until });
+    if (e.checkedIn) setFlash((m) => new Map(m).set(String(e.booking._id), until));
+  }, [hall, qc]);
+  const live = useHallEvents(onEvent, { enabled: allowed });
+
   const q = useQuery({
     queryKey: ['booking-hall-board', hall],
     queryFn: () => getHallBoard({ hall: hall || undefined }).then((r) => r.data.data),
-    refetchInterval: 15_000,
+    // Live scans refresh it straight away; the timer is the fallback (quicker without the live link)
+    refetchInterval: live === 'live' ? 15_000 : 5_000,
     refetchIntervalInBackground: true,
     enabled: allowed,
   });
+
+  // The spotlight and the pulsing tiles fade after a few seconds
+  useEffect(() => {
+    if (spot && now.getTime() > spot.until) setSpot(null);
+    if ([...flash.values()].some((u) => u < now.getTime())) {
+      setFlash((m) => new Map([...m].filter(([, u]) => u >= Date.now())));
+    }
+  }, [now]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // The clock and the "now / next" choice follow the device clock between refreshes.
   useEffect(() => {
@@ -149,9 +278,16 @@ export default function HallScreen() {
         </div>
         <div className="text-right">
           <p className="text-4xl font-black tabular-nums sm:text-6xl">{clockText(now)}</p>
-          <p className="text-base text-slate-400">{data?.date ? fmtDay(data.date, lang, { weekday: 'long', day: 'numeric', month: 'long' }) : ''}</p>
+          <p className="text-base text-slate-400">
+            <span className={`mr-2 inline-block h-2.5 w-2.5 rounded-full ${live === 'live' ? 'bg-green-500' : live === 'connecting' ? 'bg-amber-400' : 'bg-slate-600'}`}
+              title={live === 'live' ? t('Live') : t('Updating every few seconds')} aria-hidden="true" />
+            {data?.date ? fmtDay(data.date, lang, { weekday: 'long', day: 'numeric', month: 'long' }) : ''}
+          </p>
         </div>
       </header>
+
+      <Spotlight event={spot?.event} lang={lang} />
+      {allowed && data && <DayStrip groups={data.groups || []} board={board} showHall={showHall} />}
 
       {/* Controls: quiet until touched */}
       <div className="fixed bottom-[calc(0.75rem+var(--safe-bottom,0px))] right-3 z-10 flex items-center gap-1 rounded-full bg-slate-900/90 p-1 opacity-40 ring-1 ring-slate-700 transition-opacity hover:opacity-100 focus-within:opacity-100">
@@ -186,7 +322,7 @@ export default function HallScreen() {
         <p className="mt-16 text-center text-2xl text-red-300">{t('Could not load the hall screen — retrying…')}</p>
       ) : main.length ? (
         <div className={`grid gap-5 ${main.length > 1 ? 'xl:grid-cols-2' : ''}`}>
-          {main.map((g) => <BatchBlock key={g.key} group={g} kind={mainKind} names={names} now={now} showHall={showHall} />)}
+          {main.map((g) => <BatchBlock key={g.key} group={g} kind={mainKind} names={names} now={now} showHall={showHall} flash={flash} />)}
         </div>
       ) : (
         <div className="mt-16 text-center">
@@ -196,8 +332,9 @@ export default function HallScreen() {
       )}
 
       {/* After this: the next batch(es) while one is running, and sevas without a fixed time */}
-      {allowed && (upcoming.length > 0 || board.untimed.length > 0) && (
+      {allowed && (upcoming.length > 0 || board.untimed.length > 0 || data?.recent?.length > 0) && (
         <footer className="mt-5 flex flex-wrap gap-3">
+          <Recent items={data?.recent} showHall={showHall} />
           {upcoming.map((g) => (
             <div key={g.key} className="rounded-2xl bg-slate-900 px-5 py-3 ring-1 ring-slate-800">
               <p className={`text-xs font-bold uppercase ${spaced} text-sky-400`}>

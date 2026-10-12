@@ -704,7 +704,9 @@ async function seedBookings({ staff }) {
       if (seva.schedule === 'batch') {
         const options = batchesFor(batches, seva, key);
         if (!options.length) continue;
-        batch = options.find((b) => (used.get(slotKey.batch(b._id, key))?.booked || 0) < b.capacity * 0.92 && chance(0.6)) || pick(options);
+        // Spread over the day's batches that still have room (morning ones a little fuller)
+        const open = options.filter((b) => (used.get(slotKey.batch(b._id, key))?.booked || 0) < b.capacity);
+        batch = open.length ? weighted(open.map((b, n) => [b, n < 3 ? 1.5 : 1])) : pick(options);
       }
       const startsAt = batch ? startMin(batch) : (labelTimes(seva.slotTime)?.start ?? hm(6));
       const paidAt = isFuture ? timeOn(TODAY, hm(6), hm(23, 59)) : paidTime(key, startsAt);

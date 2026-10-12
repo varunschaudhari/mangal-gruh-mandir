@@ -12,6 +12,7 @@ import {
   createBooking, editBooking, getAvailability, lookupDevotee, moveBooking, voidBooking,
 } from '../services/booking/booking.service.js';
 import { checkInByCode, checkInById, checkInSummary, hallBoard, undoCheckIn } from '../services/booking/checkin.service.js';
+import { onHallEvent, publishHallEvent } from '../services/booking/hallEvents.js';
 import { receiptUrl, sendReceipt } from '../services/booking/notify.js';
 import { attendanceReport, daySheet, registerFilter, summary } from '../services/booking/reports.js';
 import { bookingsExcel, summaryPdf } from '../services/booking/exports.js';
@@ -150,6 +151,7 @@ export const checkIn = asyncHandler(async (req, res) => {
   const r = await checkInByCode(req.body?.code, { hall: req.body?.hall, override: Boolean(req.body?.override) }, req.user);
   logCheckIn(req, r);
   res.json(new ApiResponse(200, r));
+  publishHallEvent('scan', r, { entrance: req.body?.hall }).catch(() => {});
 });
 
 // POST /bookings/:id/check-in { override? } — marked by hand (devotee without the slip)
@@ -157,6 +159,7 @@ export const checkInOne = asyncHandler(async (req, res) => {
   const r = await checkInById(req.params.id, { override: Boolean(req.body?.override) }, req.user);
   logCheckIn(req, r);
   res.json(new ApiResponse(200, r));
+  publishHallEvent('scan', r).catch(() => {});
 });
 
 // DELETE /bookings/:id/check-in — undo a check-in made by mistake
@@ -167,6 +170,7 @@ export const undoCheckInOne = asyncHandler(async (req, res) => {
     meta: { checkedInAt: was.checkedInAt, by: was.checkedInBy?.name },
   });
   res.json(new ApiResponse(200, booking, 'Check-in undone'));
+  publishHallEvent('undo', { booking }).catch(() => {});
 });
 
 // GET /bookings/check-in/summary?date=&hall= — arrivals per batch, latest check-ins
@@ -178,6 +182,21 @@ export const checkInStatus = asyncHandler(async (req, res) => {
 export const hallScreen = asyncHandler(async (req, res) => {
   res.json(new ApiResponse(200, await hallBoard(req.query)));
 });
+
+// GET /bookings/hall-events — live scans for the hall screens (server-sent events). The
+// X-Accel-Buffering header tells nginx to pass each event on at once; a comment line every
+// 25 s keeps the connection open through proxies.
+export const hallEvents = (req, res) => {
+  res.set({
+    'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache, no-transform',
+    Connection: 'keep-alive', 'X-Accel-Buffering': 'no',
+  });
+  res.flushHeaders();
+  res.write('retry: 3000\n\n');
+  const off = onHallEvent((e) => res.write(`data: ${JSON.stringify(e)}\n\n`));
+  const beat = setInterval(() => res.write(': ping\n\n'), 25_000);
+  req.on('close', () => { clearInterval(beat); off(); });
+};
 
 // GET /bookings/reports/attendance?from=&to= — fill rate and no-shows
 export const reportAttendance = asyncHandler(async (req, res) => {

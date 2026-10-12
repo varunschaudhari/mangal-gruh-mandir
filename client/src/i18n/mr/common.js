@@ -368,4 +368,17 @@ export default {
   'Oct': 'ऑक्टो',
   'Nov': 'नोव्हें',
   'Dec': 'डिसें',
+  // ── Hall screen ──
+  'No bookings yet — bookings made at the counter appear here': 'अजून बुकिंग नाही — काउंटरवर केलेले बुकिंग येथे दिसेल',
+  'Today’s batches': 'आजच्या बॅच',
+  'Hall {hall} — please go there': 'हॉल {hall} — कृपया तिकडे जा',
+  'Batch {label} is over — please see the counter': '{label} ची बॅच संपली — कृपया काउंटरवर भेटा',
+  'Booked for {date}': '{date} साठी बुकिंग',
+  'Was booked for {date}': '{date} साठी बुकिंग होते',
+  'Already checked in at {time}': '{time} वाजता आधीच आत आले',
+  'Postal seva — no visit to the hall': 'टपाल सेवा — हॉलमध्ये यायचे नाही',
+  'Just arrived': 'आत्ताच आले',
+  'Not for now': 'आत्ता नाही',
+  'Live': 'थेट',
+  'Updating every few seconds': 'दर काही सेकंदांनी अद्ययावत',
 };
