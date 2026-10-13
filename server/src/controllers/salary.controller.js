@@ -130,6 +130,13 @@ export const finalize = asyncHandler(async (req, res) => {
   }
   if (!run.lines.length) throw new ApiError(400, 'Nobody to pay this month');
   if (run.lines.some((l) => l.netPay < 0)) throw new ApiError(400, 'Someone\'s deductions are more than their pay — fix that first');
+  // An advance this month recovers may have been recovered by another month since the draft was
+  // worked out (that month reopened and finalised again) — then work it out again first.
+  const balances = new Map((await advancesWithBalance({ staffIds: run.lines.map((l) => l.staff), exceptMonth: month }))
+    .map((a) => [String(a._id), a.outstanding]));
+  if (run.lines.some((l) => (l.recoveries || []).some((r) => r.amount > 0 && r.amount > (balances.get(String(r.advance)) ?? 0)))) {
+    throw new ApiError(409, 'An advance in this salary was recovered elsewhere since it was worked out — recalculate first');
+  }
   // Missing punches are paid as full days and undecided double shifts get nothing — say so first
   const open = await checklist(month);
   if ((open.reviewDays > 0 || open.pendingDoubles > 0) && req.body?.confirmIssues !== true) {
@@ -147,9 +154,12 @@ export const finalize = asyncHandler(async (req, res) => {
   res.json(new ApiResponse(200, await runView(run, month), 'Salary finalised'));
 });
 
+const PAYING_FOR_MS = 10 * 60 * 1000;   // a "mark as paid" older than this crashed — may be retried
+
 export const reopen = asyncHandler(async (req, res) => {
   const month = monthParam(req.params.month);
   const run = await findRun(month, ['finalized']);
+  if (run.payingAt && Date.now() - run.payingAt < PAYING_FOR_MS) throw new ApiError(409, 'This salary is being marked as paid right now');
   run.status = 'draft';
   run.finalizedBy = undefined;
   run.finalizedAt = undefined;
@@ -158,18 +168,39 @@ export const reopen = asyncHandler(async (req, res) => {
   res.json(new ApiResponse(200, await runView(run, month), 'Reopened'));
 });
 
+/**
+ * Salary paid: the expenses are recorded once. The month is claimed first (a second click, a
+ * second tab or a retry finds it taken); if recording fails, what was recorded is voided again.
+ */
 export const markPaid = asyncHandler(async (req, res) => {
   const month = monthParam(req.params.month);
-  const run = await findRun(month, ['finalized']);
+  await findRun(month, ['finalized']);
   const paidOn = req.body?.paidOn || localDateStr();
   if (!DATE.test(paidOn)) throw new ApiError(400, 'Invalid date');
   const paymentRef = String(req.body?.paymentRef || '').trim();
-  run.expenses = await recordPaidExpenses(run, { paidOn, paymentRef, user: req.user });
-  run.status = 'paid';
-  run.paidOn = paidOn;
-  run.paymentRef = paymentRef;
-  run.paidBy = req.user._id;
-  await run.save();
+  const claimedAt = new Date();
+  const run = await SalaryRun.findOneAndUpdate(
+    { month, status: 'finalized', $or: [{ payingAt: null }, { payingAt: { $lt: new Date(Date.now() - PAYING_FOR_MS) } }] },
+    { $set: { payingAt: claimedAt } },
+    { returnDocument: 'after' },
+  );
+  if (!run) throw new ApiError(409, 'This salary is already being marked as paid');
+  let expenses = [];
+  try {
+    expenses = await recordPaidExpenses(run, { paidOn, paymentRef, user: req.user });
+    const done = await SalaryRun.updateOne(
+      { _id: run._id, status: 'finalized', payingAt: claimedAt },
+      { $set: { status: 'paid', expenses, paidOn, paymentRef, paidBy: req.user._id }, $unset: { payingAt: 1 } },
+    );
+    if (!done.modifiedCount) throw new ApiError(409, 'The salary changed while it was being marked as paid — open it again');
+  } catch (err) {
+    if (expenses.length) {
+      await Expense.updateMany({ _id: { $in: expenses } }, { $set: { status: 'voided', voidedBy: req.user._id, voidedAt: new Date(), voidReason: 'Salary not marked as paid' } });
+    }
+    await SalaryRun.updateOne({ _id: run._id, payingAt: claimedAt }, { $unset: { payingAt: 1 } });
+    throw err;
+  }
+  run.status = 'paid'; run.expenses = expenses; run.paidOn = paidOn; run.paymentRef = paymentRef; run.paidBy = req.user._id;
   logAction(req, { action: 'salary.paid', entity: 'SalaryRun', entityId: month, entityRef: run._id, meta: { paidOn, expenses: run.expenses.length } });
   res.json(new ApiResponse(200, await runView(run, month), 'Marked as paid'));
 });
@@ -240,9 +271,15 @@ export const deleteAdvance = asyncHandler(async (req, res) => {
   const [advance] = (await advancesWithBalance({})).filter((a) => String(a._id) === req.params.id);
   if (!advance) throw new ApiError(404, 'Advance not found');
   if (advance.recovered > 0) throw new ApiError(400, 'Part of this advance has already been recovered from salary');
+  const drafts = await SalaryRun.find({ status: 'draft', 'lines.recoveries.advance': advance._id }).select('month lines.staff lines.recoveries').lean();
   await SalaryAdvance.deleteOne({ _id: advance._id });
-  // Take it out of any draft that planned to recover it
+  // Take it out of any draft that planned to recover it, and work those lines out again
   await SalaryRun.updateMany({ status: 'draft' }, { $pull: { 'lines.$[].recoveries': { advance: advance._id } } });
+  for (const d of drafts) {
+    for (const l of d.lines.filter((x) => (x.recoveries || []).some((r) => String(r.advance) === String(advance._id)))) {
+      await updateLine(d.month, l.staff, {});
+    }
+  }
   if (advance.expense) {
     await Expense.updateOne({ _id: advance.expense, status: { $ne: 'voided' } }, {
       $set: { status: 'voided', voidedBy: req.user._id, voidedAt: new Date(), voidReason: 'Salary advance deleted' },

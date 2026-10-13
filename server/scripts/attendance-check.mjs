@@ -22,6 +22,7 @@ const pad = (n) => String(n).padStart(2, '0');
 const monthOf = (back) => { const d = new Date(); d.setDate(1); d.setMonth(d.getMonth() - back); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}`; };
 const M2 = monthOf(3);   // the first stint
 const M1 = monthOf(2);   // back again; its salary gets finalised (well over, whatever day this runs)
+const shiftDay = (date, n) => { const d = new Date(`${date}T12:00:00`); d.setDate(d.getDate() + n); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; };
 const addOne = (date) => { const d = new Date(`${date}T12:00:00`); d.setDate(d.getDate() + 1); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; };
 const today = (() => { const d = new Date(); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; })();
 
@@ -141,6 +142,50 @@ async function main() {
   const removed = await api('PUT', '/attendance/settings', { shifts: before.shifts.filter((x) => x._id !== dayShift._id) });
   check(removed.status === 400 && /can’t be removed/.test(removed.body.message || ''), 'the usual day shift can’t be removed while staff rely on it', removed.body.message);
 
+  // ── Salary money: an advance recovered once, "paid" recorded once ──────────
+  const adv = await api('POST', '/users', person('Advance Person', { joinDate: `${M2}-01`, monthlySalary: 10000 }));
+  const advStaff = adv.body.data?.staffProfile?._id;
+  const advance = (await api('POST', '/salary/advances', { staff: advStaff, date: `${M2}-05`, amount: 1000, installment: 1000, mode: 'cash', recordExpense: false })).body.data;
+  const lineOf = async (month) => (await api('GET', `/salary/runs/${month}`)).body.data?.run?.lines?.find((l) => String(l.staff) === String(advStaff));
+  await api('POST', `/salary/runs/${M2}/prepare`, {});
+  const firstFinal = await api('POST', `/salary/runs/${M2}/finalize`, { confirmIssues: true });
+  check(firstFinal.status === 200 && (await lineOf(M2))?.advanceRecovery === 1000, `the advance is recovered in ${M2}`, firstFinal.body.message);
+  await api('POST', `/salary/runs/${M2}/reopen`, {});
+  await api('POST', `/salary/runs/${M1}/prepare`, {});
+  await api('POST', `/salary/runs/${M1}/finalize`, { confirmIssues: true });
+  check((await lineOf(M1))?.advanceRecovery === 1000, `while ${M2} is reopened, ${M1} recovers the advance instead`);
+  const twice = await api('POST', `/salary/runs/${M2}/finalize`, { confirmIssues: true });
+  check(twice.status === 409 && /recalculate/i.test(twice.body.message || ''), `finalising ${M2} again would recover it twice — refused`, `${twice.status} ${twice.body.message}`);
+  await api('POST', `/salary/runs/${M2}/prepare`, {});
+  const recalculated = await api('POST', `/salary/runs/${M2}/finalize`, { confirmIssues: true });
+  check(recalculated.status === 200 && (await lineOf(M2))?.advanceRecovery === 0, 'after recalculating it is finalised without the recovery');
+  await api('POST', `/salary/runs/${M1}/reopen`, {});
+  const withRecovery = await lineOf(M1);
+  const deleted = await api('DELETE', `/salary/advances/${advance?._id}`);
+  const withoutRecovery = await lineOf(M1);
+  check(deleted.status === 200 && withoutRecovery?.advanceRecovery === 0 && withoutRecovery.netPay === withRecovery.netPay + 1000,
+    'deleting an advance works the draft out again (net pay goes back up)', JSON.stringify({ before: withRecovery?.netPay, after: withoutRecovery?.netPay }));
+  const paying = await Promise.all([1, 2].map(() => api('POST', `/salary/runs/${M2}/paid`, { paidOn: today })));
+  const paidRun = (await api('GET', `/salary/runs/${M2}`)).body.data?.run;
+  const descriptions = (paidRun?.expenses || []).map((e) => e.description);
+  check(paying.map((r) => r.status).sort().join() === '200,409' && paidRun?.status === 'paid' && new Set(descriptions).size === descriptions.length,
+    'two "mark as paid" at once: one records the expenses, the other is refused', JSON.stringify({ statuses: paying.map((r) => r.status), descriptions }));
+  await api('DELETE', `/salary/runs/${M1}`);
+
+  // ── A holiday added after the roster still counts ───────────────────────────
+  const hDate = shiftDay(today, 9);
+  const shiftsNow = (await api('GET', '/attendance/settings')).body.data;
+  const dayId = shiftsNow.shifts.find((x) => x.kind === 'day')._id;
+  await api('PUT', '/attendance/roster', { entries: [{ staff: advStaff, date: hDate, shifts: [dayId] }] });
+  const cellOn = async () => (await api('GET', `/attendance/roster?from=${hDate}&to=${hDate}`)).body.data?.cells?.[advStaff]?.[hDate];
+  check((await cellOn())?.planned === true, 'rostered for a day shift on the date');
+  await api('PUT', '/attendance/settings', { holidays: [...shiftsNow.holidays, { date: hDate, name: 'Check holiday' }] });
+  const afterHoliday = await cellOn();
+  check(afterHoliday?.off === true && afterHoliday.holiday === 'Check holiday' && !afterHoliday.planned, 'a holiday added after the roster gives the day off', JSON.stringify(afterHoliday));
+  await api('PUT', '/attendance/roster', { entries: [{ staff: advStaff, date: hDate, shifts: [dayId] }] });
+  check((await cellOn())?.planned === true, 'rostering someone on the holiday afterwards makes them work it');
+  await api('PUT', '/attendance/settings', { holidays: shiftsNow.holidays });
+
   // ── Biometric machine: allowed addresses, rate limit ────────────────────────
   const sn = `CHECK-${stamp}`;
   const machine = (path) => fetch(`${BASE}/iclock${path}`).then((r) => r.status);
@@ -154,6 +199,27 @@ async function main() {
   const ip = mine?.lastIp || refused?.blockedIp;
   const allowedNow = await api('PUT', '/attendance/settings', { devices: listed.map((d) => (d.serial === sn ? { ...d, approved: true, allowedIps: ip } : d)) });
   check(allowedNow.status === 200 && await machine(`/cdata?SN=${sn}`) === 200, `the machine is accepted from its own address (${ip})`);
+
+  // ── Machine number corrected: the punches move with it ──────────────────────
+  const yesterday = shiftDay(today, -1);
+  const from = `${monthOf(1)}-01`;
+  const pinA = String(70000 + (stamp % 9000)); const pinB = String(Number(pinA) + 1); const pinC = String(Number(pinA) + 2);
+  const userBody = (name, profile) => ({ name, phone: '', role: 'employee', departments: [], isActive: true, staffProfile: { onPayroll: true, joinDate: from, weeklyOffDay: 0, ...profile } });
+  const wrong = await api('POST', '/users', { ...userBody('Wrong Number', { machineId: pinA }), email: `wrong-${stamp}@test.local`, password: 'Staff-Pass-123!' });
+  const wrongStaff = wrong.body.data?.staffProfile?._id;
+  const attlog = `${pinA}\t${yesterday} 08:01:00\t0\t1\t0\t0\t0\n${pinA}\t${yesterday} 17:03:00\t0\t1\t0\t0\t0`;
+  const sent = await fetch(`${BASE}/iclock/cdata?SN=${sn}&table=ATTLOG&Stamp=1`, { method: 'POST', headers: { 'content-type': 'text/plain' }, body: attlog });
+  const punchesOf = async (sid) => (await api('GET', `/attendance/days?from=${yesterday}&to=${yesterday}&staff=${sid}`)).body.data?.days?.[sid]?.[yesterday]?.punches?.length || 0;
+  check(sent.status === 200 && await punchesOf(wrongStaff) === 2, 'punches under a machine number go to whoever has that number');
+  const corrected = await api('PUT', `/users/${wrong.body.data?._id}`, userBody('Wrong Number', { machineId: pinB, machineIdWasWrong: true }));
+  const unknown = (await api('GET', '/attendance/staff/unmapped')).body.data || [];
+  check(corrected.status === 200 && await punchesOf(wrongStaff) === 0 && unknown.some((u) => u.machineId === pinA),
+    'correcting a wrong machine number takes its punches off the person (an unknown number until someone has it)', corrected.body.message);
+  const owner = await api('POST', '/users', { ...userBody('Real Owner', { machineId: pinA }), email: `owner-${stamp}@test.local`, password: 'Staff-Pass-123!' });
+  const ownerStaff = owner.body.data?.staffProfile?._id;
+  check(await punchesOf(ownerStaff) === 2, 'the real owner of the number gets the punches');
+  await api('PUT', `/users/${owner.body.data?._id}`, userBody('Real Owner', { machineId: pinC, machineIdWasWrong: false }));
+  check(await punchesOf(ownerStaff) === 2, 'a number changed on purpose (enrolled again) keeps the punches');
   check((await api('PUT', '/attendance/settings', { devices: listed.map((d) => (d.serial === sn ? { ...d, allowedIps: 'not-an-address' } : d)) })).status === 400,
     'a wrong address in the list is refused');
   const burst = await Promise.all(Array.from({ length: 130 }, () => machine(`/getrequest?SN=${sn}`)));

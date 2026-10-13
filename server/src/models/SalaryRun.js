@@ -70,6 +70,7 @@ const salaryRunSchema = new mongoose.Schema(
   {
     month:  { type: String, required: true, unique: true, match: /^\d{4}-\d{2}$/ },
     status: { type: String, enum: ['draft', 'finalized', 'paid'], default: 'draft' },
+    payingAt: { type: Date },   // "Mark as paid" in progress (so a second click can't record it twice)
     lines:  { type: [lineSchema], default: [] },
     preparedBy:  { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
     preparedAt:  Date,

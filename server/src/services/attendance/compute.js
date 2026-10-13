@@ -119,17 +119,32 @@ export function mergePunches(times, mergeMinutes) {
  *           upcoming · unscheduled (punches on a day with no shift planned) · none ·
  *           not_employed (before joining / after leaving)
  */
+// The half-day and absent hours in Settings are for a 9-hour shift; other shifts scale in
+// proportion (a 4-hour aarti duty: half day below 3 h 6 min, absent below 1 h 47 min).
+export const FULL_SHIFT_MINUTES = 9 * 60;
+export const scaledMinutes = (hours, shiftMinutes) => Math.round((hours * 60 * shiftMinutes) / FULL_SHIFT_MINUTES);
+
+// Of a planned double where only one shift was worked: the shift the punches cover most.
+const workedShift = (instances, first, last) => instances.reduce((best, i) => {
+  const cover = (x) => Math.max(0, Math.min(x.end, last) - Math.max(x.start, first));
+  return cover(i) > cover(best) ? i : best;
+});
+
 export function computeDay(block, rawTimes, settings, override, now = new Date()) {
   const times = mergePunches(rawTimes, settings.punchMergeMinutes ?? 2);
   const n = block.instances.length;
   const expected = block.instances.reduce((sum, i) => sum + i.minutes, 0);
-  const halfDayMin = (settings.halfDayBelowHours ?? 7) * 60;
-  const absentMin = (settings.absentBelowHours ?? 4) * 60;
+  const halfHours = settings.halfDayBelowHours ?? 7;
+  const absentHours = settings.absentBelowHours ?? 4;
   const grace = settings.graceMinutes ?? 15;
 
   let worked = 0;
   for (let i = 0; i + 1 < times.length; i += 2) worked += (times[i + 1] - times[i]) / MIN;
   worked = Math.round(worked);
+  // Thresholds for the shift judged: the one rostered (a single shift), or the one worked of a double
+  const single = n === 2 && times.length > 1 ? workedShift(block.instances, times[0], times[times.length - 1]) : block.instances[0];
+  const halfDayMin = scaledMinutes(halfHours, single?.minutes ?? FULL_SHIFT_MINUTES);
+  const absentMin = scaledMinutes(absentHours, single?.minutes ?? FULL_SHIFT_MINUTES);
 
   const issues = [];
   let lateMinutes = 0;
@@ -149,7 +164,7 @@ export function computeDay(block, rawTimes, settings, override, now = new Date()
   } else if (times.length % 2 === 1) {
     status = now < block.winEnd ? 'working' : 'missing_punch';
     if (status === 'missing_punch') issues.push('missing_punch');
-  } else if (n === 2 && worked >= halfDayMin * 2) {
+  } else if (n === 2 && worked >= scaledMinutes(halfHours, expected)) {
     status = 'present';
     double = true;
   } else {

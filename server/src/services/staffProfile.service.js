@@ -4,6 +4,9 @@ import ApiError from '../utils/ApiError.js';
 import { getPermissionsForRole } from '../middleware/authorize.js';
 import { nextNumber } from './sequence.service.js';
 import { localDateStr } from '../../../shared/dates.js';
+import { APP_TIMEZONE } from '../utils/dates.js';
+import { logAction } from './audit.service.js';
+import { assertAttendanceOpen } from './attendance/attendance.service.js';
 
 // Everyone is a User. A user who is "on attendance & payroll" also has an attendance profile
 // (the Staff document): machine number, shifts, weekly off, salary, PF/ESI, bank. Punches,
@@ -29,10 +32,26 @@ export async function assertMachineIdFree(machineId, exceptId) {
 
 const nextStaffCode = () => nextNumber({ prefix: 'STF-', sources: [{ model: Staff, field: 'staffCode' }] });
 
-// Punches that arrived before the machine number was entered get linked now.
+// When this person started (their first stint) — punches under their number from before then
+// were someone else's (a number reused after a leaver).
+const employedFrom = (staff) => [staff.joinDate, ...(staff.pastPeriods || []).map((p) => p.joinDate)]
+  .filter(Boolean).map((d) => new Date(d)).sort((a, b) => a - b)[0] || null;
+
+// Punches under the person's number that no one has yet (sent before the number was entered) get
+// linked now — from their joining date on.
+const unlinkedFilter = (staff) => {
+  const from = employedFrom(staff);
+  return { machineId: staff.machineId, staff: null, ...(from ? { time: { $gte: from } } : {}) };
+};
 export const linkPunches = (staff) => (staff.machineId
-  ? Punch.updateMany({ machineId: staff.machineId, staff: null }, { $set: { staff: staff._id } })
+  ? Punch.updateMany(unlinkedFilter(staff), { $set: { staff: staff._id } })
   : null);
+
+// Months the punches matching `filter` fall in (IST)
+const punchMonths = async (filter) => (await Punch.aggregate([
+  { $match: filter },
+  { $group: { _id: { $dateToString: { format: '%Y-%m', date: '$time', timezone: APP_TIMEZONE } } } },
+])).map((r) => r._id);
 
 /** What the requester may change in the profile: attendance fields need attendance:manage, pay fields salary:manage. */
 export async function pickProfile(req, body = {}) {
@@ -62,7 +81,7 @@ const dayOf = (d) => (d ? localDateStr(new Date(d)) : '');             // a save
  *   working day — the old stint is kept) or never left (the last working day is cleared).
  */
 export async function validateProfile(req, user, body, { nextActive } = {}) {
-  const existing = user?._id ? await Staff.findOne({ user: user._id }).select('_id joinDate leftOn onPayroll').lean() : null;
+  const existing = user?._id ? await Staff.findOne({ user: user._id }).select('_id joinDate leftOn onPayroll machineId pastPeriods').lean() : null;
   const active = nextActive ?? user?.isActive ?? true;
   const wasOn = Boolean(existing?.onPayroll);
 
@@ -84,6 +103,15 @@ export async function validateProfile(req, user, body, { nextActive } = {}) {
   if (!(await userCan(req, 'attendance:manage'))) throw new ApiError(403, 'You cannot put people on attendance');
   const machineId = typeof body.machineId === 'string' ? body.machineId.trim() : '';
   await assertMachineIdFree(machineId, existing?._id);
+  // A changed machine number moves punches (see saveStaffProfile) — not within a month whose salary is done
+  if (existing && 'machineId' in body && machineId !== (existing.machineId || '')) {
+    const months = [];
+    if (body.machineIdWasWrong === true && existing.machineId) {
+      months.push(...await punchMonths({ staff: existing._id, source: 'machine', machineId: existing.machineId }));
+    }
+    if (machineId) months.push(...await punchMonths(unlinkedFilter({ ...existing, machineId })));
+    await assertAttendanceOpen(months);
+  }
 
   // A save that leaves a date out keeps the stored one
   const join = 'joinDate' in body ? day(body.joinDate) : dayOf(existing?.joinDate);
@@ -141,6 +169,7 @@ export async function saveStaffProfile(req, user, body) {
     }
     staff = created;
   } else {
+    const oldMachineId = staff.machineId || '';
     // Taken back after leaving: keep the old stint, start a new one from the new joining date
     const oldLeft = dayOf(staff.leftOn);
     if (user.isActive && oldLeft && oldLeft < localDateStr() && data.joinDate && day(data.joinDate) > oldLeft) {
@@ -149,6 +178,21 @@ export async function saveStaffProfile(req, user, body) {
     }
     Object.assign(staff, data, identity(user, onPayroll));
     await staff.save();
+    // The old number was a mistake: the punches that came in under it were someone else's — let go
+    // of them (they go to whoever gets that number). A number changed on purpose (re-enrolled)
+    // keeps them: they were this person's.
+    if (oldMachineId !== (staff.machineId || '')) {
+      const released = body.machineIdWasWrong === true && oldMachineId
+        ? (await Punch.updateMany({ staff: staff._id, source: 'machine', machineId: oldMachineId }, { $set: { staff: null } })).modifiedCount
+        : 0;
+      const taken = (await linkPunches(staff))?.modifiedCount || 0;
+      logAction(req, {
+        action: 'attendance.machine_number', entity: 'Staff', entityId: staff.staffCode, entityRef: staff._id,
+        before: { machineId: oldMachineId }, after: { machineId: staff.machineId || '' },
+        meta: { oldNumberWasWrong: body.machineIdWasWrong === true, punchesReleased: released, punchesLinked: taken },
+      });
+      return staff;
+    }
   }
   await linkPunches(staff);
   return staff;

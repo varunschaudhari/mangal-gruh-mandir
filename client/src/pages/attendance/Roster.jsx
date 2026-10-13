@@ -49,8 +49,11 @@ function CellEditor({ target, roster, shiftById, onClose }) {
   const [off, setOff] = useState(Boolean(cell?.off));
   const [wholeWeek, setWholeWeek] = useState(false);
 
+  const holidays = new Map((roster.holidays || []).map((h) => [h.date, h.name]));
+  // "Whole week" leaves the week's holidays as holidays (only this day is set if it is one)
+  const days = wholeWeek ? roster.dates.filter((d) => d === date || !holidays.has(d)) : [date];
   const mut = useMutation({
-    mutationFn: (reset) => saveRoster((wholeWeek ? roster.dates : [date]).map((d) => (reset
+    mutationFn: (reset) => saveRoster(days.map((d) => (reset
       ? { staff: staff._id, date: d, reset: true }
       : { staff: staff._id, date: d, shifts: off ? [] : shifts, off }))),
     onSuccess: () => {
@@ -58,7 +61,7 @@ function CellEditor({ target, roster, shiftById, onClose }) {
       qc.invalidateQueries({ queryKey: ['attendance'] });
       onClose();
     },
-    onError: (err) => toast.error(err.response?.data?.message || t('Failed')),
+    onError: (err) => toast.error(t(err.response?.data?.message || 'Failed')),
   });
 
   const toggle = (id) => {
@@ -80,6 +83,11 @@ function CellEditor({ target, roster, shiftById, onClose }) {
       )}
     >
       <div className="space-y-2">
+        {holidays.has(date) && (
+          <p className="rounded-lg bg-rose-50 px-3 py-2 text-xs text-rose-800">
+            {t('Holiday: {name}', { name: holidays.get(date) })} — {t('choosing a shift here means this person works on the holiday.')}
+          </p>
+        )}
         {roster.shifts.map((s) => {
           const on = shifts.includes(String(s._id));
           const Icon = s.kind === 'night' ? Moon : Sun;
@@ -113,6 +121,9 @@ function CellEditor({ target, roster, shiftById, onClose }) {
           <input type="checkbox" checked={wholeWeek} onChange={(e) => setWholeWeek(e.target.checked)} className="h-4 w-4 rounded" />
           {t('Apply to the whole week')}
         </label>
+        {wholeWeek && roster.dates.some((d) => d !== date && holidays.has(d)) && (
+          <p className="text-xs text-gray-500">{t('Holidays in the week stay holidays.')}</p>
+        )}
       </div>
     </Sheet>
   );

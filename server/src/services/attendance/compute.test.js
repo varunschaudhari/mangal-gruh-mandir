@@ -177,3 +177,26 @@ test('a rule change applies from its date — earlier days keep the old rules', 
   assert.equal(days['2026-09-15'].lateMinutes, 0);
   assert.equal(days['2026-10-15'].lateMinutes, 10);
 });
+
+test('a short shift is judged in proportion: a 4-hour aarti duty is not a half day at 3½ hours', () => {
+  const AARTI = { _id: 'aarti', name: 'Aarti', start: '05:00', end: '09:00', kind: 'day' };
+  const byId = new Map([...shiftsById, ['aarti', AARTI]]);
+  const day = (out, shifts = ['aarti']) => computeRange({
+    from: '2026-10-05', to: '2026-10-05', shiftsById: byId, settings, now: LATER,
+    plans: [{ date: '2026-10-05', shifts, off: false }],
+    times: [at('2026-10-05', '05:00'), at('2026-10-05', out)],
+  }).days['2026-10-05'];
+  assert.equal(day('08:30').status, 'present');    // 3 h 30 min ≥ 3 h 7 min (7/9 of 4 h)
+  assert.equal(day('07:00').status, 'half_day');   // 2 h: between 1 h 47 min and 3 h 7 min
+  assert.equal(day('06:30').status, 'absent');     // 1 h 30 min < 1 h 47 min (4/9 of 4 h)
+  // Aarti + day shift as a double (13 h planned): 05:00–17:00 worked is a double
+  const both = computeRange({
+    from: '2026-10-05', to: '2026-10-05', shiftsById: byId, settings, now: LATER,
+    plans: [{ date: '2026-10-05', shifts: ['aarti', 'day'], off: false }],
+    times: [at('2026-10-05', '05:00'), at('2026-10-05', '17:00')],
+  }).days['2026-10-05'];
+  assert.equal(both.status, 'present');
+  assert.equal(both.double, true);
+  // Of that double only the aarti worked: judged as the aarti shift, not as the day shift
+  assert.equal(day('08:45', ['aarti', 'day']).status, 'present');
+});

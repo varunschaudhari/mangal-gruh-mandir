@@ -15,8 +15,8 @@ import { fMinutes } from './attendanceUi.jsx';
 
 const RULES = [
   { key: 'graceMinutes',       label: 'Late after (minutes)',        hint: 'Punching in within this many minutes of the shift start is not late.', step: 1 },
-  { key: 'halfDayBelowHours',  label: 'Half day below (hours)',      hint: 'Worked less than this → half day.', step: 0.5 },
-  { key: 'absentBelowHours',   label: 'Absent below (hours)',        hint: 'Worked less than this → absent.', step: 0.5 },
+  { key: 'halfDayBelowHours',  label: 'Half day below (hours)',      hint: 'Worked less than this → half day. For a 9-hour shift — shorter and longer shifts scale in proportion.', step: 0.5 },
+  { key: 'absentBelowHours',   label: 'Absent below (hours)',        hint: 'Worked less than this → absent. For a 9-hour shift — shorter and longer shifts scale in proportion.', step: 0.5 },
   { key: 'punchMergeMinutes',  label: 'Repeat punches within (minutes)', hint: 'Several taps on the machine within this time count once.', step: 1 },
   { key: 'defaultPaidLeavePerMonth', label: 'Paid leaves per month',  hint: 'Default for everyone; can be changed per person.', step: 1 },
   { key: 'extraLeaveValidDays', label: 'Extra leave valid for (days)', hint: 'Extra leave earned by a double shift lapses after this.', step: 1 },

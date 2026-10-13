@@ -67,6 +67,7 @@ export async function resolvePlans(staffList, from, to, settings) {
   const entries = await RosterDay.find({ staff: { $in: ids }, date: { $gte: from, $lte: to } }).lean();
   const byKey = new Map(entries.map((e) => [`${e.staff}|${e.date}`, e]));
   const holidays = new Map((settings.holidays || []).map((h) => [h.date, h.name || 'Holiday']));
+  const declaredAt = new Map((settings.holidays || []).map((h) => [h.date, h.addedAt ? new Date(h.addedAt) : null]));
 
   const plans = new Map();
   for (const staff of staffList) {
@@ -76,7 +77,9 @@ export async function resolvePlans(staffList, from, to, settings) {
       const employed = employedOn(date);
       const holiday = holidays.get(date) || '';
       const e = byKey.get(`${staff._id}|${date}`);
-      if (e) return { date, shifts: e.shifts.map(String), off: e.off, planned: true, holiday, employed };
+      // A roster entry made before the holiday was declared doesn't cancel it
+      const rosteredOnHoliday = e && holiday && declaredAt.get(date) && !(new Date(e.updatedAt) > declaredAt.get(date));
+      if (e && !rosteredOnHoliday) return { date, shifts: e.shifts.map(String), off: e.off, planned: true, holiday, employed };
       const off = Boolean(holiday) || weekday(date) === (staff.weeklyOffDay ?? 0);
       return { date, shifts: off || !fallback ? [] : [String(fallback._id)], off, planned: false, holiday, employed };
     }));

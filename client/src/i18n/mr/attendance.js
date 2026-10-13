@@ -186,9 +186,9 @@ export default {
   'Late after (minutes)': 'इतक्या मिनिटांनंतर उशीर',
   'Punching in within this many minutes of the shift start is not late.': 'शिफ्ट सुरू झाल्यापासून इतक्या मिनिटांत पंच केल्यास उशीर धरत नाही.',
   'Half day below (hours)': 'यापेक्षा कमी तास = अर्धा दिवस',
-  'Worked less than this → half day.': 'यापेक्षा कमी काम → अर्धा दिवस.',
+  'Worked less than this → half day. For a 9-hour shift — shorter and longer shifts scale in proportion.': 'यापेक्षा कमी काम → अर्धा दिवस. 9 तासांच्या शिफ्टसाठी — लहान व मोठ्या शिफ्टसाठी त्याच प्रमाणात.',
   'Absent below (hours)': 'यापेक्षा कमी तास = गैरहजर',
-  'Worked less than this → absent.': 'यापेक्षा कमी काम → गैरहजर.',
+  'Worked less than this → absent. For a 9-hour shift — shorter and longer shifts scale in proportion.': 'यापेक्षा कमी काम → गैरहजर. 9 तासांच्या शिफ्टसाठी — लहान व मोठ्या शिफ्टसाठी त्याच प्रमाणात.',
   'Repeat punches within (minutes)': 'इतक्या मिनिटांतील पुन्हा पंच',
   'Several taps on the machine within this time count once.': 'या वेळेत मशीनवर अनेकदा पंच केल्यास एकदाच धरला जातो.',
   'Default for everyone; can be changed per person.': 'सर्वांसाठी नेहमीचे; प्रत्येक व्यक्तीसाठी बदलता येते.',
@@ -322,4 +322,10 @@ export default {
   'A shift that is used in the roster or as someone’s usual shift can’t be removed — change its timings instead': 'रोस्टरमध्ये किंवा कोणाची नेहमीची शिफ्ट म्हणून वापरलेली शिफ्ट काढता येत नाही — त्याऐवजी तिच्या वेळा बदला',
   'These timings were already changed from a later date — the new change must start after that': 'या वेळा आधीच नंतरच्या तारखेपासून बदलल्या आहेत — नवीन बदल त्यानंतरच्या तारखेपासून असावा',
   'These rules were already changed from a later date — the new change must start after that': 'हे नियम आधीच नंतरच्या तारखेपासून बदलले आहेत — नवीन बदल त्यानंतरच्या तारखेपासून असावा',
+  // ── Machine number change, holidays ──
+  'Punches already received under number {n}:': 'क्रमांक {n} वर आधीच आलेले पंच:',
+  'Were this person’s — they were enrolled again with a new number. Keep them.': 'या व्यक्तीचेच होते — नवीन क्रमांकाने पुन्हा नोंदणी केली. ते तसेच ठेवा.',
+  'Were someone else’s — the old number was wrong. Take them off this person (they go to whoever has that number).': 'दुसऱ्या कोणाचे होते — जुना क्रमांक चुकीचा होता. ते या व्यक्तीकडून काढा (तो क्रमांक ज्याचा असेल त्याला जातील).',
+  'choosing a shift here means this person works on the holiday.': 'येथे शिफ्ट निवडल्यास ही व्यक्ती सुट्टीच्या दिवशी काम करेल.',
+  'Holidays in the week stay holidays.': 'आठवड्यातील सुट्ट्या सुट्ट्याच राहतील.',
 };

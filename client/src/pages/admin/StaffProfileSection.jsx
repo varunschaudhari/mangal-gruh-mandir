@@ -21,6 +21,8 @@ export const profileToForm = (p, { oldSalary = 0, machineId = '', onPayroll = fa
   joinDate: p?.joinDate ? String(p.joinDate).slice(0, 10) : '',
   leftOn: p?.leftOn ? String(p.leftOn).slice(0, 10) : '',
   machineId: p?.machineId ?? machineId,
+  savedMachineId: p?.machineId || '',   // to notice a changed number (not sent)
+  machineIdWasWrong: 'kept',             // what the punches under the old number were: 'kept' | 'wrong'
   defaultShift: p?.defaultShift || '',
   nightOnly: Boolean(p?.nightOnly),
   weeklyOffDay: p?.weeklyOffDay ?? 0,
@@ -40,9 +42,10 @@ export const profileToForm = (p, { oldSalary = 0, machineId = '', onPayroll = fa
 
 /** What is sent to the server — only the parts this person may change. */
 export function profileFromForm(f, { canSalary }) {
-  const { staffCode: _code, ...rest } = f;
+  const { staffCode: _code, savedMachineId: _saved, ...rest } = f;
   const out = {
     ...rest,
+    machineIdWasWrong: f.machineIdWasWrong === 'wrong',
     weeklyOffDay: Number(f.weeklyOffDay),
     monthlySalary: Number(f.monthlySalary) || 0,
     basicSalary: f.basicSalary === '' ? '' : Number(f.basicSalary),
@@ -91,6 +94,9 @@ export default function StaffProfileSection({ register, watch, isActive }) {
   const esi = watch('staffProfile.esiApplicable');
   const code = watch('staffProfile.staffCode');
   const leftOn = watch('staffProfile.leftOn');
+  const machineId = watch('staffProfile.machineId');
+  const savedMachineId = watch('staffProfile.savedMachineId');
+  const machineChanged = Boolean(savedMachineId) && String(machineId || '').trim() !== savedMachineId;
   const p = (name) => `staffProfile.${name}`;
   // Left earlier and active again: rejoining (new joining date) or never left (clear the date)
   const backAgain = isActive && leftOn && leftOn < localDateStr();
@@ -131,6 +137,19 @@ export default function StaffProfileSection({ register, watch, isActive }) {
               </Field>
               <Field label={t('Machine number')} hint={t('The number this person is enrolled with on the biometric machine.')}>
                 <input {...register(p('machineId'))} className="input font-mono" inputMode="numeric" autoComplete="off" />
+                {machineChanged && (
+                  <span className="mt-2 block space-y-1.5 rounded-lg border border-amber-200 bg-amber-50 p-2.5 text-xs text-amber-900">
+                    <span className="block font-semibold">{t('Punches already received under number {n}:', { n: savedMachineId })}</span>
+                    <label className="flex cursor-pointer items-start gap-2">
+                      <input type="radio" value="kept" {...register(p('machineIdWasWrong'))} className="mt-0.5" />
+                      <span>{t('Were this person’s — they were enrolled again with a new number. Keep them.')}</span>
+                    </label>
+                    <label className="flex cursor-pointer items-start gap-2">
+                      <input type="radio" value="wrong" {...register(p('machineIdWasWrong'))} className="mt-0.5" />
+                      <span>{t('Were someone else’s — the old number was wrong. Take them off this person (they go to whoever has that number).')}</span>
+                    </label>
+                  </span>
+                )}
               </Field>
               <Field label={`${t('Joining date')} *`} hint={t('Days before this are not counted. For someone already working here, the date they first joined.')}>
                 <input {...register(p('joinDate'))} className="input" type="date" required />

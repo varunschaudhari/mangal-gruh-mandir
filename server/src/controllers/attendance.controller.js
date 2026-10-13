@@ -138,10 +138,11 @@ export const updateAttendanceSettings = asyncHandler(async (req, res) => {
       });
   }
   if (Array.isArray(b.holidays)) {
+    const known = new Map(settings.holidays.map((h) => [h.date, h.addedAt]));
     const byDate = new Map();
     for (const h of b.holidays) {
       dateParam(h.date, 'Holiday date');
-      byDate.set(h.date, { date: h.date, name: String(h.name || '').trim().slice(0, 60) });
+      byDate.set(h.date, { date: h.date, name: String(h.name || '').trim().slice(0, 60), addedAt: known.get(h.date) || new Date() });
     }
     settings.holidays = [...byDate.values()].sort((a, c) => a.date.localeCompare(c.date));
   }
@@ -235,12 +236,14 @@ export const copyRosterWeek = asyncHandler(async (req, res) => {
   const settings = await AttendanceSettings.getOrCreate();
   const staff = await Staff.find({ isActive: true }).lean();
   const plans = await resolvePlans(staff, fromStart, addDays(fromStart, 6), settings);
+  const holidays = new Set(settings.holidays.map((h) => h.date));
   const ops = [];
   for (const [staffId, list] of plans) {
     list.forEach((p, i) => {
       const filter = { staff: staffId, date: addDays(toStart, i) };
-      // Days that followed the default there follow it here too (so a holiday isn't copied)
-      ops.push(p.planned
+      // Days that followed the default there follow it here too (so a holiday isn't copied), and a
+      // holiday in the week copied to stays a holiday
+      ops.push(p.planned && !holidays.has(filter.date)
         ? { updateOne: { filter, update: { $set: { shifts: p.shifts, off: p.off, updatedBy: req.user._id } }, upsert: true } }
         : { deleteOne: { filter } });
     });

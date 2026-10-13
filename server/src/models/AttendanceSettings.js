@@ -35,6 +35,9 @@ const deviceSchema = new mongoose.Schema({
 const holidaySchema = new mongoose.Schema({
   date: { type: String, required: true, match: /^\d{4}-\d{2}-\d{2}$/ },
   name: { type: String, trim: true, default: '' },
+  // When it was added: a roster made before that doesn't cancel the holiday (only rostering
+  // someone on it afterwards, on purpose, makes them work it)
+  addedAt: { type: Date },
 }, { _id: false });
 
 const attendanceSettingsSchema = new mongoose.Schema(

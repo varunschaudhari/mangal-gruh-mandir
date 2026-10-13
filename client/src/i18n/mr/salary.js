@@ -171,4 +171,9 @@ export default {
   'Some days still have a missing punch (paid as a full day) or a double shift without a decision (no reward) — see the list above.': 'काही दिवसांचा पंच अजून चुकलेला आहे (पूर्ण दिवस धरला जाईल) किंवा डबल शिफ्टचा निर्णय बाकी आहे (बक्षीस नाही) — वरची यादी पाहा.',
   'Some days still have a missing punch or a double shift waiting for a decision — fix them, or finalise anyway': 'काही दिवसांचा पंच चुकलेला आहे किंवा डबल शिफ्टचा निर्णय बाकी आहे — ते दुरुस्त करा, किंवा तरीही अंतिम करा',
   'Finalise anyway': 'तरीही अंतिम करा',
+  // ── Advances and paying ──
+  'An advance in this salary was recovered elsewhere since it was worked out — recalculate first': 'या पगारातील उचल त्यानंतर दुसऱ्या महिन्यात वसूल झाली आहे — आधी पुन्हा हिशोब करा',
+  'This salary is already being marked as paid': 'हा पगार आधीच दिलेला म्हणून नोंदवला जात आहे',
+  'This salary is being marked as paid right now': 'हा पगार आत्ता दिलेला म्हणून नोंदवला जात आहे',
+  'The salary changed while it was being marked as paid — open it again': 'पगार दिलेला म्हणून नोंदवताना तो बदलला — पुन्हा उघडा',
 };
