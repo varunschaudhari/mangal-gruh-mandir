@@ -72,6 +72,8 @@ const issueButton = () => screen.getByRole('button', { name: /^Issue/ });
 // A banknote tile shows "₹" and the value (plus a key hint or a ×count badge)
 const noteTile = (n) => screen.getAllByRole('button').find((b) => b.textContent.replace(/\[.\]|×\d+/g, '').trim() === `₹${n}`);
 const sentBody = () => issueCoupons.mock.calls.at(-1)[0];
+// Every issue needs the devotee's mobile number first
+const typeMobile = (user, number = '98811 80662') => user.type(screen.getByLabelText(/Mobile number/), number);
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -83,6 +85,7 @@ describe('Mahaprasad counter', () => {
   it('shows the price for the people at the counter and issues one paid coupon, paid exactly in cash', async () => {
     const user = setup();
     await waitFor(() => expect(issueButton()).toHaveTextContent('Issue 1 Coupon · ₹50'));
+    await typeMobile(user);
 
     await user.click(screen.getByText('Exact').closest('button'));
     await user.click(issueButton());
@@ -96,6 +99,7 @@ describe('Mahaprasad counter', () => {
   it('adding people makes a group coupon with the total price', async () => {
     const user = setup();
     await waitFor(() => expect(issueButton()).toHaveTextContent('₹50'));
+    await typeMobile(user);
     await user.click(screen.getByRole('button', { name: 'One more person' }));
     await user.click(screen.getByRole('button', { name: 'One more person' }));
     expect(issueButton()).toHaveTextContent('Issue Group — 3 persons · ₹150');
@@ -110,6 +114,7 @@ describe('Mahaprasad counter', () => {
   it('sends the notes the devotee handed over, so the cash drawer and change add up', async () => {
     const user = setup();
     await waitFor(() => expect(issueButton()).toHaveTextContent('₹50'));
+    await typeMobile(user);
     await user.click(noteTile(100));
     expect(screen.getByText('Return to customer')).toBeInTheDocument();
     await user.click(issueButton());
@@ -120,6 +125,7 @@ describe('Mahaprasad counter', () => {
   it('does not issue when the cash handed over is less than the price', async () => {
     const user = setup();
     await waitFor(() => expect(issueButton()).toHaveTextContent('₹50'));
+    await typeMobile(user);
     await user.click(noteTile(20));
     await user.click(issueButton());
     await new Promise((r) => setTimeout(r, 50));
@@ -129,6 +135,7 @@ describe('Mahaprasad counter', () => {
   it('UPI payments send no cash amount or notes', async () => {
     const user = setup();
     await waitFor(() => expect(issueButton()).toHaveTextContent('₹50'));
+    await typeMobile(user);
     await user.click(screen.getByRole('button', { name: 'UPI' }));
     expect(screen.getByText('₹50 via UPI')).toBeInTheDocument();
     await user.click(issueButton());
@@ -141,6 +148,7 @@ describe('Mahaprasad counter', () => {
   it('free coupons carry the occasion chosen from the list', async () => {
     const user = setup({ occasions: [{ _id: 'o1', name: 'Guru Purnima' }] });
     await waitFor(() => expect(issueButton()).toHaveTextContent('₹50'));
+    await typeMobile(user);
     await user.click(screen.getByText('Free Seva').closest('button'));
     await user.selectOptions(await screen.findByRole('combobox'), 'Guru Purnima');
     await user.click(issueButton());
@@ -152,11 +160,36 @@ describe('Mahaprasad counter', () => {
   it('free coupons carry a typed occasion when no occasions are set up', async () => {
     const user = setup({ occasions: [] });
     await waitFor(() => expect(issueButton()).toHaveTextContent('₹50'));
+    await typeMobile(user);
     await user.click(screen.getByText('Free Seva').closest('button'));
     await user.type(screen.getByPlaceholderText('Occasion (optional)…'), 'Annadan');
     await user.click(issueButton());
     await waitFor(() => expect(issueCoupons).toHaveBeenCalled());
     expect(sentBody()).toMatchObject({ type: 'free', occasion: 'Annadan' });
+  });
+
+  it('does not issue without the devotee\'s mobile number, and says so', async () => {
+    const user = setup();
+    await waitFor(() => expect(issueButton()).toHaveTextContent('₹50'));
+    await user.click(screen.getByText('Exact').closest('button'));
+    await user.click(issueButton());
+    await new Promise((r) => setTimeout(r, 50));
+    expect(issueCoupons).not.toHaveBeenCalled();
+    expect(toast.error).toHaveBeenCalledWith('Enter the devotee’s 10-digit mobile number', expect.anything());
+    expect(screen.getByLabelText(/Mobile number/)).toHaveAttribute('aria-invalid', 'true');
+  });
+
+  it('sends the mobile number cleaned to 10 digits, then clears it for the next devotee', async () => {
+    const user = setup();
+    await waitFor(() => expect(issueButton()).toHaveTextContent('₹50'));
+    await user.click(screen.getByLabelText(/Mobile number/));
+    await user.paste('+91 98220 12345');   // a number pasted from a message
+    await user.click(screen.getByText('Exact').closest('button'));
+    await user.click(issueButton());
+    await waitFor(() => expect(issueCoupons).toHaveBeenCalled());
+    expect(sentBody()).toMatchObject({ mobile: '9822012345' });
+    await waitFor(() => expect(screen.getByLabelText(/Mobile number/)).toHaveValue(''));
+    expect(screen.getAllByRole('link', { name: /WhatsApp/ })[0].getAttribute('href')).toMatch(/^https:\/\/wa\.me\/919822012345\?text=/);
   });
 
   it('when the day\'s limit is reached the issue button is disabled and says why', async () => {
@@ -169,6 +202,7 @@ describe('Mahaprasad counter', () => {
     const user = setup();
     issueCoupons.mockImplementation(() => Promise.reject({ response: { data: { message: 'Only 2 more persons can be issued today (cap: 300)' } } }));
     await waitFor(() => expect(issueButton()).toHaveTextContent('₹50'));
+    await typeMobile(user);
     await user.click(screen.getByText('Exact').closest('button'));
     await user.click(issueButton());
     await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Only 2 more persons can be issued today (cap: 300)'));

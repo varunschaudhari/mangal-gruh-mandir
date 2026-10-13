@@ -2,6 +2,7 @@ import { z } from 'zod';
 import {
   number, optionalBoolean, optionalDate, optionalNumber, optionalObjectId, optionalOneOf, optionalText, text,
 } from './common.js';
+import { normaliseMobile } from '../utils/phone.js';
 
 // Mahaprasad counter. Kept lenient on optional fields: phones running an older app version
 // still sync. Prices, the daily limit and change are worked out by the server.
@@ -9,6 +10,8 @@ import {
 const couponType = optionalOneOf(['paid', 'free'], 'Coupon type');
 const couponNumber = text('Coupon number', { max: 40 });
 const DENOMS = [2000, 500, 200, 100, 50, 20, 10, 5, 2, 1];
+// The devotee's mobile number — required for every issue; cleaned to 10 digits.
+const mobile = z.preprocess((v) => normaliseMobile(v), z.string().min(1, 'Enter the devotee’s 10-digit mobile number'));
 
 export const issueCoupons = {
   body: z.object({
@@ -21,6 +24,7 @@ export const issueCoupons = {
     amountReceived: optionalNumber('Amount received', { min: 0, max: 1e7 }),
     receivedNotes: z.array(z.preprocess((v) => (typeof v === 'string' ? Number(v) : v),
       z.number().refine((n) => DENOMS.includes(n), 'Unknown note or coin'))).max(500).optional(),
+    mobile,
   }),
 };
 
@@ -40,6 +44,8 @@ export const syncOffline = {
       issuedById: optionalObjectId('Issued by'),
       issuedAt: optionalDate('Issued at'),
       batchId: optionalText('Batch', { max: 40 }),
+      // Optional here: coupons issued offline on an older app version have none.
+      mobile: z.preprocess((v) => normaliseMobile(v), z.string()).optional(),
     })).max(5000).optional(),
     redeemed: z.array(z.object({
       couponNumber,

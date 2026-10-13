@@ -313,4 +313,10 @@ export default {
   '({paid} paid · {free} free)': '({paid} सशुल्क · {free} मोफत)',
   'Cap {used}/{cap}': 'मर्यादा {used}/{cap}',
   'No coupons issued today': 'आज अजून कूपन दिलेले नाहीत',
+
+  // ── Devotee's mobile number (required for every issue) ──
+  'Enter the devotee’s 10-digit mobile number': 'भाविकाचा १० अंकी मोबाइल नंबर लिहा',
+  'Send the last coupons on WhatsApp': 'शेवटची कूपन WhatsApp वर पाठवा',
+  'Coupon no. or mobile': 'कूपन क्र. किंवा मोबाइल',
+  'Mobile': 'मोबाइल',
 };

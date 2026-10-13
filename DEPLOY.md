@@ -383,6 +383,19 @@ seva, weekday and day. Only days on which the hall scanned slips count for no-sh
 Booking income is counted in **Monthly P&L** on the day it's paid. The old admin panel at
 admin.mangalagrahmandir.in stays as it is for older bookings.
 
+## 13. Mahaprasad coupons — devotee's mobile number
+
+Every coupon issue at the Mahaprasad counter needs the devotee's 10-digit mobile number (paid and
+free, single or group; one number per issue). It is saved with the coupons, shown in History (search
+by coupon number or mobile) and in the Excel export. Coupons issued offline keep the number and
+sync it. **Phones still running an older app can't issue coupons** until they install the new APK.
+
+The counter's **WhatsApp** button (after an issue, at the bottom next to Reprint, and on each row
+of Today's Batches) opens WhatsApp with the coupon numbers ready to send — no setup needed.
+Automatic sending is optional: set `WA_MAHAPRASAD_TEMPLATE` (a Meta-approved template, wording in
+`server/.env.example`; needs WhatsApp turned on in Settings) and/or `MSG91_MAHAPRASAD_TEMPLATE_ID`
+(needs SMS turned on) in `server/.env`, then restart the server.
+
 ## Operations cheatsheet
 
 ```bash

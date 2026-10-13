@@ -4,7 +4,7 @@ import {
   UtensilsCrossed, Printer, RefreshCw, IndianRupee,
   Gift, ChevronDown, ChevronUp, Zap, AlertTriangle, Wifi, WifiOff,
   CloudOff, CloudUpload, Download, Banknote, Smartphone, CheckCircle2,
-  Minus, Plus, X, ClipboardList, Keyboard, Vault, Loader2, MessageCircle, Share2,
+  Minus, Plus, X, ClipboardList, Keyboard, Vault, Loader2, MessageCircle, Share2, Phone,
 } from 'lucide-react';
 import { issueCoupons, getDailySummary, printCoupons, getBatches, getCashDrawer, voidBatch as voidBatchApi } from '../../api/mahaprasad.api.js';
 import CashDrawer from './CashDrawer.jsx';
@@ -25,6 +25,8 @@ import haptics from '../../utils/haptics.js';
 import { localDateStr } from '../../utils/formatters.js';
 import { useT } from '../../i18n/index.jsx';
 import { temple } from '../../utils/temple.js';
+import { cleanPhoneInput, isValidPhone } from '../../utils/phone.js';
+import { couponWhatsAppUrl } from '../../utils/mahaprasadShare.js';
 
 // Touch screens: focusing the quantity field would pop the on-screen keyboard on open and after every issue.
 const canAutoFocus = () => !isNative && Boolean(window.matchMedia?.('(hover: hover) and (pointer: fine)').matches);
@@ -117,7 +119,15 @@ function BatchesSection({ date, onPdfPrint, printing, onVoid }) {
                   {b.couponFrom === b.couponTo ? b.couponFrom : `${b.couponFrom} → ${b.couponTo}`}
                 </span>
                 {b.issuedBy?.name && <span className="text-xs text-gray-400">· {b.issuedBy.name}</span>}
+                {b.mobile && <span className="text-xs text-gray-500 tabular-nums">· {b.mobile}</span>}
               </div>
+              {b.mobile && (
+                <a href={couponWhatsAppUrl({ mobile: b.mobile, numbers: b.numbers, date: b.issuedAt, persons: b.isGroup ? b.groupSize : b.count })}
+                  target="_blank" rel="noreferrer" aria-label={t('Send on WhatsApp')} title={t('Send on WhatsApp')}
+                  className="shrink-0 btn btn-ghost border text-xs text-green-700 flex items-center gap-1 py-1 px-2 max-sm:h-10 max-sm:px-3">
+                  <MessageCircle className="h-3 w-3 max-sm:h-4 max-sm:w-4" />
+                </a>
+              )}
               <button onClick={() => onPdfPrint(b.numbers)} disabled={printing}
                 aria-label={isNative ? t('Share or print PDF') : 'PDF'}
                 className="shrink-0 btn btn-ghost border text-xs flex items-center gap-1 py-1 px-2 max-sm:h-10 max-sm:px-3">
@@ -144,10 +154,13 @@ export default function MahaprasadCounter() {
   const t = useT();
   const qc             = useQueryClient();
   const qtyInputRef    = useRef(null);
+  const mobileRef      = useRef(null);
   const cashDrawerRef  = useRef(null);   // imperative handle on CashDrawer
   const cashDrawerElRef = useRef(null);  // DOM node for scroll-into-view
 
   const [date,           setDate]           = useState(todayStr());
+  const [mobile,         setMobile]         = useState('');    // devotee's mobile — required for every issue
+  const [mobileError,    setMobileError]    = useState(false);
   const [qty,            setQty]            = useState(1);
   const [isGroup,        setIsGroup]        = useState(false);
   const [type,           setType]           = useState('paid');
@@ -268,7 +281,7 @@ export default function MahaprasadCounter() {
         setAutoResetIn(null);
         setQty(1); setIsGroup(false);
         setReceivedNotes([]); setCustomCash('');
-        if (canAutoFocus()) setTimeout(() => qtyInputRef.current?.focus(), 50);
+        if (canAutoFocus()) setTimeout(() => mobileRef.current?.focus(), 50);
       }
     }, 1000);
     return () => clearInterval(t);
@@ -387,13 +400,15 @@ export default function MahaprasadCounter() {
       const batchId     = Math.random().toString(36).slice(2, 10);
 
       const issued = await offlineStore.confirmIssue(coupon.couponNumber, {
-        type, amount: price, occasion: type === 'free' ? occasionValue : '',
+        type, amount: price, occasion: type === 'free' ? occasionValue : '', mobile,
         issuedAt: new Date().toISOString(), issuedById: user._id || '', issuedByName: user.name || 'Staff', batchId,
       });
 
       haptics.success();
-      setLastBatch({ numbers: [issued.couponNumber], coupons: [issued] });
-      setQty(1); clearPayment();
+      const offBatch = { numbers: [issued.couponNumber], coupons: [issued], mobile, date, persons: 1 };
+      setLastBatch(offBatch);
+      setLastIssuedBatch(offBatch);
+      setQty(1); clearPayment(); setMobile('');
       await refreshCounts();
       qc.invalidateQueries({ queryKey: ['mahaprasad-summary'] });
 
@@ -429,6 +444,7 @@ export default function MahaprasadCounter() {
       paymentMode:    vars.paymentMode,
       amountReceived: vars.amountReceived,
       receivedNotes:  vars.receivedNotes,
+      mobile:         vars.mobile,
     }),
     onSuccess: async (res, vars) => {
       const { coupons, drawerChange } = res.data.data;
@@ -441,6 +457,9 @@ export default function MahaprasadCounter() {
         isGroup:  vars.isGroup,
         groupQty: vars.qty,
         issuedAt: new Date(),
+        mobile:   vars.mobile,
+        date:     vars.date,
+        persons:  vars.qty,
         payment: vars.type === 'paid' && batchTotalDue > 0 ? {
           mode:           vars.paymentMode || 'cash',
           totalDue:       batchTotalDue,
@@ -451,7 +470,7 @@ export default function MahaprasadCounter() {
       };
       setLastBatch(batchState);
       setLastIssuedBatch(batchState);
-      setQty(1); setIsGroup(false); clearPayment();
+      setQty(1); setIsGroup(false); clearPayment(); setMobile(''); setMobileError(false);
       qc.invalidateQueries({ queryKey: ['mahaprasad-summary'] });
       qc.invalidateQueries({ queryKey: ['mahaprasad-coupons'] });
       qc.invalidateQueries({ queryKey: ['mahaprasad-batches', date] });
@@ -509,6 +528,13 @@ export default function MahaprasadCounter() {
   };
 
   const handleIssue = () => {
+    if (!isValidPhone(mobile)) {
+      setMobileError(true);
+      haptics.warning();
+      toast.error(t('Enter the devotee’s 10-digit mobile number'), { id: 'mp-mobile' });
+      mobileRef.current?.focus();
+      return;
+    }
     if (!isOnline) { handleIssueOffline(); return; }
 
     // Block if customer hasn't paid enough
@@ -528,7 +554,7 @@ export default function MahaprasadCounter() {
     }
 
     issueMut.mutate({
-      qty, isGroup, type, date,
+      qty, isGroup, type, date, mobile,
       occasion:       type === 'free' ? occasionValue : '',
       paymentMode:    type === 'paid' && pricePerPlate > 0 ? paymentMode : undefined,
       amountReceived: type === 'paid' && pricePerPlate > 0 && paymentMode === 'cash' ? cashReceived : undefined,
@@ -544,7 +570,7 @@ export default function MahaprasadCounter() {
     }
   };
 
-  useEffect(() => { if (canAutoFocus()) qtyInputRef.current?.focus(); }, []);
+  useEffect(() => { if (canAutoFocus()) mobileRef.current?.focus(); }, []);
 
   const canIssue           = !issueMut.isPending && !atCap && !wouldExceed && qty >= 1;
   const canIssueOffline    = !offlineIssuing && poolCount > 0 && isToday;
@@ -611,6 +637,9 @@ export default function MahaprasadCounter() {
                 ? t('Group coupon issued — {n} persons', { n: lastBatch.groupQty })
                 : t(lastBatch.numbers.length > 1 ? '{n} coupons issued' : '{n} coupon issued', { n: lastBatch.numbers.length })}
             </p>
+            {lastBatch.mobile && (
+              <p className="text-xs text-green-700 mt-0.5 flex items-center gap-1"><Phone className="h-3 w-3" /> {lastBatch.mobile}</p>
+            )}
             {/* Payment summary */}
             {lastBatch.payment && (
               <p className="text-xs text-green-700 mt-0.5">
@@ -651,6 +680,12 @@ export default function MahaprasadCounter() {
           ))}
         </div>
         <div className="ml-auto flex gap-2 max-lg:ml-0 max-lg:w-full">
+          {lastBatch.mobile && (
+            <a href={couponWhatsAppUrl(lastBatch)} target="_blank" rel="noreferrer" onClick={() => setAutoResetIn(null)}
+              className="btn text-xs bg-white border border-green-300 text-green-700 hover:bg-green-100 px-3 py-1.5 rounded-lg font-semibold flex items-center gap-1.5 max-lg:flex-1 max-lg:py-2.5">
+              <MessageCircle className="h-3.5 w-3.5" /> WhatsApp
+            </a>
+          )}
           {!isNative && (
             <button
               onClick={async () => { for (const c of lastBatch.coupons) { try { await handleThermalPrint(c); } catch { break; } } }}
@@ -882,6 +917,26 @@ export default function MahaprasadCounter() {
 
           {/* Left: Transaction ──────────────────────────────────────────────── */}
           <div className="p-4 sm:p-6 space-y-5 sm:space-y-6">
+
+            {/* Devotee's mobile number — required; the coupon numbers can be sent to it */}
+            <div>
+              <label htmlFor="mp-mobile" className="block text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3">
+                {t('Mobile number')} <span className="text-red-500">*</span>
+              </label>
+              <div className="relative">
+                <Phone className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                <input
+                  id="mp-mobile" ref={mobileRef} type="tel" inputMode="numeric" autoComplete="off" enterKeyHint="done"
+                  value={mobile} placeholder="98XXXXXXXX" aria-invalid={mobileError}
+                  onChange={(e) => { setMobile(cleanPhoneInput(e.target.value)); setMobileError(false); }}
+                  className={`input h-12 pl-9 pr-16 text-xl font-bold tracking-wide tabular-nums ${mobileError ? 'border-red-400 bg-red-50 focus:border-red-500 focus:ring-red-500' : ''}`}
+                />
+                <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs tabular-nums text-gray-400">{mobile.length}/10</span>
+              </div>
+              {(mobileError || (mobile.length === 10 && !isValidPhone(mobile))) && (
+                <p className="text-xs text-red-600 flex items-center gap-1 mt-1.5"><AlertTriangle className="h-3 w-3" /> {t('Enter the devotee’s 10-digit mobile number')}</p>
+              )}
+            </div>
 
             {/* Quantity */}
             <div>
@@ -1324,6 +1379,15 @@ export default function MahaprasadCounter() {
             <span className="max-lg:hidden">{t('Reprint Last')}</span>
             <span className="lg:hidden">{isNative ? t('Last PDF') : t('Reprint')}</span>
           </button>
+        )}
+        {lastIssuedBatch?.mobile && (
+          <a href={couponWhatsAppUrl(lastIssuedBatch)} target="_blank" rel="noreferrer"
+            title={t('Send the last coupons on WhatsApp')} aria-label={t('Send the last coupons on WhatsApp')}
+            className="shrink-0 flex items-center gap-1.5 text-xs font-semibold text-green-700 hover:text-green-900 border border-green-200 rounded-lg px-3 py-2 hover:bg-green-50 transition-colors
+              max-lg:flex-col max-lg:gap-0.5 max-lg:self-stretch max-lg:justify-center max-lg:px-2.5 max-lg:text-[11px] max-lg:rounded-xl">
+            <MessageCircle className="h-3.5 w-3.5 max-lg:h-4 max-lg:w-4" />
+            <span>WhatsApp</span>
+          </a>
         )}
         {printQueue.length > 0 && (
           <button

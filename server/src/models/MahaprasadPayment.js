@@ -5,6 +5,7 @@ const mahaprasadPaymentSchema = new mongoose.Schema({
   date:           { type: Date,   required: true, index: true },
   couponNumbers:  [{ type: String }],
   qty:            { type: Number, required: true, min: 1 },
+  mobile:         { type: String, default: '' },   // devotee's mobile number
   totalDue:       { type: Number, required: true, min: 0 },
   paymentMode:    { type: String, enum: ['cash', 'upi'], required: true, default: 'cash' },
   amountReceived: { type: Number, default: 0, min: 0 },

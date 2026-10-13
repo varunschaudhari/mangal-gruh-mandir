@@ -1,6 +1,7 @@
 // Pure helpers for the booking counter (no React, no browser-only imports) — see counterUtils.test.js.
 import { isPincode } from '../../../utils/address.js';
 import { paymentRefProblem } from '../../../utils/payment.js';
+import { cleanPhoneInput, isValidPhone } from '../../../utils/phone.js';
 
 // ── Sankalp lists ─────────────────────────────────────────────────────────────
 // The value saved on the booking is the English (transliterated) name; Marathi is the display label.
@@ -122,14 +123,8 @@ export function compactBatchLabel(start, end, fallback = '') {
 }
 
 // ── Phone ─────────────────────────────────────────────────────────────────────
-/** What the mobile field keeps while typing / pasting: digits only, no +91 or leading 0, max 10. */
-export function cleanPhoneInput(raw) {
-  let d = String(raw || '').replace(/\D/g, '');
-  if (d.length === 12 && d.startsWith('91')) d = d.slice(2);       // pasted "+91 98xxx xxxxx"
-  else if (d.length === 11 && d.startsWith('0')) d = d.slice(1);   // "098xxxxxxxx"
-  return d.slice(0, 10);                                           // an 11th typed digit is ignored
-}
-export const isValidPhone = (p) => /^[6-9]\d{9}$/.test(String(p || ''));
+// cleanPhoneInput / isValidPhone live in utils/phone.js (shared with the Mahaprasad counter).
+export { cleanPhoneInput, isValidPhone };
 
 // ── Devotee form ──────────────────────────────────────────────────────────────
 export const EMPTY_DEVOTEE = Object.freeze({

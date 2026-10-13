@@ -1,0 +1,28 @@
+import { describe, it, expect } from 'vitest';
+import { couponListText, couponWhatsAppUrl } from './mahaprasadShare.js';
+import { cleanPhoneInput, isValidPhone } from './phone.js';
+
+describe('coupon numbers on WhatsApp', () => {
+  it('shortens a run of numbers', () => {
+    expect(couponListText(['MP-20261013-007'])).toBe('MP-20261013-007');
+    expect(couponListText(['MP-20261013-007', 'MP-20261013-008', 'MP-20261013-009'])).toBe('MP-20261013-007 to 009 (3)');
+    expect(couponListText(['MP-20261013-007', 'MP-20261013-011'])).toBe('MP-20261013-007, MP-20261013-011');
+  });
+
+  it('opens a chat with the devotee and the message ready', () => {
+    const url = couponWhatsAppUrl({ mobile: '9881180662', numbers: ['MP-20261013-012'], date: '2026-10-13T12:00:00', persons: 4 });
+    expect(url.startsWith('https://wa.me/919881180662?text=')).toBe(true);
+    const text = decodeURIComponent(url.split('text=')[1]);
+    expect(text).toContain('Mahaprasad coupon at Shri Mangal Grah Mandir');
+    expect(text).toContain('MP-20261013-012 · 4 persons');
+  });
+});
+
+describe('mobile numbers', () => {
+  it('cleans what was typed or pasted', () => {
+    expect(cleanPhoneInput('+91 98811 80662')).toBe('9881180662');
+    expect(cleanPhoneInput('09881180662')).toBe('9881180662');
+    expect(isValidPhone('9881180662')).toBe(true);
+    expect(isValidPhone('5881180662')).toBe(false);
+  });
+});

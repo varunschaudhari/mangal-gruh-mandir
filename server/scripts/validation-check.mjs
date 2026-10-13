@@ -94,8 +94,16 @@ async function main() {
   check((await api('POST', '/transactions', { transactionType: 'ADJUSTMENT', product: p._id, quantity: 1 })).status === 400, 'stock "ADJUSTMENT" can no longer be recorded by hand');
 
   // ── Mahaprasad counter ──────────────────────────────────────────────────────
-  const issue = await api('POST', '/mahaprasad/issue', { quantity: '2', type: 'free', occasion: mocc.body.data.name });
-  check(issue.status === 201 || issue.status === 200, 'mahaprasad: free coupons issued (quantity typed as text)', show(issue));
+  const noMobile = await api('POST', '/mahaprasad/issue', { quantity: 1, type: 'paid' });
+  check(noMobile.status === 400 && /mobile/i.test(noMobile.body.message), 'mahaprasad: issuing needs the devotee’s mobile number', show(noMobile));
+  check((await api('POST', '/mahaprasad/issue', { quantity: 1, type: 'free', mobile: '12345' })).status === 400, 'mahaprasad: a wrong mobile number → 400');
+  const issue = await api('POST', '/mahaprasad/issue', { quantity: '2', type: 'free', occasion: mocc.body.data.name, mobile: '+91 98811 80662' });
+  check((issue.status === 201 || issue.status === 200) && issue.body.data.coupons.every((c) => c.mobile === '9881180662'),
+    'mahaprasad: free coupons issued (quantity typed as text), mobile cleaned to 10 digits', show(issue));
+  const byMobile = (await api('GET', '/mahaprasad/coupons?search=80662')).body.data;
+  check(byMobile?.coupons?.length === 2 && byMobile.coupons.every((c) => c.mobile === '9881180662'), 'mahaprasad: history finds coupons by mobile number', show({ body: byMobile }));
+  const batches = (await api('GET', '/mahaprasad/batches')).body.data || [];
+  check(batches.some((b) => b._id === issue.body.data.batchId && b.mobile === '9881180662'), 'mahaprasad: the batch list shows the mobile number');
   check((await api('POST', '/mahaprasad/issue', { quantity: 2, type: 'vip' })).status === 400, 'mahaprasad: unknown coupon type → 400');
   check((await api('POST', '/mahaprasad/issue', { quantity: 500 })).status === 400, 'mahaprasad: more than 200 at once → 400');
   const reserve = await api('POST', '/mahaprasad/offline/reserve', { qty: 3 });
@@ -103,8 +111,12 @@ async function main() {
   check(reserve.status === 200 || reserve.status === 201, 'mahaprasad: offline numbers reserved', show(reserve));
   const first = reserved[0]?.couponNumber || reserved[0];
   if (first) {
-    const sync = await api('POST', '/mahaprasad/offline/sync', { issued: [{ couponNumber: first, type: 'free', amount: 0, issuedAt: new Date().toISOString() }], redeemed: [] });
-    check(sync.status === 200 && sync.body.data.results?.issued?.ok === 1, 'mahaprasad: offline sync of an issued coupon', show(sync));
+    const sync = await api('POST', '/mahaprasad/offline/sync', { issued: [{ couponNumber: first, type: 'free', amount: 0, issuedAt: new Date().toISOString(), mobile: '9822012345' }], redeemed: [] });
+    const synced = (await api('GET', `/mahaprasad/coupons?search=${first}`)).body.data?.coupons?.[0];
+    check(sync.status === 200 && sync.body.data.results?.issued?.ok === 1 && synced?.mobile === '9822012345', 'mahaprasad: offline sync of an issued coupon keeps its mobile number', show(sync));
+    const second = reserved[1]?.couponNumber || reserved[1];
+    const oldApp = await api('POST', '/mahaprasad/offline/sync', { issued: [{ couponNumber: second, type: 'free', amount: 0 }], redeemed: [] });
+    check(oldApp.body.data?.results?.issued?.ok === 1, 'mahaprasad: offline coupons from an older app (no mobile) still sync');
   }
   check((await api('POST', '/mahaprasad/offline/sync', { issued: [{ type: 'free' }] })).status === 400, 'mahaprasad: sync item without a coupon number → 400');
   check((await api('PATCH', '/mahaprasad/cash-drawer/adjust', { denomination: 3, delta: 1 })).status === 400, 'cash drawer: unknown denomination → 400');

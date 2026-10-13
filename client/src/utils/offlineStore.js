@@ -114,6 +114,7 @@ export async function confirmIssue(couponNumber, data) {
     type:         data.type,
     amount:       data.amount,
     occasion:     data.occasion || '',
+    mobile:       data.mobile || '',
     status:       'issued-offline',
     issuedAt:     data.issuedAt,
     issuedById:   data.issuedById,

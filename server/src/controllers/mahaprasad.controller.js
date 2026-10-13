@@ -10,6 +10,7 @@ import { randomBytes } from 'crypto';
 import { logAction } from '../services/audit.service.js';
 import { APP_TIMEZONE, localDateStr } from '../utils/dates.js';
 import { temple } from '../services/temple.service.js';
+import { sendCouponMessage } from '../services/mahaprasadNotify.service.js';
 const nanoid = () => randomBytes(6).toString('hex');
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -99,7 +100,7 @@ async function generateCouponNumbers(date, qty) {
 export const issueCoupons = asyncHandler(async (req, res) => {
   const {
     quantity = 1, type = 'paid', occasion = '', date, isGroup = false,
-    paymentMode = 'cash', amountReceived = 0, receivedNotes = [],
+    paymentMode = 'cash', amountReceived = 0, receivedNotes = [], mobile,
   } = req.body;
 
   const qty        = Math.min(Math.max(1, parseInt(quantity) || 1), 200);
@@ -140,6 +141,7 @@ export const issueCoupons = asyncHandler(async (req, res) => {
     type,
     amount:       isGroup ? price * groupSize : price,  // total amount for group
     occasion:     type === 'free' ? (occasion || '') : '',
+    mobile,
     status:       'issued',
     issuedBy:     req.user._id,
     issuedAt:     new Date(),
@@ -210,6 +212,7 @@ export const issueCoupons = asyncHandler(async (req, res) => {
       date:           couponDate,
       couponNumbers:  numbers,
       qty,
+      mobile,
       totalDue,
       paymentMode:    mode,
       amountReceived: received,
@@ -220,7 +223,9 @@ export const issueCoupons = asyncHandler(async (req, res) => {
     }).catch(() => {}); // fire-and-forget; don't fail the coupon issue
   }
 
-  logAction(req, { action: 'mahaprasad.issue', entity: 'MahaprasadCoupon', entityId: batchId, entityRef: batchId, after: { qty, type, isGroup: Boolean(isGroup), groupSize, date: localDateStr(couponDate), occasion: type === 'free' ? occasion : undefined } });
+  logAction(req, { action: 'mahaprasad.issue', entity: 'MahaprasadCoupon', entityId: batchId, entityRef: batchId, after: { qty, type, isGroup: Boolean(isGroup), groupSize, date: localDateStr(couponDate), occasion: type === 'free' ? occasion : undefined, mobile } });
+  // Coupon numbers to the devotee's phone, in the background (only when WhatsApp / SMS is set up for it).
+  sendCouponMessage({ mobile, numbers, date: couponDate, persons: qty });
   const msg = isGroup ? `Group coupon (${qty} persons) issued` : `${qty} coupon(s) issued`;
   res.status(201).json(new ApiResponse(201, { coupons, batchId, drawerChange }, msg));
 });
@@ -286,7 +291,14 @@ export const getCoupons = asyncHandler(async (req, res) => {
   }
   if (status) filter.status = status;
   if (type)   filter.type   = type;
-  if (search) filter.couponNumber = { $regex: search.trim().toUpperCase(), $options: 'i' };
+  // Search by coupon number, or by the devotee's mobile number (4+ digits)
+  if (search) {
+    const s = String(search).trim();
+    const digits = s.replace(/\D/g, '');
+    const or = [{ couponNumber: { $regex: s.toUpperCase().replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), $options: 'i' } }];
+    if (digits.length >= 4 && !/^MP/i.test(s)) or.push({ mobile: { $regex: digits.slice(-10) } });
+    filter.$or = or;
+  }
 
   const skip = (Math.max(1, parseInt(page)) - 1) * Math.min(100, parseInt(limit) || 50);
   const lim  = Math.min(100, parseInt(limit) || 50);
@@ -364,6 +376,7 @@ export const getBatches = asyncHandler(async (req, res) => {
       count:      { $sum: 1 },
       type:       { $first: '$type' },
       occasion:   { $first: '$occasion' },
+      mobile:     { $first: '$mobile' },
       issuedAt:   { $first: '$issuedAt' },
       issuedById: { $first: '$issuedBy' },
       numbers:    { $push: '$couponNumber' },
@@ -741,6 +754,7 @@ export const syncOffline = asyncHandler(async (req, res) => {
           type:     item.type     || 'paid',
           amount:   item.amount   ?? 0,
           occasion: item.occasion || '',
+          mobile:   item.mobile   || '',
           issuedBy: item.issuedById || req.user._id,
           issuedAt: item.issuedAt ? new Date(item.issuedAt) : new Date(),
           batchId:  item.batchId  || nanoid(),
