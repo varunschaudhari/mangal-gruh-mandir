@@ -17,6 +17,7 @@ const path    = require('path');
 const fs      = require('fs');
 const Store   = require('electron-store');
 const printer = require('./printer');
+const { autoUpdater } = require('electron-updater');
 
 // ── Persistent store ──────────────────────────────────────────────────────────
 const store = new Store({
@@ -145,6 +146,7 @@ app.whenReady().then(() => {
   });
 
   createWindow();
+  setupAutoUpdate();
 
   // ── Online heartbeat: ping VPS every 60 s, notify renderer ────────────────
   setInterval(async () => {
@@ -168,7 +170,57 @@ app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit();
 });
 
+// ── Auto-update ───────────────────────────────────────────────────────────────
+// New desktop versions are published on the server next to the Android app updates
+// (mobile-releases/desktop/, served at <server>/api/app/desktop/ — see scripts/release-desktop.mjs).
+// The update downloads in the background; it installs when the counter clicks "Restart now"
+// or the next time the app is closed, so a busy counter is never interrupted.
+let updateReady = null; // version downloaded and waiting to install
+
+const updateFeed = () => {
+  const base = store.get('settings.apiUrl', '').replace(/\/$/, '');
+  return base ? `${base}/api/app/desktop/` : '';
+};
+
+const sendUpdateStatus = (status) => {
+  if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('update-status', status);
+};
+
+async function checkForUpdates() {
+  if (!app.isPackaged) return { state: 'dev' };
+  const feed = updateFeed();
+  if (!feed) return { state: 'no-server' };
+  if (updateReady) return { state: 'ready', version: updateReady };
+  autoUpdater.setFeedURL({ provider: 'generic', url: feed });
+  const result = await autoUpdater.checkForUpdates();
+  const version = result?.updateInfo?.version;
+  return version && version !== app.getVersion() ? { state: 'downloading', version } : { state: 'current', version: app.getVersion() };
+}
+
+function setupAutoUpdate() {
+  if (!app.isPackaged) return;
+  autoUpdater.autoDownload = true;
+  autoUpdater.autoInstallOnAppQuit = true;
+  autoUpdater.on('update-available', (info) => sendUpdateStatus({ state: 'downloading', version: info.version }));
+  autoUpdater.on('update-downloaded', (info) => {
+    updateReady = info.version;
+    sendUpdateStatus({ state: 'ready', version: info.version });
+  });
+  autoUpdater.on('error', (err) => console.error('[update]', err?.message || err));
+  const check = () => checkForUpdates().catch((err) => console.error('[update]', err?.message || err));
+  setTimeout(check, 15_000);                 // shortly after start
+  setInterval(check, 4 * 60 * 60 * 1000);    // and every 4 hours while open
+}
+
 // ── IPC ───────────────────────────────────────────────────────────────────────
+
+// Desktop app version and updates
+ipcMain.handle('get-app-version', () => app.getVersion());
+ipcMain.handle('get-update-status', () => (updateReady ? { state: 'ready', version: updateReady } : null));
+ipcMain.handle('check-for-updates', async () => {
+  try { return await checkForUpdates(); } catch (err) { return { state: 'error', message: err?.message || String(err) }; }
+});
+ipcMain.on('install-update', () => { if (updateReady) autoUpdater.quitAndInstall(true, true); });
 
 // Settings
 ipcMain.handle('get-settings', () => store.get('settings'));

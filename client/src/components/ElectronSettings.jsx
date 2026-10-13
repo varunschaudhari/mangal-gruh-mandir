@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Settings, X, Check, Wifi, WifiOff, ChevronDown, AlertCircle, Printer, Loader2 } from 'lucide-react';
+import { Settings, X, Check, Wifi, WifiOff, ChevronDown, AlertCircle, Printer, Loader2, Download, RefreshCw } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { printTestPage } from '../utils/thermalPrint.js';
 import { useT } from '../i18n/index.jsx';
@@ -25,6 +25,11 @@ export default function ElectronSettings() {
   const [printerErr, setPrinterErr] = useState('');
   const [testPrinting, setTestPrinting] = useState(false);
   const savedApiUrl = useRef('');
+  // Desktop app updates (see electron/main.js → Auto-update)
+  const [appVersion, setAppVersion] = useState('');
+  const [update, setUpdate]         = useState(null);   // { state: 'downloading' | 'ready', version }
+  const [updateLater, setUpdateLater] = useState(false);
+  const [checkingUpdate, setCheckingUpdate] = useState(false);
 
   // Load settings + subscribe to heartbeat
   useEffect(() => {
@@ -42,6 +47,28 @@ export default function ElectronSettings() {
     });
     return unsub;
   }, []);
+
+  // Version, and a newer version downloading / ready to install
+  useEffect(() => {
+    const api = window.electronAPI;
+    if (!api?.onUpdateStatus) return undefined; // installed before auto-update existed
+    api.getAppVersion().then(setAppVersion).catch(() => {});
+    api.getUpdateStatus().then((s) => s && setUpdate(s)).catch(() => {});
+    return api.onUpdateStatus(setUpdate);
+  }, []);
+
+  async function handleCheckUpdate() {
+    setCheckingUpdate(true);
+    try {
+      const r = await window.electronAPI.checkForUpdates();
+      if (r.state === 'current') toast.success(t('The desktop app is up to date'));
+      else if (r.state === 'downloading') { setUpdate(r); toast(t('Downloading version {version}…', { version: r.version })); }
+      else if (r.state === 'ready') setUpdate(r);
+      else if (r.state === 'error') toast.error(t('Could not check for updates — check the internet connection'));
+    } finally {
+      setCheckingUpdate(false);
+    }
+  }
 
   // Reload printers & run health check whenever panel opens
   useEffect(() => {
@@ -151,6 +178,24 @@ export default function ElectronSettings() {
         }
       />
 
+      {/* A new version is downloaded: restart now, or it installs when the app is next closed */}
+      {update?.state === 'ready' && !updateLater && (
+        <div role="status" className="fixed bottom-4 left-4 z-50 flex max-w-sm items-center gap-3 rounded-xl border border-green-200 bg-white px-4 py-3 shadow-lg">
+          <Download className="h-5 w-5 shrink-0 text-green-600" />
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-semibold text-gray-900">{t('Desktop app {version} is ready', { version: update.version })}</p>
+            <p className="text-xs text-gray-500">{t('Restart to update, or it installs when you close the app.')}</p>
+          </div>
+          <button type="button" onClick={() => window.electronAPI.installUpdate()}
+            className="shrink-0 rounded-lg bg-green-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-green-700">
+            {t('Restart now')}
+          </button>
+          <button type="button" onClick={() => setUpdateLater(true)} className="shrink-0 text-xs text-gray-400 hover:text-gray-600">
+            {t('Later')}
+          </button>
+        </div>
+      )}
+
       {/* Modal */}
       {open && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50">
@@ -248,6 +293,26 @@ export default function ElectronSettings() {
                 )}
               </div>
             </div>
+
+            {/* Version and updates */}
+            {appVersion && (
+              <div className="mt-5 flex items-center justify-between gap-2 border-t border-gray-100 pt-4 text-xs text-gray-500">
+                <span>
+                  {t('Desktop app version {version}', { version: appVersion })}
+                  {update?.state === 'downloading' && <span className="ml-1 text-blue-600">· {t('downloading {version}…', { version: update.version })}</span>}
+                  {update?.state === 'ready' && <span className="ml-1 text-green-600">· {t('{version} ready — restart to install', { version: update.version })}</span>}
+                </span>
+                {update?.state === 'ready' ? (
+                  <button type="button" onClick={() => window.electronAPI.installUpdate()}
+                    className="shrink-0 rounded-lg bg-green-600 px-3 py-1.5 font-semibold text-white hover:bg-green-700">{t('Restart now')}</button>
+                ) : (
+                  <button type="button" onClick={handleCheckUpdate} disabled={checkingUpdate}
+                    className="flex shrink-0 items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 hover:bg-gray-50 disabled:opacity-50">
+                    <RefreshCw className={`h-3.5 w-3.5 ${checkingUpdate ? 'animate-spin' : ''}`} /> {t('Check for updates')}
+                  </button>
+                )}
+              </div>
+            )}
 
             <div className="flex justify-end gap-3 mt-6">
               <button onClick={() => setOpen(false)} className="px-4 py-2 text-sm text-gray-500 hover:text-gray-700">

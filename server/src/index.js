@@ -98,10 +98,11 @@ app.use('/uploads', express.static(UPLOADS_DIR));
 // are also served here — /uploads/* never reached it and returned 404.
 app.use('/api/uploads', express.static(UPLOADS_DIR));
 
-// Android app updates: latest.json + APK files published by client/scripts/release-android.mjs
-// (see MOBILE.md). latest.json must never be cached or phones won't see new versions.
+// App updates. Android: latest.json + APKs (client/scripts/release-android.mjs, MOBILE.md).
+// Desktop: desktop/latest.yml + installer (electron/scripts/release-desktop.mjs).
+// The latest.* files must never be cached or apps won't see new versions.
 app.use('/api/app', express.static(path.join(__dirname, '../mobile-releases'), {
-  setHeaders: (res, file) => { if (file.endsWith('.json')) res.setHeader('Cache-Control', 'no-store'); },
+  setHeaders: (res, file) => { if (/\.(json|yml)$/.test(file)) res.setHeader('Cache-Control', 'no-store'); },
 }));
 
 app.get('/api/health', (req, res) => res.json({ status: 'ok', env: process.env.NODE_ENV }));

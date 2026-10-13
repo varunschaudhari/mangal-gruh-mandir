@@ -120,6 +120,37 @@ over the old version and keeps the data and login, as long as it's signed with t
 - The **debug** test APK is signed with a different key, so it can't update to a release build â€”
   uninstall it once before installing the first release.
 
+## Windows desktop app (counter PCs) — release and auto-update
+
+The desktop app (`electron/`) runs the same software from its own copy of the screens (so a
+counter keeps working offline), talks to the server set in its ⚙ Settings, and prints straight to
+the Windows thermal printer. From version **1.1.0** it updates itself:
+
+- When it opens (and every 4 hours) it checks `<server>/api/app/desktop/latest.yml`, downloads a
+  newer version in the background, and shows "Desktop app x.y.z is ready — Restart now / Later".
+  If nobody restarts, the update installs the next time the app is closed.
+- ⚙ Settings shows the version and has **Check for updates**.
+
+**Build and publish a release** (Windows, Node 22+):
+
+```bash
+cd electron
+npm run release -- --version 1.2.0 --notes "What changed"
+```
+
+This builds the web app, packs the installer and writes `MGM-Counter-Setup-1.2.0.exe`, its
+`.blockmap` and `latest.yml` to `mobile-releases/desktop/`. Copy them to the server's
+`mobile-releases/desktop/` folder, **latest.yml last** (the script prints the `scp` lines).
+Do a release whenever the screens change, along with the server deploy.
+
+**First install, and PCs still on 1.0.0** (it has no updater): download and run
+`https://mandir.aumora.io/api/app/desktop/MGM-Counter-Setup-1.1.0.exe` once. Windows may show
+"Windows protected your PC" because the installer isn't code-signed → **More info → Run anyway**.
+
+If `electron-builder` fails with *Cannot create symbolic link* while unpacking `winCodeSign` or
+`nsis`, copy the unpacked numbered folder in `%LOCALAPPDATA%\electron-builder\Cache\winCodeSign\`
+to `winCodeSign-2.6.0` (and in `...\Cache\nsis\` to `nsis-3.0.4.1`), then build again.
+
 ## Push notifications
 
 The app can notify people on their phones:

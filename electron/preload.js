@@ -27,6 +27,17 @@ contextBridge.exposeInMainWorld('electronAPI', {
     return () => ipcRenderer.removeListener('online-status', handler);
   },
 
+  // Desktop app version and updates (published on the server — see main.js → Auto-update)
+  getAppVersion:   () => ipcRenderer.invoke('get-app-version'),
+  getUpdateStatus: () => ipcRenderer.invoke('get-update-status'),
+  checkForUpdates: () => ipcRenderer.invoke('check-for-updates'),
+  installUpdate:   () => ipcRenderer.send('install-update'),
+  onUpdateStatus: (cb) => {
+    const handler = (_e, status) => cb(status);
+    ipcRenderer.on('update-status', handler);
+    return () => ipcRenderer.removeListener('update-status', handler);
+  },
+
   // Dev tools
   openDevTools: () => ipcRenderer.send('open-devtools'),
 });
