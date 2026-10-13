@@ -1,5 +1,6 @@
 import { printHtml } from './printHtml.js';
-import { templeHtml } from './temple.js';
+import { temple } from './temple.js';
+import { PRINT_FONT, PRINT_HEADER_CSS, esc, letterheadHtml } from './printTemplate.js';
 
 const TYPE_LABELS = {
   STOCK_IN: 'Stock In', STOCK_OUT: 'Stock Out',
@@ -15,7 +16,7 @@ const TYPE_COLORS = {
 
 function row(label, value) {
   if (!value) return '';
-  return `<tr><td>${label}</td><td>${value}</td></tr>`;
+  return `<tr><td>${label}</td><td>${esc(value)}</td></tr>`;
 }
 
 export function printTransactionReceipt(txn) {
@@ -32,36 +33,30 @@ export function printTransactionReceipt(txn) {
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Receipt — ${txn.transactionNumber}</title>
+  <title>Stock Voucher — ${esc(txn.transactionNumber)}</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
-      font-family: Arial, sans-serif;
+      font-family: ${PRINT_FONT};
       font-size: 13px;
       color: #1f2937;
-      padding: 28px;
-      max-width: 520px;
+      padding: 24px;
+      max-width: 560px;
       margin: 0 auto;
     }
+    ${PRINT_HEADER_CSS}
+    .lh-logo { width: 54px; height: 54px; } .lh-mr { font-size: 18px; } .lh-en { font-size: 12px; } .lh-sub { font-size: 10px; }
 
-    /* ── Header ── */
-    .header { text-align: center; padding-bottom: 14px; border-bottom: 2px solid #e5e7eb; margin-bottom: 16px; }
-    .temple-name { font-size: 20px; font-weight: 800; color: #FF8C00; letter-spacing: 0.5px; }
-    .temple-sub  { font-size: 11px; color: #6b7280; margin-top: 2px; }
-
-    /* ── TXN badge ── */
-    .txn-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
-    .txn-number { font-family: monospace; font-size: 13px; font-weight: 700; color: #374151; }
-    .txn-date   { font-size: 11px; color: #6b7280; text-align: right; }
+    /* ── Type ── */
     .type-badge {
-      display: inline-block; padding: 3px 12px; border-radius: 20px;
-      font-size: 12px; font-weight: 700; color: white;
-      background: ${color}; margin-bottom: 14px;
+      display: inline-block; padding: 2px 12px; border-radius: 20px;
+      font-size: 12px; font-weight: 700; color: ${color};
+      border: 1.5px solid ${color}; margin-bottom: 12px;
     }
 
     /* ── Product highlight ── */
     .product-box {
-      background: #f9fafb; border: 1px solid #e5e7eb;
+      border: 1px solid #e5e7eb;
       border-left: 4px solid ${color};
       border-radius: 6px; padding: 12px 16px; margin-bottom: 14px;
     }
@@ -78,18 +73,17 @@ export function printTransactionReceipt(txn) {
     tr + tr td { border-top: 1px solid #f3f4f6; }
 
     /* ── Notes ── */
-    .notes { background: #fffbeb; border: 1px solid #fde68a; border-radius: 6px; padding: 8px 12px; margin-bottom: 14px; font-size: 12px; color: #92400e; }
+    .notes { border: 1px solid #e5e7eb; border-radius: 6px; padding: 8px 12px; margin-bottom: 14px; font-size: 12px; color: #4b5563; }
 
     /* ── Signatures ── */
-    .sig-row { display: flex; gap: 16px; margin-top: 18px; }
-    .sig-box  { flex: 1; border-top: 1px solid #d1d5db; padding-top: 6px; text-align: center; font-size: 10px; color: #9ca3af; }
+    .sig-row { display: flex; gap: 14px; align-items: flex-end; margin-top: 8px; }
+    .sig-box  { flex: 1; border-top: 1px solid #9ca3af; padding-top: 5px; text-align: center; font-size: 10px; color: #6b7280; }
 
     /* ── Stamp ── */
     .stamp-box {
-      width: 90px; height: 90px; border: 2px dashed #d1d5db;
+      width: 74px; height: 74px; flex: none; border: 2px dashed #d1d5db;
       border-radius: 50%; display: flex; align-items: center;
-      justify-content: center; font-size: 10px; color: #d1d5db;
-      margin-left: auto; margin-top: -50px; margin-bottom: 10px;
+      justify-content: center; font-size: 10px; color: #9ca3af;
     }
 
     /* ── Voided watermark ── */
@@ -101,7 +95,7 @@ export function printTransactionReceipt(txn) {
     }
 
     /* ── Footer ── */
-    .footer { text-align: center; font-size: 10px; color: #9ca3af; border-top: 1px solid #f3f4f6; padding-top: 10px; margin-top: 16px; }
+    .footer { text-align: center; font-size: 10px; color: #9ca3af; border-top: 1px solid #f3f4f6; padding-top: 8px; margin-top: 12px; }
 
     @media print {
       body { padding: 16px; }
@@ -112,29 +106,15 @@ export function printTransactionReceipt(txn) {
 <body>
   ${txn.isVoided ? '<div class="voided-watermark">VOIDED</div>' : ''}
 
-  <div class="header">
-    <div class="temple-name">${templeHtml()}</div>
-    <div class="temple-sub">Amalner, Dist. Jalgaon, Maharashtra</div>
-    <div class="temple-sub">Stock Management System</div>
-  </div>
+  ${letterheadHtml({ title: 'Stock Voucher', number: txn.transactionNumber, date: [date, time].filter(Boolean).join(', ') })}
 
-  <div class="txn-header">
-    <div>
-      <div class="txn-number">${txn.transactionNumber}</div>
-    </div>
-    <div class="txn-date">
-      <div>${date}</div>
-      <div>${time}</div>
-    </div>
-  </div>
-
-  <div><span class="type-badge">${typeLabel}</span></div>
+  <div><span class="type-badge">${esc(typeLabel)}</span></div>
 
   <div class="product-box">
-    <div class="product-name">${txn.product?.name || '—'}</div>
-    <div class="product-code">${txn.product?.code || ''}</div>
+    <div class="product-name">${esc(txn.product?.name || '—')}</div>
+    <div class="product-code">${esc(txn.product?.code || '')}</div>
     <div class="product-qty">
-      ${txn.quantity}<span class="product-unit">${txn.unit?.symbol || ''}</span>
+      ${esc(txn.quantity)}<span class="product-unit">${esc(txn.unit?.symbol || '')}</span>
     </div>
   </div>
 
@@ -152,18 +132,17 @@ export function printTransactionReceipt(txn) {
     ${row('Recorded By', txn.createdBy?.name)}
   </table>
 
-  ${txn.notes ? `<div class="notes"><strong>Notes:</strong> ${txn.notes}</div>` : ''}
-
-  <div class="stamp-box">Stamp</div>
+  ${txn.notes ? `<div class="notes"><strong>Notes:</strong> ${esc(txn.notes)}</div>` : ''}
 
   <div class="sig-row">
-    <div class="sig-box">Prepared By<br/><br/>${txn.createdBy?.name || ''}</div>
-    <div class="sig-box">Checked By<br/><br/>&nbsp;</div>
-    <div class="sig-box">Authorized By<br/><br/>&nbsp;</div>
+    <div class="sig-box">Prepared By<br/>${esc(txn.createdBy?.name || '')}&nbsp;</div>
+    <div class="sig-box">Checked By<br/>&nbsp;</div>
+    <div class="sig-box">Authorized By<br/>&nbsp;</div>
+    <div class="stamp-box">Stamp</div>
   </div>
 
   <div class="footer">
-    This is a computer-generated receipt — ${templeHtml()} · Stock Management System
+    Computer-generated voucher · ${esc(temple().name)} · Stock Management
   </div>
 
   <script>window.onload = () => { window.print(); }<\/script>
@@ -171,7 +150,7 @@ export function printTransactionReceipt(txn) {
 </html>`;
 
   return printHtml(html, {
-    filename: `Receipt-${txn.transactionNumber || typeLabel}.pdf`,
+    filename: `Stock-Voucher-${txn.transactionNumber || typeLabel}.pdf`,
     features: 'width=620,height=820',
   });
 }

@@ -46,7 +46,7 @@ async function runView(run, month) {
     run,
     totals: run ? runTotals(run.lines) : null,
     advances,
-    temple: { name: temple().name, address: temple().address, phone: temple().phone },
+    temple: temple(), // the payslip letterhead
   };
 }
 

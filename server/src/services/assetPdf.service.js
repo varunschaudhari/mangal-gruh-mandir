@@ -1,9 +1,9 @@
-import PDFDocument from 'pdfkit';
 import { localDateStr } from '../utils/dates.js';
-import { temple } from './temple.service.js';
+import { createPdf, reportHeader, pageFooters, ensureSpace, PDF_COLORS, mid } from './pdfLayout.js';
 
-const C = { primary: '#7c3aed', dark: '#1f2937', gray: '#6b7280', light: '#f5f3ff', white: '#ffffff', red: '#dc2626' };
+const C = { accent: PDF_COLORS.accent, dark: PDF_COLORS.text, gray: PDF_COLORS.muted, light: PDF_COLORS.accentSoft, white: '#ffffff', red: '#dc2626' };
 const STATUS_LABELS = { approved: 'Approved', checked_out: 'Checked Out', returned: 'Returned', overdue: 'Overdue', cancelled: 'Cancelled' };
+const ROW_H = 14;
 
 function fDate(d) {
   if (!d) return '—';
@@ -11,7 +11,7 @@ function fDate(d) {
 }
 
 export function generateAssetReportPDF(res, { transactions, from, to }) {
-  const doc = new PDFDocument({ size: 'A4', margin: 40, bufferPages: true });
+  const doc = createPdf({ size: 'A4', margin: 40 });
 
   res.setHeader('Content-Type', 'application/pdf');
   res.setHeader('Content-Disposition', `attachment; filename="asset-report-${localDateStr()}.pdf"`);
@@ -20,23 +20,13 @@ export function generateAssetReportPDF(res, { transactions, from, to }) {
   const W    = doc.page.width - 80;
   const LEFT = 40;
 
-  // ── Header ────────────────────────────────────────────────────────────────
-  doc.rect(LEFT, 30, W, 56).fill(C.primary);
-  doc.fillColor(C.white).fontSize(16).font('Helvetica-Bold')
-    .text(temple().name, LEFT + 10, 40, { width: W - 20 });
-  doc.fontSize(9).font('Helvetica')
-    .text('Asset Borrow Transactions Report', LEFT + 10, 60);
-
   const rangeLabel = from || to
     ? `${from ? fDate(from) : 'Beginning'} – ${to ? fDate(to) : 'Today'}`
     : 'All Time';
 
-  doc.fillColor(C.dark).fontSize(9).font('Helvetica')
-    .text(`Period: ${rangeLabel}`, LEFT, 100)
-    .text(`Generated: ${fDate(new Date())}`, LEFT + W - 140, 100, { align: 'right' });
+  let y = reportHeader(doc, { title: 'Asset Borrow Transactions Report', subtitle: `Period: ${rangeLabel}` });
 
   // ── Summary boxes ─────────────────────────────────────────────────────────
-  let y = 118;
   const total   = transactions.length;
   const returned = transactions.filter((t) => t.status === 'returned').length;
   const overdue  = transactions.filter((t) => t.status === 'overdue').length;
@@ -53,10 +43,10 @@ export function generateAssetReportPDF(res, { transactions, from, to }) {
   boxes.forEach((b, i) => {
     const bx = LEFT + i * (bw + 3);
     doc.rect(bx, y, bw, 36).fill(C.light);
-    doc.fillColor(C.primary).fontSize(16).font('Helvetica-Bold')
-      .text(String(b.value), bx, y + 4, { width: bw, align: 'center' });
+    doc.fillColor(C.accent).fontSize(16).font('Helvetica-Bold')
+      .text(String(b.value), bx, y + 0.5, { width: bw, align: 'center' });
     doc.fillColor(C.gray).fontSize(7).font('Helvetica')
-      .text(b.label, bx, y + 24, { width: bw, align: 'center' });
+      .text(b.label, bx, y + 20, { width: bw, align: 'center' });
   });
 
   // ── Table ─────────────────────────────────────────────────────────────────
@@ -71,28 +61,29 @@ export function generateAssetReportPDF(res, { transactions, from, to }) {
     { label: 'Fine (₹)',  w: 48  },
   ];
 
-  // Header row
-  doc.rect(LEFT, y, W, 16).fill(C.primary);
-  let cx = LEFT + 4;
-  cols.forEach((c) => {
-    doc.fillColor(C.white).fontSize(7).font('Helvetica-Bold')
-      .text(c.label, cx, y + 4, { width: c.w - 4 });
-    cx += c.w;
-  });
-  y += 16;
+  // Header row (repeated at the top of every new page)
+  const drawHeader = (startY) => {
+    doc.rect(LEFT, startY, W, 16).fill(C.light);
+    doc.moveTo(LEFT, startY + 16).lineTo(LEFT + W, startY + 16).lineWidth(0.8).strokeColor(C.accent).stroke();
+    let hx = LEFT + 4;
+    cols.forEach((c) => {
+      doc.fillColor(C.accent).fontSize(7).font('Helvetica-Bold')
+        .text(c.label, hx, startY + mid(16, 7), { width: c.w - 4, height: 16, ellipsis: true });
+      hx += c.w;
+    });
+    return startY + 16;
+  };
+  y = drawHeader(y);
 
   let rowNum = 0;
   for (const t of transactions) {
-    if (y > doc.page.height - 60) {
-      doc.addPage();
-      y = 40;
-    }
+    y = ensureSpace(doc, y, ROW_H, { onNewPage: drawHeader });
 
-    const bg = rowNum % 2 === 0 ? C.white : '#F5F3FF';
-    doc.rect(LEFT, y, W, 14).fill(bg);
+    const bg = rowNum % 2 === 0 ? C.white : C.light;
+    doc.rect(LEFT, y, W, ROW_H).fill(bg);
 
     const isOverdue = t.status === 'overdue';
-    cx = LEFT + 4;
+    let cx = LEFT + 4;
     const cells = [
       t.transactionNumber || '—',
       t.asset?.name || '—',
@@ -106,22 +97,15 @@ export function generateAssetReportPDF(res, { transactions, from, to }) {
     cells.forEach((text, i) => {
       doc.fillColor(isOverdue && i === 4 ? C.red : C.dark)
         .fontSize(7).font(isOverdue && i === 4 ? 'Helvetica-Bold' : 'Helvetica')
-        .text(String(text), cx, y + 3, { width: cols[i].w - 4, ellipsis: true });
+        .text(String(text), cx, y + mid(ROW_H, 7), { width: cols[i].w - 4, height: ROW_H, ellipsis: true });
       cx += cols[i].w;
     });
 
-    doc.moveTo(LEFT, y + 14).lineTo(LEFT + W, y + 14).strokeColor('#E5E7EB').lineWidth(0.5).stroke();
-    y += 14;
+    doc.moveTo(LEFT, y + ROW_H).lineTo(LEFT + W, y + ROW_H).strokeColor(PDF_COLORS.line).lineWidth(0.5).stroke();
+    y += ROW_H;
     rowNum++;
   }
 
-  // ── Footer on each page ───────────────────────────────────────────────────
-  const pageCount = doc.bufferedPageRange().count;
-  for (let i = 0; i < pageCount; i++) {
-    doc.switchToPage(i);
-    doc.fillColor(C.gray).fontSize(7).font('Helvetica')
-      .text(`Page ${i + 1} of ${pageCount}  ·  ${temple().name} · Asset Management`, LEFT, doc.page.height - 30, { width: W, align: 'center' });
-  }
-
+  pageFooters(doc, { label: 'Asset Management' });
   doc.end();
 }

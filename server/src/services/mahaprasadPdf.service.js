@@ -1,13 +1,8 @@
-import PDFDocument from 'pdfkit';
 import QRCode from 'qrcode';
 import { existsSync } from 'fs';
-import { fileURLToPath } from 'url';
-import path from 'path';
 import { temple } from './temple.service.js';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname  = path.dirname(__filename);
-const LOGO_PATH  = path.resolve(__dirname, '../../../client/public/logo.png');
+// The logo ships with the server (server/assets) — the client folder is not in the server image
+import { createPdf, LOGO_PATH } from './pdfLayout.js';
 
 // ── Palette ───────────────────────────────────────────────────────────────────
 
@@ -47,6 +42,10 @@ const GAP    = 5;
 
 const fmtDate = (d, opts = {}) =>
   new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', ...opts });
+
+// Mukta (the PDF font) sets a line half its size lower than Helvetica did: lift each line by
+// that much so the card keeps the spacing it was designed with
+const lift = (size) => size / 2;
 
 // ── Draw one coupon ───────────────────────────────────────────────────────────
 
@@ -96,16 +95,6 @@ async function drawCoupon(doc, coupon, settings, cx, cy) {
     catch { /* skip */ }
   }
 
-  // ── Header: temple name ───────────────────────────────────────────────────
-  const nameX = x + (hasLogo ? LOGO_SZ + 18 : 10);
-  const nameW = w - (nameX - x) - 68;
-  const templeName = settings?.templeName || temple().name;
-
-  doc.font('Helvetica-Bold').fontSize(8.5).fillColor(C.headerText)
-    .text(templeName.toUpperCase(), nameX, y + 11, { width: nameW, lineBreak: false });
-  doc.font('Helvetica-Oblique').fontSize(7).fillColor(C.subText)
-    .text('Mahaprasad Seva Coupon', nameX, y + 24, { width: nameW, lineBreak: false });
-
   // ── Header: type badge ────────────────────────────────────────────────────
   const BW = isGroup ? 82 : 62, BH = 16;
   const BX = x + w - BW - 7;
@@ -113,25 +102,38 @@ async function drawCoupon(doc, coupon, settings, cx, cy) {
 
   doc.save().roundedRect(BX, BY, BW, BH, 3).fill(badgeBg).restore();
   doc.font('Helvetica-Bold').fontSize(7).fillColor(badgeTx)
-    .text(badgeLabel, BX, BY + 4.5, { width: BW, align: 'center', lineBreak: false });
+    .text(badgeLabel, BX, BY + 4.5 - lift(7), { width: BW, align: 'center', lineBreak: false });
+
+  // ── Header: temple name (between the logo and the badge; a long name gets a smaller size) ──
+  const nameX = x + (hasLogo ? LOGO_SZ + 18 : 10);
+  const nameW = BX - 6 - nameX;
+  const templeName = (settings?.templeName || temple().name).toUpperCase();
+  let nameSize = 8.5;
+  doc.font('Helvetica-Bold');
+  while (nameSize > 6.5 && doc.fontSize(nameSize).widthOfString(templeName) > nameW) nameSize -= 0.25;
+
+  doc.font('Helvetica-Bold').fontSize(nameSize).fillColor(C.headerText)
+    .text(templeName, nameX, y + 11 - lift(nameSize), { width: nameW, height: 14, ellipsis: true });
+  doc.font('Helvetica-Oblique').fontSize(7).fillColor(C.subText)
+    .text('Mahaprasad Seva Coupon', nameX, y + 24 - lift(7), { width: nameW, lineBreak: false });
 
   // ── Info block (centered, below header) ───────────────────────────────────
   let iy = y + HEADER_H + 10;
 
   // "COUPON NO." micro-label
   doc.font('Helvetica').fontSize(6).fillColor(C.muted)
-    .text('COUPON NO.', x, iy, { width: w, align: 'center', characterSpacing: 0.5, lineBreak: false });
+    .text('COUPON NO.', x, iy - lift(6), { width: w, align: 'center', characterSpacing: 0.5, lineBreak: false });
   iy += 9;
 
   // Coupon number — large, centered
   doc.font('Helvetica-Bold').fontSize(11.5).fillColor(C.saffronDeep)
-    .text(coupon.couponNumber, x, iy, { width: w, align: 'center', lineBreak: false });
+    .text(coupon.couponNumber, x, iy - lift(11.5), { width: w, align: 'center', lineBreak: false });
   iy += 15;
 
   // Group label — shown below coupon number for group coupons
   if (isGroup) {
     doc.font('Helvetica-Bold').fontSize(7.5).fillColor(accent)
-      .text(`GROUP COUPON  ·  ${groupSize} PERSONS`, x, iy, { width: w, align: 'center', lineBreak: false });
+      .text(`GROUP COUPON  ·  ${groupSize} PERSONS`, x, iy - lift(7.5), { width: w, align: 'center', lineBreak: false });
     iy += 11;
   }
 
@@ -143,13 +145,13 @@ async function drawCoupon(doc, coupon, settings, cx, cy) {
 
   // Date
   doc.font('Helvetica').fontSize(7.5).fillColor(C.gray)
-    .text(fmtDate(coupon.date, { weekday: 'short' }), x, iy, { width: w, align: 'center', lineBreak: false });
+    .text(fmtDate(coupon.date, { weekday: 'short' }), x, iy - lift(7.5), { width: w, align: 'center', lineBreak: false });
   iy += 11;
 
   // Occasion (free only)
   if (isFree && coupon.occasion) {
     doc.font('Helvetica-Oblique').fontSize(7).fillColor(C.freeAccent)
-      .text(coupon.occasion, x, iy, { width: w, align: 'center', lineBreak: false });
+      .text(coupon.occasion, x, iy - lift(7), { width: w, align: 'center', lineBreak: false });
     iy += 10;
   }
 
@@ -170,7 +172,7 @@ async function drawCoupon(doc, coupon, settings, cx, cy) {
   doc.image(qrBuf, QR_X, QR_Y, { width: QR_SZ, height: QR_SZ });
 
   doc.font('Helvetica').fontSize(5.5).fillColor(C.light)
-    .text('SCAN TO VERIFY', x, QR_Y + QR_SZ + 5, { width: w, align: 'center', lineBreak: false });
+    .text('SCAN TO VERIFY', x, QR_Y + QR_SZ + 5 - lift(5.5), { width: w, align: 'center', lineBreak: false });
 
   // ── Details bar (validity + batch) ────────────────────────────────────────
   const detY = QR_Y + QR_SZ + 18;
@@ -180,12 +182,12 @@ async function drawCoupon(doc, coupon, settings, cx, cy) {
     const expiry = new Date(coupon.date);
     expiry.setDate(expiry.getDate() + validityDays);
     doc.font('Helvetica').fontSize(6.5).fillColor(C.muted)
-      .text(`Valid until: ${fmtDate(expiry)}`, x + 10, detY, { width: w / 2 - 10, lineBreak: false });
+      .text(`Valid until: ${fmtDate(expiry)}`, x + 10, detY - lift(6.5), { width: w / 2 - 10, lineBreak: false });
   }
 
   if (coupon.batchId) {
     doc.font('Helvetica').fontSize(6).fillColor(C.light)
-      .text(`Batch: ${coupon.batchId.substring(0, 8).toUpperCase()}`, x + w / 2, detY, { width: w / 2 - 10, align: 'right', lineBreak: false });
+      .text(`Batch: ${coupon.batchId.substring(0, 8).toUpperCase()}`, x + w / 2, detY - lift(6), { width: w / 2 - 10, align: 'right', lineBreak: false });
   }
 
   // ── Footer ────────────────────────────────────────────────────────────────
@@ -197,11 +199,11 @@ async function drawCoupon(doc, coupon, settings, cx, cy) {
   const servingText = isGroup ? `Valid for ${groupSize} servings` : 'Valid for one serving';
   doc.font('Helvetica-Bold').fontSize(5.8).fillColor(C.white)
     .text(`Present at Prasad counter · ${servingText} · Non-transferable`,
-      x + 4, ftY + 4, { width: w - 8, align: 'center', lineBreak: false });
+      x + 4, ftY + 4 - lift(5.8), { width: w - 8, align: 'center', lineBreak: false });
 
   if (contactLine) {
     doc.font('Helvetica').fontSize(5.5).fillColor(C.subText)
-      .text(contactLine, x + 4, ftY + 14, { width: w - 8, align: 'center', lineBreak: false });
+      .text(contactLine, x + 4, ftY + 14 - lift(5.5), { width: w - 8, align: 'center', lineBreak: false });
   }
 
   // ── Cut guides at shared cell edges ───────────────────────────────────────
@@ -214,7 +216,8 @@ async function drawCoupon(doc, coupon, settings, cx, cy) {
 // ── Public export ─────────────────────────────────────────────────────────────
 
 export async function generateCouponsPdf(res, { coupons, settings }) {
-  const doc = new PDFDocument({ size: 'A4', margin: 0, autoFirstPage: true });
+  // Mukta fonts (Marathi text prints); pages stream out as they are drawn — no page footers here
+  const doc = createPdf({ size: 'A4', margin: 0, autoFirstPage: true, bufferPages: false });
   res.setHeader('Content-Type', 'application/pdf');
   res.setHeader('Content-Disposition', 'inline; filename="mahaprasad-coupons.pdf"');
   doc.pipe(res);

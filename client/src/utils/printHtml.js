@@ -1,6 +1,7 @@
 import toast from 'react-hot-toast';
 import { isNative } from './platform.js';
 import { saveFile } from './fileSaver.js';
+import { withLogo } from './printTemplate.js';
 
 const A4_WIDTH_PX = 794; // A4 at 96 dpi
 
@@ -69,7 +70,7 @@ export async function printHtml(html, { filename = 'document.pdf', width = A4_WI
   if (isNative) {
     const toastId = toast.loading('Preparing PDF…');
     try {
-      await saveFile(await htmlToPdf(html, width), filename);
+      await saveFile(await htmlToPdf(await withLogo(html), width), filename);
       toast.dismiss(toastId);
     } catch {
       toast.error('Could not create the PDF', { id: toastId });
@@ -82,8 +83,11 @@ export async function printHtml(html, { filename = 'document.pdf', width = A4_WI
     toast.error('Pop-up blocked. Please allow pop-ups for this site and try again.');
     return;
   }
+  // The window is opened first (pop-up blockers allow it only straight after the click), then the
+  // template's logo is filled in and written
+  const ready = await withLogo(html);
   w.document.open();
-  w.document.write(html);
+  w.document.write(ready);
   w.document.close();
   w.focus();
 }

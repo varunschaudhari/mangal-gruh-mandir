@@ -1,7 +1,6 @@
-import PDFDocument from 'pdfkit';
-import { temple } from './temple.service.js';
+import { createPdf, reportHeader, pageFooters, ensureSpace, PDF_COLORS, mid } from './pdfLayout.js';
 
-const C = { primary: '#ea580c', dark: '#1f2937', gray: '#6b7280', light: '#fff7ed', white: '#ffffff' };
+const C = { accent: PDF_COLORS.accent, dark: PDF_COLORS.text, gray: PDF_COLORS.muted, light: PDF_COLORS.accentSoft, white: '#ffffff' };
 
 const fmt  = (n) => `₹${Number(n || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 const fmtD = (d) => d ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
@@ -14,8 +13,8 @@ const CATEGORY_LABELS = {
 const PM_LABELS   = { cash: 'Cash', upi: 'UPI', cheque: 'Cheque', bank: 'Bank transfer' };
 const STATUS_LABELS = { pending_approval: 'Pending', approved: 'Approved', rejected: 'Rejected', voided: 'Voided' };
 
-export function generateExpenseReport(res, { expenses, from, to, templeName = temple().name }) {
-  const doc = new PDFDocument({ size: 'A4', margin: 50, bufferPages: true });
+export function generateExpenseReport(res, { expenses, from, to }) {
+  const doc = createPdf({ size: 'A4', margin: 50 });
   const fileName = `Expenses-${from || 'all'}-to-${to || 'all'}.pdf`;
   res.setHeader('Content-Type', 'application/pdf');
   res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
@@ -24,25 +23,11 @@ export function generateExpenseReport(res, { expenses, from, to, templeName = te
   const W    = doc.page.width - 100;
   const LEFT = 50;
 
-  // ── Header ──────────────────────────────────────────────────────────────────
-  doc.rect(LEFT, 40, W, 60).fill(C.primary);
-  doc.fillColor(C.white).fontSize(16).font('Helvetica-Bold')
-    .text(templeName, LEFT + 12, 50, { width: W - 24 });
-  doc.fontSize(9).font('Helvetica').text('EXPENSE REPORT', LEFT + 12, 72);
-
-  // Period
-  let y = 118;
-  if (from || to) {
-    doc.fillColor(C.gray).fontSize(8).font('Helvetica')
-      .text(`Period: ${from ? fmtD(from) : 'Beginning'} — ${to ? fmtD(to) : 'Today'}`, LEFT, y);
-    y += 14;
-  }
-  doc.fillColor(C.gray).fontSize(8).font('Helvetica')
-    .text(`Generated: ${fmtD(new Date())}  ·  Total entries: ${expenses.length}`, LEFT, y);
-  y += 18;
-
-  doc.moveTo(LEFT, y).lineTo(LEFT + W, y).strokeColor('#E5E7EB').lineWidth(1).stroke();
-  y += 14;
+  const subtitle = [
+    (from || to) && `Period: ${from ? fmtD(from) : 'Beginning'} — ${to ? fmtD(to) : 'Today'}`,
+    `Total entries: ${expenses.length}`,
+  ].filter(Boolean).join('   ·   ');
+  let y = reportHeader(doc, { title: 'Expense Report', subtitle });
 
   // ── Summary by category ────────────────────────────────────────────────────
   const approvedOnly = expenses.filter((e) => e.status === 'approved');
@@ -54,62 +39,68 @@ export function generateExpenseReport(res, { expenses, from, to, templeName = te
 
   if (Object.keys(byCategory).length > 0) {
     doc.fillColor(C.gray).fontSize(8).font('Helvetica').text('APPROVED EXPENSE SUMMARY', LEFT, y);
-    y += 10;
+    y = doc.y + 2;
 
     for (const [cat, total] of Object.entries(byCategory).sort((a, b) => b[1] - a[1])) {
-      const barW = Math.max(4, Math.round((total / grandTotal) * (W - 200)));
-      doc.rect(LEFT, y, barW, 12).fill('#FED7AA');
+      // Category name in its own column, then a bar for its share, then the amount
+      const LABEL_W = 140;
+      const barW = Math.max(3, Math.round((total / grandTotal) * (W - LABEL_W - 130)));
       doc.fillColor(C.dark).fontSize(8).font('Helvetica')
-        .text(CATEGORY_LABELS[cat] || cat, LEFT + barW + 6, y + 2, { width: W - barW - 120 });
+        .text(CATEGORY_LABELS[cat] || cat, LEFT, y + mid(12, 8), { width: LABEL_W - 8, height: 12, ellipsis: true });
+      doc.rect(LEFT + LABEL_W, y + 1, barW, 10).fill('#FED7AA');
       doc.fillColor(C.dark).fontSize(8).font('Helvetica-Bold')
-        .text(fmt(total), LEFT + W - 110, y + 2, { width: 110, align: 'right' });
+        .text(fmt(total), LEFT + W - 110, y + mid(12, 8), { width: 110, align: 'right' });
       y += 16;
     }
 
     // Grand total bar
-    doc.rect(LEFT, y, W, 18).fill(C.dark);
-    doc.fillColor(C.white).fontSize(9).font('Helvetica-Bold')
-      .text('TOTAL (APPROVED)', LEFT + 6, y + 4, { width: W - 120 });
-    doc.text(fmt(grandTotal), LEFT + W - 110, y + 4, { width: 106, align: 'right' });
+    doc.rect(LEFT, y, W, 18).fill(C.light);
+    doc.moveTo(LEFT, y).lineTo(LEFT + W, y).lineWidth(0.8).strokeColor(C.accent).stroke();
+    doc.moveTo(LEFT, y + 18).lineTo(LEFT + W, y + 18).lineWidth(0.8).strokeColor(C.accent).stroke();
+    doc.fillColor(C.accent).fontSize(9).font('Helvetica-Bold')
+      .text('TOTAL (APPROVED)', LEFT + 6, y + mid(18, 9), { width: W - 120 });
+    doc.text(fmt(grandTotal), LEFT + W - 110, y + mid(18, 9), { width: 106, align: 'right' });
     y += 28;
   }
 
   // ── Expense table ──────────────────────────────────────────────────────────
   doc.fillColor(C.gray).fontSize(8).font('Helvetica').text('ALL ENTRIES', LEFT, y);
-  y += 10;
+  y = doc.y + 2;
 
   const COLS = [
-    { label: 'No.',         w: 72  },
-    { label: 'Date',        w: 70  },
-    { label: 'Category',    w: 90  },
+    { label: 'No.',         w: 60  },
+    { label: 'Date',        w: 52  },
+    { label: 'Category',    w: 72  },
     { label: 'Description', w: 0   }, // flex
-    { label: 'Payee',       w: 80  },
-    { label: 'Mode',        w: 42  },
-    { label: 'Amount',      w: 70  },
-    { label: 'Status',      w: 52  },
+    { label: 'Payee',       w: 76  },
+    { label: 'Mode',        w: 52  },
+    { label: 'Amount',      w: 60  },
+    { label: 'Status',      w: 42  },
   ];
   const fixedW = COLS.reduce((s, c) => s + c.w, 0);
   COLS[3].w    = W - fixedW;
 
-  // Table header
-  doc.rect(LEFT, y, W, 16).fill(C.primary);
-  let cx = LEFT + 4;
-  COLS.forEach((c) => {
-    doc.fillColor(C.white).fontSize(7).font('Helvetica-Bold').text(c.label, cx, y + 4, { width: c.w - 4 });
-    cx += c.w;
-  });
-  y += 16;
+  // Table header (repeated at the top of every new page)
+  const drawHeader = (startY) => {
+    doc.rect(LEFT, startY, W, 16).fill(C.light);
+    doc.moveTo(LEFT, startY + 16).lineTo(LEFT + W, startY + 16).lineWidth(0.8).strokeColor(C.accent).stroke();
+    let hx = LEFT + 4;
+    COLS.forEach((c, i) => {
+      doc.fillColor(C.accent).fontSize(7).font('Helvetica-Bold')
+        .text(c.label, hx, startY + mid(16, 7), { width: i === 6 ? c.w - 8 : c.w - 4, align: i === 6 ? 'right' : 'left' });
+      hx += c.w;
+    });
+    return startY + 16;
+  };
+  y = drawHeader(y);
 
   const STATUS_COLORS = { approved: '#16a34a', pending_approval: '#d97706', rejected: '#dc2626', voided: '#9ca3af' };
 
   let rowNum = 0;
+  const rowH = 14;
   for (const e of expenses) {
-    if (y > doc.page.height - 80) {
-      doc.addPage();
-      y = 50;
-    }
-    const rowH = 14;
-    const bg   = rowNum % 2 === 0 ? C.white : '#FFF7ED';
+    y = ensureSpace(doc, y, rowH, { onNewPage: drawHeader });
+    const bg   = rowNum % 2 === 0 ? C.white : C.light;
     doc.rect(LEFT, y, W, rowH).fill(bg);
 
     const cells = [
@@ -123,20 +114,22 @@ export function generateExpenseReport(res, { expenses, from, to, templeName = te
       STATUS_LABELS[e.status] || e.status,
     ];
 
-    cx = LEFT + 4;
+    let cx = LEFT + 4;
+    const ty = y + mid(rowH, 7);
     cells.forEach((text, i) => {
       const col = COLS[i];
+      const one = { height: rowH, ellipsis: true };
       if (i === 6) {
         // Amount right-aligned
         doc.fillColor(C.dark).fontSize(7).font('Helvetica-Bold')
-          .text(String(text), cx, y + 3, { width: col.w - 8, align: 'right' });
+          .text(String(text), cx, ty, { width: col.w - 8, align: 'right', ...one });
       } else if (i === 7) {
         // Status coloured
         doc.fillColor(STATUS_COLORS[e.status] || C.gray).fontSize(7).font('Helvetica-Bold')
-          .text(String(text), cx, y + 3, { width: col.w - 4 });
+          .text(String(text), cx, ty, { width: col.w - 4, ...one });
       } else {
         doc.fillColor(C.dark).fontSize(7).font('Helvetica')
-          .text(String(text), cx, y + 3, { width: col.w - 4, lineBreak: false });
+          .text(String(text ?? ''), cx, ty, { width: col.w - 4, ...one });
       }
       cx += col.w;
     });
@@ -145,14 +138,6 @@ export function generateExpenseReport(res, { expenses, from, to, templeName = te
     rowNum++;
   }
 
-  // Footer on every page
-  const pageCount = doc.bufferedPageRange().count;
-  for (let i = 0; i < pageCount; i++) {
-    doc.switchToPage(i);
-    doc.fillColor(C.gray).fontSize(7).font('Helvetica')
-      .text(`${templeName} · Expense Report · Page ${i + 1} of ${pageCount}`,
-        LEFT, doc.page.height - 32, { width: W, align: 'center' });
-  }
-
+  pageFooters(doc, { label: 'Expense Report' });
   doc.end();
 }

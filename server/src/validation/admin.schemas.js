@@ -104,6 +104,8 @@ const clearableDate = z.union([z.literal(''), z.null(), optionalDate('Date')]).o
 export const updateSettings = {
   body: z.object({
     templeName: clearableText('Temple name', { max: 150 }),
+    templeNameMr: clearableText('Temple name in Marathi', { max: 150 }),
+    trustRegNumber: clearableText('Trust registration number', { max: 100 }),
     templeAddress: clearableText('Temple address', { max: 300 }),
     templePhone: clearableText('Temple phone', { max: 30 }),
     templeEmail: clearableText('Temple email', { max: 150 }),

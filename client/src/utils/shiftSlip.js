@@ -3,10 +3,10 @@
 import { printHtml } from './printHtml.js';
 import { canvasToEscPos, printRawBytes } from './thermalPrint.js';
 import { isNative, isElectron } from './platform.js';
+import { temple } from './temple.js';
 import { denominationLines, differenceTone } from '../components/booking/shift/shiftUtils.js';
 
 const FONT = '"Nirmala UI", "Mangal", "Noto Sans Devanagari", "Noto Sans", Arial, sans-serif';
-const TEMPLE_MR = 'श्री मंगळग्रह मंदिर, अमळनेर';
 
 const rupees = (n) => `Rs. ${Math.round(Math.abs(Number(n) || 0)).toLocaleString('en-IN')}`;
 const fmtAt = (d) => (d
@@ -66,8 +66,8 @@ export async function drawShiftSlip(shift, settings = {}) {
   const t = shift.totals || {};
   const logo = await loadImage('/logo.png');
   if (logo) { const h = Math.round(80 * s); const w = (logo.width / logo.height) * h; ctx.drawImage(logo, (W - w) / 2, y, w, h); y += h + Math.round(6 * s); }
-  text(TEMPLE_MR, 28, { weight: 700, align: 'center', gap: 0 });
-  text(settings.templeName || 'Shri Mangal Grah Mandir, Amalner', 20, { align: 'center', gap: 2 });
+  text(temple().nameMr, 28, { weight: 700, align: 'center', gap: 0 });
+  text(settings.templeName || temple().name, 20, { align: 'center', gap: 2 });
   text('CASH HANDOVER', 26, { weight: 800, align: 'center', gap: 0 });
   text('Abhishek / Puja counter', 18, { align: 'center', gap: 4 });
   rule();

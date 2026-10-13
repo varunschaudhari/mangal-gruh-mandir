@@ -14,6 +14,7 @@ import { useIsMobile } from '../../hooks/useMediaQuery.js';
 import haptics from '../../utils/haptics.js';
 import { useLanguage, useT } from '../../i18n/index.jsx';
 import { PRINT_FONT, addDays, esc, fmtDay, fmtTime, nBookings, nPeople, parseDay } from '../../components/booking/registerUtils.js';
+import { PRINT_HEADER_CSS, reportHeaderHtml } from '../../utils/printTemplate.js';
 
 // Who is coming on a puja date, batch by batch and in serial order — what the hall
 // volunteers check devotees against and what the pujaris read the sankalp from.
@@ -76,10 +77,8 @@ function sankalpHtml({ date, groups, t, sevaText, hallText }) {
   @page { size: A4; margin: 10mm; }
   * { box-sizing: border-box; }
   body { font-family: ${PRINT_FONT}; color: #111827; margin: 0; padding: 16px; font-size: 11.5px; background: #fff; }
-  header { display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; border-bottom: 2px solid #ea580c; padding-bottom: 6px; margin-bottom: 10px; }
-  header h1 { margin: 0; font-size: 18px; color: #9a3412; }
-  header p { margin: 2px 0 0; font-size: 12px; color: #374151; }
-  header .tot { text-align: right; font-size: 12px; color: #374151; }
+  ${PRINT_HEADER_CSS}
+  .rh-right b { font-size: 12px; color: #1f2937; }
   .batch + .batch { break-before: page; page-break-before: always; }
   .bh { display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; margin: 4px 0 6px; }
   .bh h2 { margin: 0; font-size: 16px; }
@@ -95,15 +94,14 @@ function sankalpHtml({ date, groups, t, sevaText, hallText }) {
   .mono { font-family: Consolas, "Courier New", monospace; font-size: 9.5px; color: #374151; overflow-wrap: normal; }
   th.num, th.sr { padding-left: 2px; padding-right: 2px; }
   .sub { font-size: 10px; color: #6b7280; }
-  footer { margin-top: 12px; font-size: 10px; color: #6b7280; text-align: right; }
   @media print { body { padding: 0; } }
 </style></head><body>
-<header>
-  <div><h1>श्री मंगळग्रह मंदिर, अमळनेर</h1><p><b>${esc(t('Sankalp list'))}</b> — ${esc(dateLong)}</p></div>
-  <div class="tot">${esc(nBookings(t, totalBookings))} · ${esc(nPeople(t, totalPeople))}</div>
-</header>
+${reportHeaderHtml({
+    title: `${t('Sankalp list')} — ${dateLong}`,
+    right: `<b>${esc(nBookings(t, totalBookings))} · ${esc(nPeople(t, totalPeople))}</b>`,
+    printed: t('Printed {time}', { time: printed }),
+  })}
 ${groups.map(section).join('')}
-<footer>${esc(t('Printed {time}', { time: printed }))}</footer>
 <script>window.onload = () => window.print()</script>
 </body></html>`;
 }

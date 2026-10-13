@@ -5,6 +5,8 @@ import { AlertTriangle, Ban, CheckCircle2, Printer, SearchX } from 'lucide-react
 import { getPublicReceipt } from '../../api/booking.api.js';
 import { bookingReceiptHtml } from '../../utils/bookingReceipt.js';
 import { printHtml } from '../../utils/printHtml.js';
+import { withLogo } from '../../utils/printTemplate.js';
+import { temple as cachedTemple } from '../../utils/temple.js';
 import { publicUrl } from '../../utils/platform.js';
 import Spinner from '../../components/ui/Spinner.jsx';
 import { fmtDateTime } from '../../components/booking/registerUtils.js';
@@ -19,21 +21,20 @@ const toBooking = (r, token) => ({
 });
 const toSettings = (r) => ({
   templeName: r.temple?.name,
-  templeAddress: r.temple?.address,
-  templePhone: r.temple?.phone,
+  temple: r.temple,
   receiptFooter: r.footer,
-  logoUrl: `${window.location.origin}/logo.png`,
 });
 
-function Shell({ children }) {
+function Shell({ children, temple }) {
   const t = useT();
+  const info = temple || cachedTemple();
   return (
     <div className="min-h-dvh bg-orange-50/60">
       <header className="bg-primary-600 pt-safe text-white shadow-sm">
         <div className="mx-auto flex max-w-3xl items-center gap-3 px-4 py-3">
           <img src="/logo.png" alt="" className="h-11 w-11 shrink-0 rounded-lg bg-white object-contain p-1" />
           <div className="min-w-0 flex-1">
-            <p className="text-[15px] font-bold leading-snug">श्री मंगळग्रह मंदिर, अमळनेर</p>
+            <p className="text-[15px] font-bold leading-snug">{info.nameMr || info.name}</p>
             <p className="truncate text-xs text-orange-100">{t('Abhishek / puja receipt')}</p>
           </div>
           <LanguageSwitch className="shrink-0 border-white/30 text-xs" />
@@ -65,6 +66,7 @@ export default function PublicReceipt() {
     const b = toBooking(r, token);
     const s = toSettings(r);
     Promise.all([bookingReceiptHtml(b, s, { autoPrint: false }), bookingReceiptHtml(b, s, { autoPrint: true })])
+      .then((pages) => Promise.all(pages.map(withLogo)))
       .then(([view, print]) => { if (alive) setHtml({ view, print }); })
       .catch(() => { if (alive) setHtml({ view: '', print: '' }); });
     document.title = `${t('Receipt')} ${r.receiptNo}`;
@@ -111,7 +113,7 @@ export default function PublicReceipt() {
   const voided = r?.status === 'voided';
 
   return (
-    <Shell>
+    <Shell temple={r?.temple}>
       {voided && (
         <div className="mb-3 flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-red-800">
           <Ban className="mt-0.5 h-5 w-5 shrink-0" />

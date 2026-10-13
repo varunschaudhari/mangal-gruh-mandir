@@ -8,7 +8,10 @@ import { getTemple } from '../api/settings.api.js';
 // for the next start and for offline use). useTemple() — used by the app's header — fetches it.
 
 const KEY = 'mgm-temple';
-const DEFAULT = { name: 'Mangal Grah Mandir', address: '', phone: '', email: '' };
+const DEFAULT = {
+  name: 'Mangal Grah Mandir', nameMr: 'श्री मंगळग्रह मंदिर, अमळनेर',
+  address: '', phone: '', email: '', website: '', trustReg: '', pan: '', reg80G: '',
+};
 
 let current = DEFAULT;
 try {
@@ -16,7 +19,7 @@ try {
   if (saved?.name) current = { ...DEFAULT, ...saved };
 } catch { /* private mode or bad JSON */ }
 
-/** { name, address, phone, email } — the last value fetched. */
+/** { name, nameMr, address, phone, email, website, trustReg, pan, reg80G } — the last value fetched. */
 export const temple = () => current;
 
 /** The name, safe to put in printed HTML. */

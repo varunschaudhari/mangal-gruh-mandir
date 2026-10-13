@@ -85,7 +85,7 @@ const TABS = [
 ];
 
 const TAB_FIELDS = {
-  temple:     ['templeName', 'templeAddress', 'templePhone', 'templeEmail', 'templeWebsite'],
+  temple:     ['templeName', 'templeNameMr', 'templeAddress', 'templePhone', 'templeEmail', 'templeWebsite', 'trustRegNumber'],
   whatsapp:   ['waEnabled', 'waPhoneNumberId', 'waAccessToken', 'waTemplateName'],
   sms:        ['smsEnabled', 'msg91AuthKey', 'msg91TemplateId'],
   alerts:     ['alertOnOutOfStock', 'alertOnLowStock', 'alertOnReorder'],
@@ -227,8 +227,16 @@ const Settings = () => {
               <Field label={t('Temple Name')}>
                 <input {...register('templeName')} className="input" placeholder={t('Mangal Grah Mandir')} />
               </Field>
+              <Field label={t('Name in Marathi')}>
+                <input {...register('templeNameMr')} className="input" lang="mr" placeholder="श्री मंगळग्रह मंदिर, अमळनेर" />
+              </Field>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <Field label={t('Phone')}>
                 <input {...register('templePhone')} className="input" type="tel" placeholder={t('+91 XXXXX XXXXX')} />
+              </Field>
+              <Field label={t('Trust registration no.')}>
+                <input {...register('trustRegNumber')} className="input font-mono text-sm" placeholder="E-1234 (Jalgaon)" />
               </Field>
             </div>
             <Field label={t('Address')}>
@@ -242,6 +250,7 @@ const Settings = () => {
                 <input {...register('templeWebsite')} className="input" placeholder="www.example.com" />
               </Field>
             </div>
+            <p className="text-xs text-gray-500">{t('These details, the logo and the PAN / 80G numbers are printed at the top of receipts, vouchers and payslips.')}</p>
             <SaveFooter onSave={saveTab} isPending={mutation.isPending} savedTabId={savedTabId} tabId="temple" />
           </>
         )}

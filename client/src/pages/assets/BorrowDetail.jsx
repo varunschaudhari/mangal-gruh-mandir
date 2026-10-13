@@ -19,10 +19,9 @@ import Modal from '../../components/ui/Modal.jsx';
 import Badge from '../../components/ui/Badge.jsx';
 import { usePermissions } from '../../hooks/usePermissions.js';
 import toast from 'react-hot-toast';
-import { printHtml } from '../../utils/printHtml.js';
+import { printHandoverSlip } from '../../utils/handoverSlip.js';
 import { useSetAppBarTitle } from '../../components/Layout/AppBarContext.jsx';
 import { localDateStr } from '../../utils/formatters.js';
-import { templeHtml } from '../../utils/temple.js';
 import { useT, tNow } from '../../i18n/index.jsx';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -46,42 +45,6 @@ const REMINDER_LABELS = {
 
 const fmt     = (d) => d ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
 const fmtTime = (d) => d ? new Date(d).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : null;
-
-// ── Print Slip (single item only) ─────────────────────────────────────────────
-function printHandoverSlip(txn) {
-  const { transactionNumber, asset, borrower, externalBorrower, borrowerType, quantityBorrowed, expectedReturnDate, checkedOutAt, conditionAtCheckout, approvedBy, createdBy, notes } = txn;
-  const borrowerName = borrowerType === 'external' ? (externalBorrower?.name || '—') : (borrower?.name || '—');
-  const p = (d) => d ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
-  const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"/><title>Handover Slip</title>
-  <style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:Arial,sans-serif;font-size:12px;padding:28px;max-width:580px;margin:0 auto}
-  .header{text-align:center;padding-bottom:12px;border-bottom:2px solid #111;margin-bottom:16px}.temple{font-size:17px;font-weight:bold}
-  .slip-title{font-size:13px;font-weight:bold;margin-top:4px;text-transform:uppercase;letter-spacing:1px;color:#444}.ref{font-size:11px;color:#666;margin-top:3px;font-family:monospace}
-  .section{margin-bottom:14px}.section-title{font-size:10px;font-weight:bold;text-transform:uppercase;letter-spacing:.8px;color:#555;border-bottom:1px solid #ddd;padding-bottom:4px;margin-bottom:8px}
-  .row{display:flex;justify-content:space-between;margin-bottom:5px}.lbl{color:#666;flex:0 0 45%}.val{font-weight:bold;text-align:right;flex:0 0 53%}
-  .sig-area{display:flex;justify-content:space-between;margin-top:36px;gap:20px}.sig-box{flex:1;text-align:center}.sig-line{border-top:1px solid #111;margin-bottom:6px;height:40px}
-  .sig-name{font-size:11px;font-weight:bold}.footer{margin-top:20px;text-align:center;font-size:10px;color:#aaa;border-top:1px dashed #ccc;padding-top:8px}
-  @media print{body{padding:16px}}</style></head><body>
-  <div class="header"><div class="temple">${templeHtml()}</div><div class="slip-title">Asset Handover Slip</div><div class="ref">Ref: ${transactionNumber||'—'}</div></div>
-  <div class="section"><div class="section-title">Asset Details</div>
-  <div class="row"><span class="lbl">Asset Name</span><span class="val">${asset?.name||'—'}</span></div>
-  <div class="row"><span class="lbl">Category</span><span class="val">${asset?.category||'—'}</span></div>
-  <div class="row"><span class="lbl">Quantity</span><span class="val">${quantityBorrowed}</span></div></div>
-  <div class="section"><div class="section-title">Borrower Details</div>
-  <div class="row"><span class="lbl">Borrower</span><span class="val">${borrowerName}</span></div>
-  <div class="row"><span class="lbl">Expected Return</span><span class="val">${p(expectedReturnDate)}</span></div>
-  <div class="row"><span class="lbl">Approved By</span><span class="val">${approvedBy?.name||'—'}</span></div>
-  ${checkedOutAt?`<div class="row"><span class="lbl">Date of Collection</span><span class="val">${p(checkedOutAt)}</span></div>`:''}
-  ${conditionAtCheckout?`<div class="row"><span class="lbl">Condition</span><span class="val" style="text-transform:capitalize">${conditionAtCheckout}</span></div>`:''}
-  </div>${notes?`<div class="section"><div class="section-title">Notes</div><p style="font-size:11px;color:#555">${notes}</p></div>`:''}
-  <div class="section"><div class="section-title">Terms</div>
-  <div style="font-size:11px;color:#555;line-height:1.6">• The borrower is responsible for safe custody until returned.<br/>
-  • Any damage must be reported immediately.<br/>• Asset must be returned by <strong>${p(expectedReturnDate)}</strong>.${asset?.finePerDay>0?` Fine of ₹${asset.finePerDay}/day applies.`:''}</div></div>
-  <div class="sig-area"><div class="sig-box"><div class="sig-line"></div><div class="sig-name">${borrowerName}</div><div style="font-size:10px;color:#777">Borrower Signature</div></div>
-  <div class="sig-box"><div class="sig-line"></div><div class="sig-name">${createdBy?.name||'Help Desk'}</div><div style="font-size:10px;color:#777">Issued By</div></div></div>
-  <div class="footer">Printed on ${p(new Date())} · ${templeHtml()} · Asset Management</div>
-  <script>window.onload=()=>{window.print()}<\/script></body></html>`;
-  return printHtml(html, { filename: `Handover-Slip-${transactionNumber || 'asset'}.pdf` });
-}
 
 // ── Modals ────────────────────────────────────────────────────────────────────
 const CheckoutModal = ({ isGroup, id, onClose, onSuccess }) => {

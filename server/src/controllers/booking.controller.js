@@ -18,6 +18,7 @@ import { receiptUrl, sendReceipt } from '../services/booking/notify.js';
 import { attendanceReport, daySheet, registerFilter, summary } from '../services/booking/reports.js';
 import { bookingsExcel, summaryPdf } from '../services/booking/exports.js';
 import { dateKeyOf, isDateKey } from '../services/booking/rules.js';
+import { temple as templeDetails } from '../services/temple.service.js';
 
 const withUrl = (b) => (b ? { ...b, receiptUrl: receiptUrl(b) } : b);
 const POPULATE = [
@@ -249,9 +250,8 @@ export const reportDaySheet = asyncHandler(async (req, res) => {
 export const publicReceipt = asyncHandler(async (req, res) => {
   const token = String(req.params.token || '');
   if (!/^[A-Za-z0-9_-]{10,40}$/.test(token)) throw new ApiError(404, 'Receipt not found');
-  const [b, temple, settings, names] = await Promise.all([
+  const [b, settings, names] = await Promise.all([
     Booking.findOne({ receiptToken: token }).lean(),
-    Settings.getOrCreate(),
     BookingSettings.getOrCreate(),
     hallNames(),
   ]);
@@ -262,7 +262,7 @@ export const publicReceipt = asyncHandler(async (req, res) => {
     hallName: names[b.hall]?.name || '', hallNameMr: names[b.hall]?.nameMr || '',
     devotee: { name: b.devotee.name, phone: `XXXXXX${b.devotee.phone.slice(-4)}`, gotra: b.devotee.gotra, familyNames: b.devotee.familyNames },
     peopleCount: b.peopleCount, paymentMode: b.paymentMode, paidAt: b.paidAt, checkedInAt: b.checkedInAt || null,
-    temple: { name: temple.templeName, address: temple.templeAddress, phone: temple.templePhone },
+    temple: templeDetails(), // name, address, contacts and registration numbers for the letterhead
     footer: settings.receiptFooter,
   }));
 });

@@ -1,6 +1,6 @@
 import ExcelJS from 'exceljs';
 import { formatAddress } from '../../utils/address.js';
-import PDFDocument from 'pdfkit';
+import { createPdf, reportHeader, pageFooters, ensureSpace, PDF_COLORS, mid } from '../pdfLayout.js';
 import { localDateStr } from '../../utils/dates.js';
 import { hallTitle } from './halls.js';
 
@@ -9,7 +9,7 @@ const BORDER = { top: { style: 'thin' }, bottom: { style: 'thin' }, left: { styl
 const MODE = { cash: 'Cash', upi: 'UPI', card: 'Card', online: 'Online' };
 const fmtDate = (d) => (d ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '');
 const fmtTime = (d) => (d ? new Date(d).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }) : '');
-const money = (n) => `Rs. ${Math.round(n || 0).toLocaleString('en-IN')}`; // Helvetica has no ₹ glyph
+const money = (n) => `₹${Math.round(n || 0).toLocaleString('en-IN')}`; // the PDF font (Mukta) has the ₹ glyph
 
 /** Booking register as .xlsx */
 export async function bookingsExcel(res, { bookings, title, halls = {} }) {
@@ -73,21 +73,15 @@ export async function bookingsExcel(res, { bookings, title, halls = {} }) {
 }
 
 /** One-page summary report as PDF (totals, by seva, by payment, by staff, month-wise). */
-export function summaryPdf(res, { data, rangeLabel, templeName }) {
-  const doc = new PDFDocument({ size: 'A4', margin: 40, bufferPages: true });
+export function summaryPdf(res, { data, rangeLabel }) {
+  const doc = createPdf({ size: 'A4', margin: 40 });
   res.setHeader('Content-Type', 'application/pdf');
   res.setHeader('Content-Disposition', `attachment; filename="booking-summary-${localDateStr()}.pdf"`);
   doc.pipe(res);
   const LEFT = 40; const W = doc.page.width - 80;
-  const orange = '#ea580c'; const dark = '#1f2937'; const gray = '#6b7280';
+  const { accent, accentSoft, text: dark, muted: gray } = PDF_COLORS;
 
-  doc.rect(LEFT, 30, W, 50).fill(orange);
-  doc.fillColor('#fff').font('Helvetica-Bold').fontSize(15).text(templeName, LEFT + 10, 40, { width: W - 20 });
-  doc.font('Helvetica').fontSize(9).text('Abhishek / Puja Booking Summary', LEFT + 10, 60);
-  doc.fillColor(dark).fontSize(9).text(`Period: ${rangeLabel}`, LEFT, 92)
-    .text(`Generated: ${fmtDate(new Date())}`, LEFT, 92, { width: W, align: 'right' });
-
-  let y = 112;
+  let y = reportHeader(doc, { title: 'Abhishek / Puja Booking Summary', subtitle: `Period: ${rangeLabel}` });
   const boxes = [
     ['Bookings', data.totals.count.toLocaleString('en-IN')],
     ['Amount', money(data.totals.amount)],
@@ -97,24 +91,28 @@ export function summaryPdf(res, { data, rangeLabel, templeName }) {
   const bw = (W - 9) / 4;
   boxes.forEach(([label, value], i) => {
     const x = LEFT + i * (bw + 3);
-    doc.rect(x, y, bw, 38).fill('#fff7ed');
-    doc.fillColor(orange).font('Helvetica-Bold').fontSize(13).text(value, x, y + 6, { width: bw, align: 'center' });
-    doc.fillColor(gray).font('Helvetica').fontSize(7.5).text(label, x, y + 25, { width: bw, align: 'center' });
+    doc.rect(x, y, bw, 38).fill(accentSoft);
+    doc.fillColor(accent).font('Helvetica-Bold').fontSize(13).text(value, x, y + 3, { width: bw, align: 'center' });
+    doc.fillColor(gray).font('Helvetica').fontSize(7.5).text(label, x, y + 22, { width: bw, align: 'center' });
   });
   y += 52;
 
   const table = (title, cols, rows) => {
-    if (y > doc.page.height - 120) { doc.addPage(); y = 40; }
-    doc.fillColor(dark).font('Helvetica-Bold').fontSize(10).text(title, LEFT, y); y += 15;
-    doc.rect(LEFT, y, W, 15).fill(orange);
-    let x = LEFT + 4;
-    cols.forEach((c) => { doc.fillColor('#fff').font('Helvetica-Bold').fontSize(8).text(c.label, x, y + 4, { width: c.w - 8, align: c.right ? 'right' : 'left' }); x += c.w; });
-    y += 15;
+    const header = (startY) => {
+      doc.rect(LEFT, startY, W, 15).fill(accentSoft);
+      doc.moveTo(LEFT, startY + 15).lineTo(LEFT + W, startY + 15).lineWidth(0.8).strokeColor(accent).stroke();
+      let x = LEFT + 4;
+      cols.forEach((c) => { doc.fillColor(accent).font('Helvetica-Bold').fontSize(8).text(c.label, x, startY + mid(15, 8), { width: c.w - 8, align: c.right ? 'right' : 'left', height: 15, ellipsis: true }); x += c.w; });
+      return startY + 15;
+    };
+    y = ensureSpace(doc, y, 15 + 15 + 14 * 2);
+    doc.fillColor(dark).font('Helvetica-Bold').fontSize(10).text(title, LEFT, y); y += 17;
+    y = header(y);
     rows.forEach((r, i) => {
-      if (y > doc.page.height - 50) { doc.addPage(); y = 40; }
-      doc.rect(LEFT, y, W, 14).fill(i % 2 ? '#fff7ed' : '#ffffff');
-      x = LEFT + 4;
-      r.forEach((cell, j) => { doc.fillColor(dark).font('Helvetica').fontSize(8).text(String(cell), x, y + 3, { width: cols[j].w - 8, align: cols[j].right ? 'right' : 'left', ellipsis: true }); x += cols[j].w; });
+      y = ensureSpace(doc, y, 14, { onNewPage: header });
+      doc.rect(LEFT, y, W, 14).fill(i % 2 ? accentSoft : '#ffffff');
+      let x = LEFT + 4;
+      r.forEach((cell, j) => { doc.fillColor(dark).font('Helvetica').fontSize(8).text(String(cell), x, y + mid(14, 8), { width: cols[j].w - 8, align: cols[j].right ? 'right' : 'left', height: 14, ellipsis: true }); x += cols[j].w; });
       y += 14;
     });
     y += 14;
@@ -131,14 +129,11 @@ export function summaryPdf(res, { data, rangeLabel, templeName }) {
   table('Month-wise', [{ label: 'Month', w: W - 2 * third / 1.5 }, { label: 'Bookings', w: third / 1.5, right: true }, { label: 'Amount', w: third / 1.5, right: true }],
     data.monthly.map((r) => [r.month, r.count.toLocaleString('en-IN'), money(r.amount)]));
   if (data.voided.count) {
+    y = ensureSpace(doc, y, 14);
     doc.fillColor(gray).font('Helvetica').fontSize(8)
       .text(`Not included above: ${data.voided.count} voided booking(s), ${money(data.voided.amount)}.`, LEFT, y);
   }
 
-  const pages = doc.bufferedPageRange().count;
-  for (let i = 0; i < pages; i++) {
-    doc.switchToPage(i);
-    doc.fillColor(gray).fontSize(7).text(`Page ${i + 1} of ${pages}`, LEFT, doc.page.height - 28, { width: W, align: 'center' });
-  }
+  pageFooters(doc, { label: 'Booking Summary' });
   doc.end();
 }

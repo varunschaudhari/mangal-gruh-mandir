@@ -15,7 +15,7 @@ import { useT } from '../../i18n/index.jsx';
 import {
   DayDetailSheet, MonthLockNote, STATUS, codeCell, dayCode, fDays, fMinutes, shiftMonth, thisMonth, weekdayOf,
 } from './attendanceUi.jsx';
-import { temple } from '../../utils/temple.js';
+import { PRINT_FONT, PRINT_HEADER_CSS, reportHeaderHtml } from '../../utils/printTemplate.js';
 
 // Month at a glance: one row per person, a code per day, and the totals salary will use.
 
@@ -59,18 +59,18 @@ function registerHtml({ title, dates, staff, days, totals, leave, t }) {
   return `<!doctype html><html><head><meta charset="utf-8"><title>${esc(title)}</title>
 <style>
   @page { size: A4 landscape; margin: 8mm; }
-  body { font-family: 'Noto Sans Devanagari', Arial, sans-serif; margin: 12px; color: #111; }
-  h1 { font-size: 16px; margin: 0 0 2px; color: #c2410c; }
-  p.sub { font-size: 10px; color: #6b7280; margin: 0 0 8px; }
+  body { font-family: ${PRINT_FONT}; margin: 12px; color: #111; }
+  ${PRINT_HEADER_CSS}
+  .rh-title { font-size: 15px; }
+  .rh-subtitle { font-size: 10px; margin-bottom: 8px; }
   table { border-collapse: collapse; width: 100%; font-size: 9px; }
   th, td { border: 1px solid #d1d5db; text-align: center; padding: 2px 1px; }
-  th { background: #ea580c; color: #fff; font-weight: 600; }
+  th { background: #fff7ed; color: #7c2d12; font-weight: 600; border-color: #fdba74; }
   td.name { text-align: left; white-space: nowrap; padding: 2px 4px; font-size: 10px; }
   small { color: inherit; opacity: .7; font-size: 8px; }
   sup { color: #b91c1c; font-size: 7px; }
 </style></head><body>
-<h1>${esc(temple().name)} — ${esc(title)}</h1>
-<p class="sub">${esc(t(LEGEND))} · <sup>½</sup> ${esc(t('half day cut for late'))}</p>
+${reportHeaderHtml({ title, subtitle: `${t(LEGEND)} · ½ ${t('half day cut for late')}` })}
 <table><thead><tr><th>${esc(t('Name'))}</th>${head}<th>${esc(t('Days worked'))}</th><th>PL</th><th>EL</th><th>${esc(t('Unpaid|salary'))}</th><th>${esc(t('Late cut'))}</th><th>${esc(t('Paid days'))}</th></tr></thead>
 <tbody>${rows}</tbody></table>
 <script>window.onload = () => setTimeout(() => window.print(), 300);</script>

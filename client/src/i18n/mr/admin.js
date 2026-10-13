@@ -227,6 +227,8 @@ export default {
   'Temple Name': 'मंदिराचे नाव',
   'Village, District, State': 'गाव, जिल्हा, राज्य',
   'Website': 'वेबसाइट',
+  'Trust registration no.': 'ट्रस्ट नोंदणी क्र.',
+  'These details, the logo and the PAN / 80G numbers are printed at the top of receipts, vouchers and payslips.': 'ही माहिती, लोगो आणि PAN / 80G क्रमांक पावत्या, व्हाउचर आणि पगार पावत्यांच्या वर छापले जातात.',
   'Enable WhatsApp Alerts': 'WhatsApp सूचना सुरू करा',
   'Send WhatsApp messages when stock drops below threshold': 'साठा मर्यादेपेक्षा कमी झाल्यावर WhatsApp संदेश पाठवा',
   'Access Token': 'ॲक्सेस टोकन',

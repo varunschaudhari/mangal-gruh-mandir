@@ -5,12 +5,10 @@ import { printHtml } from './printHtml.js';
 import { formatAddress } from './address.js';
 import { canvasToEscPos, printRawBytes } from './thermalPrint.js';
 import { isNative, isElectron } from './platform.js';
+import { temple } from './temple.js';
+import { PRINT_FONT as FONT, PRINT_HEADER_CSS, esc, letterheadHtml } from './printTemplate.js';
 
-const FONT = '"Nirmala UI", "Mangal", "Noto Sans Devanagari", "Noto Sans", Arial, sans-serif';
 const MODE = { cash: 'Cash', upi: 'UPI', card: 'Card', online: 'Online' };
-const TEMPLE_MR = 'श्री मंगळग्रह मंदिर, अमळनेर';
-
-const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
 export const fmtPujaDate = (b) => (b.dateKey
   ? new Date(`${b.dateKey}T00:00:00`).toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })
@@ -112,8 +110,9 @@ export async function drawSlip(b, settings = {}) {
 
   const logo = await loadImage('/logo.png');
   if (logo) { const h = Math.round(110 * s); const w = (logo.width / logo.height) * h; ctx.drawImage(logo, (W - w) / 2, y, w, h); y += h + Math.round(6 * s); }
-  text(TEMPLE_MR, 30, { weight: 700, align: 'center', gap: 0 });
-  text(settings.templeName || 'Shri Mangal Grah Mandir, Amalner', 21, { align: 'center', gap: 2 });
+  const info = { ...temple(), ...settings.temple };
+  text(info.nameMr, 30, { weight: 700, align: 'center', gap: 0 });
+  text(settings.templeName || info.name, 21, { align: 'center', gap: 2 });
   text(b.status === 'voided' ? '*** VOIDED ***' : 'ABHISHEK / PUJA RECEIPT', 22, { weight: 700, align: 'center', gap: 4 });
   rule();
   row('Receipt', b.receiptNo, 26, 700);
@@ -185,7 +184,10 @@ export async function printBookingSlip(b, settings = {}) {
 
 // ── A4 receipt ────────────────────────────────────────────────────────────────
 
-/** Full-page receipt as an HTML document (also used by the public receipt page). */
+/**
+ * Full-page receipt as an HTML document (also used by the public receipt page, which passes the
+ * temple details that came with the receipt as settings.temple).
+ */
 export async function bookingReceiptHtml(b, settings = {}, { autoPrint = true } = {}) {
   const qr = b.receiptUrl ? await QRCode.toDataURL(b.receiptUrl, { width: 220, margin: 1 }) : '';
   const d = b.devotee || {};
@@ -204,44 +206,41 @@ export async function bookingReceiptHtml(b, settings = {}, { autoPrint = true } 
     b.peopleCount > 1 && ['People', esc(b.peopleCount)],
     ['Payment', esc(`${MODE[b.paymentMode] || b.paymentMode}${b.paymentRef ? ` · Ref ${b.paymentRef}` : ''}`)],
   ].filter(Boolean);
-  const temple = settings.templeName || 'Shri Mangal Grah Mandir, Amalner';
+  const info = { ...temple(), ...settings.temple };
 
   return `<!DOCTYPE html><html lang="mr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Receipt ${esc(b.receiptNo)}</title>
 <style>
-  @page { size: A4; margin: 14mm; }
+  @page { size: A4; margin: 12mm; }
   * { box-sizing: border-box; }
   body { font-family: ${FONT}; color: #1f2937; margin: 0; padding: 24px; background: #fff; }
-  .sheet { max-width: 720px; margin: 0 auto; border: 1px solid #fed7aa; border-radius: 10px; overflow: hidden; position: relative; }
-  .head { background: #ea580c; color: #fff; padding: 16px 20px; display: flex; gap: 14px; align-items: center; }
-  .head img { width: 64px; height: 64px; background: #fff; border-radius: 10px; padding: 4px; object-fit: contain; }
-  .head h1 { font-size: 22px; margin: 0; } .head p { margin: 2px 0 0; font-size: 13px; opacity: .95; }
-  .title { display: flex; justify-content: space-between; padding: 14px 20px; border-bottom: 1px solid #fde4cf; font-size: 14px; }
-  .title b { font-size: 16px; }
-  .body { display: flex; gap: 20px; padding: 16px 20px; }
+  .sheet { max-width: 720px; margin: 0 auto; position: relative; }
+  ${PRINT_HEADER_CSS}
+  .body { display: flex; gap: 20px; }
   table { border-collapse: collapse; flex: 1; font-size: 14px; }
-  td { padding: 6px 0; vertical-align: top; border-bottom: 1px dashed #f3f4f6; }
-  td:first-child { color: #6b7280; width: 38%; padding-right: 12px; }
+  td { padding: 6px 0; vertical-align: top; border-bottom: 1px dashed #e5e7eb; }
+  td:first-child { color: #6b7280; width: 36%; padding-right: 12px; }
   .qr { text-align: center; font-size: 11px; color: #6b7280; width: 150px; }
   .qr img { width: 140px; height: 140px; }
-  .amount { margin: 0 20px; padding: 12px 16px; background: #fff7ed; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; }
-  .amount b { font-size: 22px; color: #c2410c; } .amount span { font-size: 12px; color: #6b7280; }
-  .foot { padding: 14px 20px 20px; font-size: 12px; color: #6b7280; display: flex; justify-content: space-between; gap: 20px; align-items: flex-end; }
-  .sign { text-align: center; min-width: 160px; } .sign div { border-top: 1px solid #9ca3af; margin-top: 36px; padding-top: 4px; }
+  .amount { margin-top: 16px; padding: 12px 16px; border: 1.5px solid #c2410c; border-radius: 6px; display: flex; justify-content: space-between; align-items: center; gap: 16px; }
+  .amount b { font-size: 22px; color: #c2410c; white-space: nowrap; } .amount span { font-size: 12px; color: #4b5563; }
+  .foot { padding-top: 18px; font-size: 12px; color: #6b7280; display: flex; justify-content: space-between; gap: 20px; align-items: flex-end; }
+  .sign { text-align: center; min-width: 180px; color: #1f2937; } .sign div { border-top: 1px solid #9ca3af; margin-top: 40px; padding-top: 4px; }
   .void { position: absolute; top: 40%; left: 0; right: 0; text-align: center; font-size: 80px; font-weight: 800; color: rgba(220,38,38,.18); transform: rotate(-18deg); pointer-events: none; }
-  @media (max-width: 560px) { body { padding: 8px; } .body { flex-direction: column; } .qr { width: auto; } td:first-child { width: 42%; } }
+  @media (max-width: 560px) {
+    body { padding: 10px; } .body { flex-direction: column; } .qr { width: auto; } td:first-child { width: 40%; }
+    .lh-logo { width: 52px; height: 52px; } .lh-mr { font-size: 17px; } .lh-en { font-size: 12px; } .lh-sub { font-size: 10px; }
+  }
   @media print { body { padding: 0; } }
 </style></head><body>
 <div class="sheet">
   ${b.status === 'voided' ? '<div class="void">VOIDED</div>' : ''}
-  <div class="head"><img src="${esc(settings.logoUrl || '/logo.png')}" alt="">
-    <div><h1>${esc(TEMPLE_MR)}</h1><p>${esc(temple)}${settings.templeAddress ? ` · ${esc(settings.templeAddress)}` : ''}</p>${settings.templePhone ? `<p>${esc(settings.templePhone)}</p>` : ''}</div></div>
-  <div class="title"><span>Abhishek / Puja Receipt<br><b>${esc(b.receiptNo)}</b></span><span style="text-align:right">Booked on<br><b>${esc(fmtPaid(b.paidAt))}</b></span></div>
+  ${letterheadHtml({ title: 'Abhishek / Puja Receipt', number: b.receiptNo, numberLabel: 'Receipt No.', date: fmtPaid(b.paidAt), dateLabel: 'Booked on', info: settings.temple })}
   <div class="body"><table>${rows.map(([k, v]) => `<tr><td>${k}</td><td>${v}</td></tr>`).join('')}</table>
     ${qr ? `<div class="qr"><img src="${qr}" alt=""><br>Scan to view this receipt</div>` : ''}</div>
   <div class="amount"><span>Amount received<br>Rupees ${esc(amountInWords(b.amount))} only</span><b>₹${esc(Math.round(b.amount).toLocaleString('en-IN'))}</b></div>
   <div class="foot"><span>${esc(settings.receiptFooter || '')}${b.createdBy?.name ? `<br>Booked by ${esc(b.createdBy.name)}` : ''}</span>
-    <span class="sign"><div>For ${esc(temple)}</div></span></div>
+    <span class="sign"><div>For ${esc(info.name)}</div></span></div>
 </div>
 ${autoPrint ? '<script>window.onload = () => window.print()<\/script>' : ''}
 </body></html>`;
@@ -249,7 +248,6 @@ ${autoPrint ? '<script>window.onload = () => window.print()<\/script>' : ''}
 
 /** A4 receipt: print dialog in the browser / desktop app, PDF to the share sheet in the phone app. */
 export async function printBookingReceipt(b, settings = {}) {
-  const logoUrl = `${window.location.origin}/logo.png`;
-  const html = await bookingReceiptHtml(b, { ...settings, logoUrl: isNative ? '/logo.png' : logoUrl });
+  const html = await bookingReceiptHtml(b, settings);
   await printHtml(html, { filename: `Receipt-${b.receiptNo.replace(/\//g, '-')}.pdf` });
 }

@@ -13,10 +13,9 @@ import { PageLoader } from '../../components/ui/Spinner.jsx';
 import Modal from '../../components/ui/Modal.jsx';
 import { usePermissions } from '../../hooks/usePermissions.js';
 import toast from 'react-hot-toast';
-import { printHtml } from '../../utils/printHtml.js';
+import { printHandoverSlip } from '../../utils/handoverSlip.js';
 import { useSetAppBarTitle } from '../../components/Layout/AppBarContext.jsx';
 import { localDateStr } from '../../utils/formatters.js';
-import { templeHtml } from '../../utils/temple.js';
 import { useT } from '../../i18n/index.jsx';
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
@@ -199,107 +198,6 @@ const Row = ({ label, children }) => {
   </div>
 );
 };
-
-// ── Print Slip ───────────────────────────────────────────────────────────────
-function printHandoverSlip(txn) {
-  const {
-    transactionNumber, asset, borrower, quantityBorrowed,
-    expectedReturnDate, checkedOutAt, conditionAtCheckout,
-    approvedBy, createdBy, notes,
-  } = txn;
-
-  const fmtPrint = (d) => d
-    ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
-    : '—';
-
-  const html = `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <title>Handover Slip — ${transactionNumber || ''}</title>
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: Arial, Helvetica, sans-serif; font-size: 12px; color: #111; padding: 28px; max-width: 580px; margin: 0 auto; }
-    .header { text-align: center; padding-bottom: 12px; border-bottom: 2px solid #111; margin-bottom: 16px; }
-    .temple  { font-size: 17px; font-weight: bold; letter-spacing: 0.5px; }
-    .slip-title { font-size: 13px; font-weight: bold; margin-top: 4px; text-transform: uppercase; letter-spacing: 1px; color: #444; }
-    .ref    { font-size: 11px; color: #666; margin-top: 3px; font-family: monospace; }
-    .section { margin-bottom: 14px; }
-    .section-title { font-size: 10px; font-weight: bold; text-transform: uppercase; letter-spacing: 0.8px; color: #555; border-bottom: 1px solid #ddd; padding-bottom: 4px; margin-bottom: 8px; }
-    .row    { display: flex; justify-content: space-between; margin-bottom: 5px; line-height: 1.4; }
-    .lbl    { color: #666; flex: 0 0 45%; }
-    .val    { font-weight: bold; text-align: right; flex: 0 0 53%; }
-    .sig-area { display: flex; justify-content: space-between; margin-top: 36px; gap: 20px; }
-    .sig-box  { flex: 1; text-align: center; }
-    .sig-line { border-top: 1px solid #111; margin-bottom: 6px; height: 40px; }
-    .sig-name { font-size: 11px; font-weight: bold; }
-    .sig-lbl  { font-size: 10px; color: #777; margin-top: 2px; }
-    .footer   { margin-top: 20px; text-align: center; font-size: 10px; color: #aaa; border-top: 1px dashed #ccc; padding-top: 8px; }
-    .note-box { background: #f9f9f9; border: 1px solid #eee; border-radius: 4px; padding: 8px 10px; font-size: 11px; color: #555; margin-top: 6px; }
-    @media print { body { padding: 16px; } }
-  </style>
-</head>
-<body>
-  <div class="header">
-    <div class="temple">${templeHtml()}</div>
-    <div class="slip-title">Asset Handover Slip</div>
-    <div class="ref">Ref: ${transactionNumber || '—'}</div>
-  </div>
-
-  <div class="section">
-    <div class="section-title">Asset Details</div>
-    <div class="row"><span class="lbl">Asset Name</span><span class="val">${asset?.name || '—'}</span></div>
-    <div class="row"><span class="lbl">Category</span><span class="val">${asset?.category || '—'}</span></div>
-    <div class="row"><span class="lbl">Quantity</span><span class="val">${quantityBorrowed} unit${quantityBorrowed > 1 ? 's' : ''}</span></div>
-  </div>
-
-  <div class="section">
-    <div class="section-title">Borrower Details</div>
-    <div class="row"><span class="lbl">Borrower Name</span><span class="val">${borrower?.name || '—'}</span></div>
-    <div class="row"><span class="lbl">Expected Return Date</span><span class="val">${fmtPrint(expectedReturnDate)}</span></div>
-    <div class="row"><span class="lbl">Approved By (Trustee)</span><span class="val">${approvedBy?.name || '—'}</span></div>
-    ${checkedOutAt ? `<div class="row"><span class="lbl">Date of Collection</span><span class="val">${fmtPrint(checkedOutAt)}</span></div>` : ''}
-    ${conditionAtCheckout ? `<div class="row"><span class="lbl">Condition at Handover</span><span class="val" style="text-transform:capitalize">${conditionAtCheckout}</span></div>` : ''}
-    ${createdBy?.name ? `<div class="row"><span class="lbl">Issued By (Help Desk)</span><span class="val">${createdBy.name}</span></div>` : ''}
-  </div>
-
-  ${notes ? `<div class="section">
-    <div class="section-title">Notes</div>
-    <div class="note-box">${notes}</div>
-  </div>` : ''}
-
-  <div class="section">
-    <div class="section-title">Terms</div>
-    <div style="font-size:11px; color:#555; line-height:1.6">
-      • The borrower is responsible for the safe custody of the above asset(s) until returned.<br/>
-      • Any damage or loss must be reported immediately to the Help Desk.<br/>
-      • The asset must be returned by <strong>${fmtPrint(expectedReturnDate)}</strong>.${asset?.finePerDay > 0 ? ` A fine of ₹${asset.finePerDay}/day applies for late returns.` : ''}
-    </div>
-  </div>
-
-  <div class="sig-area">
-    <div class="sig-box">
-      <div class="sig-line"></div>
-      <div class="sig-name">${borrower?.name || '_______________'}</div>
-      <div class="sig-lbl">Borrower Signature</div>
-    </div>
-    <div class="sig-box">
-      <div class="sig-line"></div>
-      <div class="sig-name">${createdBy?.name || 'Help Desk'}</div>
-      <div class="sig-lbl">Issued By (Help Desk)</div>
-    </div>
-  </div>
-
-  <div class="footer">
-    Printed on ${fmtPrint(new Date())} &nbsp;·&nbsp; ${templeHtml()} · Asset Management System
-  </div>
-
-  <script>window.onload = () => { window.print(); }<\/script>
-</body>
-</html>`;
-
-  return printHtml(html, { filename: `Handover-Slip-${transactionNumber || 'asset'}.pdf` });
-}
 
 // ── Main Page ────────────────────────────────────────────────────────────────
 const AssetTransactionDetail = () => {

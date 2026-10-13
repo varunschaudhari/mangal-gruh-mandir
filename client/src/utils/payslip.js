@@ -1,5 +1,6 @@
 // Payslips as printable HTML (one A4 page each) — printed in the browser, or turned into a
 // PDF to share in the mobile apps (utils/printHtml.js).
+import { PRINT_FONT, PRINT_HEADER_CSS, esc, letterheadHtml } from './printTemplate.js';
 
 const ONES = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten', 'Eleven', 'Twelve',
   'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen'];
@@ -23,7 +24,6 @@ export function amountInWords(amount) {
   return parts.join(' ');
 }
 
-const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const rs = (n) => `₹${Number(n || 0).toLocaleString('en-IN')}`;
 const days = (n) => (Number.isInteger(n) ? String(n) : `${Math.floor(n) || ''}½`);
 const masked = (acc) => (acc ? `•••• ${String(acc).slice(-4)}` : '—');
@@ -58,7 +58,7 @@ function slip(line, { label, temple, t }) {
     [t('Extra leave'), days(line.extraLeave || 0)], [t('Unpaid days'), days((line.unpaidDays || 0) + (line.lateCut || 0))],
   ];
   return `<section class="page">
-  <header><div><h1>${esc(temple.name)}</h1><p>${esc(temple.address)}</p></div><div class="right"><h2>${esc(t('Payslip'))}</h2><p>${esc(label)}</p></div></header>
+  ${letterheadHtml({ title: `${t('Payslip')} — ${label}`, info: temple })}
   <h3>${esc(line.name)}</h3>
   <table class="info"><tbody>${info.map(([k, v], i) => `${i % 3 === 0 ? '<tr>' : ''}<th>${esc(k)}</th><td>${esc(v)}</td>${i % 3 === 2 ? '</tr>' : ''}`).join('')}</tbody></table>
   <table class="att"><tbody><tr>${att.map(([k]) => `<th>${esc(k)}</th>`).join('')}</tr><tr>${att.map(([, v]) => `<td>${esc(v)}</td>`).join('')}</tr></tbody></table>
@@ -78,19 +78,18 @@ export function payslipsHtml(lines, { label, temple, t = (s) => s }) {
 <style>
   @page { size: A4; margin: 0; }
   * { box-sizing: border-box; }
-  body { margin: 0; font-family: 'Noto Sans Devanagari', Arial, sans-serif; color: #111827; }
-  .page { width: 794px; height: 1122px; padding: 48px 56px; overflow: hidden; page-break-after: always; position: relative; }
-  header { display: flex; justify-content: space-between; border-bottom: 3px solid #ea580c; padding-bottom: 12px; margin-bottom: 20px; }
-  h1 { margin: 0; font-size: 22px; color: #c2410c; } h2 { margin: 0; font-size: 20px; letter-spacing: 2px; text-transform: uppercase; color: #374151; }
-  header p { margin: 4px 0 0; font-size: 12px; color: #6b7280; } .right { text-align: right; }
+  body { margin: 0; font-family: ${PRINT_FONT}; color: #111827; }
+  .page { width: 794px; height: 1122px; padding: 44px 56px; overflow: hidden; page-break-after: always; position: relative; }
+  ${PRINT_HEADER_CSS}
+  .doc-title { margin-bottom: 16px; }
   h3 { font-size: 18px; margin: 0 0 10px; }
   table { width: 100%; border-collapse: collapse; margin-bottom: 18px; font-size: 13px; }
   .info th { text-align: left; color: #6b7280; font-weight: 500; padding: 4px 8px 4px 0; width: 14%; white-space: nowrap; } .info td { padding: 4px 12px 4px 0; width: 19%; font-weight: 600; }
   .att th, .att td { border: 1px solid #e5e7eb; padding: 6px; text-align: center; } .att th { background: #f9fafb; color: #6b7280; font-weight: 500; font-size: 12px; } .att td { font-weight: 700; }
   .pay th, .pay td { border: 1px solid #e5e7eb; padding: 8px 10px; text-align: left; } .pay thead th { background: #fff7ed; color: #9a3412; }
   .pay tfoot th { background: #f9fafb; } .n { text-align: right !important; white-space: nowrap; }
-  .net { display: flex; justify-content: space-between; align-items: center; background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 8px; padding: 14px 18px; }
-  .net span { font-size: 15px; color: #065f46; font-weight: 600; } .net b { font-size: 26px; color: #065f46; }
+  .net { display: flex; justify-content: space-between; align-items: center; border: 1.5px solid #c2410c; border-radius: 6px; padding: 14px 18px; }
+  .net span { font-size: 15px; color: #1f2937; font-weight: 600; } .net b { font-size: 26px; color: #c2410c; }
   .words { font-size: 13px; color: #374151; margin: 10px 0 0; } .small { font-size: 11px; color: #6b7280; margin-top: 18px; }
   footer { position: absolute; bottom: 40px; left: 56px; right: 56px; font-size: 11px; color: #9ca3af; text-align: center; border-top: 1px solid #e5e7eb; padding-top: 8px; }
 </style></head><body>
