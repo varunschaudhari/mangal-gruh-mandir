@@ -19,6 +19,9 @@
  *   npm run seed:demo -- --fresh            remove the previous demo data, then add
  *   npm run seed:demo:remove                remove all demo data
  *   add  -- --no-attendance                 leave out the attendance demo
+ *   add  -- --bookings-today                only today's pooja bookings (to show the slips' QR
+ *                                           codes at hall check-in); joins demo data already
+ *                                           there and is removed with it
  *
  * Anything typed in by hand while showing the app (a booking made during the demo) is a real
  * record and stays.
@@ -80,7 +83,8 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ARGS = process.argv.slice(2);
 const REMOVE = ARGS.includes('--remove');
 const FRESH = ARGS.includes('--fresh');
-const WITH_ATTENDANCE = !ARGS.includes('--no-attendance');
+const BOOKINGS_TODAY = ARGS.includes('--bookings-today');
+const WITH_ATTENDANCE = !ARGS.includes('--no-attendance') && !BOOKINGS_TODAY;
 
 const records = () => mongoose.connection.collection('demo_records');
 
@@ -203,19 +207,25 @@ const STAFF = [
   { key: 'trustee', name: 'Madhukar Joshi', role: 'viewer', canApprovePayments: true, canApproveAssets: true },
 ];
 
-async function createStaff() {
+// `keys` picks some of them; one already there (from the demo data being added to) is reused.
+async function createStaff(keys) {
   const roles = new Set((await Role.find().select('slug').lean()).map((r) => r.slug));
   const out = {};
-  for (const s of STAFF) {
+  const made = [];
+  for (const s of STAFF.filter((x) => !keys || keys.includes(x.key))) {
     const [first, last] = s.name.toLowerCase().split(' ');
+    const email = `${first}.${last}@demo.mandir.local`;
+    const found = await User.findOne({ email });
+    if (found) { out[s.key] = found; continue; }
     const user = await User.create({
-      name: s.name, email: `${first}.${last}@demo.mandir.local`, password: crypto.randomBytes(18).toString('base64url'),
+      name: s.name, email, password: crypto.randomBytes(18).toString('base64url'),
       phone: `91${phone()}`, role: roles.has(s.role) ? s.role : 'viewer', departments: [], isActive: true,
       canApprovePayments: Boolean(s.canApprovePayments), canApproveAssets: Boolean(s.canApproveAssets),
     });
     out[s.key] = user;
+    made.push(user);
   }
-  await track('User', Object.values(out));
+  await track('User', made);
   return out;
 }
 
@@ -615,7 +625,8 @@ async function seedDonations({ products, store, staff }) {
 }
 
 // ── Pooja bookings ───────────────────────────────────────────────────────────
-async function seedBookings({ staff }) {
+// `advance`: some paid on an earlier day (off for today-only bookings: all paid at today's counter)
+async function seedBookings({ staff, days = DAYS, ahead = 10, advance = true }) {
   const sevas = await SevaType.find({ isActive: true }).sort({ sortOrder: 1 }).lean();
   if (!sevas.length) return;
   const batches = await BookingBatch.find({ isActive: true }).lean();
@@ -676,12 +687,13 @@ async function seedBookings({ staff }) {
   const startMin = (b) => { const [h, mi] = b.start.split(':').map(Number); return h * 60 + mi; };
   // When was it paid: some in advance, most the same morning before the batch starts
   const paidTime = (key, startsAt) => {
-    if (chance(0.3) || startsAt < hm(6, 15)) {
+    if (advance && (chance(0.3) || startsAt < hm(6, 15))) {
       const prev = addDays(key, -int(1, 5));
       return at(prev, int(hm(8), hm(20)));
     }
     const t = timeOn(key, Math.max(hm(5, 30), startsAt - 180), startsAt - 10);
-    return t || at(addDays(key, -1), int(hm(10), hm(20)));
+    if (t) return t;
+    return advance ? at(addDays(key, -1), int(hm(10), hm(20))) : timeOn(key, hm(5, 30), hm(23, 59));
   };
 
   const dated = sevas.filter((s) => s.schedule !== 'none');
@@ -691,8 +703,8 @@ async function seedBookings({ staff }) {
     if (key === TODAY) return { dated: 95, postal: 10 };
     return { dated: Math.round(18 * busy(key) * (0.8 + rand() * 0.4)), postal: Math.round(2 * busy(key)) };
   };
-  const future = Array.from({ length: 10 }, (_, i) => addDays(TODAY, i + 1));
-  for (const key of [...DAYS, ...future]) {
+  const future = Array.from({ length: ahead }, (_, i) => addDays(TODAY, i + 1));
+  for (const key of [...days, ...future]) {
     const isFuture = key > TODAY;
     const n = !dated.length ? 0 : isFuture ? (isTuesday(key) ? 8 : 2) : plan(key).dated;
     for (let k = 0; k < n; k++) {
@@ -1028,37 +1040,47 @@ async function main() {
     if (await removeDemo()) console.log('[demo] done — demo data removed\n');
     return;
   }
-  if (await records().findOne({ _id: 'meta' })) {
+  // Today's bookings join demo data that is already there (and are removed with it)
+  if (await records().findOne({ _id: 'meta' }) && !BOOKINGS_TODAY) {
     if (!FRESH) throw new Error('Demo data is already there. Use --fresh to replace it, or seed:demo:remove to remove it.');
     console.log('\n[demo] removing the previous demo data');
     await removeDemo();
   }
-  console.log(`\n[demo] adding demo data for ${TODAY} and the 30 days before`);
-  await records().insertOne({ _id: 'meta', createdAt: NOW, today: TODAY });
+  await records().updateOne({ _id: 'meta' }, { $setOnInsert: { createdAt: NOW, today: TODAY } }, { upsert: true });
   const save = () => records().updateOne({ _id: 'meta' }, {
-    $set: { prefixes: [...prefixes], stockPairs: [...stockPairs], slotKeys: [...slotKeys], dailyCounters },
+    $addToSet: {
+      prefixes: { $each: [...prefixes] }, stockPairs: { $each: [...stockPairs] },
+      slotKeys: { $each: [...slotKeys] }, dailyCounters: { $each: dailyCounters },
+    },
   });
   try {
-    const staff = await createStaff();
-    const { products, vendors, assets, extra } = await ensureSetup();
-    const departments = await Department.find({ isActive: true }).sort({ sortOrder: 1 }).lean();
-    console.log('  · stock and purchases…');
-    const { purchases, store } = await seedStock({ products, vendors, departments, staff });
+    if (BOOKINGS_TODAY) {
+      // Just today's pooja bookings, made at the counter; batches that have started are mostly scanned in
+      console.log(`\n[demo] adding pooja bookings for ${TODAY}`);
+      await seedBookings({ staff: await createStaff(['counter1', 'counter2', 'hall', 'trustee']), days: [TODAY], ahead: 0, advance: false });
+    } else {
+      console.log(`\n[demo] adding demo data for ${TODAY} and the 30 days before`);
+      const staff = await createStaff();
+      const { products, vendors, assets, extra } = await ensureSetup();
+      const departments = await Department.find({ isActive: true }).sort({ sortOrder: 1 }).lean();
+      console.log('  · stock and purchases…');
+      const { purchases, store } = await seedStock({ products, vendors, departments, staff });
+      await save();
+      console.log('  · supplier payments and expenses…');
+      await seedPayments({ purchases, staff });
+      await seedExpenses({ staff });
+      console.log('  · donations…');
+      await seedDonations({ products, store, staff });
+      console.log('  · pooja bookings…');
+      await seedBookings({ staff });
+      console.log('  · Mahaprasad…');
+      await seedMahaprasad({ staff });
+      console.log('  · asset lending…');
+      await seedAssets({ assets, staff });
+      for (const pair of stockPairs) { const [p, d] = pair.split(':'); await recomputeBalance(p, d); }
+      if (Object.keys(extra).length) console.log(`  · added missing setup: ${JSON.stringify(extra)}`);
+    }
     await save();
-    console.log('  · supplier payments and expenses…');
-    await seedPayments({ purchases, staff });
-    await seedExpenses({ staff });
-    console.log('  · donations…');
-    await seedDonations({ products, store, staff });
-    console.log('  · pooja bookings…');
-    await seedBookings({ staff });
-    console.log('  · Mahaprasad…');
-    await seedMahaprasad({ staff });
-    console.log('  · asset lending…');
-    await seedAssets({ assets, staff });
-    for (const pair of stockPairs) { const [p, d] = pair.split(':'); await recomputeBalance(p, d); }
-    await save();
-    if (Object.keys(extra).length) console.log(`  · added missing setup: ${JSON.stringify(extra)}`);
   } catch (err) {
     await save();
     throw err;
