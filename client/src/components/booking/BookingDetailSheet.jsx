@@ -420,7 +420,7 @@ export default function BookingDetailSheet({ booking: initial, onClose }) {
 
       {editOpen && full && (
         <EditBookingSheet
-          booking={full} seva={seva} sevaTypes={options?.sevaTypes || []}
+          booking={full} seva={seva} sevaTypes={options?.sevaTypes || []} settings={settings}
           onClose={() => setEditOpen(false)} onSaved={onEdited}
         />
       )}

@@ -15,6 +15,11 @@ const bookingSettingsSchema = new mongoose.Schema(
     // Receipt sent to the devotee's phone
     whatsappAuto:     { type: Boolean, default: true },   // needs WhatsApp set up in Settings
     whatsappTemplate: { type: String, trim: true, default: 'booking_confirmation' },
+    whatsappImage:    { type: Boolean, default: true },   // the template has the slip picture on top (Header: Image)
+    // The template is approved in these languages (same name in each); new bookings start in
+    // whatsappLanguage and the counter can change it per devotee
+    whatsappLanguages: { type: [{ type: String, enum: ['mr', 'en'] }], default: ['mr', 'en'] },
+    whatsappLanguage:  { type: String, enum: ['mr', 'en'], default: 'mr' },
     smsAuto:          { type: Boolean, default: false },  // needs MSG91 + a DLT-approved template
     smsTemplateId:    { type: String, trim: true, default: '' },
   },

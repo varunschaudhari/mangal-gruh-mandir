@@ -37,7 +37,7 @@ import attendanceRoutes from './attendance.routes.js';
 import salaryRoutes from './salary.routes.js';
 import pincodeRoutes from './pincode.routes.js';
 import { bookingRouter, bookingSetupRouter, bookingShiftRouter } from './booking.routes.js';
-import { publicReceipt } from '../controllers/booking.controller.js';
+import { publicReceipt, publicSlip } from '../controllers/booking.controller.js';
 
 const router = Router();
 
@@ -84,5 +84,6 @@ router.use('/booking-setup',       bookingSetupRouter);
 router.use('/booking-shifts',      bookingShiftRouter);
 // No sign-in: the receipt link sent to devotees on WhatsApp / SMS
 router.get('/public/receipts/:token', publicReceipt);
+router.get('/public/receipts/:token/slip.png', publicSlip);
 
 export default router;

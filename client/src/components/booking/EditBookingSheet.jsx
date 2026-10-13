@@ -8,7 +8,7 @@ import { updateBooking } from '../../api/booking.api.js';
 import { usePermissions } from '../../hooks/usePermissions.js';
 import haptics from '../../utils/haptics.js';
 import { useLanguage, useT, rich } from '../../i18n/index.jsx';
-import { DevoteeMore } from './counter/DevoteeFields.jsx';
+import { DevoteeMore, MessageLanguage } from './counter/DevoteeFields.jsx';
 import SankalpPanel from './counter/SankalpPanel.jsx';
 import { PaymentModes, PaymentRefInput } from './counter/PaymentPicker.jsx';
 import { addFamilyNames, cleanPhoneInput, serverText } from './counter/counterUtils.js';
@@ -32,7 +32,7 @@ const errCls = 'border-red-400 focus:border-red-500 focus:ring-red-500';
  * for whoever took it, while the shift is open — how it was paid). Only changed fields are sent;
  * the receipt number and amount never change. Mount it only while open: the form starts from `booking`.
  */
-export default function EditBookingSheet({ booking: b, seva, sevaTypes = [], onClose, onSaved }) {
+export default function EditBookingSheet({ booking: b, seva, sevaTypes = [], settings = {}, onClose, onSaved }) {
   const t = useT();
   const { lang } = useLanguage();
   const { can, user } = usePermissions();
@@ -148,6 +148,9 @@ export default function EditBookingSheet({ booking: b, seva, sevaTypes = [], onC
               className={`input h-11 text-base font-semibold ${errors.name ? errCls : ''}`}
             />
             <Err>{errorText('name')}</Err>
+            {settings.whatsappAuto && (
+              <MessageLanguage value={d.language || settings.whatsappLanguage || 'mr'} onChange={(v) => setField('language', v)} />
+            )}
           </div>
         </div>
 

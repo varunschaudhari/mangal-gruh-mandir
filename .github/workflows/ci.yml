@@ -6,9 +6,11 @@ on:
   pull_request:
   workflow_dispatch:
 
+# A newer push replaces an older run's tests on pull requests; on main runs queue instead, so a
+# deploy is never cut off halfway.
 concurrency:
   group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   web:
@@ -116,3 +118,45 @@ jobs:
           name: mgm-mandir-debug-apk
           path: client/android/app/build/outputs/apk/debug/app-debug.apk
           retention-days: 14
+
+  # Deploys main to the server once the web app and server checks pass (DEPLOY.md §14).
+  # Skipped until the DEPLOY_HOST repository variable is set (GitHub → Settings → Secrets and
+  # variables → Actions → Variables); the SSH key goes in the DEPLOY_SSH_KEY secret.
+  deploy:
+    name: Deploy to the server
+    runs-on: ubuntu-latest
+    needs: [web, server]
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && vars.DEPLOY_HOST != ''
+    environment:
+      name: production
+      url: ${{ vars.DEPLOY_URL || 'https://mandir.aumora.io' }}
+    concurrency:
+      group: deploy-production
+      cancel-in-progress: false
+    env:
+      HOST: ${{ vars.DEPLOY_HOST }}
+      SSH_USER: ${{ vars.DEPLOY_USER || 'root' }}
+      APP_DIR: ${{ vars.DEPLOY_PATH || '/root/mangal-gruh-mandir' }}
+      SITE: ${{ vars.DEPLOY_URL || 'https://mandir.aumora.io' }}
+    steps:
+      - name: SSH key and the server's identity
+        env:
+          SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+        run: |
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/deploy_key && chmod 600 ~/.ssh/deploy_key
+          # Pinned host keys when given (recommended); otherwise trust what the server shows now.
+          if [ -n "$KNOWN_HOSTS" ]; then printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts; else ssh-keyscan -H "$HOST" > ~/.ssh/known_hosts; fi
+      - name: Update the code to this commit, rebuild and migrate
+        # Fast-forward only: if someone changed files on the server, stop rather than overwrite them.
+        run: |
+          ssh -i ~/.ssh/deploy_key -o BatchMode=yes "$SSH_USER@$HOST" \
+            "set -e; cd '$APP_DIR'; git fetch --quiet origin main; git merge --ff-only ${{ github.sha }}; ./deploy.sh"
+      - name: Check the live site
+        run: |
+          for i in $(seq 1 30); do
+            if curl -fsS "$SITE/api/health"; then echo; exit 0; fi
+            sleep 5
+          done
+          echo "The live site did not answer at $SITE/api/health"; exit 1

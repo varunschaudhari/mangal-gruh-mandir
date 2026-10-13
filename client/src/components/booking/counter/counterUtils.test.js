@@ -143,3 +143,19 @@ describe('Marathi booking dictionary', () => {
     expect(dupes).toEqual([]);
   });
 });
+
+describe('WhatsApp message language', () => {
+  const seva = { _id: 's1', schedule: 'none' };
+  it('goes with the booking, empty when not chosen', () => {
+    const body = (language) => buildBookingBody({ seva, phone: '9876543210', devotee: { ...EMPTY_DEVOTEE, name: 'Asha', language }, paymentMode: 'cash' });
+    expect(body('en').devotee.language).toBe('en');
+    expect(body('').devotee.language).toBe('');
+  });
+  it('comes back for a returning devotee, without overriding a choice already made', () => {
+    const found = devoteeFormValues({ name: 'Asha', language: 'en' });
+    expect(found.language).toBe('en');
+    expect(fillEmpty({ ...EMPTY_DEVOTEE }, found).language).toBe('en');
+    expect(fillEmpty({ ...EMPTY_DEVOTEE, language: 'mr' }, found).language).toBe('mr');
+    expect(clearPrefilled(fillEmpty({ ...EMPTY_DEVOTEE }, found), found).language).toBe('');
+  });
+});

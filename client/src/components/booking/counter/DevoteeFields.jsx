@@ -1,5 +1,5 @@
 import { useCallback } from 'react';
-import { AlertTriangle, CalendarCheck, Loader2, Minus, Phone, Plus, UserCheck, UserPlus } from 'lucide-react';
+import { AlertTriangle, CalendarCheck, Loader2, MessageCircle, Minus, Phone, Plus, UserCheck, UserPlus } from 'lucide-react';
 import PincodeFields from '../../ui/PincodeFields.jsx';
 import { useLanguage, useT } from '../../../i18n/index.jsx';
 import haptics from '../../../utils/haptics.js';
@@ -21,7 +21,25 @@ const UPCOMING_SHOWN = 3;
  * Mobile number (looked up as soon as it has 10 digits) and the devotee's name. A returning
  * devotee's bookings still ahead are listed; the one matching the chosen seva + date stands out.
  */
-export function PhoneAndName({ phone, onPhone, phoneRef, lookup, errors, name, onName, nameRef, sevaTypes, sevaId, date }) {
+/** The language of the devotee's WhatsApp receipt: मराठी or English (names in their own script). */
+export function MessageLanguage({ value, onChange }) {
+  const t = useT();
+  return (
+    <div className="mt-1.5 flex flex-wrap items-center gap-2 text-xs">
+      <span className="inline-flex items-center gap-1 text-gray-500"><MessageCircle className="h-3.5 w-3.5" aria-hidden="true" />{t('WhatsApp message in')}</span>
+      <span className="inline-flex rounded-full bg-gray-100 p-0.5" role="radiogroup" aria-label={t('WhatsApp message in')}>
+        {[['mr', 'मराठी'], ['en', 'English']].map(([code, label]) => (
+          <button key={code} type="button" role="radio" aria-checked={value === code} onClick={() => onChange(code)}
+            className={`min-h-[28px] rounded-full px-3 font-semibold transition-colors ${value === code ? 'bg-white text-primary-700 shadow-sm ring-1 ring-primary-200' : 'text-gray-500 hover:text-gray-800'}`}>
+            {label}
+          </button>
+        ))}
+      </span>
+    </div>
+  );
+}
+
+export function PhoneAndName({ phone, onPhone, phoneRef, lookup, errors, name, onName, nameRef, sevaTypes, sevaId, date, messageLang, onMessageLang }) {
   const t = useT();
   const { lang } = useLanguage();
   const valid = isValidPhone(phone);
@@ -113,6 +131,7 @@ export function PhoneAndName({ phone, onPhone, phoneRef, lookup, errors, name, o
           className={`input h-12 text-base font-semibold ${errors.name ? 'border-red-400 focus:border-red-500 focus:ring-red-500' : ''}`}
         />
         <Err>{errors.name}</Err>
+        {messageLang && <MessageLanguage value={messageLang} onChange={onMessageLang} />}
       </div>
     </div>
   );

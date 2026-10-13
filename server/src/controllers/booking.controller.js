@@ -19,6 +19,7 @@ import { attendanceReport, daySheet, registerFilter, summary } from '../services
 import { bookingsExcel, summaryPdf } from '../services/booking/exports.js';
 import { dateKeyOf, isDateKey } from '../services/booking/rules.js';
 import { temple as templeDetails } from '../services/temple.service.js';
+import { slipPng } from '../services/booking/slipImage.js';
 
 const withUrl = (b) => (b ? { ...b, receiptUrl: receiptUrl(b) } : b);
 const POPULATE = [
@@ -50,6 +51,7 @@ export const getOptions = asyncHandler(async (req, res) => {
       printerName: settings.printerName || temple.mahaprasadPrinterName || '', paperWidth: settings.paperWidth,
       receiptFooter: settings.receiptFooter,
       whatsappAuto: Boolean(temple.waEnabled && settings.whatsappAuto),
+      whatsappLanguage: settings.whatsappLanguage || 'mr',   // new bookings' message language
       templeName: temple.templeName, templeAddress: temple.templeAddress, templePhone: temple.templePhone,
       hallNames: names,   // { H1: { name, nameMr } } — slips and screens show "Name (H1)"
     },
@@ -244,6 +246,22 @@ export const reportSummaryPdf = asyncHandler(async (req, res) => {
 export const reportDaySheet = asyncHandler(async (req, res) => {
   const date = isDateKey(req.query.date) ? req.query.date : dateKeyOf();
   res.json(new ApiResponse(200, { date, groups: await daySheet(date) }));
+});
+
+// GET /public/receipts/:token/slip.png — the counter slip as a picture, sent at the top of the
+// WhatsApp receipt (Meta fetches it from here). Same secret link as the receipt; phone masked.
+export const publicSlip = asyncHandler(async (req, res) => {
+  const token = String(req.params.token || '');
+  if (!/^[A-Za-z0-9_-]{10,40}$/.test(token)) throw new ApiError(404, 'Receipt not found');
+  const b = await Booking.findOne({ receiptToken: token }).populate('createdBy', 'name').lean();
+  if (!b) throw new ApiError(404, 'Receipt not found');
+  const [settings, names] = await Promise.all([BookingSettings.getOrCreate(), hallNames()]);
+  const png = await slipPng(b, {
+    hall: names[b.hall] || {}, temple: templeDetails(), footer: settings.receiptFooter,
+    receiptUrl: receiptUrl(b), bookedBy: b.createdBy?.name || '',
+  });
+  res.set({ 'Content-Type': 'image/png', 'Cache-Control': 'public, max-age=300' });
+  res.send(png);
 });
 
 // GET /public/receipts/:token — the receipt page linked from WhatsApp / SMS (no sign-in)

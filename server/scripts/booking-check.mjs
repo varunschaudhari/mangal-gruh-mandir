@@ -152,6 +152,11 @@ async function main() {
   check(pub.data?.receiptNo === postOk.body.data.receiptNo && pub.data.devotee.phone.startsWith('XXXXXX') && !pub.data.devotee.address,
     'public receipt works without sign-in and hides phone and address');
   check((await fetch(`${BASE}/api/public/receipts/not-a-real-token-123`)).status === 404, 'unknown receipt link is 404');
+  const slip = await fetch(`${BASE}/api/public/receipts/${receiptToken}/slip.png`);
+  const slipBytes = Buffer.from(await slip.arrayBuffer());
+  check(slip.status === 200 && slip.headers.get('content-type') === 'image/png' && slipBytes.subarray(1, 4).toString() === 'PNG' && slipBytes.length > 20000,
+    'the slip picture for WhatsApp is a PNG, without sign-in', `${slip.status} ${slipBytes.length}`);
+  check((await fetch(`${BASE}/api/public/receipts/not-a-real-token-123/slip.png`)).status === 404, 'unknown slip picture link is 404');
 
   // ── Fixing mistakes without voiding ─────────────────────────────────────────
   const t = tampered.body.data;
@@ -164,6 +169,23 @@ async function main() {
   const noop = await api('PATCH', `/bookings/${t._id}`, { devotee: { name: 'Prachi A. Shinde' } });
   check(noop.status === 200 && noop.body.data.history.length === 1, 'saving without changes adds nothing to history');
   check((await api('PATCH', `/bookings/${t._id}`, { devotee: { phone: '12345' } })).status === 400, 'edit still checks the phone number');
+
+  // WhatsApp message language: on the booking, changeable, back for the devotee next time
+  check((e.devotee.language ?? '') === '', `a booking without a chosen language uses Setup's default`, e.devotee.language);
+  const toEnglish = await api('PATCH', `/bookings/${t._id}`, { devotee: { language: 'en' } });
+  check(toEnglish.status === 200 && toEnglish.body.data.devotee.language === 'en' && toEnglish.body.data.history.some((h) => 'devotee.language' in (h.changes || {})),
+    'the message language can be corrected, and the change is in the history', JSON.stringify(toEnglish.body.data?.devotee?.language));
+  const odd = await api('PATCH', `/bookings/${t._id}`, { devotee: { language: 'fr' } });
+  check(odd.status === 200 && odd.body.data.devotee.language === '', 'an unknown language falls back to the default', JSON.stringify(odd.body.data?.devotee?.language));
+  await api('PATCH', `/bookings/${t._id}`, { devotee: { language: 'en' } });
+  const back = (await api('GET', `/bookings/devotee?phone=${devotee.phone}`)).body.data;
+  check(back?.devotee?.language === 'en', `a returning devotee's language is filled in at the counter`, JSON.stringify(back?.devotee?.language));
+  const noLang = await api('PUT', '/booking-setup/settings', { whatsappLanguages: [] });
+  const langs = await api('PUT', '/booking-setup/settings', { whatsappLanguages: ['en', 'mr', 'xx'], whatsappLanguage: 'en' });
+  check(noLang.status === 400 && langs.status === 200 && JSON.stringify(langs.body.data.whatsappLanguages) === '["en","mr"]' && langs.body.data.whatsappLanguage === 'en',
+    'Setup needs at least one approved language and keeps only Marathi / English', `${noLang.status} ${JSON.stringify(langs.body.data?.whatsappLanguages)}`);
+  check((await api('GET', '/bookings/options')).body.data?.settings?.whatsappLanguage === 'en', 'the counter gets the default language');
+  await api('PUT', '/booking-setup/settings', { whatsappLanguages: ['mr', 'en'], whatsappLanguage: 'mr' });
   const postNoPinEdit = await api('PATCH', `/bookings/${postOk.body.data._id}`, { devotee: { pincode: '' } });
   const postName = await api('PATCH', `/bookings/${postOk.body.data._id}`, { devotee: { name: 'R. S. Patil' } });
   check(postNoPinEdit.status === 400 && postName.status === 200, 'Post Abhishek: the PIN code cannot be removed, the name can be fixed');

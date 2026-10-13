@@ -144,4 +144,6 @@ export default {
   // ── UPI / card references ──
   'Enter the UPI reference (UTR) from the devotee’s payment screen — at least the last 4 digits': 'भाविकाच्या पेमेंट स्क्रीनवरील UPI संदर्भ क्र. (UTR) टाका — किमान शेवटचे 4 अंक',
   'Enter the card’s last 4 digits or the approval code from the card slip': 'कार्डचे शेवटचे 4 अंक किंवा कार्ड स्लिपवरील मंजुरी कोड टाका',
+  'WhatsApp message in': 'WhatsApp संदेशाची भाषा',
+  'WhatsApp language': 'WhatsApp भाषा',
 };

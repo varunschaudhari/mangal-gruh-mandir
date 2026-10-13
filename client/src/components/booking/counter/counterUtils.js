@@ -130,6 +130,7 @@ export { cleanPhoneInput, isValidPhone };
 export const EMPTY_DEVOTEE = Object.freeze({
   name: '', email: '', address: '', pincode: '', area: '', city: '', district: '', state: '', dob: '', maritalStatus: '',
   gotra: '', familyNames: [], rashi: '', nakshatra: '', birthTime: '', birthPlace: '',
+  language: '',   // WhatsApp receipt: 'mr' / 'en' ('' = Setup's default); a returning devotee's comes back
 });
 const DEVOTEE_KEYS = Object.keys(EMPTY_DEVOTEE);
 
@@ -219,6 +220,7 @@ export function buildBookingBody({ seva, phone, devotee, date, batchId, peopleCo
       nakshatra: trim(devotee.nakshatra),
       birthTime: trim(devotee.birthTime),
       birthPlace: trim(devotee.birthPlace),
+      language: devotee.language || '',
     },
     peopleCount: Math.max(1, Number(peopleCount) || 1),
     paymentMode,

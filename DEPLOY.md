@@ -396,12 +396,47 @@ Automatic sending is optional: set `WA_MAHAPRASAD_TEMPLATE` (a Meta-approved tem
 `server/.env.example`; needs WhatsApp turned on in Settings) and/or `MSG91_MAHAPRASAD_TEMPLATE_ID`
 (needs SMS turned on) in `server/.env`, then restart the server.
 
+## 14. Automatic deploys from GitHub
+
+Every push to `main` runs the checks in `.github/workflows/ci.yml` (web app, server, Android test
+APK). When the web app and server checks pass, the **Deploy** job logs in to the server over SSH,
+moves the code to exactly the commit that was tested (`git merge --ff-only`), and runs
+[`deploy.sh`](deploy.sh): rebuild and restart the containers, wait for the API, run the add-only
+permission migrations, remove old images. It then checks `https://<domain>/api/health`.
+A failed check means nothing is deployed; a push with failing tests never reaches the server.
+
+**One-time setup** (deploys stay off until step 2 is done):
+
+1. On the server, make a key just for GitHub and allow it to log in:
+   ```bash
+   ssh-keygen -t ed25519 -f ~/.ssh/github_actions -N "" -C "github-actions-deploy"
+   cat ~/.ssh/github_actions.pub >> ~/.ssh/authorized_keys
+   cat ~/.ssh/github_actions          # the private key — copy all of it, BEGIN to END
+   ```
+2. In GitHub: the repository → **Settings → Secrets and variables → Actions**:
+   - **Secrets** → `DEPLOY_SSH_KEY` = that private key.
+   - **Secrets** → `DEPLOY_KNOWN_HOSTS` (recommended) = the output of `ssh-keyscan <server-ip>`, so
+     GitHub only ever talks to your server.
+   - **Variables** → `DEPLOY_HOST` = the server's IP or name. **This switches deploys on.**
+   - Optional variables: `DEPLOY_USER` (default `root`), `DEPLOY_PATH` (default
+     `/root/mangal-gruh-mandir`), `DEPLOY_URL` (default `https://mandir.aumora.io`).
+3. Optional: **Settings → Environments → production → Required reviewers** to approve each deploy
+   with a click before it runs (GitHub offers this on public repositories and paid plans).
+
+The server's copy must stay a clean checkout of `main` — if files were edited directly on the
+server, the deploy stops instead of overwriting them (`git status` on the server shows what).
+To redeploy without a new commit: **Actions → CI → Run workflow** on `main`. By hand on the server:
+`cd ~/mangal-gruh-mandir && git pull && ./deploy.sh`.
+
+Not automatic: app installers. Android APKs and desktop installers are still copied to
+`mobile-releases/` as described in MOBILE.md.
+
 ## Operations cheatsheet
 
 ```bash
 docker compose logs -f server        # tail server logs
 docker compose restart server        # restart after env change
-docker compose pull && docker compose up -d --build   # deploy new code (after git pull)
+git pull && ./deploy.sh             # deploy by hand (normally GitHub does it — section 14)
 ```
 
 **Backups:** see section 10 — `./backup-db.sh` (manual run), `./restore-db.sh verify|live <archive>`.

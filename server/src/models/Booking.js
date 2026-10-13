@@ -53,6 +53,7 @@ const bookingSchema = new mongoose.Schema(
       nakshatra:     { type: String, trim: true, default: '' },
       birthTime:     { type: String, trim: true, default: '' },
       birthPlace:    { type: String, trim: true, default: '' },
+      language:      { type: String, enum: ['', 'mr', 'en'], default: '' },  // WhatsApp receipt; '' = Setup's default
     },
     peopleCount: { type: Number, default: 1, min: 1 },
     notes:       { type: String, trim: true, default: '' },

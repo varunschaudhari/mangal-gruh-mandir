@@ -179,6 +179,9 @@ export default function BookingCounter() {
     }
   };
 
+  // The receipt's language: chosen for this devotee, else Setup's default
+  const messageLang = devotee.language || settings.whatsappLanguage || 'mr';
+
   const setField = useCallback((key, value) => {
     setDevotee((d) => ({ ...d, [key]: value }));
     clearError(key);
@@ -307,7 +310,7 @@ export default function BookingCounter() {
     // A family name typed but not yet added with Enter still counts.
     const familyNames = familyDraft.trim() ? addFamilyNames(devotee.familyNames, familyDraft) : devotee.familyNames;
     if (familyDraft.trim()) { setDevotee((d) => ({ ...d, familyNames })); setFamilyDraft(''); }
-    const dv = { ...devotee, familyNames };
+    const dv = { ...devotee, familyNames, language: messageLang };
 
     const errs = validateBooking({ seva, phone, devotee: dv, date, batchId, availability: avail, peopleCount, capacityUnit, paymentMode, paymentRef });
     const first = ERROR_ORDER.find((k) => errs[k]);
@@ -462,6 +465,7 @@ export default function BookingCounter() {
               errors={{ phone: errorText('phone'), name: errorText('name') }}
               name={devotee.name} onName={(v) => setField('name', v)} nameRef={nameRef}
               sevaTypes={sevaTypes} sevaId={seva?._id} date={needsDate ? date : ''}
+              messageLang={settings.whatsappAuto ? messageLang : ''} onMessageLang={(v) => setField('language', v)}
             />
           </section>
 

@@ -190,8 +190,13 @@ export const deleteClosure = asyncHandler(async (req, res) => {
 // ── Settings ──────────────────────────────────────────────────────────────────
 
 export const updateSettings = asyncHandler(async (req, res) => {
-  const data = pick(req.body, ['receiptPrefix', 'capacityUnit', 'maxAdvanceDays', 'printerName', 'paperWidth', 'receiptFooter', 'whatsappAuto', 'whatsappTemplate', 'smsAuto', 'smsTemplateId']);
+  const data = pick(req.body, ['receiptPrefix', 'capacityUnit', 'maxAdvanceDays', 'printerName', 'paperWidth', 'receiptFooter', 'whatsappAuto', 'whatsappTemplate', 'whatsappImage', 'whatsappLanguages', 'whatsappLanguage', 'smsAuto', 'smsTemplateId']);
   if (data.receiptPrefix !== undefined && !/^[A-Za-z]{1,8}$/.test(data.receiptPrefix)) throw new ApiError(400, 'Receipt prefix: 1–8 letters');
+  if (data.whatsappLanguages !== undefined) {
+    data.whatsappLanguages = [...new Set([].concat(data.whatsappLanguages).filter((l) => ['mr', 'en'].includes(l)))];
+    if (!data.whatsappLanguages.length) throw new ApiError(400, 'Tick at least one language the WhatsApp template is approved in');
+  }
+  if (data.whatsappLanguage !== undefined && !['mr', 'en'].includes(data.whatsappLanguage)) throw new ApiError(400, 'Message language: Marathi or English');
   const settings = await BookingSettings.getOrCreate();
   Object.assign(settings, data);
   await settings.save();

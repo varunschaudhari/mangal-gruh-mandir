@@ -234,8 +234,19 @@ export default {
   'Set up WhatsApp in Settings': 'सेटिंग्जमध्ये WhatsApp सेट करा',
   'Template name': 'टेम्पलेटचे नाव',
   'The name of the approved template in Meta WhatsApp Manager': 'Meta WhatsApp Manager मधील मंजूर टेम्पलेटचे नाव',
-  'Ask Meta to approve a template with exactly this text (category: Utility, language: English — not English US):':
-    'नेमका हाच मजकूर असलेले टेम्पलेट Meta कडून मंजूर करून घ्या (category: Utility, language: English — English US नव्हे):',
+  'Slip picture at the top of the message': 'संदेशाच्या वर पावतीचे चित्र',
+  'The devotee gets the slip with its QR code right in the chat — it shows even without internet at the hall.':
+    'भाविकाला QR कोडसह पावती थेट चॅटमध्ये मिळते — सभागृहात इंटरनेट नसतानाही दिसते.',
+  'Template approved in': 'टेम्पलेट मंजूर असलेल्या भाषा',
+  'Tick at least one language': 'किमान एक भाषा निवडा',
+  'New bookings start in': 'नवीन बुकिंगची भाषा',
+  'The counter can change it for each devotee; a returning devotee keeps their choice.':
+    'काउंटरवर प्रत्येक भाविकासाठी बदलता येते; पुन्हा आलेल्या भाविकाची निवड लक्षात राहते.',
+  'Create the template in Meta under this name, once for each language, with header Image and the text below (category: Utility):':
+    'Meta मध्ये याच नावाने, प्रत्येक भाषेसाठी एकदा, Header मध्ये Image आणि खालील मजकूर असलेले टेम्पलेट तयार करा (category: Utility):',
+  'Create the template in Meta under this name, once for each language, with the text below (category: Utility):':
+    'Meta मध्ये याच नावाने, प्रत्येक भाषेसाठी एकदा, खालील मजकूर असलेले टेम्पलेट तयार करा (category: Utility):',
+  'not English (US)': 'English (US) नव्हे',
   'devotee\'s name': 'भाविकाचे नाव',
   'seva name': 'सेवेचे नाव',
   'date, batch and hall': 'तारीख, बॅच आणि हॉल',

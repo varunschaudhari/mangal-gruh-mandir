@@ -196,6 +196,7 @@ function sanitiseDevotee(d = {}, sevaType = {}, { checkAddress = true } = {}) {
     nakshatra: clean(d.nakshatra, 40),
     birthTime: clean(d.birthTime, 20),
     birthPlace: clean(d.birthPlace, 80),
+    language: ['mr', 'en'].includes(d.language) ? d.language : '',
   };
 }
 
@@ -334,7 +335,7 @@ export async function voidBooking(id, reason, user) {
 // ── Corrections (the receipt number and amount never change) ──────────────────
 
 const DEVOTEE_FIELDS = ['name', 'phone', 'email', 'address', 'pincode', 'area', 'city', 'district', 'state',
-  'dob', 'maritalStatus', 'gotra', 'familyNames', 'rashi', 'nakshatra', 'birthTime', 'birthPlace'];
+  'dob', 'maritalStatus', 'gotra', 'familyNames', 'rashi', 'nakshatra', 'birthTime', 'birthPlace', 'language'];
 const EDIT_FIELDS = [...DEVOTEE_FIELDS.map((f) => `devotee.${f}`), 'peopleCount', 'notes', 'paymentMode', 'paymentRef'];
 
 const findConfirmed = async (id) => {

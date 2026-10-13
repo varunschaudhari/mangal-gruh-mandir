@@ -129,5 +129,7 @@ describe('history', () => {
     expect(historyValue('serialNo', 0)).toBe('0');
     expect(historyValue('notes', '')).toBe('');
     expect(historyValue('notes', null)).toBe('');
+    expect(historyValue('devotee.language', 'mr')).toBe('मराठी');
+    expect(historyValue('devotee.language', 'en')).toBe('English');
   });
 });

@@ -18,7 +18,13 @@ import { SwitchRow, batchTime, errText, financialYear, hallNamesOf, useRefreshBo
 
 // The exact text the trust must get approved as a WhatsApp template (Meta), and the
 // MSG91 variables — must match server/src/services/booking/notify.js.
-const WA_TEMPLATE_TEXT = 'Namaste {{1}}, your {{2}} at Shri Mangal Grah Mandir, Amalner is booked for {{3}}. Receipt {{4}}: {{5}}';
+// The template under one name in each language (Meta refuses one ending with a variable, hence
+// the closing sentence). Values: server/src/services/booking/notify.js → whatsappReceipt.
+const WA_TEMPLATE_TEXT = {
+  mr: 'नमस्कार {{1}}, श्री मंगळग्रह मंदिर, अमळनेर येथे आपली {{2}} सेवा नोंदवली आहे — {{3}}. पावती {{4}}: {{5}} कृपया हे सभागृहात दाखवा.',
+  en: 'Namaste {{1}}, your {{2}} at Shri Mangal Grah Mandir, Amalner is booked for {{3}}. Receipt {{4}}: {{5}} Please show this at the hall.',
+};
+const WA_LANGS = [['mr', 'मराठी (Marathi)'], ['en', 'English']];
 const WA_VARS = [
   ['{{1}}', /*t*/ 'devotee\'s name'],
   ['{{2}}', /*t*/ 'seva name'],
@@ -51,6 +57,9 @@ const toForm = (s) => ({
   receiptFooter: s.receiptFooter || '',
   whatsappAuto: Boolean(s.whatsappAuto),
   whatsappTemplate: s.whatsappTemplate || '',
+  whatsappImage: s.whatsappImage !== false,
+  whatsappLanguages: s.whatsappLanguages?.length ? s.whatsappLanguages : ['mr', 'en'],
+  whatsappLanguage: s.whatsappLanguage || 'mr',
   smsAuto: Boolean(s.smsAuto),
   smsTemplateId: s.smsTemplateId || '',
 });
@@ -144,7 +153,7 @@ export default function SettingsTab({ setup, canManage }) {
   const { register, handleSubmit, control, watch, reset, setValue, getValues, formState: { errors, isDirty } } = useForm({
     values, resetOptions: { keepDirtyValues: true },
   });
-  const [prefix, whatsappAuto, smsAuto, capacityUnit] = watch(['receiptPrefix', 'whatsappAuto', 'smsAuto', 'capacityUnit']);
+  const [prefix, whatsappAuto, smsAuto, capacityUnit, whatsappImage, waLangs] = watch(['receiptPrefix', 'whatsappAuto', 'smsAuto', 'capacityUnit', 'whatsappImage', 'whatsappLanguages']);
   const [printers, setPrinters] = useState(null);
   const [finding, setFinding] = useState(false);
   const [printing, setPrinting] = useState(false);
@@ -168,6 +177,9 @@ export default function SettingsTab({ setup, canManage }) {
     receiptFooter: v.receiptFooter.trim(),
     whatsappAuto: Boolean(v.whatsappAuto),
     whatsappTemplate: v.whatsappTemplate.trim(),
+    whatsappImage: Boolean(v.whatsappImage),
+    whatsappLanguages: v.whatsappLanguages,
+    whatsappLanguage: v.whatsappLanguage,
     smsAuto: Boolean(v.smsAuto),
     smsTemplateId: v.smsTemplateId.trim(),
   });
@@ -348,9 +360,66 @@ export default function SettingsTab({ setup, canManage }) {
                   className="input font-mono" autoComplete="off" autoCapitalize="none"
                 />
               </FormField>
-              <div>
-                <p className="mb-1.5 text-sm text-gray-600">{t('Ask Meta to approve a template with exactly this text (category: Utility, language: English — not English US):')}</p>
-                <CopyBox text={WA_TEMPLATE_TEXT}><VarList vars={WA_VARS} /></CopyBox>
+              <Controller
+                name="whatsappImage" control={control}
+                render={({ field }) => (
+                  <SwitchRow label={t('Slip picture at the top of the message')}
+                    hint={t('The devotee gets the slip with its QR code right in the chat — it shows even without internet at the hall.')}
+                    checked={field.value} onChange={field.onChange} disabled={!canManage} />
+                )}
+              />
+              <Controller
+                name="whatsappLanguages" control={control}
+                rules={{ validate: (v, all) => !all.whatsappAuto || v.length > 0 || t('Tick at least one language') }}
+                render={({ field }) => (
+                  <fieldset>
+                    <legend className="mb-1.5 text-sm font-medium text-gray-700">{t('Template approved in')}</legend>
+                    <div className="flex flex-wrap gap-2">
+                      {WA_LANGS.map(([code, label]) => {
+                        const on = field.value.includes(code);
+                        return (
+                          <label key={code} className={`inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-xl border px-3 text-sm font-medium ${on ? 'border-primary-300 bg-primary-50 text-primary-800' : 'border-gray-200 text-gray-600'}`}>
+                            <input type="checkbox" className="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500" checked={on} disabled={!canManage}
+                              onChange={(e) => field.onChange(e.target.checked ? WA_LANGS.map(([c]) => c).filter((c) => c === code || field.value.includes(c)) : field.value.filter((c) => c !== code))} />
+                            {label}
+                          </label>
+                        );
+                      })}
+                    </div>
+                    {errors.whatsappLanguages && <p className="mt-1 text-xs text-red-600">{errors.whatsappLanguages.message}</p>}
+                  </fieldset>
+                )}
+              />
+              <Controller
+                name="whatsappLanguage" control={control}
+                render={({ field }) => (
+                  <fieldset>
+                    <legend className="mb-1.5 text-sm font-medium text-gray-700">{t('New bookings start in')}</legend>
+                    <div className="flex flex-wrap gap-2">
+                      {WA_LANGS.map(([code, label]) => (
+                        <label key={code} className={`inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-xl border px-3 text-sm font-medium ${field.value === code ? 'border-primary-300 bg-primary-50 text-primary-800' : 'border-gray-200 text-gray-600'}`}>
+                          <input type="radio" className="h-4 w-4 border-gray-300 text-primary-600 focus:ring-primary-500" checked={field.value === code}
+                            onChange={() => field.onChange(code)} disabled={!canManage} />
+                          {label}
+                        </label>
+                      ))}
+                    </div>
+                    <p className="mt-1 text-xs text-gray-500">{t('The counter can change it for each devotee; a returning devotee keeps their choice.')}</p>
+                  </fieldset>
+                )}
+              />
+              <div className="space-y-2">
+                <p className="text-sm text-gray-600">
+                  {whatsappImage
+                    ? t('Create the template in Meta under this name, once for each language, with header Image and the text below (category: Utility):')
+                    : t('Create the template in Meta under this name, once for each language, with the text below (category: Utility):')}
+                </p>
+                {WA_LANGS.filter(([code]) => (waLangs || []).includes(code)).map(([code, label], i) => (
+                  <div key={code}>
+                    <p className="mb-1 text-xs font-semibold text-gray-500">{code === 'en' ? `${label} — ${t('not English (US)')}` : label}</p>
+                    <CopyBox text={WA_TEMPLATE_TEXT[code]}>{i === 0 && <VarList vars={WA_VARS} />}</CopyBox>
+                  </div>
+                ))}
               </div>
             </div>
           )}
