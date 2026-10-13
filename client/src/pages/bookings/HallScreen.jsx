@@ -7,7 +7,7 @@ import { usePermissions } from '../../hooks/usePermissions.js';
 import { useMediaQuery } from '../../hooks/useMediaQuery.js';
 import { LanguageSwitch, useLanguage, useT } from '../../i18n/index.jsx';
 import { fmtDay } from '../../components/booking/counter/counterUtils.js';
-import { fitGrid, minutesUntil, pickShown, savedHall, saveHall } from '../../components/booking/checkin/checkInUtils.js';
+import { fitGrid, minutesUntil, pickPerHall, pickShown, savedHall, saveHall } from '../../components/booking/checkin/checkInUtils.js';
 import { useHallEvents } from '../../utils/hallLive.js';
 import { hallHeading, hallTitle } from '../../utils/halls.js';
 
@@ -19,17 +19,24 @@ import { hallHeading, hallTitle } from '../../utils/halls.js';
 // batch; between batches it shows the next one, and after the day's last batch that batch
 // stays up. Each scan arrives live: a card shows who was just let in (or, in amber, why not)
 // and their tile pulses. Refreshes itself, keeps the screen on. Names only, never phone numbers.
+// With no hall chosen, each hall gets a card side by side with its own batch.
 
 const SPOTLIGHT_MS = 8000;
+const CONTROLS_MS = 4000;    // the control bar hides this long after the last touch / mouse move
 const GAP = 8;               // px between tiles
 const NAMES_FROM = 100;      // px: tiles at least this big show the name under the number
 
 // Text size: the whole screen scales together (numbers, names, times, clock). Automatic by
 // screen width — a TV is read from across the hall — or chosen with A− / A+ (remembered on this
-// device) or fixed in the link (?size=150).
+// device) or fixed in the link (?size=150). Never bigger than the screen has room for — past
+// that the headings would leave no space for the numbered board.
 const SIZES = [1, 1.15, 1.3, 1.5, 1.75, 2];
 const SIZE_KEY = 'mgm-hall-size';
 const autoSize = () => (window.innerWidth >= 1800 ? 1.3 : window.innerWidth >= 1280 ? 1.15 : 1);
+const roomFor = () => {
+  const room = Math.min(window.innerHeight / 600, window.innerWidth / 1000);
+  return SIZES.filter((v) => v <= room).pop() ?? SIZES[0];
+};
 const chosenSize = (param) => {
   const fromLink = Number(param) / 100;
   if (SIZES.includes(fromLink)) return fromLink;
@@ -103,6 +110,19 @@ function SerialTiles({ list, names, flash, max, wide }) {
   );
 }
 
+// "Now" / "Next" / "Over" and its colours; "ends in 25 min" / "starts in 12 min".
+function batchLook(t, kind, group, now) {
+  const when = kind === 'next' ? startsText(t, group.label, minutesUntil(group.label, now) ?? 0)
+    : kind === 'now' && group.end != null ? endsText(t, group.end - nowMinutes(now)) : '';
+  const look = {
+    now: { tag: t('Now'), tone: 'text-amber-400', whenTone: 'text-amber-300' },
+    next: { tag: t('Next'), tone: 'text-sky-400', whenTone: 'text-sky-300' },
+    over: { tag: t('Over'), tone: 'text-slate-400', whenTone: '' },
+    today: { tag: t('Today'), tone: 'text-slate-300', whenTone: '' },
+  }[kind] || { tag: '', tone: 'text-slate-300', whenTone: '' };
+  return { ...look, when };
+}
+
 // One batch: time, sevas and how many have come; the numbered board; who has not come yet.
 function BatchBoard({ group, kind, names, now, showHall, hallLabel, flash, wide }) {
   const t = useT();
@@ -110,16 +130,10 @@ function BatchBoard({ group, kind, names, now, showHall, hallLabel, flash, wide 
   const total = group.bookings.length;
   const waiting = group.bookings.filter((b) => !b.arrived);
   const came = total - waiting.length;
-  const when = kind === 'next' ? startsText(t, group.label, minutesUntil(group.label, now) ?? 0)
-    : kind === 'now' && group.end != null ? endsText(t, group.end - nowMinutes(now)) : '';
-  const look = {
-    now: { tag: t('Now'), tone: 'text-amber-400', when: 'text-amber-300' },
-    next: { tag: t('Next'), tone: 'text-sky-400', when: 'text-sky-300' },
-    over: { tag: t('Over'), tone: 'text-slate-400', when: '' },
-    today: { tag: t('Today'), tone: 'text-slate-300', when: '' },
-  }[kind];
+  const look = batchLook(t, kind, group, now);
+  const { when } = look;
   return (
-    <section className={`flex min-w-0 flex-col gap-4 ${wide ? 'min-h-0 flex-1' : ''}`}>
+    <section className={`flex min-w-0 flex-col gap-4 ${wide ? 'min-h-0 flex-1 overflow-hidden' : ''}`}>
       {/* The batch, and how many of it have come */}
       <div className="flex shrink-0 flex-wrap items-end justify-between gap-x-8 gap-y-3">
         <div className="min-w-0">
@@ -127,9 +141,9 @@ function BatchBoard({ group, kind, names, now, showHall, hallLabel, flash, wide 
             {look.tag}{showHall && group.hall ? ` · ${hallLabel || group.hall}` : ''}
           </p>
           <p className="mt-0.5 text-4xl font-black leading-tight text-white xl:text-5xl">{group.label || sevaText(group, lang)}</p>
-          <p className="mt-0.5 text-lg text-slate-300 xl:text-xl">
+          <p className="mt-0.5 line-clamp-2 text-lg text-slate-300 xl:text-xl">
             {group.label ? sevaText(group, lang) : ''}
-            {when && <span className={`font-semibold ${look.when}`}>{group.label ? ' · ' : ''}{when}</span>}
+            {when && <span className={`font-semibold ${look.whenTone}`}>{group.label ? ' · ' : ''}{when}</span>}
           </p>
         </div>
         {total > 0 && (
@@ -159,7 +173,7 @@ function BatchBoard({ group, kind, names, now, showHall, hallLabel, flash, wide 
       {total === 0 ? (
         <p className="rounded-3xl bg-slate-900/80 px-4 py-10 text-center text-2xl text-slate-400 ring-1 ring-slate-800">{t('No bookings yet — bookings made at the counter appear here')}</p>
       ) : (
-        <div className={`grid gap-5 lg:grid-cols-[minmax(0,1fr)_20rem] xl:grid-cols-[minmax(0,1fr)_24rem] ${wide ? 'min-h-0 flex-1 lg:grid-rows-[minmax(0,1fr)]' : ''}`}>
+        <div className={`grid gap-5 lg:grid-cols-[minmax(0,7fr)_minmax(0,3fr)] ${wide ? 'min-h-0 flex-1 lg:grid-rows-[minmax(0,1fr)]' : ''}`}>
           {/* Every serial in order: grey until scanned, then green */}
           <div className={`flex min-w-0 flex-col rounded-3xl bg-slate-900/70 p-3 ring-1 ring-slate-800 sm:p-4 ${wide ? 'min-h-0' : ''}`}>
             <SerialTiles list={group.bookings} names={names} flash={flash} max={190} wide={wide} />
@@ -181,6 +195,55 @@ function BatchBoard({ group, kind, names, now, showHall, hallLabel, flash, wide 
               )}
           </aside>
         </div>
+      )}
+    </section>
+  );
+}
+
+// The all-halls screen: one hall's batch as a card beside the others — the hall, the batch,
+// how many have come and the numbered board (grey tiles are the ones still to come).
+function HallCard({ group, kind, names, now, hallLabel, flash, wide }) {
+  const t = useT();
+  const { lang } = useLanguage();
+  const total = group.bookings.length;
+  const came = group.bookings.filter((b) => b.arrived).length;
+  const look = batchLook(t, kind, group, now);
+  return (
+    <section className={`flex min-w-0 flex-col gap-3 overflow-hidden rounded-3xl bg-slate-900/70 p-4 ring-1 ring-slate-800 ${wide ? 'min-h-0' : ''}`}>
+      <div className="min-w-0 shrink-0">
+        <p className={`truncate text-sm font-bold uppercase ${spacing(lang)} ${look.tone}`}>
+          {look.tag}{group.hall ? ` · ${hallLabel || group.hall}` : ''}
+        </p>
+        <p className="line-clamp-2 text-2xl font-black leading-tight text-white xl:text-3xl">{group.label || sevaText(group, lang)}</p>
+        <p className="truncate text-base text-slate-300">
+          {group.label ? sevaText(group, lang) : ''}
+          {look.when && <span className={`font-semibold ${look.whenTone}`}>{group.label ? ' · ' : ''}{look.when}</span>}
+        </p>
+      </div>
+      {total === 0 ? (
+        <p className="flex flex-1 items-center justify-center rounded-2xl bg-slate-950/40 px-4 py-8 text-center text-lg text-slate-400">
+          {t('No bookings yet — bookings made at the counter appear here')}
+        </p>
+      ) : (
+        <>
+          <div className="shrink-0">
+            <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+              <p className="whitespace-nowrap text-4xl font-black leading-none tabular-nums text-white">
+                {came}<span className="text-2xl text-slate-500">/{total}</span>
+                <span className="ml-2 text-sm font-semibold uppercase text-green-400">{t('came')}</span>
+              </p>
+              {came < total && (
+                <p className="whitespace-nowrap text-sm font-semibold text-amber-400">
+                  <span className="text-2xl font-black tabular-nums">{total - came}</span> {kind === 'over' ? t('Did not come') : t('Not came yet')}
+                </p>
+              )}
+            </div>
+            <div className="mt-2 h-2.5 overflow-hidden rounded-full bg-slate-800" role="presentation">
+              <div className="h-full rounded-full bg-green-500 transition-[width] duration-700" style={{ width: `${pct(came, total)}%` }} />
+            </div>
+          </div>
+          <SerialTiles list={group.bookings} names={names} flash={flash} max={140} wide={wide} />
+        </>
       )}
     </section>
   );
@@ -236,9 +299,10 @@ export default function HallScreen() {
   const [now, setNow] = useState(() => new Date());
   const [chosen, setChosen] = useState(() => chosenSize(params.get('size')));   // null = automatic
   const [auto, setAuto] = useState(autoSize);
-  const scale = chosen ?? auto;
+  const [room, setRoom] = useState(roomFor);
+  const scale = Math.min(chosen ?? auto, room);
   useEffect(() => {
-    const onResize = () => setAuto(autoSize());
+    const onResize = () => { setAuto(autoSize()); setRoom(roomFor()); };
     window.addEventListener('resize', onResize);
     return () => window.removeEventListener('resize', onResize);
   }, []);
@@ -252,11 +316,30 @@ export default function HallScreen() {
   const stepSize = (dir) => {
     const at = SIZES.reduce((best, v, i) => (Math.abs(v - scale) < Math.abs(SIZES[best] - scale) ? i : best), 0);
     const next = SIZES[Math.min(SIZES.length - 1, Math.max(0, at + dir))];
+    if (next > room) return;
     setChosen(next);
     try { localStorage.setItem(SIZE_KEY, String(next)); } catch { /* private window */ }
   };
   const [full, setFull] = useState(Boolean(document.fullscreenElement));
   const allowed = can('bookings:checkin');
+
+  // The control bar stays out of the way: shown for a few seconds at the start and whenever the
+  // screen is touched, the mouse moves or a key is pressed; hidden again after a short while.
+  const [controls, setControls] = useState(true);
+  useEffect(() => {
+    let timer = setTimeout(() => setControls(false), CONTROLS_MS + 2000);
+    const show = () => {
+      setControls(true);
+      clearTimeout(timer);
+      timer = setTimeout(() => setControls(false), CONTROLS_MS);
+    };
+    const events = ['pointermove', 'pointerdown', 'keydown'];
+    events.forEach((e) => window.addEventListener(e, show));
+    return () => {
+      clearTimeout(timer);
+      events.forEach((e) => window.removeEventListener(e, show));
+    };
+  }, []);
 
   const [spot, setSpot] = useState(null);              // { event, until }
   const [flash, setFlash] = useState(() => new Map());  // booking id → until
@@ -323,24 +406,40 @@ export default function HallScreen() {
   };
 
   const data = q.data;
-  const { shown, kind } = pickShown(data?.groups || [], now);
+  // One hall: its batch. All halls: a card per hall, each with that hall's own batch.
+  const groups = data?.groups || [];
+  const one = pickShown(groups, now);
+  const cards = hall ? one.shown.map((group) => ({ group, kind: one.kind })) : pickPerHall(groups, now);
   const showHall = !hall;
+  const cols = cards.length <= 3 ? cards.length : Math.ceil(cards.length / 2);
   const titleOf = (h) => hallTitle(h, data?.hallNames, lang);        // "Shri Mangal Sabhagruh (H1)" or "H1"
   const headingOf = (h) => hallHeading(t, h, data?.hallNames, lang);  // … or "Hall H1"
 
   return (
     <div className={`flex flex-col bg-slate-950 px-4 pb-4 pt-[calc(0.75rem+var(--safe-top,0px))] text-white sm:px-8 ${wide ? 'h-[100dvh] overflow-hidden' : 'min-h-[100dvh]'}`}>
-      {/* Header: temple and hall, the controls (quiet until touched), the clock */}
-      <header className="mb-4 flex shrink-0 flex-wrap items-center justify-between gap-x-6 gap-y-2">
+      {/* Header: temple and hall on the left, the clock on the right — one row, long names cut */}
+      <header className="mb-4 flex shrink-0 items-center justify-between gap-6">
         <div className="min-w-0">
           <p className="truncate text-base font-semibold text-amber-300">{data?.templeName || t('Mangal Grah Mandir')}</p>
-          <p className="text-3xl font-black leading-tight">{hall ? headingOf(hall) : t('All halls')}</p>
+          <p className="truncate text-3xl font-black leading-tight">{hall ? headingOf(hall) : t('All halls')}</p>
         </div>
+        <div className="shrink-0 text-right">
+          <p className="text-4xl font-black leading-none tabular-nums sm:text-5xl">{clockText(now)}</p>
+          <p className="mt-1 whitespace-nowrap text-sm text-slate-400">
+            <span className={`mr-2 inline-block h-2.5 w-2.5 rounded-full ${live === 'live' ? 'bg-green-500' : live === 'connecting' ? 'bg-amber-400' : 'bg-slate-600'}`}
+              title={live === 'live' ? t('Live') : t('Updating every few seconds')} aria-hidden="true" />
+            {data?.date ? fmtDay(data.date, lang, { weekday: 'long', day: 'numeric', month: 'long' }) : ''}
+          </p>
+        </div>
+      </header>
 
-        <div className="order-last flex max-w-full items-center gap-1 overflow-x-auto rounded-full bg-slate-900/90 p-1 opacity-30 ring-1 ring-slate-800 transition-opacity hover:opacity-100 focus-within:opacity-100 max-md:w-full md:order-none">
+      {/* Controls: a bar at the bottom, shown while someone is using the screen */}
+      <div className={`fixed inset-x-0 bottom-[calc(1rem+var(--safe-bottom,0px))] z-30 flex justify-center px-4 transition-opacity duration-300 focus-within:pointer-events-auto focus-within:opacity-100
+        ${controls ? 'opacity-100' : 'pointer-events-none opacity-0'}`}>
+        <div className="flex max-w-full items-center gap-1 overflow-x-auto rounded-full bg-slate-900/95 p-1 shadow-2xl ring-1 ring-slate-700">
           {(data?.halls || []).length > 1 && (
             <select value={hall} onChange={(e) => chooseHall(e.target.value)} aria-label={t('Hall')}
-              className="h-9 rounded-full border-0 bg-slate-800 px-3 text-sm text-white focus:ring-2 focus:ring-amber-400">
+              className="h-9 max-w-[14rem] truncate rounded-full border-0 bg-slate-800 px-3 text-sm text-white focus:ring-2 focus:ring-amber-400">
               <option value="">{t('All halls')}</option>
               {data.halls.map((h) => <option key={h} value={h}>{titleOf(h)}</option>)}
             </select>
@@ -348,7 +447,7 @@ export default function HallScreen() {
           <button type="button" onClick={() => stepSize(-1)} disabled={scale <= SIZES[0]} title={t('Smaller text')} aria-label={t('Smaller text')}
             className="flex h-9 min-w-9 items-center justify-center rounded-full px-2 text-sm font-bold text-slate-200 hover:bg-slate-800 disabled:opacity-30">A−</button>
           <span className="min-w-[3ch] text-center text-xs tabular-nums text-slate-400">{Math.round(scale * 100)}%</span>
-          <button type="button" onClick={() => stepSize(1)} disabled={scale >= SIZES[SIZES.length - 1]} title={t('Larger text')} aria-label={t('Larger text')}
+          <button type="button" onClick={() => stepSize(1)} disabled={scale >= room} title={t('Larger text')} aria-label={t('Larger text')}
             className="flex h-9 min-w-9 items-center justify-center rounded-full px-2 text-lg font-bold text-slate-200 hover:bg-slate-800 disabled:opacity-30">A+</button>
           <button type="button" onClick={() => setParam('names', names ? '0' : null)} title={names ? t('Hide names') : t('Show names')} aria-label={names ? t('Hide names') : t('Show names')}
             className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-slate-200 hover:bg-slate-800">
@@ -360,21 +459,12 @@ export default function HallScreen() {
               {full ? <Minimize2 className="h-5 w-5" /> : <Maximize2 className="h-5 w-5" />}
             </button>
           )}
-          <LanguageSwitch className="border-slate-700 bg-slate-800 [&_button[aria-checked='false']]:text-slate-300" />
+          <LanguageSwitch className="shrink-0 border-slate-700 bg-slate-800 [&_button[aria-checked='false']]:text-slate-300" />
           <Link to="/bookings/check-in" title={t('Close')} aria-label={t('Close')} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-slate-200 hover:bg-slate-800">
             <X className="h-5 w-5" />
           </Link>
         </div>
-
-        <div className="text-right">
-          <p className="text-4xl font-black leading-none tabular-nums sm:text-5xl">{clockText(now)}</p>
-          <p className="mt-1 text-sm text-slate-400">
-            <span className={`mr-2 inline-block h-2.5 w-2.5 rounded-full ${live === 'live' ? 'bg-green-500' : live === 'connecting' ? 'bg-amber-400' : 'bg-slate-600'}`}
-              title={live === 'live' ? t('Live') : t('Updating every few seconds')} aria-hidden="true" />
-            {data?.date ? fmtDay(data.date, lang, { weekday: 'long', day: 'numeric', month: 'long' }) : ''}
-          </p>
-        </div>
-      </header>
+      </div>
 
       <Spotlight event={spot?.event} lang={lang} hallNames={data?.hallNames} />
 
@@ -384,10 +474,17 @@ export default function HallScreen() {
         <p className="mt-16 text-center text-2xl text-slate-400">{t('Loading…')}</p>
       ) : q.isError && !data ? (
         <p className="mt-16 text-center text-2xl text-red-300">{t('Could not load the hall screen — retrying…')}</p>
-      ) : shown.length ? (
-        <main className={`flex flex-col gap-8 ${wide ? 'min-h-0 flex-1' : ''}`}>
-          {shown.map((g) => (
-            <BatchBoard key={g.key} group={g} kind={kind} names={names} now={now} showHall={showHall} hallLabel={headingOf(g.hall)} flash={flash} wide={wide} />
+      ) : cards.length === 1 ? (
+        <main className={`flex flex-col ${wide ? 'min-h-0 flex-1' : ''}`}>
+          <BatchBoard group={cards[0].group} kind={cards[0].kind} names={names} now={now} showHall={showHall}
+            hallLabel={headingOf(cards[0].group.hall)} flash={flash} wide={wide} />
+        </main>
+      ) : cards.length ? (
+        // Several halls (or several sevas without fixed times): side by side, each fits its card
+        <main className={`grid gap-4 ${wide ? 'min-h-0 flex-1' : ''}`}
+          style={wide ? { gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`, gridAutoRows: 'minmax(0, 1fr)' } : undefined}>
+          {cards.map(({ group, kind }) => (
+            <HallCard key={group.key} group={group} kind={kind} names={names} now={now} hallLabel={headingOf(group.hall)} flash={flash} wide={wide} />
           ))}
         </main>
       ) : (

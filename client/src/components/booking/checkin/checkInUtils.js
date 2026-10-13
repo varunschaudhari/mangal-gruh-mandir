@@ -83,21 +83,48 @@ const endMinutes = (label) => {
   return m ? minutesOf(m[1], m[2], m[3]) : null;
 };
 
+// One batch per hall. When batches overlap, the one with bookings that started first stays up
+// until it ends (then the next one takes over); an empty batch only when the hall has no other.
+function onePerHall(list) {
+  const byHall = new Map();
+  for (const g of list) {
+    const key = g.hall || '';
+    const cur = byHall.get(key);
+    const has = (x) => (x.bookings?.length || 0) > 0;
+    const earlier = (startMinutes(g.label) ?? 0) < (startMinutes(cur?.label) ?? 0);
+    if (!cur || (has(g) && !has(cur)) || (has(g) === has(cur) && earlier)) byHall.set(key, g);
+  }
+  return [...byHall.values()];
+}
+
 /**
  * The one batch the hall screen shows at `now`: the one running; between batches (and before
  * the first) the next one; after the day's last batch, that last one. A day with only
- * fixed-time sevas shows those. More than one only when several halls share the same time
- * (all-halls screen). Returns { shown: [groups], kind: 'now' | 'next' | 'over' | 'today' | '' }.
+ * fixed-time sevas shows those. One batch per hall (several only when no hall is chosen).
+ * Returns { shown: [groups], kind: 'now' | 'next' | 'over' | 'today' | '' }.
  */
 export function pickShown(groups = [], now = new Date()) {
   const b = pickBoard(groups, now);
-  if (b.current.length) return { shown: b.current, kind: 'now' };
-  if (b.next.length) return { shown: b.next, kind: 'next' };
+  if (b.current.length) return { shown: onePerHall(b.current), kind: 'now' };
+  if (b.next.length) return { shown: onePerHall(b.next), kind: 'next' };
   if (b.over.length) {
     const lastEnd = Math.max(...b.over.map((g) => endMinutes(g.label) ?? 0));
-    return { shown: b.over.filter((g) => (endMinutes(g.label) ?? 0) === lastEnd), kind: 'over' };
+    return { shown: onePerHall(b.over.filter((g) => (endMinutes(g.label) ?? 0) === lastEnd)), kind: 'over' };
   }
   return { shown: b.untimed, kind: b.untimed.length ? 'today' : '' };
+}
+
+/**
+ * The all-halls screen: for each hall, what that hall's own screen shows — its running batch,
+ * else its next, else its last — so every hall has a card. Returns [{ group, kind }] by hall.
+ */
+export function pickPerHall(groups = [], now = new Date()) {
+  const halls = [...new Set(groups.map((g) => g.hall || ''))]
+    .sort((a, b) => (a === '') - (b === '') || a.localeCompare(b, 'en', { numeric: true }));
+  return halls.flatMap((hall) => {
+    const { shown, kind } = pickShown(groups.filter((g) => (g.hall || '') === hall), now);
+    return shown.map((group) => ({ group, kind }));
+  });
 }
 
 /**

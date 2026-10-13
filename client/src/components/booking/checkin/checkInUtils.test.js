@@ -83,6 +83,25 @@ describe('pickBoard (hall screen)', () => {
     expect(pickShown([g('Early morning – 7:00 AM', '')], new Date(2026, 9, 13, 9, 0)).kind).toBe('today');
     expect(pickShown([], new Date()).kind).toBe('');
   });
+  it('shows one batch per hall, even when batches overlap', async () => {
+    const { pickShown } = await import('./checkInUtils.js');
+    const withBookings = (label, hall = 'H1') => ({ label, hall, bookings: [{ _id: label }] });
+    const at = new Date(2026, 9, 13, 11, 5);
+    // Two running in H1: the earlier stays up until it ends
+    const both = pickShown([withBookings('10:00 AM – 11:15 AM'), withBookings('11:00 AM – 1:00 PM')], at);
+    expect(both.shown.map((x) => x.label)).toEqual(['10:00 AM – 11:15 AM']);
+    // …unless it has no bookings
+    const empty = pickShown([g('10:00 AM – 11:15 AM'), withBookings('11:00 AM – 1:00 PM')], at);
+    expect(empty.shown.map((x) => x.label)).toEqual(['11:00 AM – 1:00 PM']);
+    // One per hall when no hall is chosen
+    expect(pickShown([withBookings('10:00 AM – 11:15 AM'), withBookings('11:00 AM – 1:00 PM'), withBookings('10:30 AM – 11:45 AM', 'H2')], at).shown).toHaveLength(2);
+  });
+  it('gives every hall its own batch on the all-halls screen', async () => {
+    const { pickPerHall } = await import('./checkInUtils.js');
+    const list = [g('7:00 AM – 8:15 AM', 'H2'), g('11:00 AM – 1:00 PM', 'H10'), g('7:00 AM – 9:00 AM', 'H1'), g('Early morning – 7:00 AM', '')];
+    const cards = pickPerHall(list, new Date(2026, 9, 13, 8, 30));
+    expect(cards.map((c) => `${c.group.hall}:${c.kind}`)).toEqual(['H1:now', 'H2:over', 'H10:next', ':today']);
+  });
   it('fits a whole batch on the screen with the biggest tiles', async () => {
     const { fitGrid } = await import('./checkInUtils.js');
     // 150 serials on a TV board area: about 15 columns × 10 rows, tiles ~ 80 px
