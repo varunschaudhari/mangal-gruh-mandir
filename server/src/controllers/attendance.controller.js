@@ -11,7 +11,12 @@ import { assertAttendanceOpen, computeAttendance, computeMonth, resolvePlans, sa
 import { localDateStr } from '../utils/dates.js';
 import { writeRegisterExcel } from '../services/attendance/registerExcel.js';
 import { parseAllowedIps } from '../services/attendance/adms.js';
-import { logAction } from '../services/audit.service.js';
+import { changedValues, logAction } from '../services/audit.service.js';
+import { logger } from '../utils/logger.js';
+
+// Attendance settings in the audit log: what a person changed — not what the machines update by
+// themselves (last seen, last address) nor the timing history the change itself writes.
+const SETTINGS_NOISE = ['lastSeenAt', 'lastIp', 'blockedIp', 'blockedAt', 'addedAt', 'past', 'rulesPast'];
 import ApiError from '../utils/ApiError.js';
 import ApiResponse from '../utils/ApiResponse.js';
 import asyncHandler from '../utils/asyncHandler.js';
@@ -79,6 +84,7 @@ async function assertShiftUnused(shift, shifts) {
  */
 export const updateAttendanceSettings = asyncHandler(async (req, res) => {
   const settings = await AttendanceSettings.getOrCreate();
+  const before = settings.toObject();
   const b = req.body || {};
   const today = localDateStr();
   const effectiveFrom = b.effectiveFrom === undefined || b.effectiveFrom === '' ? today : dateParam(b.effectiveFrom, 'effectiveFrom');
@@ -152,6 +158,7 @@ export const updateAttendanceSettings = asyncHandler(async (req, res) => {
   await settings.save();
   logAction(req, {
     action: 'attendance.settings_update', entity: 'AttendanceSettings', entityId: 'attendance', entityRef: settings._id,
+    ...changedValues(before, settings.toObject(), undefined, { drop: SETTINGS_NOISE }),
     meta: historyChanged ? { effectiveFrom } : undefined,
   });
   res.json(new ApiResponse(200, settings, 'Attendance settings saved'));
@@ -224,9 +231,35 @@ export const saveRoster = asyncHandler(async (req, res) => {
       },
     };
   });
+  const before = await RosterDay.find({ $or: entries.map((e) => ({ staff: e.staff, date: e.date })) }).lean();
   await RosterDay.bulkWrite(ops);
+  logRosterChanges(req, settings, entries, before)
+    .catch((err) => logger.error('Roster audit entry failed', { error: err.message }));
   res.json(new ApiResponse(200, { saved: ops.length }, 'Roster saved'));
 });
+
+// The roster changes in the audit log: who, which day, from → to ("Day", "Off", "Default week")
+async function logRosterChanges(req, settings, entries, beforeDocs) {
+  const shiftName = new Map(settings.shifts.map((s) => [String(s._id), s.name]));
+  const text = (day) => (!day ? 'Default week' : day.off ? 'Off'
+    : (day.shifts || []).map((id) => shiftName.get(String(id)) || 'Shift').join(' + ') || 'Off');
+  const was = new Map(beforeDocs.map((d) => [`${d.staff}|${d.date}`, d]));
+  const changes = entries
+    .map((e) => ({ e, from: text(was.get(`${e.staff}|${e.date}`)), to: text(e.reset ? null : { off: e.off, shifts: e.off ? [] : e.shifts }) }))
+    .filter((c) => c.from !== c.to);
+  if (!changes.length) return;
+  const people = new Map((await Staff.find({ _id: { $in: [...new Set(changes.map((c) => String(c.e.staff)))] } }).select('name staffCode').lean())
+    .map((p) => [String(p._id), `${p.staffCode} ${p.name}`]));
+  const dates = changes.map((c) => c.e.date).sort();
+  logAction(req, {
+    action: 'attendance.roster_save', entity: 'Roster', entityId: dates[0] === dates.at(-1) ? dates[0] : `${dates[0]} – ${dates.at(-1)}`,
+    meta: {
+      days: changes.length,
+      changes: changes.slice(0, 200).map((c) => ({ staff: people.get(String(c.e.staff)) || String(c.e.staff), date: c.e.date, from: c.from, to: c.to })),
+      ...(changes.length > 200 ? { notListed: changes.length - 200 } : {}),
+    },
+  });
+}
 
 // Copies one week (Mon–Sun) of the roster — including default days — onto another week.
 export const copyRosterWeek = asyncHandler(async (req, res) => {
@@ -249,6 +282,10 @@ export const copyRosterWeek = asyncHandler(async (req, res) => {
     });
   }
   if (ops.length) await RosterDay.bulkWrite(ops);
+  logAction(req, {
+    action: 'attendance.roster_copy', entity: 'Roster', entityId: `${fromStart} → ${toStart}`,
+    meta: { fromWeekStart: fromStart, toWeekStart: toStart, people: plans.size, days: ops.length },
+  });
   res.json(new ApiResponse(200, { saved: ops.length }, 'Roster copied'));
 });
 

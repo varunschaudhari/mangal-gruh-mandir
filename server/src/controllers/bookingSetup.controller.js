@@ -7,7 +7,7 @@ import SevaType, { SCHEDULES } from '../models/SevaType.js';
 import ApiError from '../utils/ApiError.js';
 import ApiResponse from '../utils/ApiResponse.js';
 import asyncHandler from '../utils/asyncHandler.js';
-import { logAction } from '../services/audit.service.js';
+import { changedValues, logAction } from '../services/audit.service.js';
 import { addDays, dateKeyOf, isDateKey } from '../services/booking/rules.js';
 import { listHalls } from '../services/booking/halls.js';
 import { recountSeats } from '../services/booking/booking.service.js';
@@ -198,9 +198,13 @@ export const updateSettings = asyncHandler(async (req, res) => {
   }
   if (data.whatsappLanguage !== undefined && !['mr', 'en'].includes(data.whatsappLanguage)) throw new ApiError(400, 'Message language: Marathi or English');
   const settings = await BookingSettings.getOrCreate();
+  const before = settings.toObject();
   Object.assign(settings, data);
   await settings.save();
-  logAction(req, { action: 'booking.settings_update', entity: 'BookingSettings', entityId: 'settings', entityRef: settings._id, after: data });
+  logAction(req, {
+    action: 'booking.settings_update', entity: 'BookingSettings', entityId: 'settings', entityRef: settings._id,
+    ...changedValues(before, settings.toObject(), Object.keys(data)),
+  });
   res.json(new ApiResponse(200, settings, 'Settings saved'));
 });
 

@@ -862,6 +862,10 @@ export const adjustDrawer = asyncHandler(async (req, res) => {
   }
 
   const total = DRAWER_DENOMS.reduce((s, dn) => s + dn * (drawer.counts[String(dn)] || 0), 0);
+  logAction(req, {
+    action: 'mahaprasad.drawer_adjust', entity: 'MahaprasadCashDrawer', entityId: dateStr, entityRef: drawer._id,
+    meta: { denomination: d, change: inc, notesNow: count < 0 ? 0 : count, drawerTotal: total },
+  });
   res.json(new ApiResponse(200, { ...drawer.toObject(), total }));
 });
 

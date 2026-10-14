@@ -224,6 +224,8 @@ export const exportExcel = asyncHandler(async (req, res) => {
   const count = await Booking.countDocuments(filter);
   if (count > 50000) throw new ApiError(400, `${count} bookings — narrow the date range (max 50,000 per file)`);
   const bookings = await Booking.find(filter).sort({ paidAt: 1 }).populate('createdBy', 'name').lean();
+  // Devotees' phone numbers and addresses leave the app: note who took them
+  logAction(req, { action: 'booking.export', entity: 'Booking', meta: { rows: bookings.length, from: req.query.from, to: req.query.to } });
   await bookingsExcel(res, { bookings, halls: await hallNames() });
 });
 

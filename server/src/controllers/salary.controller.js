@@ -9,7 +9,7 @@ import {
   advancesWithBalance, checklist, createAdvance, monthLabel, prepareRun, recordPaidExpenses, updateLine,
 } from '../services/salary/salary.service.js';
 import { bankCsv, bankXlsx, ecrText, esiXlsx, salaryRegisterXlsx } from '../services/salary/salaryFiles.js';
-import { logAction } from '../services/audit.service.js';
+import { changedValues, logAction } from '../services/audit.service.js';
 import { localDateStr } from '../utils/dates.js';
 import ApiError from '../utils/ApiError.js';
 import ApiResponse from '../utils/ApiResponse.js';
@@ -58,6 +58,7 @@ export const getPayrollSettings = asyncHandler(async (req, res) => {
 
 export const updatePayrollSettings = asyncHandler(async (req, res) => {
   const settings = await PayrollSettings.getOrCreate();
+  const before = settings.toObject();
   const b = req.body || {};
   const num = (v) => (v === '' || v == null ? undefined : Number(v));
   const current = settings.toObject();
@@ -81,7 +82,10 @@ export const updatePayrollSettings = asyncHandler(async (req, res) => {
   }
   if (b.bank?.narration !== undefined) settings.bank.narration = String(b.bank.narration).trim();
   await settings.save();
-  logAction(req, { action: 'salary.settings_update', entity: 'PayrollSettings', entityId: 'payroll', entityRef: settings._id });
+  logAction(req, {
+    action: 'salary.settings_update', entity: 'PayrollSettings', entityId: 'payroll', entityRef: settings._id,
+    ...changedValues(before, settings.toObject()),
+  });
   res.json(new ApiResponse(200, settings, 'Salary settings saved'));
 });
 
@@ -239,6 +243,8 @@ export const downloadFile = asyncHandler(async (req, res) => {
   else if (kind === 'ecr.txt') body = ecrText(run.lines);
   else body = await esiXlsx({ lines: run.lines, month });
 
+  // Who downloaded pay and bank details, and when
+  logAction(req, { action: 'salary.file_download', entity: 'SalaryRun', entityId: month, entityRef: run._id, meta: { file: kind, people: kind.startsWith('bank') ? bankLines.length : run.lines.length } });
   res.setHeader('Content-Type', FILES[kind]);
   res.setHeader('Content-Disposition', `attachment; filename="salary-${month}-${kind}"`);
   res.send(typeof body === 'string' ? body : Buffer.from(body));

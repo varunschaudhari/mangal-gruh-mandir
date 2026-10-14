@@ -5,7 +5,7 @@ import { getPermissionsForRole } from '../middleware/authorize.js';
 import { nextNumber } from './sequence.service.js';
 import { localDateStr } from '../../../shared/dates.js';
 import { APP_TIMEZONE } from '../utils/dates.js';
-import { logAction } from './audit.service.js';
+import { changedValues, logAction, maskTail } from './audit.service.js';
 import { assertAttendanceOpen } from './attendance/attendance.service.js';
 
 // Everyone is a User. A user who is "on attendance & payroll" also has an attendance profile
@@ -127,6 +127,23 @@ export async function validateProfile(req, user, body, { nextActive } = {}) {
   if (!active && !left) throw new ApiError(400, 'Enter the last working day before switching off someone on attendance & payroll');
 }
 
+// The profile as the log shows it (dates as days)
+const profileSnapshot = (staff) => {
+  const o = staff?.toObject ? staff.toObject() : (staff || {});
+  return { ...o, joinDate: dayOf(o.joinDate), leftOn: dayOf(o.leftOn) };
+};
+
+// What was changed on the profile goes to the audit log: pay and bank details on their own
+// (only those with salary:read see them; the bank account as its last 4 digits), the attendance
+// details separately. The machine number has its own entry.
+function logProfileChanges(req, staff, before) {
+  const after = profileSnapshot(staff);
+  const pay = changedValues(before, after, SALARY_FIELDS, { mask: { bankAccount: maskTail } });
+  if (pay) logAction(req, { action: 'salary.pay_details_update', entity: 'Staff', entityId: staff.staffCode, entityRef: staff._id, ...pay });
+  const att = changedValues(before, after, [...ATTENDANCE_FIELDS.filter((f) => f !== 'machineId'), 'onPayroll']);
+  if (att) logAction(req, { action: 'attendance.profile_update', entity: 'Staff', entityId: staff.staffCode, entityRef: staff._id, ...att });
+}
+
 const identity = (user, onPayroll) => ({
   name: user.name,
   phone: user.phone || '',
@@ -168,6 +185,7 @@ export async function saveStaffProfile(req, user, body) {
       }
     }
     staff = created;
+    logProfileChanges(req, staff, profileSnapshot(new Staff()));   // only what was filled in
   } else {
     const oldMachineId = staff.machineId || '';
     // Taken back after leaving: keep the old stint, start a new one from the new joining date
@@ -176,8 +194,10 @@ export async function saveStaffProfile(req, user, body) {
       staff.pastPeriods.push({ joinDate: staff.joinDate, leftOn: staff.leftOn });
       data.leftOn = null;
     }
+    const before = profileSnapshot(staff);
     Object.assign(staff, data, identity(user, onPayroll));
     await staff.save();
+    logProfileChanges(req, staff, before);
     // The old number was a mistake: the punches that came in under it were someone else's — let go
     // of them (they go to whoever gets that number). A number changed on purpose (re-enrolled)
     // keeps them: they were this person's.

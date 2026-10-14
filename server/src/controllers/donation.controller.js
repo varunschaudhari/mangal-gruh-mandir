@@ -225,6 +225,7 @@ async function buildExportFilter(query) {
 export const exportDonationsExcel = asyncHandler(async (req, res) => {
   const filter = await buildExportFilter(req.query);
   const donations = await Donation.find(filter).populate(POPULATE).sort({ date: -1 }).lean();
+  logAction(req, { action: 'donation.export', entity: 'Donation', meta: { file: 'excel', rows: donations.length, from: req.query.from, to: req.query.to } });
   const { generateDonationExcel } = await import('../services/donationExcel.service.js');
   await generateDonationExcel(res, { donations, from: req.query.from, to: req.query.to });
 });
@@ -232,6 +233,7 @@ export const exportDonationsExcel = asyncHandler(async (req, res) => {
 export const exportDonationsPDF = asyncHandler(async (req, res) => {
   const filter = await buildExportFilter(req.query);
   const donations = await Donation.find(filter).populate(POPULATE).sort({ date: -1 }).lean();
+  logAction(req, { action: 'donation.export', entity: 'Donation', meta: { file: 'pdf', rows: donations.length, from: req.query.from, to: req.query.to } });
   const { generateDonationPDF } = await import('../services/donationPdf.service.js');
   generateDonationPDF(res, { donations, from: req.query.from, to: req.query.to });
 });
@@ -271,6 +273,7 @@ export const getDonorStatement = asyncHandler(async (req, res) => {
     .lean();
 
   const settings = await Settings.getOrCreate();
+  logAction(req, { action: 'donation.donor_statement', entity: 'Supplier', entityId: donor.name, entityRef: donor._id, meta: { donations: donations.length } });
   const { generateDonorStatement } = await import('../services/donationPdf.service.js');
   generateDonorStatement(res, { donor, donations, settings: settings.toObject() });
 });

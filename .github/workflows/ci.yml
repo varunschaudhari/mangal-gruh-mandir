@@ -84,6 +84,8 @@ jobs:
         run: node scripts/attendance-check.mjs
       - name: Request validation accepts what the screens send, refuses bad input
         run: node scripts/validation-check.mjs
+      - name: Audit log (pay, settings, cash drawer, roster, downloads; who may read what)
+        run: node scripts/audit-check.mjs
       - name: Server log
         if: always()
         run: cat server.log || true

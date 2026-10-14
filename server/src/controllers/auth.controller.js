@@ -39,7 +39,7 @@ export const login = asyncHandler(async (req, res) => {
   await user.save({ validateBeforeSave: false });
 
   logAction(req, {
-    action: 'auth.login', entity: 'User',
+    action: 'auth.login', entity: 'User', user,
     entityId: user.email, entityRef: user._id,
     meta: { role: user.role },
   });

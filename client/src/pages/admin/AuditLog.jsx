@@ -99,6 +99,61 @@ const ACTION_COLORS = {
   'expense.receipt_remove':        'bg-red-100 text-red-800',
   'stock.batch_create':            'bg-teal-100 text-teal-800',
   'asset.unit_update':             'bg-yellow-100 text-yellow-800',
+  'booking.create':               'bg-teal-100 text-teal-800',
+  'booking.edit':                 'bg-yellow-100 text-yellow-800',
+  'booking.move':                 'bg-yellow-100 text-yellow-800',
+  'booking.void':                 'bg-red-100 text-red-800',
+  'booking.checkin':              'bg-green-100 text-green-800',
+  'booking.checkin.undo':         'bg-orange-100 text-orange-800',
+  'booking.shift.close':          'bg-indigo-100 text-indigo-800',
+  'booking.shift.verify':         'bg-green-100 text-green-800',
+  'booking.export':               'bg-purple-100 text-purple-800',
+  'booking.settings_update':      'bg-gray-100 text-gray-800',
+  'booking.seva_create':          'bg-teal-100 text-teal-800',
+  'booking.seva_update':          'bg-yellow-100 text-yellow-800',
+  'booking.seva_delete':          'bg-red-100 text-red-800',
+  'booking.hall_create':          'bg-teal-100 text-teal-800',
+  'booking.hall_update':          'bg-yellow-100 text-yellow-800',
+  'booking.hall_delete':          'bg-red-100 text-red-800',
+  'booking.batch_create':         'bg-teal-100 text-teal-800',
+  'booking.batch_update':         'bg-yellow-100 text-yellow-800',
+  'booking.batch_delete':         'bg-red-100 text-red-800',
+  'booking.closure_create':       'bg-orange-100 text-orange-800',
+  'booking.closure_delete':       'bg-yellow-100 text-yellow-800',
+  'booking.seats_recount':        'bg-gray-100 text-gray-800',
+  'attendance.punch_add':         'bg-teal-100 text-teal-800',
+  'attendance.punch_remove':      'bg-red-100 text-red-800',
+  'attendance.override':          'bg-yellow-100 text-yellow-800',
+  'attendance.override_remove':   'bg-red-100 text-red-800',
+  'attendance.leave_mark':        'bg-blue-100 text-blue-800',
+  'attendance.double_decision':   'bg-blue-100 text-blue-800',
+  'attendance.double_decision_clear': 'bg-red-100 text-red-800',
+  'attendance.month_overtime':    'bg-indigo-100 text-indigo-800',
+  'attendance.roster_save':       'bg-yellow-100 text-yellow-800',
+  'attendance.roster_copy':       'bg-yellow-100 text-yellow-800',
+  'attendance.machine_number':    'bg-yellow-100 text-yellow-800',
+  'attendance.profile_update':    'bg-yellow-100 text-yellow-800',
+  'attendance.settings_update':   'bg-gray-100 text-gray-800',
+  'salary.prepare':               'bg-blue-100 text-blue-800',
+  'salary.line_edit':             'bg-yellow-100 text-yellow-800',
+  'salary.finalize':              'bg-green-100 text-green-800',
+  'salary.reopen':                'bg-orange-100 text-orange-800',
+  'salary.paid':                  'bg-indigo-100 text-indigo-800',
+  'salary.delete_draft':          'bg-red-100 text-red-800',
+  'salary.advance_add':           'bg-indigo-100 text-indigo-800',
+  'salary.advance_delete':        'bg-red-100 text-red-800',
+  'salary.pay_details_update':    'bg-orange-100 text-orange-800',
+  'salary.file_download':         'bg-purple-100 text-purple-800',
+  'salary.settings_update':       'bg-gray-100 text-gray-800',
+  'mahaprasad.drawer_adjust':     'bg-indigo-100 text-indigo-800',
+  'mahaprasad.float_set':         'bg-indigo-100 text-indigo-800',
+  'mahaprasad.void':              'bg-red-100 text-red-800',
+  'donation.export':              'bg-purple-100 text-purple-800',
+  'donation.donor_statement':     'bg-purple-100 text-purple-800',
+  'payment.export':               'bg-purple-100 text-purple-800',
+  'payment.resubmit':             'bg-yellow-100 text-yellow-800',
+  'purchase.update':              'bg-yellow-100 text-yellow-800',
+  'audit.export':                 'bg-purple-100 text-purple-800',
 };
 
 const ACTION_LABELS = {
@@ -176,6 +231,61 @@ const ACTION_LABELS = {
   'expense.receipt_remove':        'Receipt Removed',
   'stock.batch_create':            'Batch Stock In',
   'asset.unit_update':             'Unit Condition Updated',
+  'booking.create':               'Booking Made',
+  'booking.edit':                 'Booking Corrected',
+  'booking.move':                 'Booking Moved',
+  'booking.void':                 'Booking Voided',
+  'booking.checkin':              'Checked In at Hall',
+  'booking.checkin.undo':         'Check-in Undone',
+  'booking.shift.close':          'Counter Shift Closed',
+  'booking.shift.verify':         'Counter Shift Verified',
+  'booking.export':               'Bookings Exported',
+  'booking.settings_update':      'Booking Settings Updated',
+  'booking.seva_create':          'Seva Added',
+  'booking.seva_update':          'Seva Updated',
+  'booking.seva_delete':          'Seva Deleted',
+  'booking.hall_create':          'Hall Added',
+  'booking.hall_update':          'Hall Updated',
+  'booking.hall_delete':          'Hall Deleted',
+  'booking.batch_create':         'Batch Added',
+  'booking.batch_update':         'Batch Updated',
+  'booking.batch_delete':         'Batch Deleted',
+  'booking.closure_create':       'Date Closed',
+  'booking.closure_delete':       'Date Reopened',
+  'booking.seats_recount':        'Seats Recounted',
+  'attendance.punch_add':         'Punch Added',
+  'attendance.punch_remove':      'Punch Removed',
+  'attendance.override':          'Day Corrected',
+  'attendance.override_remove':   'Day Correction Removed',
+  'attendance.leave_mark':        'Leave Marked',
+  'attendance.double_decision':   'Double Shift Decided',
+  'attendance.double_decision_clear': 'Double Shift Decision Cleared',
+  'attendance.month_overtime':    'Overtime Set',
+  'attendance.roster_save':       'Roster Changed',
+  'attendance.roster_copy':       'Roster Week Copied',
+  'attendance.machine_number':    'Machine Number Changed',
+  'attendance.profile_update':    'Attendance Details Changed',
+  'attendance.settings_update':   'Attendance Settings Updated',
+  'salary.prepare':               'Salary Worked Out',
+  'salary.line_edit':             'Salary Line Edited',
+  'salary.finalize':              'Salary Finalised',
+  'salary.reopen':                'Salary Reopened',
+  'salary.paid':                  'Salary Marked Paid',
+  'salary.delete_draft':          'Salary Draft Deleted',
+  'salary.advance_add':           'Advance Given',
+  'salary.advance_delete':        'Advance Deleted',
+  'salary.pay_details_update':    'Pay / Bank Details Changed',
+  'salary.file_download':         'Salary File Downloaded',
+  'salary.settings_update':       'Salary Settings Updated',
+  'mahaprasad.drawer_adjust':     'Cash Drawer Adjusted',
+  'mahaprasad.float_set':         'Opening Cash Set',
+  'mahaprasad.void':              'Coupons Voided',
+  'donation.export':              'Donations Exported',
+  'donation.donor_statement':     'Donor Statement',
+  'payment.export':               'Payments Exported',
+  'payment.resubmit':             'Payment Resubmitted',
+  'purchase.update':              'Purchase Updated',
+  'audit.export':                 'Audit Log Exported',
 };
 
 // Grouped for the action <optgroup> select
@@ -191,6 +301,10 @@ const ACTION_GROUPS = [
   { label: 'Masters',           actions: ['product.create', 'product.update', 'product.delete', 'category.create', 'category.update', 'category.delete', 'department.create', 'department.update', 'department.delete', 'unit.create', 'unit.update', 'unit.delete', 'supplier.create', 'supplier.update', 'supplier.delete'] },
   { label: 'Assets',            actions: ['asset.create', 'asset.update', 'asset.delete', 'asset.unit_update', 'asset.borrow', 'asset.checkout', 'asset.return', 'asset.extend', 'asset.cancel', 'asset.lost', 'asset.fine_settle', 'asset.damage_update', 'asset.group_borrow', 'asset.group_checkout', 'asset.group_extend', 'asset.group_cancel'] },
   { label: 'Mahaprasad',        actions: ['mahaprasad.issue', 'mahaprasad.redeem', 'mahaprasad.offline_reserve', 'mahaprasad.offline_sync', 'mahaprasad_occasion.create', 'mahaprasad_occasion.update', 'mahaprasad_occasion.delete'] },
+  { label: 'Pooja Bookings',    actions: ['booking.create', 'booking.edit', 'booking.move', 'booking.void', 'booking.checkin', 'booking.checkin.undo', 'booking.shift.close', 'booking.shift.verify', 'booking.export', 'booking.settings_update', 'booking.seva_create', 'booking.seva_update', 'booking.seva_delete', 'booking.hall_create', 'booking.hall_update', 'booking.hall_delete', 'booking.batch_create', 'booking.batch_update', 'booking.batch_delete', 'booking.closure_create', 'booking.closure_delete', 'booking.seats_recount'] },
+  { label: 'Attendance',        actions: ['attendance.punch_add', 'attendance.punch_remove', 'attendance.override', 'attendance.override_remove', 'attendance.leave_mark', 'attendance.double_decision', 'attendance.double_decision_clear', 'attendance.month_overtime', 'attendance.roster_save', 'attendance.roster_copy', 'attendance.machine_number', 'attendance.profile_update', 'attendance.settings_update'] },
+  { label: 'Salary',            actions: ['salary.prepare', 'salary.line_edit', 'salary.finalize', 'salary.reopen', 'salary.paid', 'salary.delete_draft', 'salary.advance_add', 'salary.advance_delete', 'salary.pay_details_update', 'salary.file_download', 'salary.settings_update'] },
+  { label: 'Cash & Exports',    actions: ['mahaprasad.drawer_adjust', 'mahaprasad.float_set', 'mahaprasad.void', 'donation.export', 'donation.donor_statement', 'payment.export', 'payment.resubmit', 'purchase.update', 'audit.export'] },
   { label: 'Settings',          actions: ['settings.update'] },
 ];
 
@@ -199,7 +313,9 @@ const ENTITIES = [
   'StockTransaction', 'Donation', 'DonationOccasion', 'User', 'Role',
   'Settings', 'Product', 'Category', 'Department', 'Unit', 'Supplier',
   'PaymentTemplate', 'Asset', 'AssetTransaction', 'BorrowGroup',
-  'MahaprasadCoupon', 'MahaprasadOccasion', 'AssetUnit',
+  'MahaprasadCoupon', 'MahaprasadOccasion', 'AssetUnit', 'MahaprasadCashDrawer',
+  'Booking', 'BookingShift', 'BookingSettings', 'SevaType', 'BookingHall', 'BookingBatch', 'BookingClosure',
+  'Staff', 'Punch', 'Roster', 'AttendanceSettings', 'SalaryRun', 'PayrollSettings', 'AuditLog',
 ];
 
 // ── Entity → route mapping ────────────────────────────────────────────────────
@@ -233,6 +349,22 @@ function fmt(v) {
   if (typeof v === 'boolean') return <span className={v ? 'text-green-600' : 'text-red-500'}>{String(v)}</span>;
   if (typeof v === 'object')  return <span className="font-mono text-xs">{JSON.stringify(v)}</span>;
   return <span>{String(v)}</span>;
+}
+
+// A detail value: a list of changes one per line, an object as "key: value · …"
+function detailText(v) {
+  if (v == null) return '—';
+  if (Array.isArray(v)) {
+    return v.map((item) => {
+      if (item && typeof item === 'object' && 'from' in item && 'to' in item) {
+        const { from, to, ...rest } = item;
+        return `${Object.values(rest).join(' · ')}: ${from} → ${to}`;
+      }
+      return item && typeof item === 'object' ? Object.entries(item).map(([k, x]) => `${k}: ${x}`).join(' · ') : String(item);
+    }).join('\n');
+  }
+  if (typeof v === 'object') return JSON.stringify(v);
+  return String(v);
 }
 
 function DiffView({ before, after, meta }) {
@@ -275,7 +407,7 @@ function DiffView({ before, after, meta }) {
             {Object.entries(meta).map(([k, v]) => (
               <div key={k} className="flex gap-2 text-xs px-3 py-0.5">
                 <span className="text-gray-500 w-32 shrink-0">{k}:</span>
-                <span className="font-mono text-gray-800">{typeof v === 'object' ? JSON.stringify(v) : String(v)}</span>
+                <span className="whitespace-pre-line font-mono text-gray-800">{detailText(v)}</span>
               </div>
             ))}
           </div>
@@ -291,9 +423,7 @@ function DiffView({ before, after, meta }) {
         {Object.entries(meta).map(([k, v]) => (
           <div key={k} className="flex gap-2 text-xs">
             <span className="text-gray-500 w-36 shrink-0">{k}:</span>
-            <span className="font-mono text-gray-800 break-all">
-              {typeof v === 'object' ? JSON.stringify(v, null, 2) : String(v)}
-            </span>
+            <span className="whitespace-pre-line font-mono text-gray-800 break-all">{detailText(v)}</span>
           </div>
         ))}
       </div>

@@ -3,7 +3,7 @@ import Settings from '../models/Settings.js';
 import ApiResponse from '../utils/ApiResponse.js';
 import ApiError from '../utils/ApiError.js';
 import asyncHandler from '../utils/asyncHandler.js';
-import { logAction } from '../services/audit.service.js';
+import { changedValues, logAction, maskSecret } from '../services/audit.service.js';
 import { refreshTemple } from '../services/temple.service.js';
 
 export const getSettings = asyncHandler(async (req, res) => {
@@ -19,6 +19,7 @@ export const getSettings = asyncHandler(async (req, res) => {
 
 export const updateSettings = asyncHandler(async (req, res) => {
   const settings = await Settings.getOrCreate();
+  const before = settings.toObject();
   const {
     templeName, templeNameMr, trustRegNumber, templeAddress, templePhone, templeEmail, templeWebsite,
     waEnabled, waPhoneNumberId, waAccessToken, waTemplateName,
@@ -71,11 +72,9 @@ export const updateSettings = asyncHandler(async (req, res) => {
 
   await settings.save();
   await refreshTemple(settings);
-  const changedKeys = Object.keys(req.body).filter((k) => req.body[k] !== undefined && !['waAccessToken', 'msg91AuthKey'].includes(k));
-  logAction(req, {
-    action: 'settings.update', entity: 'Settings',
-    meta: { changedKeys },
-  });
+  // Old → new for what changed; access tokens and keys only as "(set)" / "(empty)"
+  const change = changedValues(before, settings.toObject(), Object.keys(req.body), { mask: { waAccessToken: maskSecret, msg91AuthKey: maskSecret } });
+  if (change) logAction(req, { action: 'settings.update', entity: 'Settings', entityRef: settings._id, ...change });
   res.json(new ApiResponse(200, settings, 'Settings saved'));
 });
 

@@ -615,6 +615,7 @@ export const exportPayments = asyncHandler(async (req, res) => {
     .sort({ paymentDate: -1, createdAt: -1 })
     .lean();
 
+  logAction(req, { action: 'payment.export', entity: 'SupplierPayment', meta: { rows: payments.length, from: req.query.from, to: req.query.to, status: req.query.status } });
   const { generatePaymentExcel } = await import('../services/paymentExcel.service.js');
   await generatePaymentExcel(res, { payments, from: req.query.from, to: req.query.to });
 });

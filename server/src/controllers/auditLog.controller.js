@@ -1,17 +1,17 @@
+import mongoose from 'mongoose';
+import ExcelJS from 'exceljs';
 import AuditLog from '../models/AuditLog.js';
 import ApiResponse from '../utils/ApiResponse.js';
 import asyncHandler from '../utils/asyncHandler.js';
-import ExcelJS from 'exceljs';
+import { logAction, visibleToRole } from '../services/audit.service.js';
 
-export const getAuditLogs = asyncHandler(async (req, res) => {
-  const {
-    page = 1, limit = 50,
-    dateFrom, dateTo,
-    userId, entity, action, search,
-  } = req.query;
+// Search text is matched as typed (a "(" or "*" must not break the query)
+const escapeRegex = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
+// The list's filters; an entry is only shown to those who may read its module (audit.service).
+async function auditQuery(req, { search = true } = {}) {
+  const { dateFrom, dateTo, userId, entity, action } = req.query;
   const filter = {};
-
   if (dateFrom || dateTo) {
     filter.timestamp = {};
     if (dateFrom) filter.timestamp.$gte = new Date(dateFrom);
@@ -21,45 +21,45 @@ export const getAuditLogs = asyncHandler(async (req, res) => {
       filter.timestamp.$lte = end;
     }
   }
-
-  if (userId)  filter['user._id'] = userId;
-  if (entity)  filter.entity      = entity;
-  if (action)  filter.action      = action;
-
-  if (search) {
-    const s = search.trim();
+  if (userId && mongoose.isValidObjectId(userId)) filter['user._id'] = userId;
+  if (entity) filter.entity = entity;
+  if (action) filter.action = action;
+  if (search && req.query.search) {
+    const s = escapeRegex(String(req.query.search).trim());
     filter.$or = [
       { entityId:    { $regex: s, $options: 'i' } },
       { 'user.name': { $regex: s, $options: 'i' } },
       { action:      { $regex: s, $options: 'i' } },
     ];
   }
+  return { $and: [filter, await visibleToRole(req.user.role)] };
+}
 
-  const skip = (Number(page) - 1) * Number(limit);
+export const getAuditLogs = asyncHandler(async (req, res) => {
+  const page = Math.max(1, Number(req.query.page) || 1);
+  const limit = Math.min(200, Math.max(1, Number(req.query.limit) || 50));
+  const filter = await auditQuery(req);
 
   const [total, logs] = await Promise.all([
     AuditLog.countDocuments(filter),
     AuditLog.find(filter)
       .sort({ timestamp: -1 })
-      .skip(skip)
-      .limit(Number(limit))
+      .skip((page - 1) * limit)
+      .limit(limit)
       .lean(),
   ]);
 
   res.json(new ApiResponse(200, {
     logs,
-    pagination: {
-      total,
-      page: Number(page),
-      limit: Number(limit),
-      totalPages: Math.ceil(total / Number(limit)),
-    },
+    pagination: { total, page, limit, totalPages: Math.ceil(total / limit) },
   }));
 });
 
+// One record's history (shown on its screen): only the entries the viewer may read
 export const getEntityHistory = asyncHandler(async (req, res) => {
   const { entityRef } = req.params;
-  const logs = await AuditLog.find({ entityRef })
+  if (!mongoose.isValidObjectId(entityRef)) return res.json(new ApiResponse(200, []));
+  const logs = await AuditLog.find({ $and: [{ entityRef }, await visibleToRole(req.user.role)] })
     .sort({ timestamp: -1 })
     .limit(100)
     .lean();
@@ -67,23 +67,9 @@ export const getEntityHistory = asyncHandler(async (req, res) => {
 });
 
 export const exportAuditLogs = asyncHandler(async (req, res) => {
+  const logs = await AuditLog.find(await auditQuery(req, { search: false })).sort({ timestamp: -1 }).limit(5000).lean();
   const { dateFrom, dateTo, userId, entity, action } = req.query;
-
-  const filter = {};
-  if (dateFrom || dateTo) {
-    filter.timestamp = {};
-    if (dateFrom) filter.timestamp.$gte = new Date(dateFrom);
-    if (dateTo) {
-      const end = new Date(dateTo);
-      end.setHours(23, 59, 59, 999);
-      filter.timestamp.$lte = end;
-    }
-  }
-  if (userId) filter['user._id'] = userId;
-  if (entity) filter.entity = entity;
-  if (action) filter.action = action;
-
-  const logs = await AuditLog.find(filter).sort({ timestamp: -1 }).limit(5000).lean();
+  logAction(req, { action: 'audit.export', entity: 'AuditLog', meta: { rows: logs.length, dateFrom, dateTo, userId, entity, action } });
 
   const wb = new ExcelJS.Workbook();
   const ws = wb.addWorksheet('Audit Log');
