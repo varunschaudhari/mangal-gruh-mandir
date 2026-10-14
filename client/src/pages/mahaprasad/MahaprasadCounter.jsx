@@ -21,6 +21,7 @@ import { useMediaQuery } from '../../hooks/useMediaQuery.js';
 import toast from 'react-hot-toast';
 import { openFile, shareText } from '../../utils/fileSaver.js';
 import { isNative } from '../../utils/platform.js';
+import { useBluetoothPrinter } from '../../utils/bluetoothPrinter.js';
 import haptics from '../../utils/haptics.js';
 import { localDateStr } from '../../utils/formatters.js';
 import { useT } from '../../i18n/index.jsx';
@@ -166,7 +167,14 @@ export default function MahaprasadCounter() {
   const [type,           setType]           = useState('paid');
   const [occasionPreset, setOccasionPreset] = useState('');
   const [occasionCustom, setOccasionCustom] = useState('');
-  const [autoPrint,      setAutoPrint]      = useState(false);
+  const [autoPrint,      setAutoPrint]      = useState(() => {
+    if (!isNative) return false;   // desktop app: restored from its own settings below
+    try { return localStorage.getItem('mgm-mp-autoprint') === '1'; } catch { return false; }
+  });
+  // Phone app: coupons print to the Bluetooth printer chosen on this phone (More → Bluetooth printer);
+  // without one they are shared as a PDF
+  const btPrinter   = useBluetoothPrinter();
+  const thermalOn   = !isNative || Boolean(btPrinter);
   const [lastBatch,      setLastBatch]      = useState(null);
   const [printing,       setPrinting]       = useState(false);
   const [qzReady,        setQzReady]        = useState(false);
@@ -378,7 +386,8 @@ export default function MahaprasadCounter() {
     } catch (err) {
       setQzReady(isConnected());
       const msg = err.message || 'Thermal print failed';
-      if (msg.includes('not set') || msg.includes('not configured')) toast.error(t('Set printer name in Settings → Mahaprasad'));
+      if (isNative) toast.error(t(msg));
+      else if (msg.includes('not set') || msg.includes('not configured')) toast.error(t('Set printer name in Settings → Mahaprasad'));
       else if (!isConnected()) toast.error(t('QZ Tray not running — install from qz.io'));
       else toast.error(t(msg));
       throw err;
@@ -412,7 +421,7 @@ export default function MahaprasadCounter() {
       await refreshCounts();
       qc.invalidateQueries({ queryKey: ['mahaprasad-summary'] });
 
-      if (autoPrint) {
+      if (autoPrint && thermalOn) {
         const ps = Object.keys(offSettings).length ? offSettings : settings;
         try { await printThermalCoupon({ ...issued, date: coupon.date, status: 'issued' }, ps); }
         catch { /* non-fatal */ }
@@ -424,7 +433,9 @@ export default function MahaprasadCounter() {
   const handleAutoPrintToggle = async () => {
     const next = !autoPrint;
     setAutoPrint(next);
-    if (window.electronAPI?.isElectron) {
+    if (isNative) {
+      try { localStorage.setItem('mgm-mp-autoprint', next ? '1' : '0'); } catch { /* not kept */ }
+    } else if (window.electronAPI?.isElectron) {
       window.electronAPI.saveSettings({ autoPrint: next });
       if (next && electronPrinterName) checkPrinterStatus(electronPrinterName);
       else if (!next) setPrinterStatus(null);
@@ -476,7 +487,7 @@ export default function MahaprasadCounter() {
       qc.invalidateQueries({ queryKey: ['mahaprasad-batches', date] });
       qc.invalidateQueries({ queryKey: ['mahaprasad-cash-drawer', date] });
 
-      if (autoPrint) {
+      if (autoPrint && thermalOn) {
         const failed = [];
         for (const coupon of coupons) {
           try { await handleThermalPrint(coupon); }
@@ -686,14 +697,14 @@ export default function MahaprasadCounter() {
               <MessageCircle className="h-3.5 w-3.5" /> WhatsApp
             </a>
           )}
-          {!isNative && (
+          {thermalOn && (
             <button
               onClick={async () => { for (const c of lastBatch.coupons) { try { await handleThermalPrint(c); } catch { break; } } }}
               className="btn text-xs bg-green-600 hover:bg-green-700 text-white px-3 py-1.5 rounded-lg font-semibold flex items-center gap-1.5 max-lg:flex-1 max-lg:py-2.5">
               <Printer className="h-3.5 w-3.5" /> {t('Print')}
             </button>
           )}
-          {isNative ? (
+          {isNative && !btPrinter ? (
             <button onClick={() => handlePdfPrint(lastBatch.numbers)} disabled={printing}
               className="btn flex-1 bg-green-600 hover:bg-green-700 text-white py-2.5 rounded-lg font-semibold disabled:opacity-50">
               {printing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Share2 className="h-4 w-4" />} {t(pdfLabel)}
@@ -701,7 +712,7 @@ export default function MahaprasadCounter() {
           ) : (
             <button onClick={() => handlePdfPrint(lastBatch.numbers)} disabled={printing}
               className="text-xs text-gray-400 hover:text-gray-600 border border-gray-200 rounded px-2 py-1 disabled:opacity-40 max-lg:flex-1 max-lg:py-2.5 max-lg:rounded-lg max-lg:bg-white max-lg:font-semibold max-lg:text-gray-600">
-              PDF
+              {isNative ? t('Share') : 'PDF'}
             </button>
           )}
         </div>
@@ -1058,8 +1069,8 @@ export default function MahaprasadCounter() {
               )}
             </div>
 
-            {/* Auto-print — thermal printing isn't available in the mobile apps */}
-            {!isNative && (
+            {/* Auto-print — in the phone app only with a Bluetooth printer chosen */}
+            {thermalOn && (
               <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-gray-50">
                 <button type="button" onClick={handleAutoPrintToggle}
                   className="flex items-center gap-2 text-sm text-gray-500 select-none cursor-pointer max-sm:py-2">
@@ -1070,7 +1081,9 @@ export default function MahaprasadCounter() {
                   {t('Auto-print')}
                 </button>
                 {autoPrint && (
-                  window.electronAPI?.isElectron ? (
+                  isNative ? (
+                    <span className="text-xs text-gray-500 flex items-center gap-1"><Printer className="h-3 w-3" /> {btPrinter?.name}</span>
+                  ) : window.electronAPI?.isElectron ? (
                     printerStatus === 'checking'
                       ? <span className="text-xs text-gray-400 flex items-center gap-1"><Loader2 className="h-3 w-3 animate-spin" /> {t('Checking…')}</span>
                       : printerStatus === 'ok'
@@ -1358,7 +1371,7 @@ export default function MahaprasadCounter() {
         {lastIssuedBatch && (
           <button
             onClick={async () => {
-              if (!isNative && (window.electronAPI?.isElectron || autoPrint)) {
+              if (isNative ? Boolean(btPrinter) : (window.electronAPI?.isElectron || autoPrint)) {
                 const failed = [];
                 for (const c of lastIssuedBatch.coupons) {
                   try { await handleThermalPrint(c); }
@@ -1369,15 +1382,15 @@ export default function MahaprasadCounter() {
                 handlePdfPrint(lastIssuedBatch.numbers);
               }
             }}
-            disabled={isNative && printing}
-            title={t(isNative ? 'Share last batch · {count}' : 'Reprint last batch · {count}', {
+            disabled={isNative && !btPrinter && printing}
+            title={t(isNative && !btPrinter ? 'Share last batch · {count}' : 'Reprint last batch · {count}', {
               count: t(lastIssuedBatch.numbers.length > 1 ? '{n} coupons' : '{n} coupon', { n: lastIssuedBatch.numbers.length }),
             })}
             className="shrink-0 flex items-center gap-1.5 text-xs font-semibold text-gray-500 hover:text-gray-800 border border-gray-200 rounded-lg px-3 py-2 hover:bg-gray-50 transition-colors
               max-lg:flex-col max-lg:gap-0.5 max-lg:self-stretch max-lg:justify-center max-lg:px-2.5 max-lg:text-[11px] max-lg:rounded-xl disabled:opacity-50">
-            <PdfIcon className="h-3.5 w-3.5 max-lg:h-4 max-lg:w-4" />
+            {btPrinter ? <Printer className="h-3.5 w-3.5 max-lg:h-4 max-lg:w-4" /> : <PdfIcon className="h-3.5 w-3.5 max-lg:h-4 max-lg:w-4" />}
             <span className="max-lg:hidden">{t('Reprint Last')}</span>
-            <span className="lg:hidden">{isNative ? t('Last PDF') : t('Reprint')}</span>
+            <span className="lg:hidden">{isNative && !btPrinter ? t('Last PDF') : t('Reprint')}</span>
           </button>
         )}
         {lastIssuedBatch?.mobile && (

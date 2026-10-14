@@ -1,5 +1,6 @@
 import qz from 'qz-tray';
 import { temple } from './temple.js';
+import { printBluetooth, savedBluetoothPrinter } from './bluetoothPrinter.js';
 
 // ── Electron print path ───────────────────────────────────────────────────────
 // When running inside the desktop app, bypass QZ Tray entirely and use the
@@ -309,6 +310,12 @@ export async function printThermalCoupon(coupon, settings) {
   // Electron: use IPC bridge directly — no QZ Tray needed
   if (window.electronAPI?.isElectron) {
     return printViaElectron(coupon, settings);
+  }
+
+  // Phone app: the Bluetooth printer chosen on this phone
+  if (savedBluetoothPrinter()) {
+    const [logoBytes, receiptBytes] = await Promise.all([logoToEscPosBytes(), Promise.resolve(buildReceiptBytes(coupon, settings))]);
+    return printBluetooth([...logoBytes, ...receiptBytes]);
   }
 
   // Web: QZ Tray path

@@ -4,6 +4,7 @@ import { App } from '@capacitor/app';
 import { ChevronRight, History, KeyRound, LogOut } from 'lucide-react';
 import toast from 'react-hot-toast';
 import PageHeader from '../components/ui/PageHeader.jsx';
+import BluetoothPrinterCard from '../components/ui/BluetoothPrinterCard.jsx';
 import { navConfig } from '../components/Layout/navConfig.js';
 import { usePermissions } from '../hooks/usePermissions.js';
 import { useNavBadges } from '../hooks/useNavBadges.js';
@@ -125,6 +126,8 @@ const MorePage = () => {
             <span className="flex-1 text-left">{t('Logout')}</span>
           </button>
         </section>
+
+        <BluetoothPrinterCard />
 
         <div className="flex items-center justify-between rounded-xl border border-gray-100 bg-white px-4 py-3 shadow-sm">
           <span className="text-sm text-gray-700">{t('Language')}</span>

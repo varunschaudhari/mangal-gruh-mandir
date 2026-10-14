@@ -2,6 +2,7 @@
 // (so Marathi names print), sent raw to the thermal printer, or opened in the print dialog / as a PDF.
 import { printHtml } from './printHtml.js';
 import { canvasToEscPos, printRawBytes } from './thermalPrint.js';
+import { printBluetooth, savedBluetoothPrinter } from './bluetoothPrinter.js';
 import { isNative, isElectron } from './platform.js';
 import { temple } from './temple.js';
 import { denominationLines, differenceTone } from '../components/booking/shift/shiftUtils.js';
@@ -145,11 +146,16 @@ export async function drawShiftSlip(shift, settings = {}) {
 
 /**
  * Prints the handover slip: straight to the thermal printer from the desktop app or through
- * QZ Tray; otherwise opens it in the print dialog (or the share sheet in the phone app).
+ * QZ Tray, to the phone app's Bluetooth printer; otherwise opens it in the print dialog (or the
+ * share sheet in the phone app).
  * Returns 'thermal' or 'dialog'.
  */
 export async function printShiftSlip(shift, settings = {}) {
   const canvas = await drawShiftSlip(shift, settings);
+  if (savedBluetoothPrinter()) {
+    await printBluetooth(canvasToEscPos(canvas));
+    return 'thermal';
+  }
   if (!isNative && (isElectron || settings.printerName)) {
     await printRawBytes(canvasToEscPos(canvas), settings.printerName);
     return 'thermal';

@@ -4,6 +4,7 @@ import QRCode from 'qrcode/lib/browser.js';
 import { printHtml } from './printHtml.js';
 import { formatAddress } from './address.js';
 import { canvasToEscPos, printRawBytes } from './thermalPrint.js';
+import { printBluetooth, savedBluetoothPrinter } from './bluetoothPrinter.js';
 import { isNative, isElectron } from './platform.js';
 import { temple } from './temple.js';
 import { PRINT_FONT as FONT, PRINT_HEADER_CSS, esc, letterheadHtml } from './printTemplate.js';
@@ -167,10 +168,15 @@ export async function drawSlip(b, settings = {}) {
 
 /**
  * Prints the counter slip: straight to the thermal printer from the desktop app or through
- * QZ Tray; otherwise opens the slip in the print dialog (or the share sheet in the phone app).
+ * QZ Tray, to the Bluetooth printer chosen in the phone app; otherwise opens the slip in the
+ * print dialog (or the share sheet in the phone app).
  */
 export async function printBookingSlip(b, settings = {}) {
   const canvas = await drawSlip(b, settings);
+  if (savedBluetoothPrinter()) {
+    await printBluetooth(canvasToEscPos(canvas));
+    return 'thermal';
+  }
   if (!isNative && (isElectron || settings.printerName)) {
     await printRawBytes(canvasToEscPos(canvas), settings.printerName);
     return 'thermal';
