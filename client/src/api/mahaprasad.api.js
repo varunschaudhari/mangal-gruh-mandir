@@ -16,8 +16,10 @@ export const getMahaprasadWhatsApp = (date)    => api.get('/mahaprasad/report/wh
 export const reserveOffline     = (data) => api.post('/mahaprasad/offline/reserve', data);
 export const getTodayForOffline = ()     => api.get('/mahaprasad/offline/today');
 export const syncOfflineCoupons = (data) => api.post('/mahaprasad/offline/sync',    data);
+// 200 when the server and its database are up, 503 when the database is down
+export const checkServer        = ()     => api.get('/health', { timeout: 5000 });
 
 export const getCashDrawer   = (date)  => api.get('/mahaprasad/cash-drawer', { params: date ? { date } : {} });
 export const setOpeningFloat = (data)  => api.put('/mahaprasad/cash-drawer/float', data);
 export const adjustDrawer    = (data)  => api.patch('/mahaprasad/cash-drawer/adjust', data);
-export const voidBatch       = (batchId) => api.patch(`/mahaprasad/batches/${encodeURIComponent(batchId)}/void`);
+export const voidBatch       = (batchId, reason) => api.patch(`/mahaprasad/batches/${encodeURIComponent(batchId)}/void`, { reason });

@@ -218,8 +218,14 @@ export default {
     'ऑफलाइन — कूपन या उपकरणातील माहितीतून तपासले जात आहेत. इंटरनेट आल्यावर स्वीकारलेले कूपन आपोआप सिंक होतील.',
   'Sync conflict — {n} coupon could not be redeemed': 'सिंक अडचण — {n} कूपन स्वीकारता आले नाही',
   'Sync conflict — {n} coupons could not be redeemed': 'सिंक अडचण — {n} कूपन स्वीकारता आले नाहीत',
-  'These were already redeemed on another device before the sync completed.':
-    'सिंक होण्याआधीच हे कूपन दुसऱ्या उपकरणावर स्वीकारले गेले होते.',
+  'These were already redeemed on another device, cancelled, or never sold.':
+    'हे कूपन आधीच दुसऱ्या उपकरणावर स्वीकारले गेले होते, रद्द झाले होते, किंवा कधी विकलेच गेले नव्हते.',
+  'Do not serve': 'प्रसाद देऊ नका',
+  'Coupon {number} was cancelled — do not serve': 'कूपन {number} रद्द झाले आहे — प्रसाद देऊ नका',
+  'Coupon {number} has not been sold — if it was issued offline, sync that counter first':
+    'कूपन {number} विकले गेल्याची नोंद नाही — ऑफलाइन दिले असल्यास आधी त्या काउंटरवर सिंक करा',
+  '{n} offline sale(s) could not be recorded: {numbers}': '{n} ऑफलाइन विक्रीची नोंद होऊ शकली नाही: {numbers}',
+  'e.g. wrong quantity, devotee changed mind': 'उदा. संख्या चुकली, भाविकाने विचार बदलला',
   'Scan QR': 'QR स्कॅन करा',
   'Manual Entry': 'हाताने टाका',
   'Scanner open…': 'स्कॅनर उघडला आहे…',

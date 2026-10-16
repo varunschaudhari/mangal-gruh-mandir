@@ -15,6 +15,10 @@ const mahaprasadCouponSchema = new mongoose.Schema({
   batchId:      { type: String, index: true },
   groupSize:    { type: Number, default: 1, min: 1 },
   isGroup:      { type: Boolean, default: false },
+  // Cancelled sales: who, when and why
+  voidedAt:     { type: Date },
+  voidedBy:     { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  voidReason:   { type: String },
 }, { timestamps: true });
 
 mahaprasadCouponSchema.index({ date: 1, status: 1 });

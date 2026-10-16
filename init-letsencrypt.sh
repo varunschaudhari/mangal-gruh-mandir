@@ -56,4 +56,4 @@ echo "==> Reloading nginx with the real certificate"
 $COMPOSE exec nginx nginx -s reload
 
 echo "==> Done. https://$DOMAIN should now be live."
-echo "    Renewal: certbot renews on demand; see the cron note in the deploy steps."
+echo "    Renewal is automatic: the certbot container renews it and nginx reloads (DEPLOY.md §8)."

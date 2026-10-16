@@ -111,7 +111,12 @@ export default function ElectronSettings() {
 
     setSaving(true);
     try {
-      await window.electronAPI.saveSettings(settings);
+      const saved = await window.electronAPI.saveSettings(settings);
+      // Older desktop versions answer { ok: true } only; newer ones refuse a non-https address
+      if (saved && saved.ok === false) {
+        toast.error(t('The server address must start with https://'));
+        return;
+      }
       toast.success(t('Settings saved'));
       setOpen(false);
 
@@ -220,7 +225,7 @@ export default function ElectronSettings() {
                     type="text"
                     value={settings.apiUrl}
                     onChange={(e) => setSettings((s) => ({ ...s, apiUrl: e.target.value.trim() }))}
-                    placeholder="http://103.168.19.129"
+                    placeholder="https://mandir.aumora.io"
                     className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"
                   />
                   <button
@@ -241,7 +246,11 @@ export default function ElectronSettings() {
                   </p>
                 )}
                 {online === false && (
-                  <p className="text-xs text-red-500 mt-1">{t('Cannot reach server — check the URL and internet connection')}</p>
+                  <p className="text-xs text-red-500 mt-1">
+                    {/^http:\/\//i.test(settings.apiUrl || '') && !/\/\/(localhost|127\.0\.0\.1)\b/i.test(settings.apiUrl)
+                      ? t('The server address must start with https://')
+                      : t('Cannot reach server — check the URL and internet connection')}
+                  </p>
                 )}
               </div>
 

@@ -75,6 +75,30 @@ if (process.env.JWT_SECRET && process.env.MONGO_URI) {
   console.log('– legacy-token check skipped (needs JWT_SECRET and MONGO_URI)');
 }
 
+// Account safety: an admin can't take over the super admin, password hashes and messaging keys
+// never come back in responses.
+{
+  const root = await login('web');
+  const superMe = (await (await me(root.accessToken)).json()).data;
+  const send = (method, path, body, token) => fetch(`${BASE}/api${path}`, {
+    method, headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` }, body: JSON.stringify(body || {}),
+  });
+  const adminEmail = `admin-check-${Date.now()}@test.local`;
+  const created = await (await send('POST', '/users', { name: 'Admin Check', email: adminEmail, password: 'Admin-Pass-123!', role: 'admin', phone: '', departments: [], isActive: true }, root.accessToken)).json();
+  check('creating a user never returns the password hash', created?.data?.email === adminEmail && !('password' in created.data) && !('refreshToken' in created.data));
+  const edited = await (await send('PUT', `/users/${created.data._id}`, { name: 'Admin Check 2' }, root.accessToken)).json();
+  check('editing a user never returns the password hash', edited?.data?.name === 'Admin Check 2' && !('password' in edited.data));
+
+  const admin = (await (await post('/auth/login', { email: adminEmail, password: 'Admin-Pass-123!' })).json()).data;
+  const takeover = await send('PUT', `/users/${superMe._id}/reset-password`, { newPassword: 'Taken-Over-1' }, admin.accessToken);
+  check('an admin cannot reset the super admin’s password', takeover.status === 403, String(takeover.status));
+
+  await send('PUT', '/settings', { waAccessToken: 'secret-wa-token-1234567890', msg91AuthKey: 'secret-msg91-key-1234567890' }, root.accessToken);
+  const saved = (await (await send('PUT', '/settings', {}, admin.accessToken)).json()).data || {};
+  check('saving settings never returns the WhatsApp / SMS keys in full',
+    saved.waAccessToken?.includes('•') && !saved.waAccessToken.includes('secret') && saved.msg91AuthKey?.includes('•') && !saved.msg91AuthKey.includes('secret'));
+}
+
 // Sign-in limits: correct sign-ins never count; wrong passwords lock only that account
 // (temple counters share one internet connection, so one person's typos mustn't lock out the rest).
 const limit = Number(process.env.LOGIN_RATE_LIMIT) || 10;

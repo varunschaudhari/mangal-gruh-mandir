@@ -138,11 +138,21 @@ without `STAGING` for the real certificate.
 
 ## 8. Auto-renew SSL (certs expire in 90 days)
 
+Nothing to set up: renewal runs inside Docker. The `certbot` container checks twice a day and
+renews once the certificate has under 30 days left; `nginx` reloads every 6 hours to pick it up
+(both in `docker-compose.yml`, started by `docker compose up -d` / `deploy.sh`). If it ever stops
+working, the uptime monitor (§15) opens an issue when 21 days are left.
+
 ```bash
-sudo crontab -e
-# add (adjust the path to where you cloned the repo):
-0 3,15 * * * cd /home/$USER/mangal-gruh-mandir && docker compose run --rm certbot renew --webroot -w /var/www/certbot && docker compose exec nginx nginx -s reload
+docker compose ps certbot                       # "Up"
+docker compose logs --tail 20 certbot           # "Certificate not yet due for renewal" / "Congratulations"
+docker compose exec certbot certbot certificates   # expiry date
+docker compose exec certbot certbot renew --webroot -w /var/www/certbot --dry-run   # test against Let's Encrypt staging
 ```
+
+> **Servers set up from an older copy of this guide** had a cron line for renewal. It used the
+> wrong folder (`/home/$USER/…` instead of `/root/…`) and `exec` without `-T`, so it never
+> worked. Remove it: `crontab -e` and delete the line with `certbot renew`.
 
 ---
 
@@ -190,20 +200,47 @@ ls -lh /var/backups/mgm/daily/
 ./restore-db.sh verify /var/backups/mgm/daily/<file>.archive.gz   # proves it restores; prints counts
 ```
 
-**Schedule it** — `crontab -e` and add (server clock in UTC → 20:00 UTC = 1:30 AM India time;
-check with `date`, and use `30 1 * * *` instead if the server is set to IST):
+**Schedule:** `deploy.sh` adds the nightly run to the server's crontab (1:30 AM India time) if
+there's no `backup-db.sh` line yet — check with `crontab -l`. The log is `/var/log/mgm-backup.log`.
 
+**Get told when it fails:** the uptime monitor (§15) opens an issue when the last good backup is
+more than 30 hours old, or wasn't copied off the server. Optionally also a free
+[healthchecks.io](https://healthchecks.io) check (period 1 day, grace 2 hours): put its ping URL in
+the repo-root `.env` as `HEALTHCHECK_URL=https://hc-ping.com/<uuid>`.
+
+### Off-site copy (needed — until it's set up, the monitor keeps a "Backups" issue open)
+
+The archives and the receipt mirror live on this VM. If the VM is lost, so are they — and the
+**expense receipts exist nowhere else**. `backup-db.sh` copies both off the server each night with
+[rclone](https://rclone.org) once `RCLONE_REMOTE` is set (rclone runs from its Docker image; nothing
+to install). Archives older than 90 days are pruned there; receipts are never deleted there.
+
+The database archives hold donors' names, phone numbers and PANs, so put them in an **encrypted**
+rclone remote. With a Google Drive account (15 GB free) of the temple's:
+
+```bash
+# 1. On a computer with a browser and rclone installed (rclone.org/downloads), get a Drive token:
+rclone authorize "drive"                 # sign in with the temple's Google account; copy the token it prints
+
+# 2. On the server — run rclone's setup from its Docker image:
+mkdir -p ~/.config/rclone
+docker run --rm -it -v ~/.config/rclone:/config/rclone rclone/rclone:1.75.1 config
+#   n) New remote → name: gdrive → storage: drive → leave client id/secret empty → scope: 1 (full)
+#      → "Use web browser?" n → paste the token from step 1 → shared drive: n → y (keep)
+#   n) New remote → name: mgm → storage: crypt → remote: gdrive:mgm-backups
+#      → filename encryption: standard → password: g (generate), and a second one: g
+#      → SAVE BOTH PASSWORDS in the temple's password manager: without them the backups can't be read
+#   q) Quit
+
+# 3. Turn it on and test it
+echo 'RCLONE_REMOTE=mgm:' >> .env
+./backup-db.sh                           # ends with "Backup complete", no "OFF-SITE … FAILED"
+docker run --rm -v ~/.config/rclone:/config/rclone rclone/rclone:1.75.1 ls mgm:   # the archive and uploads/
 ```
-0 20 * * * cd /root/mangal-gruh-mandir && ./backup-db.sh >> /var/log/mgm-backup.log 2>&1
-```
 
-**Get told when it fails (recommended):** create a free check at [healthchecks.io](https://healthchecks.io)
-(period 1 day, grace 2 hours), and put its ping URL in the repo-root `.env`:
-`HEALTHCHECK_URL=https://hc-ping.com/<uuid>`. You get an email if a night's backup fails or doesn't run.
-
-**Off-site copy (optional):** the archives live on this VM, separate from Atlas. To also survive
-losing the VM, install [rclone](https://rclone.org/install/), run `rclone config` to add e.g. a Google
-Drive remote, and set `RCLONE_REMOTE=gdrive:mgm-backups` in `.env`. Copies older than 90 days are pruned.
+Any rclone storage works the same way (Backblaze B2, Cloudflare R2, another server over SFTP);
+keep the `crypt` layer on top. Restoring from it: `rclone copy mgm:<archive> .` (same Docker
+command), then `./restore-db.sh verify <archive>`.
 
 **Restore:**
 
@@ -430,6 +467,32 @@ To redeploy without a new commit: **Actions → CI → Run workflow** on `main`.
 
 Not automatic: app installers. Android APKs and desktop installers are still copied to
 `mobile-releases/` as described in MOBILE.md.
+
+## 15. Uptime monitor (GitHub)
+
+`.github/workflows/uptime.yml` runs every 10 minutes on GitHub (free for a public repository;
+nothing to sign up for) and checks:
+
+| Check | Problem when |
+|---|---|
+| Website or database down | `/api/health` doesn't answer 200 three times in a row a minute apart — it answers 503 when MongoDB Atlas doesn't — or the website doesn't load |
+| HTTPS certificate not renewing | under 21 days left (it renews itself at 30, §8) |
+| Backups need attention | last good backup over 30 hours old, or not copied off the server (§10) |
+
+Each problem opens **one GitHub issue** that mentions the repository owner, so GitHub emails you
+and the GitHub mobile app notifies you. While it lasts the issue is updated quietly; when the check
+passes again it's closed with a comment (another notification). Make sure **Settings → Notifications
+→ Email** is on in your GitHub account.
+
+- **Run it now:** Actions → Uptime monitor → Run workflow. From a computer:
+  `node .github/scripts/uptime.cjs` prints the results without touching issues.
+- The repository is public, so these issues are too. They hold only what failed and what to check.
+  For private alerts, also add a free [UptimeRobot](https://uptimerobot.com) monitor for
+  `https://mandir.aumora.io/api/health` (keyword `"db":"ok"`).
+- GitHub switches scheduled workflows off after 60 days without a commit in a public repository; it
+  emails a warning first, and one click on the Actions tab turns it back on.
+- Different address: set the repository variable `SITE_URL` (defaults to `DEPLOY_URL`, then
+  `https://mandir.aumora.io`).
 
 ## Operations cheatsheet
 

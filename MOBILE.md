@@ -82,6 +82,12 @@ cd client/android
 keytool -genkeypair -v -keystore mgm-release.jks -alias mgm -keyalg RSA -keysize 2048 -validity 10000
 ```
 
+> **Done on 16 Oct 2026** on the build PC: `client/android/mgm-release.jks` + `keystore.properties`
+> (RSA 4096, valid to 2056). Certificate SHA-256 fingerprint
+> `8F:60:61:8E:C1:F5:B9:69:EE:57:58:2A:98:BC:30:AC:2F:31:43:79:A3:FD:B1:6B:CF:A9:BB:2F:1F:21:47:20`
+> — `apksigner verify --print-certs <apk>` shows it on every genuine release. Keep both files
+> backed up off this PC; anyone with them can sign an app phones will accept as an update.
+
 **2. Create `client/android/keystore.properties`** (git-ignored, never commit it):
 
 ```properties

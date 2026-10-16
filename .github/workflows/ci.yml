@@ -152,9 +152,10 @@ jobs:
           if [ -n "$KNOWN_HOSTS" ]; then printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts; else ssh-keyscan -H "$HOST" > ~/.ssh/known_hosts; fi
       - name: Update the code to this commit, rebuild and migrate
         # Fast-forward only: if someone changed files on the server, stop rather than overwrite them.
+        # A script made executable by hand (chmod +x, as DEPLOY.md once said) isn't a change.
         run: |
           ssh -i ~/.ssh/deploy_key -o BatchMode=yes "$SSH_USER@$HOST" \
-            "set -e; cd '$APP_DIR'; git fetch --quiet origin main; git merge --ff-only ${{ github.sha }}; ./deploy.sh"
+            "set -e; cd '$APP_DIR'; git fetch --quiet origin main; git -c core.fileMode=false merge --ff-only ${{ github.sha }}; ./deploy.sh"
       - name: Check the live site
         run: |
           for i in $(seq 1 30); do

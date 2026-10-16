@@ -6,15 +6,17 @@ import asyncHandler from '../utils/asyncHandler.js';
 import { changedValues, logAction, maskSecret } from '../services/audit.service.js';
 import { refreshTemple } from '../services/temple.service.js';
 
-export const getSettings = asyncHandler(async (req, res) => {
-  const settings = await Settings.getOrCreate();
+// The WhatsApp access token and MSG91 key never leave the server in full — only the last 6 characters.
+const withMaskedKeys = (settings) => {
   const obj = settings.toObject();
-
-  // Mask sensitive keys — show last 6 chars only
   if (obj.waAccessToken)   obj.waAccessToken   = obj.waAccessToken.length > 6   ? `${'•'.repeat(20)}${obj.waAccessToken.slice(-6)}`   : obj.waAccessToken;
   if (obj.msg91AuthKey)    obj.msg91AuthKey    = obj.msg91AuthKey.length > 6    ? `${'•'.repeat(20)}${obj.msg91AuthKey.slice(-6)}`    : obj.msg91AuthKey;
+  return obj;
+};
 
-  res.json(new ApiResponse(200, obj));
+export const getSettings = asyncHandler(async (req, res) => {
+  const settings = await Settings.getOrCreate();
+  res.json(new ApiResponse(200, withMaskedKeys(settings)));
 });
 
 export const updateSettings = asyncHandler(async (req, res) => {
@@ -75,7 +77,7 @@ export const updateSettings = asyncHandler(async (req, res) => {
   // Old → new for what changed; access tokens and keys only as "(set)" / "(empty)"
   const change = changedValues(before, settings.toObject(), Object.keys(req.body), { mask: { waAccessToken: maskSecret, msg91AuthKey: maskSecret } });
   if (change) logAction(req, { action: 'settings.update', entity: 'Settings', entityRef: settings._id, ...change });
-  res.json(new ApiResponse(200, settings, 'Settings saved'));
+  res.json(new ApiResponse(200, withMaskedKeys(settings), 'Settings saved'));
 });
 
 export const testWhatsApp = asyncHandler(async (req, res) => {

@@ -200,6 +200,19 @@ async function main() {
   const allowedNow = await api('PUT', '/attendance/settings', { devices: listed.map((d) => (d.serial === sn ? { ...d, approved: true, allowedIps: ip } : d)) });
   check(allowedNow.status === 200 && await machine(`/cdata?SN=${sn}`) === 200, `the machine is accepted from its own address (${ip})`);
 
+  // Approved with no address set: the first address it connects from is locked in, so the
+  // serial number alone can't be used from elsewhere. (The test API trusts X-Forwarded-For, as
+  // it would from nginx, so it can stand in for other addresses.)
+  const sn2 = `LOCK-${stamp}`;
+  const fromAddr = (addr) => fetch(`${BASE}/iclock/cdata?SN=${sn2}`, { headers: { 'x-forwarded-for': addr } }).then((r) => r.status);
+  await fromAddr('10.20.30.40');
+  const list2 = (await api('GET', '/attendance/settings')).body.data.devices;
+  await api('PUT', '/attendance/settings', { devices: list2.map((d) => (d.serial === sn2 ? { ...d, approved: true, allowedIps: '' } : d)) });
+  check(await fromAddr('10.20.30.40') === 200, 'an approved machine with no address set is accepted on its next contact');
+  check(await fromAddr('10.99.99.99') === 403, '…and from then on refused from any other address');
+  const lockedTo = (await api('GET', '/attendance/settings')).body.data.devices.find((d) => d.serial === sn2)?.allowedIps;
+  check(lockedTo === '10.20.30.40', 'the locked-in address shows in the settings', lockedTo);
+
   // ── Machine number corrected: the punches move with it ──────────────────────
   const yesterday = shiftDay(today, -1);
   const from = `${monthOf(1)}-01`;

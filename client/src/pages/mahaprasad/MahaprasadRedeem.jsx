@@ -84,6 +84,8 @@ const ERROR_CONFIG = {
   notfound:  { bg: 'bg-gray-50  border-gray-200',  icon: XCircle,       iconCls: 'text-gray-400',  title: 'Not Found' },
   expired:   { bg: 'bg-amber-50 border-amber-200', icon: Clock,         iconCls: 'text-amber-500', title: 'Coupon Expired' },
   redeemed:  { bg: 'bg-blue-50  border-blue-200',  icon: Info,          iconCls: 'text-blue-500',  title: 'Already Redeemed' },
+  // cancelled, or a number that was never sold
+  blocked:   { bg: 'bg-red-50   border-red-300',   icon: XCircle,       iconCls: 'text-red-600',   title: 'Do not serve' },
   error:     { bg: 'bg-red-50   border-red-200',   icon: AlertTriangle, iconCls: 'text-red-500',   title: 'Error' },
 };
 
@@ -358,6 +360,12 @@ export default function MahaprasadRedeem() {
           redeemFeedback.alreadyRedeemed();
           return;
         }
+        if (status === 'voided') {
+          setError(t('Coupon {number} was cancelled — do not serve', { number }));
+          setErrorType('blocked');
+          redeemFeedback.error();
+          return;
+        }
         const normalizedLocal = offlineStore.normalizeForUi(local);
         if (autoRedeem) {
           redeemMut.mutate(normalizedLocal);
@@ -371,6 +379,14 @@ export default function MahaprasadRedeem() {
       if (couponData.status === 'redeemed') {
         setCoupon(couponData);
         redeemFeedback.alreadyRedeemed();
+        return;
+      }
+      if (couponData.status === 'voided' || couponData.status === 'reserved') {
+        setError(couponData.status === 'voided'
+          ? t('Coupon {number} was cancelled — do not serve', { number })
+          : t('Coupon {number} has not been sold — if it was issued offline, sync that counter first', { number }));
+        setErrorType('blocked');
+        redeemFeedback.error();
         return;
       }
       if (autoRedeem) {
@@ -530,7 +546,15 @@ export default function MahaprasadRedeem() {
     onError: (e) => {
       const status  = e.response?.status;
       const message = e.response?.data?.message || e.message || t('Failed to redeem');
+      const code    = e.response?.data?.errors?.[0]?.code; // voided / not_sold / redeemed
       setError(message);
+      if (code === 'voided' || code === 'not_sold') {
+        setCoupon(null);
+        setErrorType('blocked');
+        redeemFeedback.error();
+        toast.error(message);
+        return;
+      }
       setErrorType(status === 409 ? 'redeemed' : status === 410 ? 'expired' : 'error');
       if (status === 409)      redeemFeedback.alreadyRedeemed();
       else if (status === 410) redeemFeedback.expired();
@@ -639,7 +663,7 @@ export default function MahaprasadRedeem() {
               <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
               <div>
                 <p className="font-semibold">{t(syncConflicts.length > 1 ? 'Sync conflict — {n} coupons could not be redeemed' : 'Sync conflict — {n} coupon could not be redeemed', { n: syncConflicts.length })}</p>
-                <p className="text-xs text-red-600 mt-0.5">{t('These were already redeemed on another device before the sync completed.')}</p>
+                <p className="text-xs text-red-600 mt-0.5">{t('These were already redeemed on another device, cancelled, or never sold.')}</p>
                 <p className="text-xs font-mono mt-1 text-red-700">{syncConflicts.map((c) => c.couponNumber).join(', ')}</p>
               </div>
             </div>

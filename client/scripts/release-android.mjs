@@ -53,7 +53,9 @@ console.log(`Version ${oldName} (${oldCode}) → ${versionName} (${versionCode})
 const run = (cmd, cwd) => execSync(cmd, { cwd, stdio: 'inherit', shell: true });
 run('npm run build:mobile', CLIENT);
 run('npx cap sync android', CLIENT);
-run(process.platform === 'win32' ? 'gradlew.bat assembleRelease' : './gradlew assembleRelease', ANDROID);
+// With the path: Windows may be set not to run programs from the current folder
+// (NoDefaultCurrentDirectoryInExePath), and then a bare "gradlew.bat" isn't found
+run(process.platform === 'win32' ? '.\\gradlew.bat assembleRelease' : './gradlew assembleRelease', ANDROID);
 
 const apkSrc = path.join(ANDROID, 'app', 'build', 'outputs', 'apk', 'release', 'app-release.apk');
 if (!existsSync(apkSrc)) fail('Release APK not found — check the Gradle output above (is it signed?).');

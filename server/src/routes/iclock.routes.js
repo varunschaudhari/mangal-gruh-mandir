@@ -7,8 +7,9 @@ import { logger } from '../utils/logger.js';
 
 // Endpoint the biometric machine talks to (ZKTeco/eSSL ADMS protocol) — mounted at /iclock,
 // outside /api, because that path is fixed in the machines' firmware. A machine is only
-// trusted once an admin approves its serial number in Settings → Attendance — and, when the
-// machine has allowed addresses set, only from those (the serial is printed on the machine).
+// trusted once an admin approves its serial number in Settings → Attendance, and only from its
+// allowed addresses (the serial is printed on the machine). With none set, the first address it
+// connects from after approval is locked in.
 const router = Router();
 router.use(deviceLimiter);
 router.use(express.text({ type: () => true, limit: '2mb' }));
@@ -37,6 +38,18 @@ async function knownDevice(req) {
     return null;
   }
   const ip = cleanIp(req.ip);
+  if (device.approved && !String(device.allowedIps || '').trim() && ip) {
+    // Approved with no address yet: lock it to the one it connects from now (the machine polls
+    // every few seconds, so this is the machine itself). From then on its serial number alone —
+    // printed on the machine — isn't enough to send punches from anywhere else.
+    const locked = await AttendanceSettings.updateOne(
+      { _id: settings._id, devices: { $elemMatch: { serial, approved: true, allowedIps: { $in: ['', null] } } } },
+      { $set: { 'devices.$.allowedIps': ip } },
+    );
+    if (locked.modifiedCount) logger.info('Attendance machine locked to its network address', { serial, ip });
+    device.allowedIps = (await AttendanceSettings.findById(settings._id).lean())
+      ?.devices.find((d) => d.serial === serial)?.allowedIps || ip;
+  }
   if (device.approved && !ipAllowed(ip, device.allowedIps)) {
     // Right serial, wrong place: refused (noted for the settings screen, at most once a minute)
     if (now - (lastSeenWrite.get(`x:${serial}`) || 0) > 60 * 1000) {

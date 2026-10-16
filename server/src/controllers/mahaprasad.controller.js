@@ -8,6 +8,8 @@ import ApiResponse from '../utils/ApiResponse.js';
 import asyncHandler from '../utils/asyncHandler.js';
 import { randomBytes } from 'crypto';
 import { logAction } from '../services/audit.service.js';
+import { getPermissionsForRole } from '../middleware/authorize.js';
+import { logger } from '../utils/logger.js';
 import { APP_TIMEZONE, localDateStr } from '../utils/dates.js';
 import { temple } from '../services/temple.service.js';
 import { sendCouponMessage } from '../services/mahaprasadNotify.service.js';
@@ -16,6 +18,12 @@ const nanoid = () => randomBytes(6).toString('hex');
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 const DAY_KEYS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+
+// Reserved = a number held by an offline counter, not sold yet. Voided = cancelled. Neither is a
+// sale, so neither counts in reports, the daily limit or the money.
+const NOT_SOLD = ['reserved', 'voided'];
+// Persons on a coupon — a group coupon for 5 counts as 5
+const GS = { $ifNull: ['$groupSize', 1] };
 
 // ── Cash drawer helpers ───────────────────────────────────────────────────────
 
@@ -94,6 +102,64 @@ async function generateCouponNumbers(date, qty) {
   return numbers;
 }
 
+// ── Daily limit ───────────────────────────────────────────────────────────────
+// Persons sold per date, kept in a counter beside the coupons so two counters issuing at the
+// same moment can't both slip past the limit. Kept even when no limit is set, so turning one on
+// later starts from the right number.
+
+const PERSONS = 'mahaprasad-persons';
+
+// Makes sure the date's counter exists, starting it from the coupons already sold that day.
+// Call it before changing any coupon's status, so that change isn't counted twice.
+async function personsCounter(couponDate) {
+  const date = datePart(couponDate);
+  if (await DailyCounter.exists({ module: PERSONS, date })) return date;
+  const { start, end } = dayBounds(couponDate);
+  const [agg] = await MahaprasadCoupon.aggregate([
+    { $match: { date: { $gte: start, $lte: end }, status: { $nin: NOT_SOLD } } },
+    { $group: { _id: null, total: { $sum: GS } } },
+  ]);
+  await DailyCounter.updateOne({ module: PERSONS, date }, { $setOnInsert: { count: agg?.total || 0 } }, { upsert: true })
+    .catch((err) => { if (err.code !== 11000) throw err; }); // another request started it first
+  return date;
+}
+
+// Counts `qty` more persons for the date, refusing if that would pass the daily limit
+async function takePersons(couponDate, qty, cap) {
+  const date = await personsCounter(couponDate);
+  const filter = { module: PERSONS, date, ...(cap > 0 && { count: { $lte: cap - qty } }) };
+  if (await DailyCounter.findOneAndUpdate(filter, { $inc: { count: qty } })) return;
+  const current   = (await DailyCounter.findOne({ module: PERSONS, date }).lean())?.count || 0;
+  const remaining = Math.max(0, cap - current);
+  throw new ApiError(400,
+    remaining === 0
+      ? `Daily cap of ${cap} persons reached for this date`
+      : `Only ${remaining} more person${remaining !== 1 ? 's' : ''} can be issued today (cap: ${cap})`
+  );
+}
+
+// Adds or gives back persons without a limit check: sales already made offline, cancellations
+async function adjustPersons(couponDate, delta) {
+  const date = await personsCounter(couponDate);
+  await DailyCounter.updateOne({ module: PERSONS, date }, { $inc: { count: delta } });
+}
+
+// Why a coupon can't be served. `code` lets the redeem screen show the right warning.
+function refuseUnredeemable(coupon) {
+  if (coupon.status === 'redeemed') {
+    const at = coupon.redeemedAt ? new Date(coupon.redeemedAt).toLocaleString('en-IN') : 'earlier';
+    throw new ApiError(409, `Already redeemed on ${at}`, [{ code: 'redeemed' }]);
+  }
+  if (coupon.status === 'voided') {
+    throw new ApiError(409, `Coupon ${coupon.couponNumber} was cancelled — do not serve`, [{ code: 'voided' }]);
+  }
+  if (coupon.status === 'reserved') {
+    throw new ApiError(409,
+      `Coupon ${coupon.couponNumber} has not been sold — if it was issued offline, sync that counter first`,
+      [{ code: 'not_sold' }]);
+  }
+}
+
 // ── Controllers ───────────────────────────────────────────────────────────────
 
 // POST /mahaprasad/issue
@@ -113,117 +179,117 @@ export const issueCoupons = asyncHandler(async (req, res) => {
   const settings = await Settings.getOrCreate();
   const price    = type === 'free' ? 0 : getPriceForDate(settings, couponDate);
 
-  // Daily cap check — counts persons (sum of groupSize), not documents
-  const cap = settings.mahaprasadDailyCap || 0;
-  if (cap > 0) {
-    const { start, end } = dayBounds(couponDate);
-    const [capAgg] = await MahaprasadCoupon.aggregate([
-      { $match: { date: { $gte: start, $lte: end }, status: { $nin: ['reserved', 'voided'] } } },
-      { $group: { _id: null, total: { $sum: { $ifNull: ['$groupSize', 1] } } } },
-    ]);
-    const currentTotal = capAgg?.total || 0;
-    if (currentTotal + qty > cap) {
-      const remaining = Math.max(0, cap - currentTotal);
-      throw new ApiError(400,
-        remaining === 0
-          ? `Daily cap of ${cap} persons reached for this date`
-          : `Only ${remaining} more person${remaining !== 1 ? 's' : ''} can be issued today (cap: ${cap})`
-      );
-    }
+  // Daily limit — counts persons (a group of 5 is 5), taken atomically before anything is saved
+  await takePersons(couponDate, qty, settings.mahaprasadDailyCap || 0);
+
+  const batchId  = nanoid(10);
+  const dateStr  = datePart(couponDate);
+  const paid     = type === 'paid' && price > 0;
+  const mode     = paymentMode === 'upi' ? 'upi' : 'cash';
+  const totalDue = price * qty;
+  // Anything that fails from here gives the persons back and removes this batch's coupons, so a
+  // sale is either saved with its payment or not at all.
+  const undo = async () => {
+    await MahaprasadCoupon.deleteMany({ batchId }).catch((err) => logger.error('Mahaprasad: could not undo coupons', { batchId, error: err.message }));
+    await adjustPersons(couponDate, -qty).catch((err) => logger.error('Mahaprasad: could not give back the daily limit', { batchId, error: err.message }));
+  };
+
+  let numbers, coupons;
+  try {
+    numbers = await generateCouponNumbers(couponDate, couponCount);
+    coupons = await MahaprasadCoupon.insertMany(numbers.map((n) => ({
+      couponNumber: n,
+      date:         couponDate,
+      type,
+      amount:       isGroup ? price * groupSize : price,  // total amount for group
+      occasion:     type === 'free' ? (occasion || '') : '',
+      mobile,
+      status:       'issued',
+      issuedBy:     req.user._id,
+      issuedAt:     new Date(),
+      batchId,
+      groupSize,
+      isGroup:      Boolean(isGroup),
+    })), { ordered: true });
+  } catch (err) {
+    await undo();
+    throw err;
   }
 
-  const numbers = await generateCouponNumbers(couponDate, couponCount);
-  const batchId = nanoid(10);
-
-  const docs = numbers.map((n) => ({
-    couponNumber: n,
-    date:         couponDate,
-    type,
-    amount:       isGroup ? price * groupSize : price,  // total amount for group
-    occasion:     type === 'free' ? (occasion || '') : '',
-    mobile,
-    status:       'issued',
-    issuedBy:     req.user._id,
-    issuedAt:     new Date(),
-    batchId,
-    groupSize,
-    isGroup:      Boolean(isGroup),
-  }));
-
-  const coupons = await MahaprasadCoupon.insertMany(docs, { ordered: true });
-
-  // Update cash drawer when cash payment with a known note denomination
-  // (runs before payment create so changeBreakdown is captured)
+  // Cash with the notes handed over: work out the change from what's in the drawer. The drawer
+  // itself is updated once the payment is saved.
   let drawerChange = null;
+  let drawerInc    = null;
   let paymentExtra = {};
-  if (type === 'paid' && price > 0) {
-    const mode = paymentMode === 'upi' ? 'upi' : 'cash';
-    if (mode === 'cash' && Array.isArray(receivedNotes) && receivedNotes.length > 0) {
-      try {
-        const dateStr    = datePart(couponDate);
-        const drawer     = await getOrCreateDrawer(dateStr);
-        const totalDue   = price * qty;
-        const received   = Math.max(0, Number(amountReceived) || 0);
-        const change     = received - totalDue;
-        const changeResult = change > 0
-          ? computeChange(change, drawer.counts)
-          : { breakdown: {}, canMakeExact: true, shortBy: 0 };
+  if (paid && mode === 'cash' && Array.isArray(receivedNotes) && receivedNotes.length > 0) {
+    try {
+      const drawer   = await getOrCreateDrawer(dateStr);
+      const received = Math.max(0, Number(amountReceived) || 0);
+      const change   = received - totalDue;
+      const changeResult = change > 0
+        ? computeChange(change, drawer.counts)
+        : { breakdown: {}, canMakeExact: true, shortBy: 0 };
 
-        paymentExtra = { receivedNotes, changeBreakdown: changeResult.breakdown };
-
-        // Build denomination inc from every note the customer handed over
-        const inc = {};
-        for (const note of receivedNotes) {
-          const noteMap = NOTE_TO_DRAWER[Number(note)];
-          if (noteMap) {
-            for (const [d, c] of Object.entries(noteMap)) {
-              inc[`counts.${d}`]         = (inc[`counts.${d}`]         || 0) + c;
-              inc[`receivedCounts.${d}`] = (inc[`receivedCounts.${d}`] || 0) + c;
-            }
+      // Every note the devotee handed over goes in; the change goes out
+      const inc = {};
+      for (const note of receivedNotes) {
+        const noteMap = NOTE_TO_DRAWER[Number(note)];
+        if (noteMap) {
+          for (const [d, c] of Object.entries(noteMap)) {
+            inc[`counts.${d}`]         = (inc[`counts.${d}`]         || 0) + c;
+            inc[`receivedCounts.${d}`] = (inc[`receivedCounts.${d}`] || 0) + c;
           }
         }
-        for (const [d, c] of Object.entries(changeResult.breakdown)) {
-          inc[`counts.${d}`]       = (inc[`counts.${d}`]       || 0) - c;
-          inc[`changeCounts.${d}`] = (inc[`changeCounts.${d}`] || 0) + c;
-        }
-        if (Object.keys(inc).length) {
-          await MahaprasadCashDrawer.updateOne({ date: dateStr }, { $inc: inc });
-        }
-
-        drawerChange = {
-          breakdown:    changeResult.breakdown,
-          canMakeExact: changeResult.canMakeExact,
-          shortBy:      changeResult.shortBy,
-          total:        change,
-        };
-      } catch { /* drawer update is non-critical */ }
+      }
+      for (const [d, c] of Object.entries(changeResult.breakdown)) {
+        inc[`counts.${d}`]       = (inc[`counts.${d}`]       || 0) - c;
+        inc[`changeCounts.${d}`] = (inc[`changeCounts.${d}`] || 0) + c;
+      }
+      if (Object.keys(inc).length) drawerInc = inc;
+      paymentExtra = { receivedNotes, changeBreakdown: changeResult.breakdown };
+      drawerChange = {
+        breakdown:    changeResult.breakdown,
+        canMakeExact: changeResult.canMakeExact,
+        shortBy:      changeResult.shortBy,
+        total:        change,
+      };
+    } catch (err) {
+      // The sale still goes through and its money is in the payment record; only the note count is missed
+      logger.error('Mahaprasad: cash drawer could not be read', { batchId, error: err.message });
     }
   }
 
-  // Save payment record for paid coupons
-  if (type === 'paid' && price > 0) {
-    const totalDue     = price * qty;
-    const mode         = paymentMode === 'upi' ? 'upi' : 'cash';
-    const received     = mode === 'cash' ? Math.max(0, Number(amountReceived) || 0) : totalDue;
-    const changeReturn = mode === 'cash' ? Math.max(0, received - totalDue) : 0;
-
-    MahaprasadPayment.create({
-      batchId,
-      date:           couponDate,
-      couponNumbers:  numbers,
-      qty,
-      mobile,
-      totalDue,
-      paymentMode:    mode,
-      amountReceived: received,
-      changeReturned: changeReturn,
-      issuedBy:       req.user._id,
-      issuedAt:       new Date(),
-      ...paymentExtra,
-    }).catch(() => {}); // fire-and-forget; don't fail the coupon issue
+  // The payment record is the money. Without it the sale isn't accounted for, so undo the coupons.
+  if (paid) {
+    const received = mode === 'cash' ? Math.max(0, Number(amountReceived) || 0) : totalDue;
+    try {
+      await MahaprasadPayment.create({
+        batchId,
+        date:           couponDate,
+        couponNumbers:  numbers,
+        qty,
+        mobile,
+        totalDue,
+        paymentMode:    mode,
+        amountReceived: received,
+        changeReturned: mode === 'cash' ? Math.max(0, received - totalDue) : 0,
+        issuedBy:       req.user._id,
+        issuedAt:       new Date(),
+        ...paymentExtra,
+      });
+    } catch (err) {
+      logger.error('Mahaprasad: payment record not saved — sale undone', { batchId, error: err.message });
+      await undo();
+      throw new ApiError(500, 'The payment could not be saved, so no coupons were issued — please try again');
+    }
   }
 
-  logAction(req, { action: 'mahaprasad.issue', entity: 'MahaprasadCoupon', entityId: batchId, entityRef: batchId, after: { qty, type, isGroup: Boolean(isGroup), groupSize, date: localDateStr(couponDate), occasion: type === 'free' ? occasion : undefined, mobile } });
+  if (drawerInc) {
+    await MahaprasadCashDrawer.updateOne({ date: dateStr }, { $inc: drawerInc })
+      .catch((err) => logger.error('Mahaprasad: cash drawer not updated', { batchId, error: err.message }));
+  }
+
+  logAction(req, { action: 'mahaprasad.issue', entity: 'MahaprasadCoupon', entityId: batchId, entityRef: coupons[0]._id, after: { qty, type, isGroup: Boolean(isGroup), groupSize, date: localDateStr(couponDate), occasion: type === 'free' ? occasion : undefined, mobile, amount: paid ? totalDue : 0, paymentMode: paid ? mode : undefined } });
   // Coupon numbers to the devotee's phone, in the background (only when WhatsApp / SMS is set up for it).
   sendCouponMessage({ mobile, numbers, date: couponDate, persons: qty });
   const msg = isGroup ? `Group coupon (${qty} persons) issued` : `${qty} coupon(s) issued`;
@@ -234,9 +300,6 @@ export const issueCoupons = asyncHandler(async (req, res) => {
 export const getDailySummary = asyncHandler(async (req, res) => {
   const { date } = req.query;
   const { start, end } = dayBounds(date);
-
-  // Sum groupSize (not document count) so a group coupon of 5 counts as 5 persons
-  const GS = { $ifNull: ['$groupSize', 1] };
 
   const [summaryAgg, paidAgg, settings, myAgg, myPayAgg] = await Promise.all([
     MahaprasadCoupon.aggregate([
@@ -328,15 +391,9 @@ export const lookupCoupon = asyncHandler(async (req, res) => {
 
 // PATCH /mahaprasad/redeem/:number
 export const redeemCoupon = asyncHandler(async (req, res) => {
-  const coupon = await MahaprasadCoupon.findOne({ couponNumber: req.params.number });
+  const coupon = await MahaprasadCoupon.findOne({ couponNumber: req.params.number }).lean();
   if (!coupon) throw new ApiError(404, `Coupon ${req.params.number} not found`);
-
-  if (coupon.status === 'redeemed') {
-    const at = coupon.redeemedAt
-      ? new Date(coupon.redeemedAt).toLocaleString('en-IN')
-      : 'earlier';
-    throw new ApiError(409, `Already redeemed on ${at}`);
-  }
+  refuseUnredeemable(coupon);
 
   // Expiry check
   const settings = await Settings.getOrCreate();
@@ -352,15 +409,20 @@ export const redeemCoupon = asyncHandler(async (req, res) => {
     }
   }
 
-  coupon.status     = 'redeemed';
-  coupon.redeemedBy = req.user._id;
-  coupon.redeemedAt = new Date();
-  await coupon.save();
-  logAction(req, { action: 'mahaprasad.redeem', entity: 'MahaprasadCoupon', entityId: String(coupon._id), entityRef: coupon.couponNumber });
+  // Only an issued coupon turns into a redeemed one, in one step — two counters scanning the same
+  // coupon at once can't both serve it, nor can one that was cancelled a moment ago.
+  const redeemed = await MahaprasadCoupon.findOneAndUpdate(
+    { _id: coupon._id, status: 'issued' },
+    { $set: { status: 'redeemed', redeemedBy: req.user._id, redeemedAt: new Date() } },
+    { returnDocument: 'after' },
+  ).populate('issuedBy', 'name').populate('redeemedBy', 'name').lean();
+  if (!redeemed) {
+    refuseUnredeemable(await MahaprasadCoupon.findById(coupon._id).lean() || coupon);
+    throw new ApiError(409, 'Coupon could not be redeemed — please scan again');
+  }
+  logAction(req, { action: 'mahaprasad.redeem', entity: 'MahaprasadCoupon', entityId: coupon.couponNumber, entityRef: coupon._id });
 
-  const populated = await MahaprasadCoupon.findById(coupon._id)
-    .populate('issuedBy', 'name').populate('redeemedBy', 'name').lean();
-  res.json(new ApiResponse(200, populated, 'Coupon redeemed'));
+  res.json(new ApiResponse(200, redeemed, 'Coupon redeemed'));
 });
 
 // GET /mahaprasad/batches?date=YYYY-MM-DD
@@ -369,7 +431,8 @@ export const getBatches = asyncHandler(async (req, res) => {
   const { start, end } = dayBounds(date);
 
   const batches = await MahaprasadCoupon.aggregate([
-    { $match: { date: { $gte: start, $lte: end } } },
+    // Numbers held by offline counters aren't sales yet
+    { $match: { date: { $gte: start, $lte: end }, status: { $ne: 'reserved' } } },
     { $sort:  { couponNumber: 1 } },
     { $group: {
       _id:        '$batchId',
@@ -407,8 +470,9 @@ export const printCoupons = asyncHandler(async (req, res) => {
   const numberList = req.query.numbers?.split(',').filter(Boolean) || [];
   if (!numberList.length) throw new ApiError(400, 'No coupon numbers provided');
 
-  const coupons = await MahaprasadCoupon.find({ couponNumber: { $in: numberList } }).lean();
-  if (!coupons.length) throw new ApiError(404, 'No coupons found');
+  // Never print a cancelled coupon or a number that was never sold — it would look valid
+  const coupons = await MahaprasadCoupon.find({ couponNumber: { $in: numberList }, status: { $nin: NOT_SOLD } }).lean();
+  if (!coupons.length) throw new ApiError(404, 'No coupons to print — they were cancelled or never sold');
 
   const settings = await Settings.getOrCreate();
   const { generateCouponsPdf } = await import('../services/mahaprasadPdf.service.js');
@@ -426,13 +490,13 @@ export const getMonthlyReport = asyncHandler(async (req, res) => {
   }
 
   const rows = await MahaprasadCoupon.aggregate([
-    { $match: filter },
+    { $match: { ...filter, status: { $nin: NOT_SOLD } } },
     { $group: {
       _id:       { $dateToString: { format: '%Y-%m', date: '$date', timezone: APP_TIMEZONE } },
-      total:     { $sum: 1 },
-      redeemed:  { $sum: { $cond: [{ $eq: ['$status', 'redeemed'] }, 1, 0] } },
-      paid:      { $sum: { $cond: [{ $eq: ['$type',   'paid']     }, 1, 0] } },
-      free:      { $sum: { $cond: [{ $eq: ['$type',   'free']     }, 1, 0] } },
+      total:     { $sum: GS },
+      redeemed:  { $sum: { $cond: [{ $eq: ['$status', 'redeemed'] }, GS, 0] } },
+      paid:      { $sum: { $cond: [{ $eq: ['$type',   'paid']     }, GS, 0] } },
+      free:      { $sum: { $cond: [{ $eq: ['$type',   'free']     }, GS, 0] } },
       collected: { $sum: { $cond: [{ $eq: ['$type',   'paid']     }, '$amount', 0] } },
     }},
     { $sort: { _id: -1 } },
@@ -458,17 +522,17 @@ export const getStaffReport = asyncHandler(async (req, res) => {
 
   const [issuedRows, redeemedRows] = await Promise.all([
     MahaprasadCoupon.aggregate([
-      { $match: filter },
+      { $match: { ...filter, status: { $nin: NOT_SOLD } } },
       { $group: {
         _id:       '$issuedBy',
-        issued:    { $sum: 1 },
-        freeSeva:  { $sum: { $cond: [{ $eq: ['$type', 'free'] }, 1, 0] } },
+        issued:    { $sum: GS },
+        freeSeva:  { $sum: { $cond: [{ $eq: ['$type', 'free'] }, GS, 0] } },
         collected: { $sum: { $cond: [{ $eq: ['$type', 'paid'] }, '$amount', 0] } },
       }},
     ]),
     MahaprasadCoupon.aggregate([
       { $match: { ...filter, status: 'redeemed' } },
-      { $group: { _id: '$redeemedBy', redeemed: { $sum: 1 } } },
+      { $group: { _id: '$redeemedBy', redeemed: { $sum: GS } } },
     ]),
   ]);
 
@@ -520,16 +584,16 @@ export const getWastageReport = asyncHandler(async (req, res) => {
       { $match: wasteFilter },
       { $group: {
         _id:    { $dateToString: { format: '%Y-%m-%d', date: '$date', timezone: APP_TIMEZONE } },
-        count:  { $sum: 1 },
-        paid:   { $sum: { $cond: [{ $eq: ['$type', 'paid'] }, 1, 0] } },
-        free:   { $sum: { $cond: [{ $eq: ['$type', 'free'] }, 1, 0] } },
+        count:  { $sum: GS },
+        paid:   { $sum: { $cond: [{ $eq: ['$type', 'paid'] }, GS, 0] } },
+        free:   { $sum: { $cond: [{ $eq: ['$type', 'free'] }, GS, 0] } },
         wasted: { $sum: '$amount' },
       }},
       { $sort: { _id: -1 } },
     ]),
     MahaprasadCoupon.aggregate([
       { $match: wasteFilter },
-      { $group: { _id: null, count: { $sum: 1 }, paid: { $sum: { $cond: [{ $eq: ['$type', 'paid'] }, 1, 0] } }, free: { $sum: { $cond: [{ $eq: ['$type', 'free'] }, 1, 0] } }, wasted: { $sum: '$amount' } } },
+      { $group: { _id: null, count: { $sum: GS }, paid: { $sum: { $cond: [{ $eq: ['$type', 'paid'] }, GS, 0] } }, free: { $sum: { $cond: [{ $eq: ['$type', 'free'] }, GS, 0] } }, wasted: { $sum: '$amount' } } },
     ]),
   ]);
 
@@ -548,8 +612,6 @@ export const getMahaprasadWhatsApp = asyncHandler(async (req, res) => {
   const dateLabel = new Date(dateStr).toLocaleDateString('en-IN', {
     weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
   });
-
-  const GS = { $ifNull: ['$groupSize', 1] };
 
   const [summaryAgg, paidAgg, paymentAgg, occasionAgg] = await Promise.all([
     MahaprasadCoupon.aggregate([
@@ -626,20 +688,20 @@ export const getReport = asyncHandler(async (req, res) => {
 
   const [rows, occasionRows, settings] = await Promise.all([
     MahaprasadCoupon.aggregate([
-      { $match: filter },
+      { $match: { ...filter, status: { $nin: NOT_SOLD } } },
       { $group: {
         _id:       { $dateToString: { format: '%Y-%m-%d', date: '$date', timezone: APP_TIMEZONE } },
-        total:     { $sum: 1 },
-        redeemed:  { $sum: { $cond: [{ $eq: ['$status', 'redeemed'] }, 1, 0] } },
-        paid:      { $sum: { $cond: [{ $eq: ['$type',   'paid']     }, 1, 0] } },
-        free:      { $sum: { $cond: [{ $eq: ['$type',   'free']     }, 1, 0] } },
+        total:     { $sum: GS },
+        redeemed:  { $sum: { $cond: [{ $eq: ['$status', 'redeemed'] }, GS, 0] } },
+        paid:      { $sum: { $cond: [{ $eq: ['$type',   'paid']     }, GS, 0] } },
+        free:      { $sum: { $cond: [{ $eq: ['$type',   'free']     }, GS, 0] } },
         collected: { $sum: { $cond: [{ $eq: ['$type',   'paid']     }, '$amount', 0] } },
       }},
       { $sort: { _id: -1 } },
     ]),
     MahaprasadCoupon.aggregate([
-      { $match: { ...filter, type: 'free', occasion: { $nin: [null, ''] } } },
-      { $group: { _id: '$occasion', count: { $sum: 1 }, redeemed: { $sum: { $cond: [{ $eq: ['$status', 'redeemed'] }, 1, 0] } } } },
+      { $match: { ...filter, status: { $nin: NOT_SOLD }, type: 'free', occasion: { $nin: [null, ''] } } },
+      { $group: { _id: '$occasion', count: { $sum: GS }, redeemed: { $sum: { $cond: [{ $eq: ['$status', 'redeemed'] }, GS, 0] } } } },
       { $sort: { count: -1 } },
     ]),
     Settings.getOrCreate(),
@@ -667,22 +729,15 @@ export const getReport = asyncHandler(async (req, res) => {
 // ── Offline support ───────────────────────────────────────────────────────────
 
 // POST /mahaprasad/offline/reserve
-// Pre-allocates a block of coupon numbers for offline use.
-// Old reserved coupons for this user+date are cleaned up first.
+// Holds a block of new coupon numbers for this counter to sell while offline. Numbers held
+// earlier are never taken back: the counter may already have sold some that it hasn't synced
+// yet. Unused ones stay "reserved", which counts nowhere and can't be printed or redeemed.
 export const reserveOffline = asyncHandler(async (req, res) => {
   const { qty = 200, date } = req.body;
   const n = Math.min(Math.max(1, parseInt(qty) || 200), 500);
 
   const couponDate = date ? new Date(date) : new Date();
   couponDate.setHours(12, 0, 0, 0);
-  const { start, end } = dayBounds(couponDate);
-
-  // Remove any leftover reserved coupons for this user+date so re-fetch is idempotent
-  await MahaprasadCoupon.deleteMany({
-    date:     { $gte: start, $lte: end },
-    status:   'reserved',
-    issuedBy: req.user._id,
-  });
 
   const settings = await Settings.getOrCreate();
   const numbers   = await generateCouponNumbers(couponDate, n);
@@ -692,7 +747,7 @@ export const reserveOffline = asyncHandler(async (req, res) => {
     couponNumber: num,
     date:         couponDate,
     type:         'paid',
-    amount:       getPriceForDate(settings, couponDate),
+    amount:       0, // not sold yet — the price is set when the sale syncs
     occasion:     '',
     status:       'reserved',
     issuedBy:     req.user._id,
@@ -737,50 +792,93 @@ export const getTodayForOffline = asyncHandler(async (req, res) => {
 });
 
 // POST /mahaprasad/offline/sync
-// Accepts batched offline events and applies them to the DB.
+// Applies what a counter did while offline. Safe to send twice (a sync whose answer was lost):
+// anything already recorded counts as done.
 export const syncOffline = asyncHandler(async (req, res) => {
   const { issued = [], redeemed = [] } = req.body;
   const results = {
-    issued:   { ok: 0, skipped: 0 },
+    issued:   { ok: 0, skipped: 0, failed: [] },
     redeemed: { ok: 0, skipped: 0, conflicts: [] },
   };
+  const settings = await Settings.getOrCreate();
 
+  // ── Sales: a held number becomes an issued coupon at the day's price (worked out here, not
+  // on the phone). It stays with the person who held it — that's whose counter sold it.
+  const held = await MahaprasadCoupon.find({ couponNumber: { $in: issued.map((i) => i.couponNumber) } })
+    .select('couponNumber date status batchId issuedBy issuedAt type amount').lean();
+  const byNumber = new Map(held.map((c) => [c.couponNumber, c]));
+  const days = new Map(held.filter((c) => c.status === 'reserved').map((c) => [datePart(c.date), c.date]));
+  for (const day of days.values()) await personsCounter(day);
+
+  const touched = new Map(); // batchId → payment details, for the paid batches in this sync
+  const paymentFor = (batchId, c, item, issuedAt) => {
+    if (!touched.has(batchId)) touched.set(batchId, { date: c.date, mobile: item.mobile || '', issuedBy: c.issuedBy, issuedAt,
+      paymentMode: item.paymentMode === 'upi' ? 'upi' : 'cash' });
+  };
   for (const item of issued) {
-    const updated = await MahaprasadCoupon.findOneAndUpdate(
-      { couponNumber: item.couponNumber, status: 'reserved' },
-      {
-        $set: {
-          status:   'issued',
-          type:     item.type     || 'paid',
-          amount:   item.amount   ?? 0,
-          occasion: item.occasion || '',
-          mobile:   item.mobile   || '',
-          issuedBy: item.issuedById || req.user._id,
-          issuedAt: item.issuedAt ? new Date(item.issuedAt) : new Date(),
-          batchId:  item.batchId  || nanoid(),
-        },
+    const c       = byNumber.get(item.couponNumber);
+    const batchId = `off-${item.batchId || nanoid()}`;
+    if (c?.status !== 'reserved') {
+      const already = c && ['issued', 'redeemed'].includes(c.status) && [batchId, item.batchId].includes(c.batchId);
+      if (already) {
+        results.issued.ok++;
+        if (c.amount > 0) paymentFor(c.batchId, c, item, c.issuedAt); // in case the first sync stopped before its payment
+      } else {
+        results.issued.skipped++;
+        results.issued.failed.push({ couponNumber: item.couponNumber, reason: c ? c.status : 'not_found' });
       }
+      continue;
+    }
+    const type   = item.type === 'free' ? 'free' : 'paid';
+    const amount = type === 'paid' ? getPriceForDate(settings, c.date) : 0;
+    const issuedAt = item.issuedAt ? new Date(item.issuedAt) : new Date();
+    const updated = await MahaprasadCoupon.findOneAndUpdate(
+      { _id: c._id, status: 'reserved' },
+      { $set: {
+        status: 'issued', type, amount, issuedAt, batchId,
+        occasion: type === 'free' ? (item.occasion || '') : '',
+        mobile:   item.mobile || '',
+        groupSize: 1, isGroup: false,
+      } },
     );
-    if (updated) results.issued.ok++;
-    else results.issued.skipped++;
+    if (!updated) { results.issued.skipped++; results.issued.failed.push({ couponNumber: item.couponNumber, reason: 'changed' }); continue; }
+    results.issued.ok++;
+    // Sold while offline, so counted even past the daily limit
+    await adjustPersons(c.date, 1);
+    if (amount > 0) paymentFor(batchId, c, item, issuedAt);
   }
 
-  for (const item of redeemed) {
-    const updated = await MahaprasadCoupon.findOneAndUpdate(
-      { couponNumber: item.couponNumber, status: { $in: ['issued', 'reserved'] } },
+  // One payment record per batch sold offline, built from its coupons so a repeated sync
+  // writes the same thing again. A batch already cancelled keeps its cancelled record.
+  for (const [batchId, b] of touched) {
+    const sold  = await MahaprasadCoupon.find({ batchId, status: { $in: ['issued', 'redeemed'] } }).select('couponNumber amount').lean();
+    const total = sold.reduce((s, c) => s + (c.amount || 0), 0);
+    await MahaprasadPayment.updateOne(
+      { batchId, voided: { $ne: true } },
       {
-        $set: {
-          status:      'redeemed',
-          redeemedBy:  item.redeemedById || req.user._id,
-          redeemedAt:  item.redeemedAt ? new Date(item.redeemedAt) : new Date(),
-        },
-      }
+        $setOnInsert: { date: b.date, mobile: b.mobile, paymentMode: b.paymentMode, issuedBy: b.issuedBy, issuedAt: b.issuedAt, offline: true },
+        $set: { couponNumbers: sold.map((c) => c.couponNumber), qty: sold.length, totalDue: total, amountReceived: total },
+      },
+      { upsert: true },
+    ).catch((err) => { if (err.code !== 11000) throw err; });
+  }
+
+  // ── Redemptions: only an issued coupon can be served (sales above come first, so a coupon
+  // sold and served on the same offline phone works). Cancelled or never-sold ones are refused.
+  for (const item of redeemed) {
+    const redeemedAt = item.redeemedAt ? new Date(item.redeemedAt) : new Date();
+    const updated = await MahaprasadCoupon.findOneAndUpdate(
+      { couponNumber: item.couponNumber, status: 'issued' },
+      { $set: { status: 'redeemed', redeemedBy: item.redeemedById || req.user._id, redeemedAt } },
     );
-    if (updated) results.redeemed.ok++;
-    else {
-      results.redeemed.skipped++;
-      results.redeemed.conflicts.push({ couponNumber: item.couponNumber, reason: 'already_redeemed' });
-    }
+    if (updated) { results.redeemed.ok++; continue; }
+    const c = await MahaprasadCoupon.findOne({ couponNumber: item.couponNumber }).select('status redeemedAt').lean();
+    if (c?.status === 'redeemed' && c.redeemedAt?.getTime() === redeemedAt.getTime()) { results.redeemed.ok++; continue; } // sent before
+    results.redeemed.skipped++;
+    results.redeemed.conflicts.push({
+      couponNumber: item.couponNumber,
+      reason: !c ? 'not_found' : c.status === 'redeemed' ? 'already_redeemed' : c.status === 'voided' ? 'voided' : 'not_sold',
+    });
   }
 
   logAction(req, {
@@ -805,7 +903,7 @@ export const getCashDrawer = asyncHandler(async (req, res) => {
   const [drawer, paymentTotals] = await Promise.all([
     getOrCreateDrawer(dateStr),
     MahaprasadPayment.aggregate([
-      { $match: { date: { $gte: start, $lte: end } } },
+      { $match: { date: { $gte: start, $lte: end }, voided: { $ne: true } } },
       { $group: { _id: '$paymentMode', total: { $sum: '$totalDue' } } },
     ]),
   ]);
@@ -869,27 +967,50 @@ export const adjustDrawer = asyncHandler(async (req, res) => {
   res.json(new ApiResponse(200, { ...drawer.toObject(), total }));
 });
 
-// PATCH /mahaprasad/batches/:batchId/void
+// PATCH /mahaprasad/batches/:batchId/void  { reason }
+// Counter staff can cancel only their own sales from today (a mistake caught on the spot);
+// anything else needs mahaprasad:void. A second tap finds nothing left to cancel, so the
+// money comes off the drawer once.
 export const voidBatch = asyncHandler(async (req, res) => {
   const { batchId } = req.params;
-  if (!batchId) throw new ApiError(400, 'batchId required');
+  const { reason } = req.body;
 
-  const coupons = await MahaprasadCoupon.find({ batchId }).lean();
+  const coupons = await MahaprasadCoupon.find({ batchId, status: { $ne: 'reserved' } }).lean();
   if (!coupons.length) throw new ApiError(404, 'Batch not found');
+  if (coupons.some((c) => c.status === 'redeemed')) throw new ApiError(409, 'Cannot void — one or more coupons already redeemed');
+  const live = coupons.filter((c) => c.status === 'issued');
+  if (!live.length) throw new ApiError(409, 'Batch already voided');
 
-  const hasRedeemed = coupons.some((c) => c.status === 'redeemed');
-  if (hasRedeemed) throw new ApiError(409, 'Cannot void — one or more coupons already redeemed');
+  const perms = await getPermissionsForRole(req.user.role);
+  if (!perms.includes('*') && !perms.includes('mahaprasad:void')) {
+    const own   = live.every((c) => String(c.issuedBy) === String(req.user._id));
+    const today = live.every((c) => localDateStr(new Date(c.issuedAt)) === localDateStr());
+    if (!own || !today) throw new ApiError(403, 'You can cancel only coupons you issued today — ask an admin to cancel this one');
+  }
 
-  const alreadyVoided = coupons.every((c) => c.status === 'voided');
-  if (alreadyVoided) throw new ApiError(409, 'Batch already voided');
+  const couponDate = live[0].date;
+  const persons    = live.reduce((s, c) => s + (c.groupSize || 1), 0);
+  await personsCounter(couponDate); // before the coupons change, so it starts from the right number
 
-  // Mark all coupons voided
-  await MahaprasadCoupon.updateMany({ batchId }, { $set: { status: 'voided' } });
+  // Only coupons still issued are cancelled. If one was redeemed meanwhile, put this request's
+  // back and stop — half a batch is never cancelled.
+  const voidedAt = new Date();
+  const stamp    = { voidedAt, voidedBy: req.user._id, voidReason: reason };
+  const { modifiedCount } = await MahaprasadCoupon.updateMany({ batchId, status: 'issued' }, { $set: { status: 'voided', ...stamp } });
+  if (modifiedCount === 0) throw new ApiError(409, 'Batch already voided');
+  if (modifiedCount < live.length) {
+    await MahaprasadCoupon.updateMany(
+      { batchId, status: 'voided', voidedAt, voidedBy: req.user._id },
+      { $set: { status: 'issued' }, $unset: { voidedAt: 1, voidedBy: 1, voidReason: 1 } },
+    );
+    throw new ApiError(409, 'Cannot void — a coupon in this batch was just redeemed or cancelled');
+  }
+  await adjustPersons(couponDate, -persons);
 
-  // Void the payment record and reverse the drawer
+  // Cancel the payment once; only the request that cancels it takes the money off the drawer
   const payment = await MahaprasadPayment.findOneAndUpdate(
-    { batchId },
-    { $set: { voided: true, voidedAt: new Date(), voidedBy: req.user._id } },
+    { batchId, voided: { $ne: true } },
+    { $set: { voided: true, ...stamp } },
     { returnDocument: 'after' },
   );
 
@@ -911,11 +1032,16 @@ export const voidBatch = asyncHandler(async (req, res) => {
       inc[`changeCounts.${d}`] = (inc[`changeCounts.${d}`] || 0) - Number(c);
     }
     if (Object.keys(inc).length) {
-      await MahaprasadCashDrawer.updateOne({ date: dateStr }, { $inc: inc }).catch(() => {});
+      await MahaprasadCashDrawer.updateOne({ date: dateStr }, { $inc: inc })
+        .catch((err) => logger.error('Mahaprasad: cash drawer not reversed for a cancelled batch', { batchId, error: err.message }));
     }
   }
 
-  logAction(req, { action: 'mahaprasad.void', entity: 'MahaprasadCoupon', entityRef: batchId,
-    meta: { count: coupons.length } });
-  res.json(new ApiResponse(200, { batchId, voided: coupons.length }, `${coupons.length} coupon(s) voided`));
+  logAction(req, {
+    action: 'mahaprasad.void', entity: 'MahaprasadCoupon', entityId: batchId, entityRef: live[0]._id,
+    before: { numbers: live.map((c) => c.couponNumber), persons, mobile: live[0].mobile || undefined,
+      issuedBy: String(live[0].issuedBy), issuedAt: live[0].issuedAt },
+    meta: { reason, amount: payment?.totalDue || 0, paymentMode: payment?.paymentMode },
+  });
+  res.json(new ApiResponse(200, { batchId, voided: live.length }, `${live.length} coupon(s) voided`));
 });

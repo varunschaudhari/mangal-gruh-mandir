@@ -21,12 +21,14 @@ export const buildPnLData = async (y, m) => {
       { $group: { _id: null, count: { $sum: 1 }, amount: { $sum: '$amount' } } },
     ]),
     ExpenseBudget.find({ year: y, month: m }).lean(),
+    // Voided donations don't count. totalEstimatedValue already includes the cash, so "in kind" is
+    // the in-kind items alone — otherwise every cash donation would be counted twice.
     Donation.aggregate([
-      { $match: { date: { $gte: from, $lte: to } } },
+      { $match: { date: { $gte: from, $lte: to }, isVoided: { $ne: true } } },
       { $group: {
         _id:       null,
         cashTotal: { $sum: '$cashAmount' },
-        kindTotal: { $sum: '$totalEstimatedValue' },
+        kindTotal: { $sum: { $sum: '$kindItems.estimatedValue' } },
         count:     { $sum: 1 },
       }},
     ]),

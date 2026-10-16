@@ -24,8 +24,8 @@ const deviceSchema = new mongoose.Schema({
   approved:   { type: Boolean, default: false },  // punches are only accepted from approved machines
   lastSeenAt: { type: Date },
   lastIp:     { type: String, default: '' },
-  // The temple's internet address(es): "49.36.12.7, 49.36.12.*". Empty = any address (the serial
-  // number alone is trusted — anyone who reads it off the machine could send punches).
+  // The temple's internet address(es): "49.36.12.7, 49.36.12.*". Empty = not known yet: the first
+  // address an approved machine connects from is filled in (iclock.routes.js).
   allowedIps: { type: String, trim: true, default: '' },
   blockedIp:  { type: String, default: '' },     // last refused attempt (approved serial, wrong address)
   blockedAt:  { type: Date },

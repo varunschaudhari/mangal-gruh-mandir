@@ -66,7 +66,7 @@
       <input
         id="url"
         type="text"
-        placeholder="http://103.168.19.129"
+        placeholder="https://mandir.aumora.io"
         autocomplete="off"
         spellcheck="false"
       />
@@ -95,8 +95,15 @@
       btn.textContent = 'Connecting...';
       err.style.display = 'none';
 
-      await window.electronAPI.saveSettings({ apiUrl: url });
-      window.electronAPI.navigateTo(url);
+      const saved = await window.electronAPI.saveSettings({ apiUrl: url });
+      if (!saved || !saved.ok) {
+        err.textContent   = (saved && saved.message) || 'Could not save the server address';
+        err.style.display = 'block';
+        btn.disabled      = false;
+        btn.textContent   = 'Connect';
+        return;
+      }
+      window.electronAPI.navigateTo(saved.settings.apiUrl);
     });
   </script>
 </body>

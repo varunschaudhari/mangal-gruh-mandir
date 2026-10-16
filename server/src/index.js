@@ -19,6 +19,7 @@ import { logger } from './utils/logger.js';
 import { refreshTemple } from './services/temple.service.js';
 import { pushMorningDigest } from './services/pushAlerts.service.js';
 import { recountSeats } from './services/booking/booking.service.js';
+import { backupStatus, databaseStatus } from './services/health.service.js';
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -52,7 +53,7 @@ app.use(cors({
 }));
 
 // The attendance machine polls every ~10 s; only its uploads and errors are worth a log line.
-const quietPoll = (req, res) => req.path === '/api/health'
+const quietPoll = (req, res) => req.path.startsWith('/api/health')
   || (req.originalUrl.startsWith('/iclock/') && req.method === 'GET' && res.statusCode < 400);
 
 // ── HTTP access logging ───────────────────────────────────────────────────────
@@ -105,7 +106,14 @@ app.use('/api/app', express.static(path.join(__dirname, '../mobile-releases'), {
   setHeaders: (res, file) => { if (/\.(json|yml)$/.test(file)) res.setHeader('Cache-Control', 'no-store'); },
 }));
 
-app.get('/api/health', (req, res) => res.json({ status: 'ok', env: process.env.NODE_ENV }));
+// 503 when the database doesn't answer, so deploys wait for it, desktop counters switch to
+// offline mode and the uptime monitor raises the alarm.
+app.get('/api/health', async (req, res) => {
+  const db = await databaseStatus();
+  res.status(db === 'ok' ? 200 : 503).json({ status: db === 'ok' ? 'ok' : 'down', db, env: process.env.NODE_ENV });
+});
+// Last nightly backup: when, and whether it left the server (backup-db.sh)
+app.get('/api/health/backup', async (req, res) => res.json(await backupStatus()));
 
 app.use('/api', routes);
 

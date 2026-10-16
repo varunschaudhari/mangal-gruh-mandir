@@ -18,6 +18,7 @@ export default {
   'Test': 'तपासा',
   's ago)': 'सेकंदांपूर्वी)',
   'Cannot reach server — check the URL and internet connection': 'सर्व्हरशी संपर्क होत नाही — URL आणि इंटरनेट तपासा',
+  'The server address must start with https://': 'सर्व्हरचा पत्ता https:// ने सुरू व्हायला हवा',
   'Thermal Printer': 'थर्मल प्रिंटर',
   '— select printer —': '— प्रिंटर निवडा —',
   ' (default)': ' (मूळ)',

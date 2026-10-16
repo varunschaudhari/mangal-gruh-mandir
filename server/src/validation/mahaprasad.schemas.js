@@ -44,6 +44,7 @@ export const syncOffline = {
       issuedById: optionalObjectId('Issued by'),
       issuedAt: optionalDate('Issued at'),
       batchId: optionalText('Batch', { max: 40 }),
+      paymentMode: optionalOneOf(['cash', 'upi'], 'Payment mode'),
       // Optional here: coupons issued offline on an older app version have none.
       mobile: z.preprocess((v) => normaliseMobile(v), z.string()).optional(),
     })).max(5000).optional(),
@@ -70,4 +71,7 @@ export const adjustDrawer = {
   }),
 };
 
-export const voidBatch = { params: z.object({ batchId: text('Batch', { max: 40 }) }) };
+export const voidBatch = {
+  params: z.object({ batchId: text('Batch', { max: 40 }) }),
+  body: z.object({ reason: text('Reason', { max: 200 }) }),
+};

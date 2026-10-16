@@ -34,11 +34,13 @@ function dateStrToIso(ds) {
 
 // ── Write operations ──────────────────────────────────────────────────────────
 
-// Store pre-fetched reserved coupons from the server
+// Add newly reserved numbers to the pool. Numbers already here are left alone — one may have
+// been sold offline and not synced yet.
 export async function storePrefetched(coupons) {
   const db = await getDb();
   const tx = db.transaction('coupons', 'readwrite');
   for (const c of coupons) {
+    if (await tx.store.get(c.couponNumber)) continue;
     const ds = couponDateStr(c.couponNumber);
     await tx.store.put({
       couponNumber: c.couponNumber,
@@ -74,7 +76,8 @@ export async function storeOnlineIssued(coupons) {
       type:           c.type,
       amount:         c.amount,
       occasion:       c.occasion || '',
-      status:         c.status === 'redeemed' ? 'redeemed' : 'issued-online',
+      // a cancelled coupon stays cancelled offline too — it must not be served
+      status:         c.status === 'redeemed' ? 'redeemed' : c.status === 'voided' ? 'voided' : 'issued-online',
       issuedAt:       c.issuedAt,
       issuedById:     c.issuedBy?._id || c.issuedBy,
       issuedByName:   c.issuedBy?.name || '',
@@ -115,6 +118,7 @@ export async function confirmIssue(couponNumber, data) {
     amount:       data.amount,
     occasion:     data.occasion || '',
     mobile:       data.mobile || '',
+    paymentMode:  data.paymentMode,
     status:       'issued-offline',
     issuedAt:     data.issuedAt,
     issuedById:   data.issuedById,
@@ -184,24 +188,30 @@ export async function getPendingSync() {
   return all.filter((item) => !item.synced);
 }
 
+// The server has the queued items with these ids: mark them, and their coupons, as synced
 export async function markSynced(ids) {
   const db = await getDb();
-  const tx = db.transaction('syncQueue', 'readwrite');
+  const tx = db.transaction(['syncQueue', 'coupons'], 'readwrite');
   for (const id of ids) {
-    const item = await tx.store.get(id);
-    if (item) { item.synced = true; await tx.store.put(item); }
+    const item = await tx.objectStore('syncQueue').get(id);
+    if (!item) continue;
+    item.synced = true;
+    await tx.objectStore('syncQueue').put(item);
+    const c = await tx.objectStore('coupons').get(item.couponNumber);
+    if (c && !c.synced) await tx.objectStore('coupons').put({ ...c, synced: true });
   }
   await tx.done;
 }
 
-// Remove synced stale data from previous days to keep IndexedDB lean
+// Keep IndexedDB lean: drop earlier days' coupons once synced, and earlier days' unused numbers
+// (the pool only sells today's). Anything not yet synced stays.
 export async function clearOldData() {
   const today = localDateStr().replace(/-/g, '');
   const db  = await getDb();
   const all = await db.getAll('coupons');
   const tx  = db.transaction('coupons', 'readwrite');
   for (const c of all) {
-    if (c.dateStr < today && c.synced) await tx.store.delete(c.couponNumber);
+    if (c.dateStr < today && (c.synced || c.status === 'available')) await tx.store.delete(c.couponNumber);
   }
   await tx.done;
 }

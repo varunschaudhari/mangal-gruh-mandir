@@ -91,7 +91,7 @@ export const createUser = asyncHandler(async (req, res) => {
     throw err;
   }
 
-  const populated = await User.findById(user._id).populate('departments', 'name code').lean();
+  const populated = await User.findById(user._id).select('-password -refreshToken').populate('departments', 'name code').lean();
   logAction(req, {
     action: 'user.create', entity: 'User',
     entityId: user.email, entityRef: user._id,
@@ -125,7 +125,7 @@ export const updateUser = asyncHandler(async (req, res) => {
   if (before.isActive && target.isActive === false) await endAllSessions(target._id);
   const profile = await saveStaffProfile(req, target, staffProfile);
 
-  const populated = await User.findById(target._id).populate('departments', 'name code').lean();
+  const populated = await User.findById(target._id).select('-password -refreshToken').populate('departments', 'name code').lean();
   logAction(req, {
     action: 'user.update', entity: 'User',
     entityId: target.email, entityRef: target._id,
@@ -141,6 +141,10 @@ export const resetUserPassword = asyncHandler(async (req, res) => {
 
   const user = await User.findById(req.params.id);
   if (!user) throw new ApiError(404, 'User not found');
+  // Same rule as editing: only a super admin may touch a super admin (else an admin could take the account over).
+  if (user.role === 'super_admin' && req.user.role !== 'super_admin') {
+    throw new ApiError(403, 'Only a super admin can reset a super admin’s password');
+  }
 
   user.password = newPassword;
   user.refreshToken = undefined;

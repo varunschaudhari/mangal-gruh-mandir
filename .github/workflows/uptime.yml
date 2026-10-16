@@ -1,0 +1,40 @@
+name: Uptime monitor
+
+# Every 10 minutes: is the site up (with its database)? Is the HTTPS certificate renewing? Did
+# last night's backup run, and did it leave the server? Each problem opens one GitHub issue — GitHub
+# emails you, and the GitHub app notifies the phone — and the issue closes itself when it's fixed.
+# The checks are in .github/scripts/uptime.cjs. Set the SITE_URL repository variable if the
+# address changes. "Run workflow" on the Actions tab runs it at once.
+#
+# GitHub turns scheduled workflows off after 60 days without a commit in a public repository;
+# it emails a warning first, and one click on the Actions tab turns it back on.
+
+on:
+  schedule:
+    - cron: '*/10 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: uptime-monitor
+  cancel-in-progress: false
+
+jobs:
+  check:
+    name: Site, certificate and backups
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          sparse-checkout: .github/scripts
+      - uses: actions/github-script@v7
+        env:
+          SITE: ${{ vars.SITE_URL || vars.DEPLOY_URL || 'https://mandir.aumora.io' }}
+        with:
+          script: |
+            const run = require('./.github/scripts/uptime.cjs');
+            await run({ github, context, core });

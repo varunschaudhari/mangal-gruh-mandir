@@ -31,6 +31,22 @@ for m in migrate:assets migrate:mahaprasad migrate:attendance migrate:bookings; 
   docker compose exec -T server npm run --silent "$m"
 done
 
+echo "▶ Nightly backup"
+# backup-db.sh (DEPLOY.md §10) at 1:30 AM India time, whatever the server's clock is set to.
+# Added once when no backup line exists; an existing one is left as it is.
+if ! command -v crontab >/dev/null 2>&1; then
+  echo "  ⚠ cron isn't installed — nightly backups are not scheduled (DEPLOY.md §10)"
+elif crontab -l 2>/dev/null | grep -q 'backup-db\.sh'; then
+  echo "  scheduled"
+else
+  when="$(date -d 'TZ="Asia/Kolkata" 01:30' '+%-M %-H') * * *"
+  { crontab -l 2>/dev/null || true; echo "$when cd $PWD && bash ./backup-db.sh >> /var/log/mgm-backup.log 2>&1"; } | crontab -
+  echo "  scheduled now: $when (server time)"
+fi
+if ! grep -qs '^RCLONE_REMOTE=.' .env; then
+  echo "  ⚠ RCLONE_REMOTE isn't set in .env — backups and receipts stay on this server only (DEPLOY.md §10)"
+fi
+
 echo "▶ Removing old images"
 docker image prune -f >/dev/null || true
 

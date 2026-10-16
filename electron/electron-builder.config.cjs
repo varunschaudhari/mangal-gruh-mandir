@@ -6,8 +6,8 @@ module.exports = {
   directories: { output: 'dist' },
 
   // Auto-update: electron-builder writes latest.yml next to the installer; both go to the server's
-  // mobile-releases/desktop/ folder (scripts/release-desktop.mjs). The app checks the server address
-  // set in ⚙ Settings, so this URL is only the default.
+  // mobile-releases/desktop/ folder (scripts/release-desktop.mjs). Installed apps update only from
+  // this address — not from the server address in ⚙ Settings, which anyone at the counter can change.
   publish: [{ provider: 'generic', url: 'https://mandir.aumora.io/api/app/desktop/' }],
 
   // Bundle the Electron shell. The React UI is served locally (offline-first)

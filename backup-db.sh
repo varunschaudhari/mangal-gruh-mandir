@@ -4,7 +4,11 @@
 # this is the only copy outside Atlas.
 #
 #   - Keeps the last KEEP_DAILY daily archives and KEEP_WEEKLY Sunday archives.
-#   - Optional off-site copy with rclone: set RCLONE_REMOTE (e.g. "gdrive:mgm-backups").
+#   - Off-site copy of the archive and the uploaded files with rclone: set RCLONE_REMOTE
+#     (e.g. "gdrive:mgm-backups") — DEPLOY.md §10. Uses rclone if installed, otherwise its
+#     Docker image. Until it is set, the uptime monitor reports that backups stay on this server.
+#   - Writes $BACKUP_DIR/status/last.json after each good run (time, whether it went off-site);
+#     the API shows it at /api/health/backup for the uptime monitor.
 #   - Optional failure alerts: set HEALTHCHECK_URL (e.g. a free healthchecks.io check);
 #     it is pinged on success and "<url>/fail" on failure.
 #
@@ -25,6 +29,8 @@ KEEP_WEEKLY="${KEEP_WEEKLY:-8}"
 MONGO_IMAGE="${MONGO_IMAGE:-mongo:8}"   # official image ships mongodump — nothing to install on the host
 RCLONE_REMOTE="${RCLONE_REMOTE:-}"
 RCLONE_KEEP_DAYS="${RCLONE_KEEP_DAYS:-90}"
+RCLONE_IMAGE="${RCLONE_IMAGE:-rclone/rclone:1.75.1}"            # used when rclone isn't installed
+RCLONE_CONFIG_DIR="${RCLONE_CONFIG_DIR:-$HOME/.config/rclone}"  # where `rclone config` saved the remote
 HEALTHCHECK_URL="${HEALTHCHECK_URL:-}"
 UPLOADS_DIR="${UPLOADS_DIR:-server/uploads}"   # expense receipts (bind-mounted into the server container)
 
@@ -93,12 +99,52 @@ if [ -d "$UPLOADS_DIR" ]; then
   log "Uploads mirrored to $BACKUP_DIR/uploads ($(du -sh "$BACKUP_DIR/uploads" | cut -f1))"
 fi
 
+# Off-site: a copy that survives losing this server. The archive goes up each night (older ones
+# are pruned after RCLONE_KEEP_DAYS); uploads are copied as they come and never deleted there.
+rclone_run() {
+  if command -v rclone >/dev/null 2>&1; then rclone "$@"; return; fi
+  # Same paths inside the container as outside, so the arguments work unchanged
+  docker run --rm \
+    -v "$RCLONE_CONFIG_DIR:/config/rclone" \
+    -v "$BACKUP_DIR:$BACKUP_DIR:ro" \
+    -v "$UPLOADS_ABS:$UPLOADS_ABS:ro" \
+    "$RCLONE_IMAGE" "$@"
+}
+UPLOADS_ABS="$(cd "$(dirname "$UPLOADS_DIR")" && pwd)/$(basename "$UPLOADS_DIR")"
+OFFSITE=false
+UPLOADS_OFFSITE=false
+OFFSITE_FAILED=""
 if [ -n "$RCLONE_REMOTE" ]; then
   log "Copying off-site to $RCLONE_REMOTE"
-  rclone copy "$BACKUP_DIR/daily/$FILE" "$RCLONE_REMOTE/" --quiet
-  rclone delete "$RCLONE_REMOTE/" --min-age "${RCLONE_KEEP_DAYS}d" --include "mgm_*.archive.gz" --quiet
-  if [ -d "$UPLOADS_DIR" ]; then rclone copy "$UPLOADS_DIR" "$RCLONE_REMOTE/uploads" --quiet; fi
+  if rclone_run copy "$BACKUP_DIR/daily/$FILE" "$RCLONE_REMOTE/" --quiet; then
+    OFFSITE=true
+    rclone_run delete "$RCLONE_REMOTE/" --min-age "${RCLONE_KEEP_DAYS}d" --include "mgm_*.archive.gz" --quiet \
+      || log "Could not prune old off-site archives (the copy itself worked)"
+  else
+    OFFSITE_FAILED=1; log "OFF-SITE COPY OF THE DATABASE FAILED"
+  fi
+  if [ ! -d "$UPLOADS_DIR" ]; then
+    UPLOADS_OFFSITE=true   # nothing uploaded yet
+  elif rclone_run copy "$UPLOADS_ABS" "$RCLONE_REMOTE/uploads" --quiet; then
+    UPLOADS_OFFSITE=true
+  else
+    OFFSITE_FAILED=1; log "OFF-SITE COPY OF THE UPLOADS FAILED"
+  fi
+else
+  log "WARNING: RCLONE_REMOTE is not set — this backup and the uploaded receipts exist only on this server (DEPLOY.md §10)"
 fi
 
+# What the uptime monitor reads (through /api/health/backup): when, and whether it left the server
+mkdir -p "$BACKUP_DIR/status"
+chmod 755 "$BACKUP_DIR/status"
+printf '{"at":"%s","offsite":%s,"uploadsOffsite":%s}\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$OFFSITE" "$UPLOADS_OFFSITE" \
+  > "$BACKUP_DIR/status/.last.json" && mv "$BACKUP_DIR/status/.last.json" "$BACKUP_DIR/status/last.json"
+chmod 644 "$BACKUP_DIR/status/last.json"
+
+if [ -n "$OFFSITE_FAILED" ]; then
+  ping_health /fail
+  log "Backup saved on this server, but the off-site copy failed"
+  exit 1
+fi
 ping_health ""
 log "Backup complete"

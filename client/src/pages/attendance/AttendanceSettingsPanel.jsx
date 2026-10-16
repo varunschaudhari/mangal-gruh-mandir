@@ -248,9 +248,17 @@ export default function AttendanceSettingsPanel() {
                   </div>
                   {d.allowedIps
                     ? <p className="mt-1 flex items-start gap-1 text-xs text-green-700"><ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0" />{t('Punches are accepted only from these addresses.')}</p>
-                    : <p className="mt-1 flex items-start gap-1 text-xs text-amber-700"><ShieldAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" />{t('Any address is accepted — anyone who reads the serial number off the machine could send punches. Add the temple’s internet address (the one the machine last connected from is shown above).')}</p>}
+                    : <p className="mt-1 flex items-start gap-1 text-xs text-amber-700"><ShieldAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" />{t('No address yet — the first address the machine connects from will be locked in, and punches from anywhere else refused.')}</p>}
                   {d.blockedAt && (
-                    <p className="mt-1 text-xs text-red-600">{t('Refused a connection from {ip} at {time}', { ip: d.blockedIp, time: fDateTime(d.blockedAt) })}</p>
+                    <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-red-600">
+                      <span>{t('Refused a connection from {ip} at {time}', { ip: d.blockedIp, time: fDateTime(d.blockedAt) })}</span>
+                      {/* The temple's internet address can change — allow the new one if it's really the machine */}
+                      {d.blockedIp && !(d.allowedIps || '').includes(d.blockedIp) && (
+                        <button type="button" onClick={() => editDevice(d.serial, { allowedIps: [d.allowedIps, d.blockedIp].filter(Boolean).join(', ') })} className="btn-secondary text-xs">
+                          {t('Allow {ip}', { ip: d.blockedIp })}
+                        </button>
+                      )}
+                    </div>
                   )}
                 </div>
               )}

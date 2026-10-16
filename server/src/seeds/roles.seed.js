@@ -18,7 +18,7 @@ export const rolesSeed = [
       'assets:read', 'assets:write', 'assets:manage',
       'donations:read', 'donations:write',
       'payments:read', 'payments:write', 'payments:approve',
-      'mahaprasad:read', 'mahaprasad:issue', 'mahaprasad:redeem',
+      'mahaprasad:read', 'mahaprasad:issue', 'mahaprasad:redeem', 'mahaprasad:void',
       'attendance:read', 'attendance:write', 'attendance:manage', 'attendance:approve',
       'salary:read', 'salary:manage',
       'bookings:read', 'bookings:create', 'bookings:void', 'bookings:manage', 'bookings:cash', 'bookings:checkin',

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import * as offlineStore from '../utils/offlineStore.js';
-import { reserveOffline, syncOfflineCoupons, getTodayForOffline } from '../api/mahaprasad.api.js';
+import { reserveOffline, syncOfflineCoupons, getTodayForOffline, checkServer } from '../api/mahaprasad.api.js';
 import toast from 'react-hot-toast';
 import { localDateStr } from '../utils/formatters.js';
 import { tNow } from '../i18n/index.jsx';
@@ -50,10 +50,70 @@ export function useOfflineMode() {
     return window.electronAPI.onOnlineStatus(({ online: on }) => setIsOnline(on));
   }, []);
 
-  // Pre-fetch: reserve a block of coupon numbers + cache today's data
+  // Phones and browsers ask the server too, now and every 30 s: the network can be up while the
+  // server or its database is down — then sales should go to the offline pool as well.
+  // (The desktop app does this in its main process, above.)
+  useEffect(() => {
+    if (window.electronAPI?.isElectron) return undefined;
+    let stopped = false;
+    const probe = async () => {
+      if (!navigator.onLine) return;
+      try {
+        await checkServer();
+        if (!stopped) setIsOnline(true);
+      } catch (err) {
+        // No answer, or the server says it can't serve (5xx). Other errors mean it's up.
+        if (!stopped && (!err.response || err.response.status >= 500)) setIsOnline(false);
+      }
+    };
+    probe();
+    const timer = setInterval(probe, 30_000);
+    return () => { stopped = true; clearInterval(timer); };
+  }, []);
+
+  // Send everything waiting to the server. Returns the server's results, or null if nothing was
+  // waiting. Every item sent is marked synced: the server records each one or says why it can't
+  // (sending one again is harmless), so nothing is retried forever.
+  const pushPending = useCallback(async () => {
+    const pending = await offlineStore.getPendingSync();
+    if (!pending.length) return null;
+
+    const issued   = pending.filter((p) => p.type === 'issue').map((p) => p.data);
+    const redeemed = pending.filter((p) => p.type === 'redeem').map((p) => ({
+      couponNumber: p.couponNumber,
+      ...p.data,
+    }));
+
+    const res     = await syncOfflineCoupons({ issued, redeemed });
+    const results = res.data.data.results;
+    await offlineStore.markSynced(pending.map((p) => p.id));
+    await refreshCounts();
+
+    const conflicts = results.redeemed?.conflicts || [];
+    if (conflicts.length) {
+      try { localStorage.setItem('mgm-redeem-conflicts', JSON.stringify(conflicts)); } catch { /* not kept */ }
+    }
+    // Sales the server couldn't record — rare (the number was cancelled or unknown). Say which,
+    // so the counter can check them; the money was taken.
+    const failed = results.issued?.failed || [];
+    if (failed.length) {
+      toast.error(tNow('{n} offline sale(s) could not be recorded: {numbers}', { n: failed.length, numbers: failed.map((f) => f.couponNumber).join(', ') }),
+        { duration: 20000 });
+    }
+    return results;
+  }, [refreshCounts]);
+
+  // Pre-fetch: reserve a block of coupon numbers + cache today's data. Anything sold offline
+  // is synced first, so the pool and the server agree before more numbers arrive.
   const prefetch = useCallback(async (qty = 200) => {
     setIsPrefetching(true);
     try {
+      if (!syncingRef.current) {
+        syncingRef.current = true;
+        // A failed sync doesn't stop the refill: numbers already held are never taken back, and
+        // Sync (or coming back online) tries again and shows why.
+        try { await pushPending(); } catch { /* see above */ } finally { syncingRef.current = false; }
+      }
       const res  = await reserveOffline({ qty, date: localDateStr() });
       const { coupons, user, settings } = res.data.data;
 
@@ -78,7 +138,7 @@ export function useOfflineMode() {
     } finally {
       setIsPrefetching(false);
     }
-  }, [refreshCounts]);
+  }, [refreshCounts, pushPending]);
 
   // Sync all pending offline events to the server
   const sync = useCallback(async () => {
@@ -86,27 +146,10 @@ export function useOfflineMode() {
     syncingRef.current = true;
     setIsSyncing(true);
     try {
-      const pending = await offlineStore.getPendingSync();
-      if (!pending.length) { toast(tNow('Nothing to sync')); return; }
-
-      const issued   = pending.filter((p) => p.type === 'issue').map((p) => p.data);
-      const redeemed = pending.filter((p) => p.type === 'redeem').map((p) => ({
-        couponNumber: p.couponNumber,
-        ...p.data,
-      }));
-
-      const res     = await syncOfflineCoupons({ issued, redeemed });
-      const results = res.data.data.results;
-
-      await offlineStore.markSynced(pending.map((p) => p.id));
-      await refreshCounts();
-
+      const results = await pushPending();
+      if (!results) { toast(tNow('Nothing to sync')); return; }
       const total = results.issued.ok + results.redeemed.ok;
       const skipped = results.issued.skipped + results.redeemed.skipped;
-      const conflicts = results.redeemed?.conflicts || [];
-      if (conflicts.length) {
-        try { localStorage.setItem('mgm-redeem-conflicts', JSON.stringify(conflicts)); } catch {}
-      }
       toast.success(`${tNow(total !== 1 ? 'Synced {n} records' : 'Synced {n} record', { n: total })}`
         + `${skipped ? ` ${tNow('({n} skipped)', { n: skipped })}` : ''}`);
     } catch (err) {
@@ -115,7 +158,7 @@ export function useOfflineMode() {
       setIsSyncing(false);
       syncingRef.current = false;
     }
-  }, [refreshCounts]);
+  }, [pushPending]);
 
   // Auto-sync on reconnect — detect offline→online transition, wait 2 s for
   // the connection to stabilise, then read pending count directly from IndexedDB

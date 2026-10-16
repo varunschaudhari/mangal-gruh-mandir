@@ -12,6 +12,7 @@ import { getOccasions } from '../../api/mahaprasadOccasion.api.js';
 import { getSettings } from '../../api/settings.api.js';
 import { printThermalCoupon, printShiftSummary, isConnected, connectToQzTray } from '../../utils/thermalPrint.js';
 import { useAuth } from '../../context/AuthContext.jsx';
+import { usePermissions } from '../../hooks/usePermissions.js';
 import * as offlineStore from '../../utils/offlineStore.js';
 import { useOfflineMode } from '../../hooks/useOfflineMode.js';
 import Badge from '../../components/ui/Badge.jsx';
@@ -83,6 +84,11 @@ function computeChange(amount, counts) {
 function BatchesSection({ date, onPdfPrint, printing, onVoid }) {
   const t = useT();
   const [open, setOpen] = useState(false);
+  // Counter staff cancel only their own sales from today; mahaprasad:void cancels any
+  const { can, user } = usePermissions();
+  const myId  = String(user?._id || user?.id || '');
+  const today = localDateStr();
+  const canVoid = (b) => can('mahaprasad:void') || (String(b.issuedBy?._id) === myId && localDateStr(new Date(b.issuedAt)) === today);
 
   const { data } = useQuery({
     queryKey: ['mahaprasad-batches', date],
@@ -136,7 +142,7 @@ function BatchesSection({ date, onPdfPrint, printing, onVoid }) {
               </button>
               {b.statuses?.includes('voided') ? (
                 <span className="shrink-0 text-xs text-red-500 font-semibold">{t('Voided')}</span>
-              ) : (
+              ) : canVoid(b) && !b.statuses?.includes('redeemed') && (
                 <button onClick={() => onVoid(b._id)} title={t('Void batch')} aria-label={t('Void batch')}
                   className="shrink-0 text-gray-300 hover:text-red-500 transition-colors max-sm:p-3 max-sm:-mr-3 max-sm:text-gray-400">
                   <X className="h-3.5 w-3.5 max-sm:h-4 max-sm:w-4" />
@@ -186,6 +192,7 @@ export default function MahaprasadCounter() {
   const [shortageWarning,  setShortageWarning]  = useState(null);  // { shortBy }
   const [shakePayment,     setShakePayment]     = useState(false);
   const [voidConfirm,      setVoidConfirm]      = useState(null);  // batchId string
+  const [voidReason,       setVoidReason]       = useState('');
   const [showShortcuts,    setShowShortcuts]    = useState(false);
   const [lastIssuedBatch,  setLastIssuedBatch]  = useState(null);  // persists after auto-reset
   const [showShiftSummary, setShowShiftSummary] = useState(false);
@@ -410,6 +417,7 @@ export default function MahaprasadCounter() {
 
       const issued = await offlineStore.confirmIssue(coupon.couponNumber, {
         type, amount: price, occasion: type === 'free' ? occasionValue : '', mobile,
+        paymentMode: type === 'paid' && price > 0 ? paymentMode : undefined, // recorded as a payment when it syncs
         issuedAt: new Date().toISOString(), issuedById: user._id || '', issuedByName: user.name || 'Staff', batchId,
       });
 
@@ -511,12 +519,13 @@ export default function MahaprasadCounter() {
   });
 
   const voidMut = useMutation({
-    mutationFn: (batchId) => voidBatchApi(batchId),
+    mutationFn: ({ batchId, reason }) => voidBatchApi(batchId, reason),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['mahaprasad-batches', date] });
       qc.invalidateQueries({ queryKey: ['mahaprasad-summary', date] });
       qc.invalidateQueries({ queryKey: ['mahaprasad-cash-drawer', date] });
       setVoidConfirm(null);
+      setVoidReason('');
       toast.success(t('Batch voided'));
     },
     onError: (e) => toast.error(e.response?.data?.message || t('Failed to void batch')),
@@ -1331,9 +1340,15 @@ export default function MahaprasadCounter() {
           <p className="font-semibold text-gray-900">{t('Void this batch?')}</p>
           <p className="text-sm text-gray-500 mt-1">{t('All coupons in this batch will be marked void and the payment will be reversed. This cannot be undone.')}</p>
         </div>
+        <label className="block">
+          <span className="text-sm font-medium text-gray-700">{t('Reason')} <span className="text-red-500">*</span></span>
+          <input type="text" value={voidReason} onChange={(e) => setVoidReason(e.target.value)} maxLength={200}
+            placeholder={t('e.g. wrong quantity, devotee changed mind')}
+            className="input mt-1 w-full" />
+        </label>
         <div className="flex gap-3 justify-end max-sm:[&>*]:flex-1">
           <button onClick={() => setVoidConfirm(null)} className="btn btn-ghost border px-4 py-2 max-sm:py-3 text-sm">{t('Cancel')}</button>
-          <button onClick={() => voidMut.mutate(voidConfirm)} disabled={voidMut.isPending}
+          <button onClick={() => voidMut.mutate({ batchId: voidConfirm, reason: voidReason.trim() })} disabled={voidMut.isPending || !voidReason.trim()}
             className="btn bg-red-600 hover:bg-red-700 text-white px-4 py-2 max-sm:py-3 text-sm font-semibold disabled:opacity-50">
             {voidMut.isPending ? t('Voiding…') : t('Void Batch')}
           </button>

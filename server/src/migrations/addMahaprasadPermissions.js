@@ -15,7 +15,7 @@ import Role from '../models/Role.js';
 const PATCHES = [
   {
     slug: 'admin',
-    add:  ['mahaprasad:read', 'mahaprasad:issue', 'mahaprasad:redeem'],
+    add:  ['mahaprasad:read', 'mahaprasad:issue', 'mahaprasad:redeem', 'mahaprasad:void'], // void = cancel any sale (other staff's, earlier days)
   },
   {
     slug: 'store_manager',

@@ -260,8 +260,116 @@ async function main() {
   const ghostProduct = await donate({ donationType: 'named', donorName: 'Ghost', kindItems: [{ product: '65f0c0ffee0000000000abcd', quantity: 1 }] });
   check(ghostProduct.status === 404 || ghostProduct.status === 400, 'an in-kind item with an unknown product is refused', show(ghostProduct));
 
+  // Monthly P&L: a cash donation counts once, in-kind items at their value, voided ones not at all
+  const now = new Date();
+  const pnlIncome = async () => (await api('GET', `/pnl?year=${now.getFullYear()}&month=${now.getMonth() + 1}`)).body.data.income;
+  const pnlBefore = await pnlIncome();
+  const cash5k = (await donate({ donationType: 'named', donorName: 'P&L Cash', cashAmount: 5000 })).body.data;
+  await donate({ donationType: 'named', donorName: 'P&L Kind', kindItems: [{ product: sugar._id, quantity: 1, estimatedValue: 300 }] });
+  const pnlAfter = await pnlIncome();
+  check(pnlAfter.cash - pnlBefore.cash === 5000 && pnlAfter.kind - pnlBefore.kind === 300 && pnlAfter.total - pnlBefore.total === 5300,
+    'P&L: a ₹5,000 cash donation adds ₹5,000 (not ₹10,000); in-kind adds its value', JSON.stringify({ before: pnlBefore, after: pnlAfter }));
+  await api('PATCH', `/donations/${cash5k._id}/void`, { voidReason: 'P&L check' });
+  check(pnlAfter.total - (await pnlIncome()).total === 5000, 'P&L: a voided donation no longer counts');
+
+  await mahaprasadChecks(api, today);
+
   console.log(failed ? `\n${failed} rule check(s) failed` : '\nRule checks OK');
   process.exit(failed ? 1 : 0);
+}
+
+// ── Mahaprasad money: offline sales survive a refill, only sold coupons are served or counted,
+// cancelling is controlled and happens once, the daily limit holds under parallel issues.
+async function mahaprasadChecks(api, today) {
+  section('Mahaprasad coupons & money');
+  const settingsBefore = (await api('GET', '/settings')).body.data;
+  const days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+  await api('PUT', '/settings', { mahaprasadDayPricing: Object.fromEntries(days.map((d) => [d, 40])), mahaprasadDailyCap: 0 });
+
+  const asRole = async (role) => {
+    const email = `mp-${role}-${stamp}-${Math.random().toString(36).slice(2, 6)}@test.local`;
+    await api('POST', '/users', { name: `MP ${role}`, email, password: 'Rules-Pass-123!', role, departments: [] });
+    return login(email, 'Rules-Pass-123!');
+  };
+  const counter = await asRole('mahaprasad_counter');
+  const counter2 = await asRole('mahaprasad_counter');
+  const redeemer = await asRole('mahaprasad_redeem');
+  const admin = await asRole('admin');
+
+  const summary = async () => (await api('GET', '/mahaprasad/summary')).body.data;
+  const drawer = async () => (await api('GET', '/mahaprasad/cash-drawer')).body.data;
+  const issue = (who, body) => who('POST', '/mahaprasad/issue', { quantity: 1, type: 'paid', mobile: '9822012345', ...body });
+  const reserve = async (who, qty) => ((await who('POST', '/mahaprasad/offline/reserve', { qty })).body.data?.coupons || []).map((c) => c.couponNumber);
+  const statusOf = async (n) => (await api('GET', `/mahaprasad/coupons?search=${n}`)).body.data?.coupons?.[0];
+  const codeOf = (r) => r.body?.errors?.[0]?.code;
+
+  // Offline: a refill keeps numbers sold but not yet synced; the sale syncs at the server's price
+  const start = await summary();
+  const cashStart = (await drawer()).cashTotal;
+  const poolA = await reserve(counter, 3);
+  const poolB = await reserve(counter, 3);
+  check(poolA.length === 3 && poolB.length === 3 && !poolB.some((n) => poolA.includes(n)), 'offline refill hands out new numbers');
+  check((await summary()).total === start.total, 'held offline numbers are not counted as sales');
+  const offlineSale = { couponNumber: poolA[0], type: 'paid', amount: 999, paymentMode: 'cash', batchId: `t${stamp}`, issuedAt: new Date().toISOString(), mobile: '9822012345' };
+  const synced = await counter('POST', '/mahaprasad/offline/sync', { issued: [offlineSale], redeemed: [] });
+  const sold = await statusOf(poolA[0]);
+  check(synced.body.data?.results?.issued?.ok === 1 && sold?.status === 'issued' && sold.amount === 40,
+    'a coupon sold offline before the refill still syncs, at the day\'s price (not the phone\'s ₹999)', JSON.stringify(sold));
+  check((await drawer()).cashTotal - cashStart === 40, 'the offline sale has a payment record (cash ₹40)');
+  const again = await counter('POST', '/mahaprasad/offline/sync', { issued: [offlineSale], redeemed: [] });
+  check(again.body.data?.results?.issued?.ok === 1 && (await drawer()).cashTotal - cashStart === 40, 'syncing the same sale twice records it once');
+
+  // Never-sold numbers can't be served or printed
+  const unsold = await redeemer('PATCH', `/mahaprasad/redeem/${poolA[1]}`);
+  check(unsold.status === 409 && codeOf(unsold) === 'not_sold', 'a held, never-sold number cannot be redeemed', show(unsold));
+  check((await counter('GET', `/mahaprasad/print?numbers=${poolA[1]}`)).status === 404, 'a never-sold number cannot be printed');
+  const syncUnsold = await api('POST', '/mahaprasad/offline/sync', { issued: [], redeemed: [{ couponNumber: poolA[2], redeemedAt: new Date().toISOString() }] });
+  check(syncUnsold.body.data?.results?.redeemed?.conflicts?.[0]?.reason === 'not_sold', 'an offline redemption of a never-sold number is refused on sync');
+
+  // Two counters scanning the same coupon: only one serves it
+  const one = (await issue(counter, {})).body.data.coupons[0].couponNumber;
+  const scans = await Promise.all([redeemer('PATCH', `/mahaprasad/redeem/${one}`), api('PATCH', `/mahaprasad/redeem/${one}`)]);
+  check(scans.map((r) => r.status).sort().join() === '200,409', 'the same coupon scanned at two counters at once is served once', scans.map(show).join(' | '));
+
+  // Groups count as persons in reports
+  const day = `${today.slice(0, 4)}-${today.slice(4, 6)}-${today.slice(6)}`;
+  const reportTotal = async () => (await api('GET', `/mahaprasad/report?from=${day}&to=${day}`)).body.data.totals.total;
+  const reportBefore = await reportTotal();
+  check((await issue(counter, { quantity: 3, isGroup: true, paymentMode: 'upi' })).status === 201, 'group coupon for 3 issued');
+  check(await reportTotal() - reportBefore === 3, 'a group of 3 counts as 3 persons in the report');
+
+  // Cancelling: needs a reason, only one's own sale from today (or mahaprasad:void), happens once
+  const before = await drawer();
+  const sale = await issue(counter, { quantity: 2, paymentMode: 'cash', amountReceived: 100, receivedNotes: [100] });
+  const batchId = sale.body.data?.batchId;
+  check(sale.status === 201 && (await drawer()).cashTotal - before.cashTotal === 80, 'cash sale of 2 × ₹40 with a ₹100 note', show(sale));
+  check((await counter('PATCH', `/mahaprasad/batches/${batchId}/void`, {})).status === 400, 'cancelling needs a reason');
+  check((await redeemer('PATCH', `/mahaprasad/batches/${batchId}/void`, { reason: 'test' })).status === 403, 'the food counter cannot cancel sales');
+  const notMine = await counter2('PATCH', `/mahaprasad/batches/${batchId}/void`, { reason: 'test' });
+  check(notMine.status === 403, 'counter staff cannot cancel another person\'s sale', show(notMine));
+  const taps = await Promise.all([1, 2].map(() => counter('PATCH', `/mahaprasad/batches/${batchId}/void`, { reason: 'Wrong quantity' })));
+  check(taps.map((r) => r.status).sort().join() === '200,409', 'a double tap on cancel cancels once', taps.map(show).join(' | '));
+  const after = await drawer();
+  check(after.cashTotal === before.cashTotal && after.counts['100'] === before.counts['100'] && JSON.stringify(after.counts) === JSON.stringify(before.counts),
+    'the drawer is back to where it was — the note is taken out once, the change put back once', JSON.stringify({ before: before.counts, after: after.counts }));
+  const voidedNo = sale.body.data.coupons[0].couponNumber;
+  const voidedScan = await redeemer('PATCH', `/mahaprasad/redeem/${voidedNo}`);
+  check(voidedScan.status === 409 && codeOf(voidedScan) === 'voided', 'a cancelled coupon cannot be redeemed', show(voidedScan));
+  check((await counter('GET', `/mahaprasad/print?numbers=${voidedNo}`)).status === 404, 'a cancelled coupon cannot be printed');
+  const theirs = (await issue(counter2, { type: 'free' })).body.data.batchId;
+  check((await admin('PATCH', `/mahaprasad/batches/${theirs}/void`, { reason: 'Admin correction' })).status === 200, 'an admin (mahaprasad:void) can cancel anyone\'s sale');
+
+  // Daily limit under four parallel issues with room for three
+  const now = (await summary()).total;
+  await api('PUT', '/settings', { mahaprasadDailyCap: now + 3 });
+  const rush = await Promise.all([counter, counter2, counter, counter2].map((who) => issue(who, { type: 'free' })));
+  check(rush.filter((r) => r.status === 201).length === 3 && (await summary()).total === now + 3,
+    'four counters issuing at once with room for 3 → exactly 3 issued', rush.map(show).join(' | '));
+  const freed = rush.find((r) => r.status === 201).body.data.batchId;
+  await api('PATCH', `/mahaprasad/batches/${freed}/void`, { reason: 'Free a place' });
+  check((await issue(counter, { type: 'free' })).status === 201, 'a cancelled coupon frees its place under the limit');
+
+  await api('PUT', '/settings', { mahaprasadDayPricing: settingsBefore.mahaprasadDayPricing, mahaprasadDailyCap: settingsBefore.mahaprasadDailyCap || 0 });
 }
 
 main().catch((err) => { console.error(err); process.exit(1); });

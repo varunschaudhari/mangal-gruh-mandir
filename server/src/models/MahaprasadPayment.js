@@ -17,6 +17,8 @@ const mahaprasadPaymentSchema = new mongoose.Schema({
   voided:          { type: Boolean, default: false },
   voidedAt:        { type: Date },
   voidedBy:        { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  voidReason:      { type: String },
+  offline:         { type: Boolean, default: false }, // sold on a counter that was offline (no notes counted)
 }, { timestamps: true });
 
 mahaprasadPaymentSchema.index({ date: 1, paymentMode: 1 });
