@@ -45,6 +45,10 @@ jobs:
           --health-cmd "mongosh --quiet --eval 'db.runCommand({ ping: 1 })'"
           --health-interval 5s --health-timeout 5s --health-retries 20
     env:
+      # India time for the check scripts too, like the server (src/config/timezone.js). On the
+      # runner's UTC clock "today" differs from the server's from midnight to 5:30 AM IST, and the
+      # booking checks failed for runs in those hours.
+      TZ: Asia/Kolkata
       PORT: 5000
       NODE_ENV: test
       MONGO_URI: mongodb://localhost:27017/mgm_ci
