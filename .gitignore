@@ -12,3 +12,6 @@ mobile-releases/
 # Firebase app config (add locally / on the build machine — see MOBILE.md → Push notifications)
 client/android/app/google-services.json
 client/ios/App/App/GoogleService-Info.plist
+
+# Client documents (trust PAN, registration certificates, bills) — never commit
+docs/temple document/
