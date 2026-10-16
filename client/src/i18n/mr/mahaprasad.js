@@ -233,6 +233,7 @@ export default {
   'Show this QR at the Mahaprasad hall. Each coupon can be used once.':
     'हा QR महाप्रसाद हॉलमध्ये दाखवा. प्रत्येक कूपन एकदाच वापरता येते.',
   'If the scanner can’t read it, turn up the screen brightness.': 'स्कॅन होत नसल्यास स्क्रीनचा प्रकाश वाढवा.',
+  'QR picture copied — paste it into the WhatsApp chat (Ctrl+V)': 'QR चित्र कॉपी केले — WhatsApp चॅटमध्ये पेस्ट करा (Ctrl+V)',
   'No offline copy on this phone yet — it downloads the coupons once it’s connected':
     'या फोनवर अजून ऑफलाइन प्रत नाही — इंटरनेट मिळाल्यावर कूपन आपोआप डाउनलोड होतील',
   'Coupon expired — was valid for {n} day(s) from {date}': 'कूपनची मुदत संपली — {date} पासून {n} दिवसांसाठी वैध होते',

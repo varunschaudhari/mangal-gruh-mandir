@@ -29,6 +29,13 @@ import { useT } from '../../i18n/index.jsx';
 import { temple } from '../../utils/temple.js';
 import { cleanPhoneInput, isValidPhone } from '../../utils/phone.js';
 import { couponWhatsAppUrl } from '../../utils/mahaprasadShare.js';
+import { shareCouponsOnWhatsApp } from '../../utils/couponShare.js';
+
+// A row of Today's Batches as the WhatsApp button needs it
+const batchShare = (b) => ({
+  mobile: b.mobile, numbers: b.numbers, date: b.issuedAt, persons: b.isGroup ? b.groupSize : b.count,
+  link: b.shareUrl, image: b.shareImageUrl,
+});
 
 // Touch screens: focusing the quantity field would pop the on-screen keyboard on open and after every issue.
 const canAutoFocus = () => !isNative && Boolean(window.matchMedia?.('(hover: hover) and (pointer: fine)').matches);
@@ -129,7 +136,7 @@ function BatchesSection({ date, onPdfPrint, printing, onVoid }) {
                 {b.mobile && <span className="text-xs text-gray-500 tabular-nums">· {b.mobile}</span>}
               </div>
               {b.mobile && (
-                <a href={couponWhatsAppUrl({ mobile: b.mobile, numbers: b.numbers, date: b.issuedAt, persons: b.isGroup ? b.groupSize : b.count, link: b.shareUrl })}
+                <a href={couponWhatsAppUrl(batchShare(b))} onClick={(e) => { e.preventDefault(); shareCouponsOnWhatsApp(batchShare(b)); }}
                   target="_blank" rel="noreferrer" aria-label={t('Send on WhatsApp')} title={t('Send on WhatsApp')}
                   className="shrink-0 btn btn-ghost border text-xs text-green-700 flex items-center gap-1 py-1 px-2 max-sm:h-10 max-sm:px-3">
                   <MessageCircle className="h-3 w-3 max-sm:h-4 max-sm:w-4" />
@@ -466,7 +473,7 @@ export default function MahaprasadCounter() {
       mobile:         vars.mobile,
     }),
     onSuccess: async (res, vars) => {
-      const { coupons, drawerChange, shareUrl } = res.data.data;
+      const { coupons, drawerChange, shareUrl, shareImageUrl } = res.data.data;
       const batchTotalDue = coupons.reduce((s, c) => s + (c.amount || 0), 0);
       playBeep();
       haptics.success();
@@ -477,7 +484,8 @@ export default function MahaprasadCounter() {
         groupQty: vars.qty,
         issuedAt: new Date(),
         mobile:   vars.mobile,
-        link:     shareUrl,   // the page with these coupons' QR, for the WhatsApp message
+        link:     shareUrl,        // the page with these coupons' QR, for the WhatsApp message
+        image:    shareImageUrl,   // …and the QR picture sent with it
         date:     vars.date,
         persons:  vars.qty,
         payment: vars.type === 'paid' && batchTotalDue > 0 ? {
@@ -702,7 +710,8 @@ export default function MahaprasadCounter() {
         </div>
         <div className="ml-auto flex gap-2 max-lg:ml-0 max-lg:w-full">
           {lastBatch.mobile && (
-            <a href={couponWhatsAppUrl(lastBatch)} target="_blank" rel="noreferrer" onClick={() => setAutoResetIn(null)}
+            <a href={couponWhatsAppUrl(lastBatch)} target="_blank" rel="noreferrer"
+              onClick={(e) => { e.preventDefault(); setAutoResetIn(null); shareCouponsOnWhatsApp(lastBatch); }}
               className="btn text-xs bg-white border border-green-300 text-green-700 hover:bg-green-100 px-3 py-1.5 rounded-lg font-semibold flex items-center gap-1.5 max-lg:flex-1 max-lg:py-2.5">
               <MessageCircle className="h-3.5 w-3.5" /> WhatsApp
             </a>
@@ -1411,6 +1420,7 @@ export default function MahaprasadCounter() {
         )}
         {lastIssuedBatch?.mobile && (
           <a href={couponWhatsAppUrl(lastIssuedBatch)} target="_blank" rel="noreferrer"
+            onClick={(e) => { e.preventDefault(); shareCouponsOnWhatsApp(lastIssuedBatch); }}
             title={t('Send the last coupons on WhatsApp')} aria-label={t('Send the last coupons on WhatsApp')}
             className="shrink-0 flex items-center gap-1.5 text-xs font-semibold text-green-700 hover:text-green-900 border border-green-200 rounded-lg px-3 py-2 hover:bg-green-50 transition-colors
               max-lg:flex-col max-lg:gap-0.5 max-lg:self-stretch max-lg:justify-center max-lg:px-2.5 max-lg:text-[11px] max-lg:rounded-xl">

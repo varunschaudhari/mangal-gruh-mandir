@@ -31,7 +31,7 @@ vi.mock('../../hooks/useOfflineMode.js', () => ({
 vi.mock('../../components/Layout/AppBarContext.jsx', () => ({ useSetAppBarTitle: () => {} }));
 vi.mock('../../hooks/useMediaQuery.js', () => ({ useMediaQuery: () => false }));
 vi.mock('../../utils/fileSaver.js', () => ({ openFile: vi.fn(), shareText: vi.fn() }));
-vi.mock('../../utils/platform.js', () => ({ isNative: false, platform: 'web' }));
+vi.mock('../../utils/platform.js', () => ({ isNative: false, platform: 'web', serverUrl: (p) => p }));
 vi.mock('../../utils/bluetoothPrinter.js', () => ({ useBluetoothPrinter: () => null }));
 vi.mock('../../utils/haptics.js', () => ({ default: { tap: vi.fn(), success: vi.fn(), error: vi.fn(), warning: vi.fn() } }));
 vi.mock('./CashDrawer.jsx', () => ({ default: () => null }));

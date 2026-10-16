@@ -299,7 +299,7 @@ export const issueCoupons = asyncHandler(async (req, res) => {
   const shareUrl = couponPageUrl(shareToken);
   sendCouponMessage({ mobile, numbers, date: couponDate, persons: qty, link: shareUrl, image: couponImageUrl(shareToken) });
   const msg = isGroup ? `Group coupon (${qty} persons) issued` : `${qty} coupon(s) issued`;
-  res.status(201).json(new ApiResponse(201, { coupons, batchId, drawerChange, shareUrl }, msg));
+  res.status(201).json(new ApiResponse(201, { coupons, batchId, drawerChange, shareUrl, shareImageUrl: couponImageUrl(shareToken) }, msg));
 });
 
 // GET /mahaprasad/summary
@@ -468,6 +468,7 @@ export const getBatches = asyncHandler(async (req, res) => {
     ...b,
     issuedBy: b.issuedById ? { _id: b.issuedById, name: userMap[b.issuedById.toString()] || '—' } : null,
     shareUrl: shareToken ? couponPageUrl(shareToken) : null,   // sales from before links existed have none
+    shareImageUrl: shareToken ? couponImageUrl(shareToken) : null,   // the QR picture, for the WhatsApp button
   }));
 
   res.json(new ApiResponse(200, result));
