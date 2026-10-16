@@ -129,7 +129,7 @@ function BatchesSection({ date, onPdfPrint, printing, onVoid }) {
                 {b.mobile && <span className="text-xs text-gray-500 tabular-nums">· {b.mobile}</span>}
               </div>
               {b.mobile && (
-                <a href={couponWhatsAppUrl({ mobile: b.mobile, numbers: b.numbers, date: b.issuedAt, persons: b.isGroup ? b.groupSize : b.count })}
+                <a href={couponWhatsAppUrl({ mobile: b.mobile, numbers: b.numbers, date: b.issuedAt, persons: b.isGroup ? b.groupSize : b.count, link: b.shareUrl })}
                   target="_blank" rel="noreferrer" aria-label={t('Send on WhatsApp')} title={t('Send on WhatsApp')}
                   className="shrink-0 btn btn-ghost border text-xs text-green-700 flex items-center gap-1 py-1 px-2 max-sm:h-10 max-sm:px-3">
                   <MessageCircle className="h-3 w-3 max-sm:h-4 max-sm:w-4" />
@@ -466,7 +466,7 @@ export default function MahaprasadCounter() {
       mobile:         vars.mobile,
     }),
     onSuccess: async (res, vars) => {
-      const { coupons, drawerChange } = res.data.data;
+      const { coupons, drawerChange, shareUrl } = res.data.data;
       const batchTotalDue = coupons.reduce((s, c) => s + (c.amount || 0), 0);
       playBeep();
       haptics.success();
@@ -477,6 +477,7 @@ export default function MahaprasadCounter() {
         groupQty: vars.qty,
         issuedAt: new Date(),
         mobile:   vars.mobile,
+        link:     shareUrl,   // the page with these coupons' QR, for the WhatsApp message
         date:     vars.date,
         persons:  vars.qty,
         payment: vars.type === 'paid' && batchTotalDue > 0 ? {

@@ -133,6 +133,11 @@ async function main() {
   const waTest = await api('POST', '/settings/test-whatsapp', { phone: '12345' });
   check(waTest.status === 400 && /configured|mobile number/.test(waTest.body.message), 'WhatsApp test: not set up / not a mobile number → readable 400', show(waTest));
   await api('PUT', '/settings', { waTemplates: { stockAlert: settings.waTemplates?.stockAlert ?? 'stock_alert' } });
+  const langSave = await api('PUT', '/settings', { waLanguages: { donationThanks: 'en' } });
+  check(langSave.status === 200 && langSave.body.data.waLanguages?.donationThanks === 'en' && langSave.body.data.waLanguages?.mahaprasadCoupons === 'mr',
+    'WhatsApp message language saved per message (the other keeps Marathi)', show(langSave));
+  check((await api('PUT', '/settings', { waLanguages: { donationThanks: 'hi' } })).status === 400, 'WhatsApp message language other than Marathi / English → 400');
+  await api('PUT', '/settings', { waLanguages: { donationThanks: 'mr' } });
 
   const email = `val-${stamp.toLowerCase()}@test.local`;
   const user = await api('POST', '/users', { name: 'Val User', email: email.toUpperCase(), password: 'Val-Pass-123!', role: 'viewer', departments: false, phone: '' });

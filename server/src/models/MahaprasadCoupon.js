@@ -15,6 +15,9 @@ const mahaprasadCouponSchema = new mongoose.Schema({
   batchId:      { type: String, index: true },
   groupSize:    { type: Number, default: 1, min: 1 },
   isGroup:      { type: Boolean, default: false },
+  // The devotee's link to this sale's coupon QRs (/m/<shareToken>, sent by WhatsApp / SMS).
+  // Same for every coupon of the sale; whoever has the link can show the QR, like the paper coupon.
+  shareToken:   { type: String, index: true, sparse: true },
   // Cancelled sales: who, when and why
   voidedAt:     { type: Date },
   voidedBy:     { type: mongoose.Schema.Types.ObjectId, ref: 'User' },

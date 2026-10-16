@@ -1,5 +1,5 @@
 import axios from 'axios';
-import Settings, { WA_TEMPLATE_DEFAULTS } from '../models/Settings.js';
+import Settings, { WA_LANGUAGE_DEFAULTS, WA_TEMPLATE_DEFAULTS } from '../models/Settings.js';
 import ApiResponse from '../utils/ApiResponse.js';
 import ApiError from '../utils/ApiError.js';
 import asyncHandler from '../utils/asyncHandler.js';
@@ -25,7 +25,7 @@ export const updateSettings = asyncHandler(async (req, res) => {
   const before = settings.toObject();
   const {
     templeName, templeNameMr, trustRegNumber, trustLegalName, templeAddress, templePhone, templeEmail, templeWebsite,
-    waEnabled, waPhoneNumberId, waAccessToken, waTemplates,
+    waEnabled, waPhoneNumberId, waAccessToken, waTemplates, waLanguages,
     smsEnabled, msg91AuthKey, msg91TemplateId,
     alertOnOutOfStock, alertOnLowStock, alertOnReorder,
     trustPAN, reg80GNumber, reg80GFrom, reg80GTo,
@@ -46,6 +46,9 @@ export const updateSettings = asyncHandler(async (req, res) => {
   if (waPhoneNumberId !== undefined) settings.waPhoneNumberId = waPhoneNumberId;
   if (waTemplates) {
     Object.keys(WA_TEMPLATE_DEFAULTS).forEach((k) => { if (waTemplates[k] !== undefined) settings.set(`waTemplates.${k}`, waTemplates[k]); });
+  }
+  if (waLanguages) {
+    Object.keys(WA_LANGUAGE_DEFAULTS).forEach((k) => { if (waLanguages[k] !== undefined) settings.set(`waLanguages.${k}`, waLanguages[k]); });
   }
   // Only update token if it doesn't look like a masked value
   if (waAccessToken && !waAccessToken.includes('•')) settings.waAccessToken = waAccessToken;

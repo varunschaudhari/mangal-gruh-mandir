@@ -1,5 +1,5 @@
 import axios from 'axios';
-import Settings, { WA_TEMPLATE_DEFAULTS } from '../models/Settings.js';
+import Settings, { WA_LANGUAGE_DEFAULTS, WA_TEMPLATE_DEFAULTS } from '../models/Settings.js';
 import { logger } from '../utils/logger.js';
 import { normaliseMobile } from '../utils/phone.js';
 
@@ -18,16 +18,29 @@ const fromEnv = (key) => {
   return v && !/^your_/i.test(v) ? v : '';   // .env.example's "your_…" samples count as not set
 };
 
-/** The WhatsApp settings: { enabled, phoneNumberId, accessToken, templates }. */
+/** The WhatsApp settings: { enabled, phoneNumberId, accessToken, templates, languages }. */
 export async function whatsappConfig() {
   const s = await Settings.getOrCreate();
   const saved = s.waTemplates || {};
+  const savedLanguages = s.waLanguages || {};
   return {
     enabled: Boolean(s.waEnabled),
     phoneNumberId: String(s.waPhoneNumberId || fromEnv('WA_PHONE_NUMBER_ID')).trim(),
     accessToken: String(s.waAccessToken || fromEnv('WA_ACCESS_TOKEN')).trim(),
     templates: Object.fromEntries(Object.entries(WA_TEMPLATE_DEFAULTS).map(([k, def]) => [k, String(saved[k] ?? def).trim()])),
+    languages: Object.fromEntries(Object.entries(WA_LANGUAGE_DEFAULTS).map(([k, def]) => [k, ['mr', 'en'].includes(savedLanguages[k]) ? savedLanguages[k] : def])),
   };
+}
+
+/**
+ * A message with an English and a Marathi version: the language chosen in Settings → WhatsApp
+ * first, and the other as the fallback (for when Meta has only one of them approved).
+ */
+export function bilingual(cfg, key, { en, mr }) {
+  const first = cfg?.languages?.[key] === 'en' ? 'en' : 'mr';
+  const body = { en, mr };
+  const other = first === 'mr' ? 'en' : 'mr';
+  return { language: first, body: body[first], fallback: { language: other, body: body[other] } };
 }
 
 /** Can messages be sent at all (switched on, number ID and token there)? */
@@ -86,10 +99,11 @@ const masked = (raw) => {
 
 /**
  * Sends one approved template. `body` = the {{1}}, {{2}}… values; or pass full `components`
- * (e.g. with an image header). Returns 'sent', 'off' (not set up / template not named) or
- * 'failed' (logged). Never throws.
+ * (e.g. with an image header). `fallback` ({ language, body | components }) is sent instead when
+ * Meta has no approved version in `language`. Returns 'sent', 'off' (not set up / template not
+ * named) or 'failed' (logged). Never throws.
  */
-export async function sendTemplate(cfg, { to, template, language = 'en', body = [], components, label = 'WhatsApp' }) {
+export async function sendTemplate(cfg, { to, template, language = 'en', body = [], components, label = 'WhatsApp', fallback }) {
   if (!whatsappReady(cfg) || !template) return 'off';
   const number = whatsappNumber(to);
   if (!number) {
@@ -110,6 +124,10 @@ export async function sendTemplate(cfg, { to, template, language = 'en', body = 
     return 'sent';
   } catch (err) {
     const e = err.response?.data?.error;
+    if (e?.code === 132001 && fallback) {
+      logger.info(`${label}: no approved "${language}" version of ${template}, sending "${fallback.language}"`);
+      return sendTemplate(cfg, { to, template, label, ...fallback });
+    }
     logger.error(`${label}: WhatsApp message failed`, {
       to: masked(number), template, language, error: e ? metaErrorText(e) : err.message,
     });

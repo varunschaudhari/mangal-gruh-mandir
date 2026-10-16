@@ -12,6 +12,9 @@ export const WA_TEMPLATE_DEFAULTS = {
   paymentStatus: 'payment_status_update',
   overdueSummary: 'payment_overdue_summary',
 };
+// Messages to devotees that have a Marathi version too: the language sent first (the other one is
+// sent when Meta has no approved version in it).
+export const WA_LANGUAGE_DEFAULTS = { donationThanks: 'mr', mahaprasadCoupons: 'mr' };
 
 const settingsSchema = new mongoose.Schema(
   {
@@ -30,6 +33,7 @@ const settingsSchema = new mongoose.Schema(
     waPhoneNumberId: { type: String, default: '' },
     waAccessToken:   { type: String, default: '' },
     waTemplates: Object.fromEntries(Object.entries(WA_TEMPLATE_DEFAULTS).map(([k, v]) => [k, { type: String, default: v }])),
+    waLanguages: Object.fromEntries(Object.entries(WA_LANGUAGE_DEFAULTS).map(([k, v]) => [k, { type: String, enum: ['mr', 'en'], default: v }])),
 
     // ── SMS (MSG91) ──────────────────────────────────────────────────────────
     smsEnabled:      { type: Boolean, default: false },

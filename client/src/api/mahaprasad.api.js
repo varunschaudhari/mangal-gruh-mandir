@@ -1,4 +1,6 @@
+import axios from 'axios';
 import api from './axios.js';
+import { serverUrl } from '../utils/platform.js';
 
 export const issueCoupons    = (data)    => api.post('/mahaprasad/issue', data);
 export const getDailySummary = (date)    => api.get('/mahaprasad/summary', { params: date ? { date } : {} });
@@ -17,6 +19,8 @@ export const reserveOffline     = (data) => api.post('/mahaprasad/offline/reserv
 export const getTodayForOffline = ()     => api.get('/mahaprasad/offline/today');
 export const getRedeemCopy      = ()     => api.get('/mahaprasad/offline/redeem-copy');
 export const syncOfflineCoupons = (data) => api.post('/mahaprasad/offline/sync',    data);
+// No sign-in: the devotee's coupon QR page (/m/:token)
+export const getPublicCoupons   = (token) => axios.get(serverUrl(`/api/public/mahaprasad/${token}`));
 // 200 when the server and its database are up, 503 when the database is down
 export const checkServer        = ()     => api.get('/health', { timeout: 5000 });
 

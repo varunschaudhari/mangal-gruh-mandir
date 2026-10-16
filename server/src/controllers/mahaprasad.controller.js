@@ -13,7 +13,10 @@ import { logger } from '../utils/logger.js';
 import { APP_TIMEZONE, localDateStr } from '../utils/dates.js';
 import { temple } from '../services/temple.service.js';
 import { sendCouponMessage } from '../services/mahaprasadNotify.service.js';
+import { couponPageUrl } from '../utils/publicUrl.js';
 const nanoid = () => randomBytes(6).toString('hex');
+// Unguessable: the coupon page link is as good as the paper coupon
+const newShareToken = () => randomBytes(12).toString('base64url');
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -183,6 +186,7 @@ export const issueCoupons = asyncHandler(async (req, res) => {
   await takePersons(couponDate, qty, settings.mahaprasadDailyCap || 0);
 
   const batchId  = nanoid(10);
+  const shareToken = newShareToken();
   const dateStr  = datePart(couponDate);
   const paid     = type === 'paid' && price > 0;
   const mode     = paymentMode === 'upi' ? 'upi' : 'cash';
@@ -210,6 +214,7 @@ export const issueCoupons = asyncHandler(async (req, res) => {
       batchId,
       groupSize,
       isGroup:      Boolean(isGroup),
+      shareToken,
     })), { ordered: true });
   } catch (err) {
     await undo();
@@ -291,9 +296,10 @@ export const issueCoupons = asyncHandler(async (req, res) => {
 
   logAction(req, { action: 'mahaprasad.issue', entity: 'MahaprasadCoupon', entityId: batchId, entityRef: coupons[0]._id, after: { qty, type, isGroup: Boolean(isGroup), groupSize, date: localDateStr(couponDate), occasion: type === 'free' ? occasion : undefined, mobile, amount: paid ? totalDue : 0, paymentMode: paid ? mode : undefined } });
   // Coupon numbers to the devotee's phone, in the background (only when WhatsApp / SMS is set up for it).
-  sendCouponMessage({ mobile, numbers, date: couponDate, persons: qty });
+  const shareUrl = couponPageUrl(shareToken);
+  sendCouponMessage({ mobile, numbers, date: couponDate, persons: qty, link: shareUrl });
   const msg = isGroup ? `Group coupon (${qty} persons) issued` : `${qty} coupon(s) issued`;
-  res.status(201).json(new ApiResponse(201, { coupons, batchId, drawerChange }, msg));
+  res.status(201).json(new ApiResponse(201, { coupons, batchId, drawerChange, shareUrl }, msg));
 });
 
 // GET /mahaprasad/summary
@@ -447,6 +453,7 @@ export const getBatches = asyncHandler(async (req, res) => {
       couponTo:   { $last: '$couponNumber' },
       groupSize:  { $first: '$groupSize' },
       isGroup:    { $first: '$isGroup' },
+      shareToken: { $first: '$shareToken' },
       statuses:   { $addToSet: '$status' },
     }},
     { $sort: { issuedAt: -1 } },
@@ -457,9 +464,10 @@ export const getBatches = asyncHandler(async (req, res) => {
   const userIds = [...new Set(batches.map((b) => b.issuedById?.toString()).filter(Boolean))];
   const users   = await User.find({ _id: { $in: userIds } }).select('name').lean();
   const userMap = Object.fromEntries(users.map((u) => [u._id.toString(), u.name]));
-  const result  = batches.map((b) => ({
+  const result  = batches.map(({ shareToken, ...b }) => ({
     ...b,
     issuedBy: b.issuedById ? { _id: b.issuedById, name: userMap[b.issuedById.toString()] || '—' } : null,
+    shareUrl: shareToken ? couponPageUrl(shareToken) : null,   // sales from before links existed have none
   }));
 
   res.json(new ApiResponse(200, result));
@@ -791,6 +799,28 @@ export const getTodayForOffline = asyncHandler(async (req, res) => {
   res.json(new ApiResponse(200, coupons));
 });
 
+// GET /api/public/mahaprasad/:token — no sign-in. The page the devotee opens from the WhatsApp /
+// SMS link: each coupon of the sale with its QR (the coupon number, as on paper), for the food
+// counter to scan off the phone. The link is as good as the paper coupon — each coupon is still
+// served once. No mobile number or amount.
+export const publicCoupons = asyncHandler(async (req, res) => {
+  const token = String(req.params.token || '');
+  if (!/^[A-Za-z0-9_-]{10,40}$/.test(token)) throw new ApiError(404, 'Coupon not found');
+  const [coupons, settings] = await Promise.all([
+    MahaprasadCoupon.find({ shareToken: token, status: { $ne: 'reserved' } })
+      .select('-_id couponNumber date type occasion status groupSize isGroup redeemedAt')
+      .sort({ couponNumber: 1 })
+      .lean(),
+    Settings.getOrCreate(),
+  ]);
+  if (!coupons.length) throw new ApiError(404, 'Coupon not found');
+  res.json(new ApiResponse(200, {
+    coupons,
+    validityDays: settings.mahaprasadCouponValidityDays ?? 1,
+    temple: temple(),
+  }));
+});
+
 // GET /mahaprasad/offline/redeem-copy
 // The food counter's copy for working offline: every coupon that may still be served (within
 // its validity, up to a week back, and any for later dates), plus the ones already served or
@@ -835,6 +865,8 @@ export const syncOffline = asyncHandler(async (req, res) => {
   for (const day of days.values()) await personsCounter(day);
 
   const touched = new Map(); // batchId → payment details, for the paid batches in this sync
+  const links   = new Map(); // batchId → share token, so a sale's coupons share one link
+  const linkFor = (batchId) => { if (!links.has(batchId)) links.set(batchId, newShareToken()); return links.get(batchId); };
   const paymentFor = (batchId, c, item, issuedAt) => {
     if (!touched.has(batchId)) touched.set(batchId, { date: c.date, mobile: item.mobile || '', issuedBy: c.issuedBy, issuedAt,
       paymentMode: item.paymentMode === 'upi' ? 'upi' : 'cash' });
@@ -862,7 +894,7 @@ export const syncOffline = asyncHandler(async (req, res) => {
         status: 'issued', type, amount, issuedAt, batchId,
         occasion: type === 'free' ? (item.occasion || '') : '',
         mobile:   item.mobile || '',
-        groupSize: 1, isGroup: false,
+        groupSize: 1, isGroup: false, shareToken: linkFor(batchId),
       } },
     );
     if (!updated) { results.issued.skipped++; results.issued.failed.push({ couponNumber: item.couponNumber, reason: 'changed' }); continue; }

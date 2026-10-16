@@ -127,6 +127,10 @@ export const updateSettings = {
       paymentStatus: waTemplate('Payment approved / rejected'),
       overdueSummary: waTemplate('Overdue invoices'),
     }, { error: 'WhatsApp templates must be a list of names' }).optional(),
+    waLanguages: z.object({
+      donationThanks: optionalOneOf(['mr', 'en'], 'Donation message language'),
+      mahaprasadCoupons: optionalOneOf(['mr', 'en'], 'Mahaprasad message language'),
+    }, { error: 'WhatsApp languages must be a list' }).optional(),
     smsEnabled: flag('SMS'),
     msg91AuthKey: clearableText('MSG91 key', { max: 200 }),
     msg91TemplateId: clearableText('MSG91 template', { max: 100 }),

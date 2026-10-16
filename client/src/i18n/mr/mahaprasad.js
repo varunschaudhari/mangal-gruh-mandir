@@ -221,6 +221,18 @@ export default {
   'These were already redeemed on another device, cancelled, or never sold.':
     'हे कूपन आधीच दुसऱ्या उपकरणावर स्वीकारले गेले होते, रद्द झाले होते, किंवा कधी विकलेच गेले नव्हते.',
   'Do not serve': 'प्रसाद देऊ नका',
+  // ── Devotee's coupon QR page (/m/…) ──────────────────────────────────────
+  'Mahaprasad coupon': 'महाप्रसाद कूपन',
+  'Served · {time}': 'प्रसाद दिला · {time}',
+  'Served': 'प्रसाद दिला',
+  'Cancelled — not valid': 'रद्द — वैध नाही',
+  'Coupon not found': 'कूपन सापडले नाही',
+  'Could not load the coupon': 'कूपन उघडता आले नाही',
+  'This link may be incomplete. Please open the full link from your message, or ask at the Mahaprasad counter.':
+    'ही लिंक अपूर्ण असू शकते. संदेशातील पूर्ण लिंक उघडा, किंवा महाप्रसाद काउंटरवर विचारा.',
+  'Show this QR at the Mahaprasad hall. Each coupon can be used once.':
+    'हा QR महाप्रसाद हॉलमध्ये दाखवा. प्रत्येक कूपन एकदाच वापरता येते.',
+  'If the scanner can’t read it, turn up the screen brightness.': 'स्कॅन होत नसल्यास स्क्रीनचा प्रकाश वाढवा.',
   'No offline copy on this phone yet — it downloads the coupons once it’s connected':
     'या फोनवर अजून ऑफलाइन प्रत नाही — इंटरनेट मिळाल्यावर कूपन आपोआप डाउनलोड होतील',
   'Coupon expired — was valid for {n} day(s) from {date}': 'कूपनची मुदत संपली — {date} पासून {n} दिवसांसाठी वैध होते',

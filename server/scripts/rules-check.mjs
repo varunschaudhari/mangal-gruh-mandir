@@ -348,6 +348,25 @@ async function mahaprasadChecks(api, today) {
   const sneaky = await redeemer('POST', '/mahaprasad/offline/sync', { issued: [{ couponNumber: poolB[0], type: 'free' }], redeemed: [] });
   check(sneaky.status === 403, 'the food counter cannot send offline sales', show(sneaky));
 
+  // The devotee's QR link: one per sale, no sign-in, no mobile number or amount; shows served /
+  // cancelled as soon as it happens
+  const linked = (await issue(counter, { quantity: 2, paymentMode: 'upi' })).body.data;
+  const linkToken = linked.shareUrl?.match(/\/m\/([A-Za-z0-9_-]+)$/)?.[1];
+  const page = async (tok) => {
+    const r = await fetch(`${BASE}/api/public/mahaprasad/${tok}`);
+    return { status: r.status, body: await r.json().catch(() => ({})) };
+  };
+  const pg = await page(linkToken);
+  check(Boolean(linkToken) && pg.status === 200 && pg.body.data.coupons.length === 2
+    && pg.body.data.coupons.every((c) => c.status === 'issued' && !('mobile' in c) && !('amount' in c) && !('_id' in c)),
+    'issuing gives a QR page link: both coupons, without sign-in, mobile number or amount', show(pg));
+  check((await api('GET', '/mahaprasad/batches')).body.data.some((b) => b._id === linked.batchId && b.shareUrl === linked.shareUrl),
+    'the batch list carries the same link (for "Send on WhatsApp")');
+  await redeemer('PATCH', `/mahaprasad/redeem/${linked.coupons[0].couponNumber}`);
+  check((await page(linkToken)).body.data.coupons.find((c) => c.couponNumber === linked.coupons[0].couponNumber)?.status === 'redeemed',
+    'the page shows a coupon as served once it is scanned');
+  check((await page('NoSuchToken123')).status === 404 && (await page('bad')).status === 404, 'an unknown or malformed link → not found');
+
   // Groups count as persons in reports
   const day = `${today.slice(0, 4)}-${today.slice(4, 6)}-${today.slice(6)}`;
   const reportTotal = async () => (await api('GET', `/mahaprasad/report?from=${day}&to=${day}`)).body.data.totals.total;

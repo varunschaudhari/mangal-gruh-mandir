@@ -427,11 +427,25 @@ free, single or group; one number per issue). It is saved with the coupons, show
 by coupon number or mobile) and in the Excel export. Coupons issued offline keep the number and
 sync it. **Phones still running an older app can't issue coupons** until they install the new APK.
 
+Each sale gets a **QR link** (`https://<domain>/m/<code>`): a page with the coupons' QR codes — one per
+coupon, one for a whole group — that the food counter scans off the devotee's phone, just like the
+paper coupon. No sign-in; it shows no mobile number or amount, and turns to "Served" after the scan.
+Each coupon is still served only once. Sales from before this change have no link.
+
 The counter's **WhatsApp** button (after an issue, at the bottom next to Reprint, and on each row
-of Today's Batches) opens WhatsApp with the coupon numbers ready to send — no setup needed.
-Automatic sending is optional: name the Meta-approved template in Settings → WhatsApp →
-*Mahaprasad coupons* (the wording to submit is shown there), and/or set `MSG91_MAHAPRASAD_TEMPLATE_ID`
-(needs SMS turned on) in `server/.env` and restart the server.
+of Today's Batches) opens WhatsApp with the coupon numbers and the QR link ready to send — no setup
+needed. **Automatic sending** (optional):
+
+- **WhatsApp:** in Meta WhatsApp Manager → Message templates → Create: category **Utility**, name
+  `mahaprasad_coupon_qr`, language **English**, no header, body:
+  ```
+  Namaste! Your Mahaprasad coupon(s) at Shri Mangal Grah Mandir, Amalner for {{1}}: {{2}} ({{3}}). Your coupon QR: {{4}} Please show it at the Mahaprasad hall.
+  ```
+  Samples for review: `{{1}}` Fri, 16 Oct 2026 · `{{2}}` MP-20261016-007 to 009 (3) · `{{3}}` 3 persons ·
+  `{{4}}` https://mandir.aumora.io/m/AbCdEfGh1234. Once it shows **Active**, type its name in
+  Settings → WhatsApp → *Mahaprasad coupons*. (The body must have exactly these 4 parts, or Meta refuses each message.)
+- **SMS:** an MSG91 Flow with a DLT-approved template using `##date##`, `##coupons##`, `##persons##`
+  and `##link##`; set `MSG91_MAHAPRASAD_TEMPLATE_ID` in `server/.env` (SMS turned on in Settings) and restart the server.
 
 ## 14. Automatic deploys from GitHub
 

@@ -105,6 +105,7 @@ const BookingCheckIn = lazyPage(() => import('./pages/bookings/BookingCheckIn.js
 const HallScreen = lazyPage(() => import('./pages/bookings/HallScreen.jsx'));
 const BookingSetup = lazyPage(() => import('./pages/bookings/BookingSetup.jsx'));
 const PublicReceipt = lazyPage(() => import('./pages/bookings/PublicReceipt.jsx'));
+const PublicCoupons = lazyPage(() => import('./pages/mahaprasad/PublicCoupons.jsx'));
 
 const App = () => (
   <>
@@ -116,6 +117,8 @@ const App = () => (
     <Route path="/login" element={<Login />} />
     {/* Booking receipt link sent to devotees — no sign-in */}
     <Route path="/r/:token" element={<PublicReceipt />} />
+    {/* Mahaprasad coupon QR link sent to devotees — no sign-in */}
+    <Route path="/m/:token" element={<PublicCoupons />} />
 
     <Route element={<PrivateRoute />}>
       {/* TV at the hall: full screen, no sidebar */}

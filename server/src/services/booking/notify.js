@@ -6,9 +6,7 @@ import Settings from '../../models/Settings.js';
 import { logger } from '../../utils/logger.js';
 import { sendTemplate, whatsappConfig, whatsappReady } from '../whatsappClient.service.js';
 import { hallNames, hallTitle } from './halls.js';
-
-// Public web address of the app, for receipt links sent to devotees.
-const appUrl = () => (process.env.PUBLIC_APP_URL || (process.env.CLIENT_URL || 'https://mandir.aumora.io').split(',')[0]).trim().replace(/\/$/, '');
+import { appUrl } from '../../utils/publicUrl.js';
 
 export const receiptUrl = (booking) => `${appUrl()}/r/${booking.receiptToken}`;
 // The counter slip as a picture (QR included) — the image at the top of the WhatsApp receipt
