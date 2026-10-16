@@ -86,13 +86,32 @@ const TABS = [
 
 const TAB_FIELDS = {
   temple:     ['templeName', 'templeNameMr', 'trustLegalName', 'templeAddress', 'templePhone', 'templeEmail', 'templeWebsite', 'trustRegNumber'],
-  whatsapp:   ['waEnabled', 'waPhoneNumberId', 'waAccessToken', 'waTemplateName'],
+  whatsapp:   ['waEnabled', 'waPhoneNumberId', 'waAccessToken', 'waTemplates'],
   sms:        ['smsEnabled', 'msg91AuthKey', 'msg91TemplateId'],
   alerts:     ['alertOnOutOfStock', 'alertOnLowStock', 'alertOnReorder'],
   tax80g:     ['trustPAN', 'reg80GNumber', 'reg80GFrom', 'reg80GTo'],
   assets:     ['assetMaxBorrowDays'],
   mahaprasad: ['mahaprasadDayPricing', 'mahaprasadDailyCap', 'mahaprasadCouponValidityDays', 'mahaprasadPrinterName'],
 };
+
+// The WhatsApp messages the app sends (besides the booking receipt, set in Bookings → Setup), with
+// the wording to submit to Meta as a Utility template. The server sends the {{…}} values in this order.
+const WA_TEMPLATES = [
+  { key: 'stockAlert', label: 'Stock alerts', to: 'To staff with WhatsApp alerts on (Users)', example: 'stock_alert',
+    text: 'Stock alert from Shri Mangal Grah Mandir store: {{1}} in {{2}} is down to {{3}} {{4}} ({{5}}). Please arrange a refill.' },
+  { key: 'paymentApproval', label: 'Payment waiting for approval', to: 'To payment approvers', example: 'payment_approval_request',
+    text: 'Shri Mangal Grah Mandir office: supplier payment {{1}} to {{2}} for ₹{{3}}, submitted by {{4}}, is waiting for your approval. Please review it in the app.' },
+  { key: 'paymentStatus', label: 'Payment approved or rejected', to: 'To the person who submitted it', example: 'payment_status_update',
+    text: 'Shri Mangal Grah Mandir office: supplier payment {{1}} for ₹{{2}} has been {{3}} by {{4}}. Please see the app for details.' },
+  { key: 'overdueSummary', label: 'Overdue supplier invoices (daily)', to: 'To payment approvers', example: 'payment_overdue_summary',
+    text: 'Shri Mangal Grah Mandir office: {{1}} supplier(s) have {{2}} overdue invoice(s) totalling ₹{{3}}. The oldest is {{4}} day(s) overdue. Please review payments in the app.' },
+  { key: 'assetReminder', label: 'Asset return reminders', to: 'To borrowers', example: 'asset_reminder',
+    text: 'Namaste {{1}}, this is about {{2}} (quantity {{3}}) from Shri Mangal Grah Mandir, to be returned on {{4}}: {{5}}. Thank you.' },
+  { key: 'donationThanks', label: 'Donation thank-you', to: 'To donors', example: 'donation_thankyou',
+    text: 'Dear {{1}}, thank you for your generous donation of ₹{{2}} towards {{3}} on {{4}}. Receipt no. {{5}}. 🙏 Jai Jai Mangal Grah Mandir!' },
+  { key: 'mahaprasadCoupons', label: 'Mahaprasad coupons', to: 'To devotees', example: 'mahaprasad_coupons',
+    text: 'Namaste! Your Mahaprasad coupon(s) at Shri Mangal Grah Mandir, Amalner for {{1}}: {{2}} ({{3}}). Please show this at the Mahaprasad hall.' },
+];
 
 // ── Save footer (per tab) ─────────────────────────────────────────────────────
 
@@ -262,8 +281,8 @@ const Settings = () => {
         {activeTab === 'whatsapp' && (
           <>
             <Toggle
-              label={t('Enable WhatsApp Alerts')}
-              description={t('Send WhatsApp messages when stock drops below threshold')}
+              label={t('Enable WhatsApp messages')}
+              description={t('Booking receipts, donation thank-yous, coupons and staff alerts. Each message also needs its approved template.')}
               checked={waEnabled}
               onChange={(e) => setValue('waEnabled', e.target.checked, { shouldDirty: true })}
             />
@@ -275,27 +294,46 @@ const Settings = () => {
                 <Field label={t('Access Token')} hint={t('Paste new value to update — use permanent System User token')}>
                   <SecretInput reg={register} name="waAccessToken" placeholder={t('EAAxxxxxxxx…')} hint={t('Masked for security — paste to update')} />
                 </Field>
-                <Field label={t('Template Name')} hint={t('Must match your approved template in Meta Business Manager')}>
-                  <input {...register('waTemplateName')} className="input" placeholder="stock_alert" />
-                </Field>
+                <div className="rounded-lg border border-gray-200 p-4 space-y-3">
+                  <div>
+                    <p className="text-sm font-semibold text-gray-700">{t('Message templates')}</p>
+                    <p className="text-xs text-gray-400 mt-0.5">{t('The name of each approved template in WhatsApp Manager. Leave a name empty to not send that message. The booking receipt’s template is in Bookings → Setup.')}</p>
+                  </div>
+                  {WA_TEMPLATES.map(({ key, label, to, example, text }) => (
+                    <div key={key} className="border-t border-gray-100 pt-3">
+                      <div className="grid grid-cols-1 sm:grid-cols-[1fr_15rem] gap-1.5 sm:gap-3 sm:items-center">
+                        <label htmlFor={`wa-${key}`} className="text-sm text-gray-700">
+                          {t(label)}
+                          <span className="block text-xs text-gray-400">{t(to)}</span>
+                        </label>
+                        <input id={`wa-${key}`} {...register(`waTemplates.${key}`)} className="input font-mono text-sm"
+                          placeholder={example} autoComplete="off" autoCapitalize="none" spellCheck={false} />
+                      </div>
+                      <details className="mt-1.5">
+                        <summary className="cursor-pointer text-xs text-green-700">{t('Wording to submit to Meta')}</summary>
+                        <p className="mt-1 rounded-lg bg-gray-50 p-2.5 font-mono text-xs leading-relaxed text-gray-700 break-words select-all">{text}</p>
+                      </details>
+                    </div>
+                  ))}
+                </div>
                 <div className="text-xs text-green-700 bg-green-50 border border-green-200 rounded-lg p-3 space-y-1">
                   <p className="font-semibold">{t('Quick setup:')}</p>
-                  <p>1. developers.facebook.com → Create App → Add WhatsApp</p>
-                  <p>{t('2. Create a message template named')} <span className="font-mono font-bold">stock_alert</span></p>
+                  <p>{t('1. Meta Business Suite → WhatsApp Manager: add the temple’s number')}</p>
+                  <p>{t('2. Create each template above (category Utility, language English) and wait for approval')}</p>
                   <p>{t('3. Generate a permanent System User token (never expires)')}</p>
-                  <p>{t('4. Enable WhatsApp on individual users in User Management')}</p>
+                  <p>{t('4. For stock and payment alerts, turn on WhatsApp for each person in Users')}</p>
                 </div>
                 <div className="rounded-lg border border-green-200 bg-green-50/30 p-4">
                   <p className="text-sm font-semibold text-gray-700 mb-1">{t('Test Connection')}</p>
                   <p className="text-xs text-gray-400 mb-3">
-                    {t('Sends a')} <span className="font-mono">hello_world</span> {t('template to verify your credentials. The recipient must be in your Meta test phone list.')}
+                    {t('Sends Meta’s ready-made hello_world message to check the Phone Number ID and token. Save them first. With Meta’s test number, the phone must be in its allowed list.')}
                   </p>
                   <div className="flex gap-2">
                     <input
                       type="tel"
                       value={testPhone}
                       onChange={(e) => { setTestPhone(e.target.value); setTestResult(null); }}
-                      placeholder={t('919876543210  (no + or spaces)')}
+                      placeholder="98765 43210"
                       className="input flex-1 text-sm font-mono"
                     />
                     <button

@@ -4,6 +4,7 @@ import BookingSettings from '../../models/BookingSettings.js';
 import SevaType from '../../models/SevaType.js';
 import Settings from '../../models/Settings.js';
 import { logger } from '../../utils/logger.js';
+import { sendTemplate, whatsappConfig, whatsappReady } from '../whatsappClient.service.js';
 import { hallNames, hallTitle } from './halls.js';
 
 // Public web address of the app, for receipt links sent to devotees.
@@ -62,7 +63,7 @@ export function whatsappReceipt(booking, { halls = {}, lang = 'en', sevaNameMr =
 }
 
 /**
- * WhatsApp receipt via the Meta Cloud API (Settings → WhatsApp). Needs an approved template
+ * The WhatsApp receipt (sent through whatsappClient.service.js). Needs an approved template
  * (Utility) under one name in English and / or Marathi, with — when it has the picture —
  * Header: Image (the slip), and the body:
  *   en "Namaste {{1}}, your {{2}} at Shri Mangal Grah Mandir, Amalner is booked for {{3}}.
@@ -70,18 +71,6 @@ export function whatsappReceipt(booking, { halls = {}, lang = 'en', sevaNameMr =
  *   mr "नमस्कार {{1}}, श्री मंगळग्रह मंदिर, अमळनेर येथे आपली {{2}} सेवा नोंदवली आहे — {{3}}.
  *       पावती {{4}}: {{5}} कृपया हे सभागृहात दाखवा."
  */
-async function sendWhatsApp(booking, cfg, template, message) {
-  await axios.post(
-    `https://graph.facebook.com/v19.0/${cfg.phoneNumberId}/messages`,
-    {
-      messaging_product: 'whatsapp',
-      to: `91${booking.devotee.phone}`,
-      type: 'template',
-      template: { name: template, ...message },
-    },
-    { headers: { Authorization: `Bearer ${cfg.accessToken}`, 'Content-Type': 'application/json' }, timeout: 15000 },
-  );
-}
 
 // SMS via an MSG91 Flow with a DLT-approved template using ##name##, ##seva##, ##when##, ##receipt##, ##link##.
 async function sendSms(booking, cfg, templateId, halls) {
@@ -104,22 +93,16 @@ export async function sendReceipt(booking, { force = false } = {}) {
   const result = { whatsapp: 'off', sms: 'off' };
   try {
     const [settings, bs, halls] = await Promise.all([Settings.getOrCreate(), BookingSettings.getOrCreate(), hallNames()]);
-    const wa = {
-      phoneNumberId: settings.waPhoneNumberId || process.env.WA_PHONE_NUMBER_ID,
-      accessToken: settings.waAccessToken || process.env.WA_ACCESS_TOKEN,
-    };
-    if (settings.waEnabled && wa.phoneNumberId && wa.accessToken && (force || bs.whatsappAuto) && bs.whatsappTemplate) {
-      try {
-        const lang = receiptLanguage(booking, bs);
-        const sevaNameMr = lang === 'mr' ? (await SevaType.findById(booking.sevaType).select('nameMr').lean())?.nameMr : '';
-        await sendWhatsApp(booking, wa, bs.whatsappTemplate,
-          whatsappReceipt(booking, { halls, lang, sevaNameMr, withImage: bs.whatsappImage !== false }));
-        result.whatsapp = 'sent';
-        await Booking.updateOne({ _id: booking._id }, { $set: { whatsappSentAt: new Date() } });
-      } catch (err) {
-        result.whatsapp = 'failed';
-        logger.error('Booking WhatsApp failed', { receipt: booking.receiptNo, error: err.response?.data?.error?.message || err.message });
-      }
+    const wa = await whatsappConfig();
+    if (whatsappReady(wa) && (force || bs.whatsappAuto) && bs.whatsappTemplate) {
+      const lang = receiptLanguage(booking, bs);
+      const sevaNameMr = lang === 'mr' ? (await SevaType.findById(booking.sevaType).select('nameMr').lean())?.nameMr : '';
+      const message = whatsappReceipt(booking, { halls, lang, sevaNameMr, withImage: bs.whatsappImage !== false });
+      result.whatsapp = await sendTemplate(wa, {
+        to: booking.devotee.phone, template: bs.whatsappTemplate, language: message.language.code,
+        components: message.components, label: `Booking receipt ${booking.receiptNo}`,
+      });
+      if (result.whatsapp === 'sent') await Booking.updateOne({ _id: booking._id }, { $set: { whatsappSentAt: new Date() } });
     }
     const sms = { authKey: settings.msg91AuthKey || process.env.MSG91_AUTH_KEY };
     if (settings.smsEnabled && sms.authKey && (force || bs.smsAuto) && bs.smsTemplateId) {

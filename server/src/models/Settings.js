@@ -1,6 +1,18 @@
 import mongoose from 'mongoose';
 import singleton from './singleton.js';
 
+// WhatsApp template names (approved in WhatsApp Manager). An empty name means that message is not
+// sent. The booking receipt's template is in BookingSettings.
+export const WA_TEMPLATE_DEFAULTS = {
+  stockAlert: 'stock_alert',
+  donationThanks: 'donation_thankyou',
+  mahaprasadCoupons: '',                      // off until named: the counter also has a "WhatsApp" button
+  assetReminder: 'asset_reminder',
+  paymentApproval: 'payment_approval_request',
+  paymentStatus: 'payment_status_update',
+  overdueSummary: 'payment_overdue_summary',
+};
+
 const settingsSchema = new mongoose.Schema(
   {
     // ── Temple Info ──────────────────────────────────────────────────────────
@@ -17,7 +29,7 @@ const settingsSchema = new mongoose.Schema(
     waEnabled:       { type: Boolean, default: false },
     waPhoneNumberId: { type: String, default: '' },
     waAccessToken:   { type: String, default: '' },
-    waTemplateName:  { type: String, default: 'stock_alert' },
+    waTemplates: Object.fromEntries(Object.entries(WA_TEMPLATE_DEFAULTS).map(([k, v]) => [k, { type: String, default: v }])),
 
     // ── SMS (MSG91) ──────────────────────────────────────────────────────────
     smsEnabled:      { type: Boolean, default: false },

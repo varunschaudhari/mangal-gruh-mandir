@@ -1,10 +1,11 @@
 import axios from 'axios';
-import Settings from '../models/Settings.js';
+import Settings, { WA_TEMPLATE_DEFAULTS } from '../models/Settings.js';
 import ApiResponse from '../utils/ApiResponse.js';
 import ApiError from '../utils/ApiError.js';
 import asyncHandler from '../utils/asyncHandler.js';
 import { changedValues, logAction, maskSecret } from '../services/audit.service.js';
 import { refreshTemple } from '../services/temple.service.js';
+import { GRAPH_VERSION, metaErrorText, whatsappConfig, whatsappNumber } from '../services/whatsappClient.service.js';
 
 // The WhatsApp access token and MSG91 key never leave the server in full — only the last 6 characters.
 const withMaskedKeys = (settings) => {
@@ -24,7 +25,7 @@ export const updateSettings = asyncHandler(async (req, res) => {
   const before = settings.toObject();
   const {
     templeName, templeNameMr, trustRegNumber, trustLegalName, templeAddress, templePhone, templeEmail, templeWebsite,
-    waEnabled, waPhoneNumberId, waAccessToken, waTemplateName,
+    waEnabled, waPhoneNumberId, waAccessToken, waTemplates,
     smsEnabled, msg91AuthKey, msg91TemplateId,
     alertOnOutOfStock, alertOnLowStock, alertOnReorder,
     trustPAN, reg80GNumber, reg80GFrom, reg80GTo,
@@ -43,7 +44,9 @@ export const updateSettings = asyncHandler(async (req, res) => {
 
   if (waEnabled       !== undefined) settings.waEnabled       = waEnabled;
   if (waPhoneNumberId !== undefined) settings.waPhoneNumberId = waPhoneNumberId;
-  if (waTemplateName  !== undefined) settings.waTemplateName  = waTemplateName;
+  if (waTemplates) {
+    Object.keys(WA_TEMPLATE_DEFAULTS).forEach((k) => { if (waTemplates[k] !== undefined) settings.set(`waTemplates.${k}`, waTemplates[k]); });
+  }
   // Only update token if it doesn't look like a masked value
   if (waAccessToken && !waAccessToken.includes('•')) settings.waAccessToken = waAccessToken;
 
@@ -81,31 +84,29 @@ export const updateSettings = asyncHandler(async (req, res) => {
   res.json(new ApiResponse(200, withMaskedKeys(settings), 'Settings saved'));
 });
 
+// Meta's ready-made "hello_world" template (every WhatsApp account has it): checks the number ID
+// and token before the switch is turned on.
 export const testWhatsApp = asyncHandler(async (req, res) => {
-  const { phone } = req.body;
-  if (!phone) throw new ApiError(400, 'Phone number is required (with country code, e.g. 919876543210)');
-
-  const settings = await Settings.getOrCreate();
-  const phoneNumberId = settings.waPhoneNumberId || process.env.WA_PHONE_NUMBER_ID;
-  const accessToken   = settings.waAccessToken   || process.env.WA_ACCESS_TOKEN;
-
+  const { phoneNumberId, accessToken } = await whatsappConfig();
   if (!phoneNumberId) throw new ApiError(400, 'WhatsApp Phone Number ID is not configured');
   if (!accessToken)   throw new ApiError(400, 'WhatsApp Access Token is not configured');
+  const to = whatsappNumber(req.body.phone);
+  if (!to) throw new ApiError(400, 'Enter a 10-digit mobile number (or one starting with + and the country code)');
 
   try {
     await axios.post(
-      `https://graph.facebook.com/v19.0/${phoneNumberId}/messages`,
+      `https://graph.facebook.com/${GRAPH_VERSION}/${phoneNumberId}/messages`,
       {
         messaging_product: 'whatsapp',
-        to: phone,
+        to,
         type: 'template',
         template: { name: 'hello_world', language: { code: 'en_US' } },
       },
-      { headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' } }
+      { headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' }, timeout: 15000 }
     );
-    res.json(new ApiResponse(200, null, `Test message sent to ${phone}. Check WhatsApp!`));
+    res.json(new ApiResponse(200, null, `Test message sent to +${to}. Check WhatsApp!`));
   } catch (err) {
     const metaError = err.response?.data?.error;
-    throw new ApiError(400, metaError?.message || 'Failed to send WhatsApp message');
+    throw new ApiError(400, metaErrorText(metaError) || 'Failed to send WhatsApp message');
   }
 });

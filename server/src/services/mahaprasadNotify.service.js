@@ -1,12 +1,13 @@
 import axios from 'axios';
 import Settings from '../models/Settings.js';
 import { logger } from '../utils/logger.js';
+import { sendTemplate, whatsappConfig } from './whatsappClient.service.js';
 
 // Sends the Mahaprasad coupon numbers to the devotee's mobile after an issue at the counter.
 // Automatic only once an approved message is set up (otherwise the counter's "Send on WhatsApp"
 // button opens WhatsApp with the message ready):
-//   WhatsApp — Settings → WhatsApp turned on, and WA_MAHAPRASAD_TEMPLATE = the name of a
-//              Meta-approved template with the body
+//   WhatsApp — Settings → WhatsApp turned on, and the Mahaprasad template named there (a
+//              Meta-approved template) with the body
 //              "Namaste! Your Mahaprasad coupon(s) at Shri Mangal Grah Mandir, Amalner for {{1}}:
 //               {{2}} ({{3}}). Please show this at the Mahaprasad hall."
 //   SMS      — Settings → SMS turned on, and MSG91_MAHAPRASAD_TEMPLATE_ID = an MSG91 Flow with a
@@ -40,26 +41,10 @@ export async function sendCouponMessage({ mobile, numbers, date, persons }) {
   try {
     const settings = await Settings.getOrCreate();
 
-    const waTemplate = process.env.WA_MAHAPRASAD_TEMPLATE;
-    const wa = { phoneNumberId: settings.waPhoneNumberId || process.env.WA_PHONE_NUMBER_ID, accessToken: settings.waAccessToken || process.env.WA_ACCESS_TOKEN };
-    if (settings.waEnabled && waTemplate && wa.phoneNumberId && wa.accessToken) {
-      try {
-        await axios.post(`https://graph.facebook.com/v19.0/${wa.phoneNumberId}/messages`, {
-          messaging_product: 'whatsapp',
-          to: `91${mobile}`,
-          type: 'template',
-          template: {
-            name: waTemplate,
-            language: { code: 'en' },
-            components: [{ type: 'body', parameters: [when, coupons, people].map((text) => ({ type: 'text', text })) }],
-          },
-        }, { headers: { Authorization: `Bearer ${wa.accessToken}`, 'Content-Type': 'application/json' }, timeout: 15000 });
-        result.whatsapp = 'sent';
-      } catch (err) {
-        result.whatsapp = 'failed';
-        logger.error('Mahaprasad WhatsApp failed', { coupons, error: err.response?.data?.error?.message || err.message });
-      }
-    }
+    const wa = await whatsappConfig();
+    result.whatsapp = await sendTemplate(wa, {
+      to: mobile, template: wa.templates.mahaprasadCoupons, label: 'Mahaprasad coupons', body: [when, coupons, people],
+    });
 
     const smsTemplate = process.env.MSG91_MAHAPRASAD_TEMPLATE_ID;
     const authKey = settings.msg91AuthKey || process.env.MSG91_AUTH_KEY;

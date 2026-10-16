@@ -99,6 +99,10 @@ export const roleById = { params: idParams('Role id') };
 
 // ── Settings ────────────────────────────────────────────────────────────────
 const dayPrice = optionalNumber('Price', { min: 0, max: 100000 });
+// A WhatsApp template's name as in WhatsApp Manager; empty = that message is not sent
+const waTemplate = (label) => z.preprocess((v) => (typeof v === 'string' ? v.trim() : v === null ? '' : v),
+  z.string({ error: `${label} template must be text` }).max(512, `${label} template name is too long`)
+    .regex(/^[a-z0-9_]*$/, `${label} template: use the name exactly as in WhatsApp Manager (small letters, numbers and _)`).optional());
 const clearableDate = z.union([z.literal(''), z.null(), optionalDate('Date')]).optional();
 
 export const updateSettings = {
@@ -114,7 +118,15 @@ export const updateSettings = {
     waEnabled: flag('WhatsApp'),
     waPhoneNumberId: clearableText('WhatsApp phone number id', { max: 50 }),
     waAccessToken: clearableText('WhatsApp access token', { max: 1000 }),
-    waTemplateName: clearableText('WhatsApp template', { max: 100 }),
+    waTemplates: z.object({
+      stockAlert: waTemplate('Stock alert'),
+      donationThanks: waTemplate('Donation thank-you'),
+      mahaprasadCoupons: waTemplate('Mahaprasad coupons'),
+      assetReminder: waTemplate('Asset reminder'),
+      paymentApproval: waTemplate('Payment approval'),
+      paymentStatus: waTemplate('Payment approved / rejected'),
+      overdueSummary: waTemplate('Overdue invoices'),
+    }, { error: 'WhatsApp templates must be a list of names' }).optional(),
     smsEnabled: flag('SMS'),
     msg91AuthKey: clearableText('MSG91 key', { max: 200 }),
     msg91TemplateId: clearableText('MSG91 template', { max: 100 }),

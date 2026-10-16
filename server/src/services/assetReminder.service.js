@@ -1,5 +1,6 @@
 import axios from 'axios';
 import AssetTransaction from '../models/AssetTransaction.js';
+import { sendTemplate, whatsappConfig } from './whatsappClient.service.js';
 
 async function markOverdueTransactions() {
   const result = await AssetTransaction.updateMany(
@@ -9,13 +10,11 @@ async function markOverdueTransactions() {
   return result.modifiedCount;
 }
 
-const WA_API_URL        = `https://graph.facebook.com/v19.0/${process.env.WA_PHONE_NUMBER_ID}/messages`;
-const WA_TOKEN          = process.env.WA_ACCESS_TOKEN;
-const WA_ASSET_TEMPLATE = process.env.WA_ASSET_TEMPLATE_NAME || 'asset_reminder';
 const MSG91_AUTH_KEY    = process.env.MSG91_AUTH_KEY;
 const MSG91_ASSET_TMPL  = process.env.MSG91_ASSET_TEMPLATE_ID;
 
 function typeLabel(reminderType) {
+  if (reminderType === 'approved')     return 'approved, please collect it';
   if (reminderType === 'due_tomorrow') return 'due tomorrow';
   if (reminderType === 'due_today')    return 'due TODAY';
   if (reminderType === 'collect')      return 'pending collection';
@@ -26,31 +25,14 @@ function formatDate(date) {
   return new Date(date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
+// Template (named in Settings → WhatsApp, which also shows the wording to submit to Meta):
+//   {{1}} borrower  {{2}} asset  {{3}} quantity  {{4}} return date  {{5}} due tomorrow / overdue / …
 async function sendWhatsApp(phone, { borrowerName, assetName, quantity, returnDate, reminderType }) {
-  if (!WA_TOKEN || !process.env.WA_PHONE_NUMBER_ID) return;
-  await axios.post(
-    WA_API_URL,
-    {
-      messaging_product: 'whatsapp',
-      to: phone,
-      type: 'template',
-      template: {
-        name: WA_ASSET_TEMPLATE,
-        language: { code: 'en' },
-        components: [{
-          type: 'body',
-          parameters: [
-            { type: 'text', text: borrowerName },
-            { type: 'text', text: assetName },
-            { type: 'text', text: String(quantity) },
-            { type: 'text', text: formatDate(returnDate) },
-            { type: 'text', text: typeLabel(reminderType) },
-          ],
-        }],
-      },
-    },
-    { headers: { Authorization: `Bearer ${WA_TOKEN}`, 'Content-Type': 'application/json' } }
-  );
+  const cfg = await whatsappConfig();
+  return sendTemplate(cfg, {
+    to: phone, template: cfg.templates.assetReminder, label: 'Asset reminder',
+    body: [borrowerName, assetName, String(quantity), formatDate(returnDate), typeLabel(reminderType)],
+  });
 }
 
 async function sendSms(phone, { borrowerName, assetName, quantity, returnDate, reminderType }) {
@@ -97,7 +79,7 @@ export async function sendAssetApprovalNotification(txn) {
   if (!borrower?.phone) return;
   const payload = { borrowerName: borrower.name, assetName: asset.name, quantity: quantityBorrowed, returnDate: expectedReturnDate, reminderType: 'approved' };
   const results = await Promise.allSettled([
-    WA_TOKEN       ? sendWhatsApp(borrower.phone, payload) : Promise.resolve(),
+    sendWhatsApp(borrower.phone, payload),
     MSG91_AUTH_KEY ? sendSms(borrower.phone, payload)      : Promise.resolve(),
   ]);
   results.forEach((r, i) => {

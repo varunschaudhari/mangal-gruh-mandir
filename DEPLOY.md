@@ -379,9 +379,9 @@ Then, in **Bookings → Booking Setup**:
 
 **Receipts to the devotee's phone** link to `https://<domain>/r/<code>`. The address comes from
 `PUBLIC_APP_URL` in `server/.env`, or else the first `CLIENT_URL`.
-- **Automatic WhatsApp:** needs WhatsApp set up in Settings, plus a Meta-approved template named
-  `booking_confirmation` with this body:
-  `Namaste {{1}}, your {{2}} at Shri Mangal Grah Mandir, Amalner is booked for {{3}}. Receipt {{4}}: {{5}}`.
+- **Automatic WhatsApp:** needs WhatsApp set up in Settings → WhatsApp, plus a Meta-approved template
+  (default name `booking_confirmation`, in Marathi and / or English, with the slip picture as an image
+  header). Booking Setup → Settings shows the exact wording to submit and the name to fill in.
   Until then, the counter's **Send on WhatsApp** button opens WhatsApp with the message ready.
 - **Automatic SMS (optional):** an MSG91 flow with a DLT-approved template using `##name##`, `##seva##`,
   `##when##`, `##receipt##` and `##link##`. Its id goes in Booking Setup → Settings.
@@ -429,9 +429,9 @@ sync it. **Phones still running an older app can't issue coupons** until they in
 
 The counter's **WhatsApp** button (after an issue, at the bottom next to Reprint, and on each row
 of Today's Batches) opens WhatsApp with the coupon numbers ready to send — no setup needed.
-Automatic sending is optional: set `WA_MAHAPRASAD_TEMPLATE` (a Meta-approved template, wording in
-`server/.env.example`; needs WhatsApp turned on in Settings) and/or `MSG91_MAHAPRASAD_TEMPLATE_ID`
-(needs SMS turned on) in `server/.env`, then restart the server.
+Automatic sending is optional: name the Meta-approved template in Settings → WhatsApp →
+*Mahaprasad coupons* (the wording to submit is shown there), and/or set `MSG91_MAHAPRASAD_TEMPLATE_ID`
+(needs SMS turned on) in `server/.env` and restart the server.
 
 ## 14. Automatic deploys from GitHub
 

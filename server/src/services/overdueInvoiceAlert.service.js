@@ -1,39 +1,10 @@
-import axios from 'axios';
 import StockTransaction from '../models/StockTransaction.js';
 import SupplierPayment from '../models/SupplierPayment.js';
 import User from '../models/User.js';
-import Settings from '../models/Settings.js';
-
-const WA_OVERDUE_TEMPLATE = process.env.WA_OVERDUE_TEMPLATE || 'payment_overdue_summary';
+import { sendTemplateToAll, whatsappConfig, whatsappReady } from './whatsappClient.service.js';
 
 function fmtCurrency(n) {
   return new Intl.NumberFormat('en-IN').format(Math.round(n));
-}
-
-async function getWaConfig() {
-  const s = await Settings.getOrCreate();
-  return {
-    phoneNumberId: s.waPhoneNumberId || process.env.WA_PHONE_NUMBER_ID,
-    accessToken:   s.waAccessToken   || process.env.WA_ACCESS_TOKEN,
-    enabled:       s.waEnabled,
-  };
-}
-
-async function sendWhatsApp(phone, params, cfg) {
-  await axios.post(
-    `https://graph.facebook.com/v19.0/${cfg.phoneNumberId}/messages`,
-    {
-      messaging_product: 'whatsapp',
-      to: phone,
-      type: 'template',
-      template: {
-        name: WA_OVERDUE_TEMPLATE,
-        language: { code: 'en' },
-        components: [{ type: 'body', parameters: params.map((text) => ({ type: 'text', text })) }],
-      },
-    },
-    { headers: { Authorization: `Bearer ${cfg.accessToken}`, 'Content-Type': 'application/json' } }
-  );
 }
 
 /**
@@ -111,8 +82,8 @@ export async function processOverdueInvoiceAlerts() {
       return;
     }
 
-    const cfg = await getWaConfig();
-    if (!cfg.enabled || !cfg.phoneNumberId || !cfg.accessToken) {
+    const cfg = await whatsappConfig();
+    if (!whatsappReady(cfg) || !cfg.templates.overdueSummary) {
       console.log('[OverdueAlert] WhatsApp not configured — skipping notification');
       return;
     }
@@ -128,9 +99,8 @@ export async function processOverdueInvoiceAlerts() {
       return;
     }
 
-    // WhatsApp template "payment_overdue_summary":
-    //   Body: "Mangal Grah Mandir: {{1}} supplier(s) have {{2}} overdue invoice(s)
-    //          totalling ₹{{3}}. Oldest overdue: {{4}} day(s). Please review payments."
+    // Template (named in Settings → WhatsApp, with its wording):
+    //   {{1}} suppliers  {{2}} invoices  {{3}} total (the template has the ₹)  {{4}} oldest, in days
     const params = [
       String(summary.supplierCount),
       String(summary.invoiceCount),
@@ -138,15 +108,8 @@ export async function processOverdueInvoiceAlerts() {
       String(summary.oldestDays),
     ];
 
-    const results = await Promise.allSettled(
-      approvers.map((u) => sendWhatsApp(u.phone, params, cfg))
-    );
-    results.forEach((r, i) => {
-      if (r.status === 'rejected')
-        console.error(`[OverdueAlert] Failed → ${approvers[i]?.name}:`, r.reason?.message);
-      else
-        console.log(`[OverdueAlert] Sent → ${approvers[i]?.name}`);
-    });
+    const sent = await sendTemplateToAll(cfg, approvers, { template: cfg.templates.overdueSummary, body: params, label: 'Overdue invoices' });
+    console.log(`[OverdueAlert] Sent to ${sent} of ${approvers.length} approver(s)`);
 
     console.log(
       `[OverdueAlert] Daily run — ${summary.invoiceCount} overdue invoice(s) across ` +

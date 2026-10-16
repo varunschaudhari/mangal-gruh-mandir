@@ -126,6 +126,13 @@ async function main() {
   const saveSettings = await api('PUT', '/settings', { ...settings, trustPAN: 'aaaTt1234c', reg80GFrom: '', mahaprasadDailyCap: '0' });
   check(saveSettings.status === 200 && saveSettings.body.data.trustPAN === 'AAATT1234C', 'settings saved whole (masked keys, blank date, cap as text); trust PAN in capitals', show(saveSettings));
   check((await api('PUT', '/settings', { assetMaxBorrowDays: 90 })).status === 400, 'settings: borrow days above 30 → 400');
+  const waSave = await api('PUT', '/settings', { waTemplates: { stockAlert: ' store_alert ', mahaprasadCoupons: '' } });
+  check(waSave.status === 200 && waSave.body.data.waTemplates?.stockAlert === 'store_alert' && waSave.body.data.waTemplates?.donationThanks === 'donation_thankyou',
+    'WhatsApp template names saved one at a time (the others keep theirs)', show(waSave));
+  check((await api('PUT', '/settings', { waTemplates: { stockAlert: 'Stock Alert' } })).status === 400, 'WhatsApp template name with capitals / spaces → 400');
+  const waTest = await api('POST', '/settings/test-whatsapp', { phone: '12345' });
+  check(waTest.status === 400 && /configured|mobile number/.test(waTest.body.message), 'WhatsApp test: not set up / not a mobile number → readable 400', show(waTest));
+  await api('PUT', '/settings', { waTemplates: { stockAlert: settings.waTemplates?.stockAlert ?? 'stock_alert' } });
 
   const email = `val-${stamp.toLowerCase()}@test.local`;
   const user = await api('POST', '/users', { name: 'Val User', email: email.toUpperCase(), password: 'Val-Pass-123!', role: 'viewer', departments: false, phone: '' });
