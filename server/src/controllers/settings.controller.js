@@ -84,29 +84,58 @@ export const updateSettings = asyncHandler(async (req, res) => {
   res.json(new ApiResponse(200, withMaskedKeys(settings), 'Settings saved'));
 });
 
-// Meta's ready-made "hello_world" template (every WhatsApp account has it): checks the number ID
-// and token before the switch is turned on.
+const NAME_STATUS = {
+  APPROVED: 'approved', AVAILABLE_WITHOUT_REVIEW: 'approved', PENDING_REVIEW: 'in review by Meta',
+  DECLINED: 'declined by Meta (change it in WhatsApp Manager)', EXPIRED: 'expired', NONE: 'not set yet',
+};
+
+// The number as Meta has it. An unknown field name is also Meta error 100, so then ask for less;
+// subcode 33 (no such number, or the token can't use it) is a real error.
+async function phoneNumberInfo(phoneNumberId, headers) {
+  const get = (fields) => axios.get(`https://graph.facebook.com/${GRAPH_VERSION}/${phoneNumberId}`, { headers, params: { fields }, timeout: 15000 });
+  try {
+    return (await get('display_phone_number,verified_name,name_status')).data;
+  } catch (err) {
+    const e = err.response?.data?.error;
+    if (e?.code !== 100 || e.error_subcode === 33) throw err;
+    return (await get('display_phone_number,verified_name')).data;
+  }
+}
+
+// Checks the number ID and token with Meta (no message, no charge) before the switch is turned on.
+// Meta's sample "hello_world" goes out only from its public test numbers, so a message is tried
+// only when a phone is given, and a real business number refusing it still counts as connected.
 export const testWhatsApp = asyncHandler(async (req, res) => {
   const { phoneNumberId, accessToken } = await whatsappConfig();
   if (!phoneNumberId) throw new ApiError(400, 'WhatsApp Phone Number ID is not configured');
   if (!accessToken)   throw new ApiError(400, 'WhatsApp Access Token is not configured');
-  const to = whatsappNumber(req.body.phone);
-  if (!to) throw new ApiError(400, 'Enter a 10-digit mobile number (or one starting with + and the country code)');
+  const to = req.body.phone ? whatsappNumber(req.body.phone) : null;
+  if (req.body.phone && !to) throw new ApiError(400, 'Enter a 10-digit mobile number (or one starting with + and the country code)');
+  const headers = { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' };
 
+  let number;
   try {
-    await axios.post(
-      `https://graph.facebook.com/${GRAPH_VERSION}/${phoneNumberId}/messages`,
-      {
-        messaging_product: 'whatsapp',
-        to,
-        type: 'template',
-        template: { name: 'hello_world', language: { code: 'en_US' } },
-      },
-      { headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' }, timeout: 15000 }
-    );
-    res.json(new ApiResponse(200, null, `Test message sent to +${to}. Check WhatsApp!`));
+    number = await phoneNumberInfo(phoneNumberId, headers);
   } catch (err) {
-    const metaError = err.response?.data?.error;
-    throw new ApiError(400, metaErrorText(metaError) || 'Failed to send WhatsApp message');
+    throw new ApiError(400, metaErrorText(err.response?.data?.error) || 'Could not reach WhatsApp');
   }
+  const nameStatus = NAME_STATUS[number.name_status];
+  let message = `Connected to WhatsApp number ${number.display_phone_number}`
+    + (number.verified_name ? ` (${number.verified_name}${nameStatus ? `, display name ${nameStatus}` : ''})` : '') + '.';
+
+  if (to) {
+    try {
+      await axios.post(
+        `https://graph.facebook.com/${GRAPH_VERSION}/${phoneNumberId}/messages`,
+        { messaging_product: 'whatsapp', to, type: 'template', template: { name: 'hello_world', language: { code: 'en_US' } } },
+        { headers, timeout: 15000 },
+      );
+      message += ` Test message sent to +${to}.`;
+    } catch (err) {
+      const e = err.response?.data?.error;
+      if (e?.code !== 131058) throw new ApiError(400, `${message} But the test message failed: ${metaErrorText(e) || err.message}`);
+      message += ' No test message was sent: Meta’s sample message goes out only from its test numbers. Once the booking template is approved, make a test booking to see a real receipt.';
+    }
+  }
+  res.json(new ApiResponse(200, { number: number.display_phone_number, name: number.verified_name || '', nameStatus: number.name_status || '' }, message));
 });

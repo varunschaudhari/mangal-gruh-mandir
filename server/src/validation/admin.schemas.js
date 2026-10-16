@@ -148,7 +148,7 @@ export const updateSettings = {
     mahaprasadPrinterName: clearableText('Printer', { max: 200 }),
   }),
 };
-export const testWhatsApp = { body: z.object({ phone: text('Phone number', { max: 20 }) }) };
+export const testWhatsApp = { body: z.object({ phone: clearableText('Phone number', { max: 20 }) }) };
 
 // ── Budgets ─────────────────────────────────────────────────────────────────
 export const upsertBudgets = {

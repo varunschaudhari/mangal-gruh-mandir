@@ -326,24 +326,24 @@ const Settings = () => {
                 <div className="rounded-lg border border-green-200 bg-green-50/30 p-4">
                   <p className="text-sm font-semibold text-gray-700 mb-1">{t('Test Connection')}</p>
                   <p className="text-xs text-gray-400 mb-3">
-                    {t('Sends Meta’s ready-made hello_world message to check the Phone Number ID and token. Save them first. With Meta’s test number, the phone must be in its allowed list.')}
+                    {t('Checks the Phone Number ID and token with Meta and shows the number and its display name. Save them first. With Meta’s test number, also enter your mobile to get its sample message.')}
                   </p>
                   <div className="flex gap-2">
                     <input
                       type="tel"
                       value={testPhone}
                       onChange={(e) => { setTestPhone(e.target.value); setTestResult(null); }}
-                      placeholder="98765 43210"
+                      placeholder={t('Your mobile (optional)')}
                       className="input flex-1 text-sm font-mono"
                     />
                     <button
                       type="button"
-                      disabled={testLoading || !testPhone}
+                      disabled={testLoading}
                       onClick={async () => {
                         setTestLoading(true); setTestResult(null);
                         try {
-                          await testWhatsApp(testPhone);
-                          setTestResult({ ok: true, msg: 'Message sent! Check WhatsApp on ' + testPhone });
+                          const { data } = await testWhatsApp(testPhone);
+                          setTestResult({ ok: true, msg: data?.message || t('Connected') });
                         } catch (err) {
                           setTestResult({ ok: false, msg: err.response?.data?.message || 'Failed to send' });
                         } finally {
@@ -352,7 +352,7 @@ const Settings = () => {
                       }}
                       className="btn-primary flex items-center gap-2 shrink-0 disabled:opacity-50">
                       <Send className="h-4 w-4" />
-                      {testLoading ? t('Sending…') : t('Send Test')}
+                      {testLoading ? t('Checking…') : t('Check connection')}
                     </button>
                   </div>
                   {testResult && (
