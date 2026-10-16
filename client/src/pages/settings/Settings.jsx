@@ -99,7 +99,7 @@ const TAB_FIELDS = {
 // Those with textMr also go in Marathi: the same template name with a Marathi language added.
 const WA_TEMPLATES = [
   { key: 'stockAlert', label: 'Stock alerts', to: 'To staff with WhatsApp alerts on (Users)', example: 'stock_alert',
-    text: 'Stock alert from Shri Mangal Grah Mandir store: {{1}} in {{2}} is down to {{3}} {{4}} ({{5}}). Please arrange a refill.' },
+    text: 'Shri Mangal Grah Mandir office: inventory update for your account. {{1}} in {{2}} is now at {{3}} {{4}} ({{5}}). You get this because store alerts are turned on for you in the office app.' },
   { key: 'paymentApproval', label: 'Payment waiting for approval', to: 'To payment approvers', example: 'payment_approval_request',
     text: 'Shri Mangal Grah Mandir office: supplier payment {{1}} to {{2}} for ₹{{3}}, submitted by {{4}}, is waiting for your approval. Please review it in the app.' },
   { key: 'paymentStatus', label: 'Payment approved or rejected', to: 'To the person who submitted it', example: 'payment_status_update',
