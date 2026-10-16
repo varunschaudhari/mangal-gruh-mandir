@@ -791,11 +791,35 @@ export const getTodayForOffline = asyncHandler(async (req, res) => {
   res.json(new ApiResponse(200, coupons));
 });
 
+// GET /mahaprasad/offline/redeem-copy
+// The food counter's copy for working offline: every coupon that may still be served (within
+// its validity, up to a week back, and any for later dates), plus the ones already served or
+// cancelled so the phone can say so. Only what the redeem screen shows — no mobile numbers.
+export const getRedeemCopy = asyncHandler(async (req, res) => {
+  const settings     = await Settings.getOrCreate();
+  const validityDays = settings.mahaprasadCouponValidityDays ?? 1;
+  const from = new Date(); from.setHours(0, 0, 0, 0);
+  from.setDate(from.getDate() - (Math.min(validityDays > 0 ? validityDays : 7, 7) - 1));
+  const coupons = await MahaprasadCoupon.find({ date: { $gte: from }, status: { $ne: 'reserved' } })
+    .select('couponNumber date type amount occasion status issuedAt issuedBy redeemedAt redeemedBy groupSize isGroup')
+    .populate('issuedBy', 'name')
+    .populate('redeemedBy', 'name')
+    .lean();
+  res.json(new ApiResponse(200, { coupons, validityDays, at: new Date() }));
+});
+
 // POST /mahaprasad/offline/sync
 // Applies what a counter did while offline. Safe to send twice (a sync whose answer was lost):
-// anything already recorded counts as done.
+// anything already recorded counts as done. The food counter (mahaprasad:redeem) sends only
+// redemptions; sales made offline need mahaprasad:issue.
 export const syncOffline = asyncHandler(async (req, res) => {
   const { issued = [], redeemed = [] } = req.body;
+  if (issued.length) {
+    const perms = await getPermissionsForRole(req.user.role);
+    if (!perms.includes('*') && !perms.includes('mahaprasad:issue')) {
+      throw new ApiError(403, 'Only issue-counter staff can send coupons sold offline');
+    }
+  }
   const results = {
     issued:   { ok: 0, skipped: 0, failed: [] },
     redeemed: { ok: 0, skipped: 0, conflicts: [] },

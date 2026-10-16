@@ -3,10 +3,12 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router-dom';
 import {
   ScanLine, KeyboardIcon, CheckCircle2, XCircle, RotateCcw,
-  Clock, AlertTriangle, Info, ChevronRight, CloudOff,
+  Clock, AlertTriangle, Info, ChevronRight, CloudOff, CloudUpload,
   Maximize2, Minimize2, Users,
 } from 'lucide-react';
 import { lookupCoupon, redeemCoupon, getDailySummary } from '../../api/mahaprasad.api.js';
+import { CONFLICTS_KEY, readCopyMeta, serverDown, useRedeemOffline } from '../../hooks/useRedeemOffline.js';
+import { useAuth } from '../../context/AuthContext.jsx';
 import PageHeader from '../../components/ui/PageHeader.jsx';
 import * as offlineStore from '../../utils/offlineStore.js';
 import toast from 'react-hot-toast';
@@ -262,12 +264,15 @@ export default function MahaprasadRedeem() {
   const [countdown,  setCountdown] = useState(null);
   const [recent,     setRecent]    = useState([]);
   const [syncConflicts, setSyncConflicts] = useState(() => {
-    try { return JSON.parse(localStorage.getItem('mgm-redeem-conflicts') || '[]'); } catch { return []; }
+    try { return JSON.parse(localStorage.getItem(CONFLICTS_KEY) || '[]'); } catch { return []; }
   });
   const dismissConflicts = useCallback(() => {
-    localStorage.removeItem('mgm-redeem-conflicts');
+    localStorage.removeItem(CONFLICTS_KEY);
     setSyncConflicts([]);
   }, []);
+  // Offline mode of its own: a copy of the coupons, and redemptions sent when the server is back
+  const offline = useRedeemOffline({ onConflicts: setSyncConflicts });
+  const { user } = useAuth();
 
   const [scanKey, setScanKey] = useState(0);
 
@@ -284,16 +289,7 @@ export default function MahaprasadRedeem() {
   // user closed the scanner — don't reopen it on their behalf (nor when a coupon arrived via ?code)
   const nativeDismissedRef = useRef(Boolean(scannedCode));
 
-  const [isOnline,     setIsOnline]     = useState(navigator.onLine);
   const [isFullscreen, setIsFullscreen] = useState(!!document.fullscreenElement);
-
-  useEffect(() => {
-    const go  = () => setIsOnline(true);
-    const off = () => setIsOnline(false);
-    window.addEventListener('online',  go);
-    window.addEventListener('offline', off);
-    return () => { window.removeEventListener('online', go); window.removeEventListener('offline', off); };
-  }, []);
 
   // Keep screen awake while the redeem counter is open
   useEffect(() => {
@@ -338,42 +334,71 @@ export default function MahaprasadRedeem() {
     setLooking(true);
     setError('');
     setCoupon(null);
-    try {
-      if (!navigator.onLine) {
-        // Offline: look up from IndexedDB cache
-        const local = await offlineStore.lookupCoupon(number);
-        if (!local) {
-          setError(t('Coupon "{number}" not found in offline cache', { number }));
-          setErrorType('notfound');
-          redeemFeedback.notFound();
-          return;
-        }
-        const status = local.status;
-        if (status === 'available') {
-          setError(t('Coupon "{number}" has not been issued yet', { number }));
-          setErrorType('notfound');
-          redeemFeedback.notFound();
-          return;
-        }
-        if (status === 'redeemed' || status === 'redeemed-offline') {
-          setCoupon(offlineStore.normalizeForUi(local));
-          redeemFeedback.alreadyRedeemed();
-          return;
-        }
-        if (status === 'voided') {
-          setError(t('Coupon {number} was cancelled — do not serve', { number }));
-          setErrorType('blocked');
-          redeemFeedback.error();
-          return;
-        }
-        const normalizedLocal = offlineStore.normalizeForUi(local);
-        if (autoRedeem) {
-          redeemMut.mutate(normalizedLocal);
-        } else {
-          setCoupon(normalizedLocal);
-        }
+
+    // Offline: check the coupon against this phone's copy (kept up to date by useRedeemOffline)
+    const lookupOffline = async () => {
+      const local = await offlineStore.lookupCoupon(number);
+      if (!local) {
+        setError(readCopyMeta()
+          ? t('Coupon "{number}" not found in offline cache', { number })
+          : t('No offline copy on this phone yet — it downloads the coupons once it’s connected'));
+        setErrorType('notfound');
+        redeemFeedback.notFound();
         return;
       }
+      const status = local.status;
+      if (status === 'available') {
+        setError(t('Coupon "{number}" has not been issued yet', { number }));
+        setErrorType('notfound');
+        redeemFeedback.notFound();
+        return;
+      }
+      if (status === 'redeemed' || status === 'redeemed-offline') {
+        setCoupon(offlineStore.normalizeForUi(local));
+        redeemFeedback.alreadyRedeemed();
+        return;
+      }
+      if (status === 'voided') {
+        setError(t('Coupon {number} was cancelled — do not serve', { number }));
+        setErrorType('blocked');
+        redeemFeedback.error();
+        return;
+      }
+      // Same validity rule as the server
+      const validityDays = readCopyMeta()?.validityDays ?? 1;
+      if (validityDays > 0) {
+        const day = new Date(local.date); day.setHours(0, 0, 0, 0);
+        const expires = new Date(day); expires.setDate(expires.getDate() + validityDays);
+        const today = new Date(); today.setHours(0, 0, 0, 0);
+        if (today >= expires) {
+          setError(t('Coupon expired — was valid for {n} day(s) from {date}', {
+            n: validityDays, date: day.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }),
+          }));
+          setErrorType('expired');
+          redeemFeedback.expired();
+          return;
+        }
+      }
+      const normalizedLocal = offlineStore.normalizeForUi(local);
+      if (autoRedeem) {
+        redeemMut.mutate(normalizedLocal);
+      } else {
+        setCoupon(normalizedLocal);
+      }
+    };
+
+    const tryOffline = () => lookupOffline().catch(() => {
+      setError(t('This phone’s offline copy could not be read'));
+      setErrorType('error');
+      redeemFeedback.error();
+    });
+
+    if (!offline.onlineRef.current) {
+      await tryOffline();
+      setLooking(false);
+      return;
+    }
+    try {
       const res = await lookupCoupon(number);
       const couponData = res.data.data;
       if (couponData.status === 'redeemed') {
@@ -395,6 +420,12 @@ export default function MahaprasadRedeem() {
         setCoupon(couponData);
       }
     } catch (e) {
+      // The server isn't answering: switch to offline mode and use this phone's copy right away
+      if (serverDown(e)) {
+        offline.markServerDown();
+        await tryOffline();
+        return;
+      }
       const status  = e.response?.status;
       const message = e.response?.data?.message || t('Coupon "{number}" not found', { number });
       setError(message);
@@ -516,34 +547,51 @@ export default function MahaprasadRedeem() {
 
   // ── Redeem mutation ───────────────────────────────────────────────────────
   const redeemMut = useMutation({
+    // Run even when the browser says it's offline: this mutation itself chooses the server or the
+    // phone. (React Query's default pauses it while offline, which left "Redeeming…" spinning.)
+    networkMode: 'always',
     mutationFn: async (couponArg) => {
       const target = couponArg ?? coupon;
       if (!target) throw new Error(t('No coupon to redeem'));
-      if (!navigator.onLine) {
-        const user    = JSON.parse(localStorage.getItem('mgm-offline-user') || '{}');
+      if (!offline.onlineRef.current) {
+        // Saved on this phone; useRedeemOffline sends it when the server is back
         const updated = await offlineStore.markRedeemed(target.couponNumber, {
           redeemedAt:     new Date().toISOString(),
-          redeemedById:   user._id  || '',
-          redeemedByName: user.name || 'Staff',
+          redeemedById:   user?._id || user?.id || '',
+          redeemedByName: user?.name || 'Staff',
         });
         if (!updated) throw new Error(t('Coupon not found in offline store'));
-        return { offline: true, coupon: offlineStore.normalizeForUi(updated) };
+        return { wasOffline: true, coupon: offlineStore.normalizeForUi(updated) };
       }
       const res = await redeemCoupon(target.couponNumber);
-      return { offline: false, coupon: res.data.data };
+      return { wasOffline: false, coupon: res.data.data };
     },
-    onSuccess: ({ offline, coupon: redeemed }) => {
+    onSuccess: ({ wasOffline, coupon: redeemed }) => {
       redeemFeedback.success();
       setCoupon(redeemed);
       setJustRedeemed(true);
       setRecent((prev) => [redeemed, ...prev].slice(0, 5));
-      if (!offline) {
+      if (wasOffline) {
+        offline.refreshPending();
+      } else {
         refetchSummary();
         qc.invalidateQueries({ queryKey: ['mahaprasad-coupons'] });
       }
-      toast.success(offline ? t('Redeemed offline — will sync later') : t('Coupon redeemed!'));
+      toast.success(wasOffline ? t('Redeemed offline — will sync later') : t('Coupon redeemed!'));
     },
     onError: (e) => {
+      // No answer from the server: it may or may not have recorded this one, so don't save it
+      // offline as well. Switch to offline mode; the next scan is checked on this phone.
+      if (e.isAxiosError && serverDown(e)) {
+        offline.markServerDown();
+        const message = t('The server isn’t answering — switched to offline mode. Scan the coupon again.');
+        setError(message);
+        setErrorType('error');
+        setCoupon(null);
+        redeemFeedback.error();
+        toast.error(message);
+        return;
+      }
       const status  = e.response?.status;
       const message = e.response?.data?.message || e.message || t('Failed to redeem');
       const code    = e.response?.data?.errors?.[0]?.code; // voided / not_sold / redeemed
@@ -649,10 +697,32 @@ export default function MahaprasadRedeem() {
         </button>}
       </div>
 
-      {!isOnline && (
-        <div className="card p-3 border border-amber-200 bg-amber-50 flex items-center gap-2 text-sm text-amber-800">
-          <CloudOff className="h-4 w-4 shrink-0" />
-          {t('Offline mode — looking up coupons from local cache. Redemptions will sync automatically when back online.')}
+      {!offline.online && (
+        <div className={`card p-3 border flex items-start gap-2 text-sm ${offline.copy ? 'border-amber-200 bg-amber-50 text-amber-800' : 'border-red-200 bg-red-50 text-red-800'}`}>
+          <CloudOff className="h-4 w-4 shrink-0 mt-0.5" />
+          <div className="min-w-0">
+            <p>{t('Offline mode — looking up coupons from local cache. Redemptions will sync automatically when back online.')}</p>
+            <p className="text-xs mt-0.5 opacity-80">
+              {offline.copy
+                ? t('Copy on this phone: {n} coupons, updated {time}', { n: offline.copy.count, time: fmt(offline.copy.at) })
+                : t('No offline copy on this phone yet — it downloads the coupons once it’s connected')}
+            </p>
+          </div>
+        </div>
+      )}
+
+      {offline.pending > 0 && (
+        <div className="card p-3 border border-blue-200 bg-blue-50 flex items-center gap-2 text-sm text-blue-800">
+          <CloudUpload className="h-4 w-4 shrink-0" />
+          <span className="flex-1 min-w-0">
+            {t(offline.pending !== 1 ? '{n} redemptions waiting to sync' : '{n} redemption waiting to sync', { n: offline.pending })}
+          </span>
+          {offline.online && (
+            <button type="button" onClick={offline.sendNow} disabled={offline.sending}
+              className="shrink-0 btn btn-ghost border border-blue-200 bg-white text-xs px-2.5 py-1 max-sm:py-2 disabled:opacity-50">
+              {offline.sending ? t('Syncing…') : t('Sync now')}
+            </button>
+          )}
         </div>
       )}
 

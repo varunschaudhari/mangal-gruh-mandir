@@ -85,7 +85,7 @@ const TABS = [
 ];
 
 const TAB_FIELDS = {
-  temple:     ['templeName', 'templeNameMr', 'templeAddress', 'templePhone', 'templeEmail', 'templeWebsite', 'trustRegNumber'],
+  temple:     ['templeName', 'templeNameMr', 'trustLegalName', 'templeAddress', 'templePhone', 'templeEmail', 'templeWebsite', 'trustRegNumber'],
   whatsapp:   ['waEnabled', 'waPhoneNumberId', 'waAccessToken', 'waTemplateName'],
   sms:        ['smsEnabled', 'msg91AuthKey', 'msg91TemplateId'],
   alerts:     ['alertOnOutOfStock', 'alertOnLowStock', 'alertOnReorder'],
@@ -236,9 +236,12 @@ const Settings = () => {
                 <input {...register('templePhone')} className="input" type="tel" placeholder={t('+91 XXXXX XXXXX')} />
               </Field>
               <Field label={t('Trust registration no.')}>
-                <input {...register('trustRegNumber')} className="input font-mono text-sm" placeholder="E-1234 (Jalgaon)" />
+                <input {...register('trustRegNumber')} className="input font-mono text-sm" placeholder="F-1234/Jalgaon" />
               </Field>
             </div>
+            <Field label={t("Trust's legal name")} hint={t('As on the trust’s PAN card. Receipts say “Managed by …” and are signed for the trust.')}>
+              <input {...register('trustLegalName')} className="input" placeholder="Mangalgrah Seva Sanstha, Amalner" />
+            </Field>
             <Field label={t('Address')}>
               <input {...register('templeAddress')} className="input" placeholder={t('Village, District, State')} />
             </Field>

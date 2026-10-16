@@ -221,6 +221,18 @@ export default {
   'These were already redeemed on another device, cancelled, or never sold.':
     'हे कूपन आधीच दुसऱ्या उपकरणावर स्वीकारले गेले होते, रद्द झाले होते, किंवा कधी विकलेच गेले नव्हते.',
   'Do not serve': 'प्रसाद देऊ नका',
+  'No offline copy on this phone yet — it downloads the coupons once it’s connected':
+    'या फोनवर अजून ऑफलाइन प्रत नाही — इंटरनेट मिळाल्यावर कूपन आपोआप डाउनलोड होतील',
+  'Coupon expired — was valid for {n} day(s) from {date}': 'कूपनची मुदत संपली — {date} पासून {n} दिवसांसाठी वैध होते',
+  'This phone’s offline copy could not be read': 'या फोनवरील ऑफलाइन प्रत वाचता आली नाही',
+  'The server isn’t answering — switched to offline mode. Scan the coupon again.':
+    'सर्व्हर प्रतिसाद देत नाही — ऑफलाइन मोड सुरू केला. कूपन पुन्हा स्कॅन करा.',
+  'Copy on this phone: {n} coupons, updated {time}': 'या फोनवरील प्रत: {n} कूपन, {time} ला अद्ययावत',
+  '{n} redemption waiting to sync': '{n} स्वीकारलेले कूपन सिंक होणे बाकी',
+  '{n} redemptions waiting to sync': '{n} स्वीकारलेली कूपन सिंक होणे बाकी',
+  'Sync now': 'आता सिंक करा',
+  '{n} offline redemption synced': '{n} ऑफलाइन स्वीकारलेले कूपन सिंक झाले',
+  '{n} offline redemptions synced': '{n} ऑफलाइन स्वीकारलेली कूपन सिंक झाली',
   'Coupon {number} was cancelled — do not serve': 'कूपन {number} रद्द झाले आहे — प्रसाद देऊ नका',
   'Coupon {number} has not been sold — if it was issued offline, sync that counter first':
     'कूपन {number} विकले गेल्याची नोंद नाही — ऑफलाइन दिले असल्यास आधी त्या काउंटरवर सिंक करा',

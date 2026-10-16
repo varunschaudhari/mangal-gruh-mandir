@@ -15,7 +15,7 @@ export function generatePaymentVoucher(res, { payment, supplier, settings }) {
 
   const W    = doc.page.width - 100;
   const LEFT = 50;
-  const templeName = settings?.templeName || temple().name;
+  const templeName = temple().legalName || settings?.templeName || temple().name;   // signed for the trust
 
   // Letterhead, title, voucher no. and date
   let y = letterhead(doc, { title: 'Payment Voucher', number: payment.paymentNumber || '—', numberLabel: 'Voucher No.', date: fmtDate(payment.paymentDate) });

@@ -99,7 +99,7 @@ ${pan ? `<p class="tax-note">
   </div>
   <div class="sig-box">
     <div class="sig-line"></div>
-    <div class="sig-label">Authorised signatory · For ${esc(temple().name)}</div>
+    <div class="sig-label">Authorised signatory · For ${esc(temple().legalName || temple().name)}</div>
   </div>
 </div>
 

@@ -48,6 +48,7 @@ export const PRINT_HEADER_CSS = `
   .lh-logo { width: 66px; height: 66px; object-fit: contain; flex: none; }
   .lh-mr { font-size: 21px; font-weight: 700; color: #1f2937; line-height: 1.25; }
   .lh-en { font-size: 13px; font-weight: 600; color: #1f2937; line-height: 1.3; }
+  .lh-trust { font-size: 11.5px; color: #1f2937; line-height: 1.4; }
   .lh-sub { font-size: 11px; color: #6b7280; line-height: 1.45; }
   .lh-sub .nw { white-space: nowrap; }
   .lh-rule { border-top: 2px solid ${ACCENT}; border-bottom: 0.75px solid ${ACCENT}; height: 3px; margin: 10px 0 12px; }
@@ -85,6 +86,7 @@ export function letterheadHtml({ title, number, date, numberLabel = 'No.', dateL
   <div>
     <div class="lh-mr">${esc(t.nameMr || t.name)}</div>
     ${t.nameMr ? `<div class="lh-en">${esc(t.name)}</div>` : ''}
+    ${t.legalName && t.legalName !== t.name ? `<div class="lh-trust">Managed by ${esc(t.legalName)}</div>` : ''}
     ${lines.map((l) => `<div class="lh-sub">${l}</div>`).join('')}
   </div>
 </header>

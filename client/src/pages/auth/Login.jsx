@@ -6,6 +6,7 @@ import { useAuth } from '../../context/AuthContext.jsx';
 import toast from 'react-hot-toast';
 import { useT, LanguageSwitch } from '../../i18n/index.jsx';
 import { useTemple } from '../../utils/temple.js';
+import { isElectron, isNative } from '../../utils/platform.js';
 
 const Login = () => {
   const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm();
@@ -94,6 +95,14 @@ const Login = () => {
         <p className="mt-4 text-center text-xs text-gray-400">
           {t('{temple} · Stock Management System', { temple: t(templeName) })}
         </p>
+        {/* The public pages (plain HTML on the website — not inside the phone / desktop apps) */}
+        {!isNative && !isElectron && (
+          <p className="mt-2 text-center text-xs text-gray-400">
+            <a href="/about" className="underline-offset-2 hover:underline">{t('About & contact')}</a>
+            <span className="mx-2">·</span>
+            <a href="/privacy" className="underline-offset-2 hover:underline">{t('Privacy policy')}</a>
+          </p>
+        )}
       </div>
     </div>
   );

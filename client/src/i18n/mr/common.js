@@ -404,6 +404,8 @@ export default {
   'Over': 'संपली',
   'Everyone has come': 'सर्वजण आले आहेत',
   'No one has come yet': 'अजून कोणी आले नाही',
+  'About & contact': 'माहिती व संपर्क',
+  'Privacy policy': 'गोपनीयता धोरण',
   // Bluetooth receipt printer (phone app)
   'Bluetooth printer': 'ब्लूटूथ प्रिंटर',
   'Not chosen — slips are shared as PDF': 'निवडलेला नाही — स्लिप PDF म्हणून शेअर होतात',

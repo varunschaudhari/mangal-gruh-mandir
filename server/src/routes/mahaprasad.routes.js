@@ -1,13 +1,13 @@
 import { Router } from 'express';
 import protect from '../middleware/auth.js';
-import authorize from '../middleware/authorize.js';
+import authorize, { authorizeAny } from '../middleware/authorize.js';
 import validate from '../middleware/validate.js';
 import * as v from '../validation/mahaprasad.schemas.js';
 import {
   issueCoupons, getDailySummary, getCoupons,
   lookupCoupon, redeemCoupon, printCoupons, getReport, getBatches,
   getMonthlyReport, getStaffReport, getWastageReport, getMahaprasadWhatsApp,
-  reserveOffline, getTodayForOffline, syncOffline,
+  reserveOffline, getTodayForOffline, getRedeemCopy, syncOffline,
   getCashDrawer, setOpeningFloat, adjustDrawer, voidBatch,
 } from '../controllers/mahaprasad.controller.js';
 
@@ -37,6 +37,8 @@ router.patch('/batches/:batchId/void', authorize('mahaprasad:issue'), validate(v
 // Offline support — static sub-routes must be before dynamic ones
 router.post('/offline/reserve',    authorize('mahaprasad:issue'),  validate(v.reserveOffline), reserveOffline);
 router.get('/offline/today',       authorize('mahaprasad:read'),   getTodayForOffline);
-router.post('/offline/sync',       authorize('mahaprasad:issue'),  validate(v.syncOffline), syncOffline);
+router.get('/offline/redeem-copy', authorize('mahaprasad:redeem'), getRedeemCopy);
+// The food counter sends its offline redemptions; only the issue counter can send offline sales
+router.post('/offline/sync',       authorizeAny('mahaprasad:issue', 'mahaprasad:redeem'), validate(v.syncOffline), syncOffline);
 
 export default router;

@@ -246,7 +246,7 @@ export async function bookingReceiptHtml(b, settings = {}, { autoPrint = true } 
     ${qr ? `<div class="qr"><img src="${qr}" alt=""><br>Scan to view this receipt</div>` : ''}</div>
   <div class="amount"><span>Amount received<br>Rupees ${esc(amountInWords(b.amount))} only</span><b>₹${esc(Math.round(b.amount).toLocaleString('en-IN'))}</b></div>
   <div class="foot"><span>${esc(settings.receiptFooter || '')}${b.createdBy?.name ? `<br>Booked by ${esc(b.createdBy.name)}` : ''}</span>
-    <span class="sign"><div>For ${esc(info.name)}</div></span></div>
+    <span class="sign"><div>For ${esc(info.legalName || info.name)}</div></span></div>
 </div>
 ${autoPrint ? '<script>window.onload = () => window.print()<\/script>' : ''}
 </body></html>`;

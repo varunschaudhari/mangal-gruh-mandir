@@ -331,6 +331,23 @@ async function mahaprasadChecks(api, today) {
   const scans = await Promise.all([redeemer('PATCH', `/mahaprasad/redeem/${one}`), api('PATCH', `/mahaprasad/redeem/${one}`)]);
   check(scans.map((r) => r.status).sort().join() === '200,409', 'the same coupon scanned at two counters at once is served once', scans.map(show).join(' | '));
 
+  // The food counter on its own: it downloads its offline copy (without mobile numbers) and sends
+  // its offline redemptions; it can't send offline sales, and the issue counter can't take the copy
+  const fresh = (await issue(counter, {})).body.data.coupons[0].couponNumber;
+  const copy = await redeemer('GET', '/mahaprasad/offline/redeem-copy');
+  const inCopy = copy.body.data?.coupons?.find((c) => c.couponNumber === fresh);
+  check(copy.status === 200 && inCopy?.status === 'issued' && !('mobile' in inCopy) && typeof copy.body.data.validityDays === 'number',
+    'the food counter downloads its offline copy (no mobile numbers)', show(copy));
+  check((await counter('GET', '/mahaprasad/offline/redeem-copy')).status === 403, 'the issue counter has no use for the food counter\'s copy');
+  const servedAt = new Date().toISOString();
+  const sent = await redeemer('POST', '/mahaprasad/offline/sync', { issued: [], redeemed: [{ couponNumber: fresh, redeemedAt: servedAt }] });
+  check(sent.status === 200 && sent.body.data.results.redeemed.ok === 1 && (await statusOf(fresh))?.status === 'redeemed',
+    'the food counter sends its offline redemptions itself', show(sent));
+  const resent = await redeemer('POST', '/mahaprasad/offline/sync', { issued: [], redeemed: [{ couponNumber: fresh, redeemedAt: servedAt }] });
+  check(resent.body.data?.results?.redeemed?.ok === 1 && !resent.body.data.results.redeemed.conflicts.length, '…sending the same one again is not a conflict');
+  const sneaky = await redeemer('POST', '/mahaprasad/offline/sync', { issued: [{ couponNumber: poolB[0], type: 'free' }], redeemed: [] });
+  check(sneaky.status === 403, 'the food counter cannot send offline sales', show(sneaky));
+
   // Groups count as persons in reports
   const day = `${today.slice(0, 4)}-${today.slice(4, 6)}-${today.slice(6)}`;
   const reportTotal = async () => (await api('GET', `/mahaprasad/report?from=${day}&to=${day}`)).body.data.totals.total;

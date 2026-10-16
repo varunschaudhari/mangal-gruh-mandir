@@ -7,6 +7,7 @@ const settingsSchema = new mongoose.Schema(
     templeName:    { type: String, default: 'Mangal Grah Mandir' },
     templeNameMr:  { type: String, default: 'श्री मंगळग्रह मंदिर, अमळनेर' },   // printed above the English name
     trustRegNumber: { type: String, default: '' },                            // public trust registration no.
+    trustLegalName: { type: String, default: '' },                            // the trust that runs the temple, as on its PAN
     templeAddress: { type: String, default: 'Amalner, Dist. Jalgaon, Maharashtra' },
     templePhone:   { type: String, default: '' },
     templeEmail:   { type: String, default: '' },

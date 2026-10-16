@@ -60,14 +60,15 @@ export async function storePrefetched(coupons) {
   await tx.done;
 }
 
-// Cache today's online-issued coupons so the redeem counter can look them up offline
+// Cache coupons from the server so the redeem counter can look them up offline. Called again
+// and again: the server's latest state replaces the copy (served elsewhere, cancelled…), except
+// for coupons this phone changed offline and hasn't sent yet.
 export async function storeOnlineIssued(coupons) {
   const db = await getDb();
   const tx = db.transaction('coupons', 'readwrite');
   for (const c of coupons) {
     const existing = await tx.store.get(c.couponNumber);
-    // Don't overwrite anything that was modified offline
-    if (existing && existing.status !== 'available') continue;
+    if (existing && existing.synced === false && existing.status !== 'available') continue;
     const ds = couponDateStr(c.couponNumber);
     await tx.store.put({
       couponNumber:   c.couponNumber,
@@ -84,6 +85,8 @@ export async function storeOnlineIssued(coupons) {
       redeemedAt:     c.redeemedAt,
       redeemedById:   c.redeemedBy?._id || c.redeemedBy,
       redeemedByName: c.redeemedBy?.name || '',
+      groupSize:      c.groupSize || 1,
+      isGroup:        Boolean(c.isGroup),
       synced:         true,
     });
   }

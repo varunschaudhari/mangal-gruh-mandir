@@ -23,7 +23,7 @@ export const updateSettings = asyncHandler(async (req, res) => {
   const settings = await Settings.getOrCreate();
   const before = settings.toObject();
   const {
-    templeName, templeNameMr, trustRegNumber, templeAddress, templePhone, templeEmail, templeWebsite,
+    templeName, templeNameMr, trustRegNumber, trustLegalName, templeAddress, templePhone, templeEmail, templeWebsite,
     waEnabled, waPhoneNumberId, waAccessToken, waTemplateName,
     smsEnabled, msg91AuthKey, msg91TemplateId,
     alertOnOutOfStock, alertOnLowStock, alertOnReorder,
@@ -35,6 +35,7 @@ export const updateSettings = asyncHandler(async (req, res) => {
   if (templeName    !== undefined) settings.templeName    = templeName;
   if (templeNameMr  !== undefined) settings.templeNameMr  = templeNameMr;
   if (trustRegNumber !== undefined) settings.trustRegNumber = trustRegNumber;
+  if (trustLegalName !== undefined) settings.trustLegalName = trustLegalName;
   if (templeAddress !== undefined) settings.templeAddress = templeAddress;
   if (templePhone   !== undefined) settings.templePhone   = templePhone;
   if (templeEmail   !== undefined) settings.templeEmail   = templeEmail;

@@ -229,6 +229,8 @@ export default {
   'Village, District, State': 'गाव, जिल्हा, राज्य',
   'Website': 'वेबसाइट',
   'Trust registration no.': 'ट्रस्ट नोंदणी क्र.',
+  "Trust's legal name": 'ट्रस्टचे कायदेशीर नाव',
+  'As on the trust’s PAN card. Receipts say “Managed by …” and are signed for the trust.': 'ट्रस्टच्या PAN कार्डवर असलेले नाव. पावत्यांवर “Managed by …” असे छापले जाते व त्या ट्रस्टतर्फे दिल्या जातात.',
   'These details, the logo and the PAN / 80G numbers are printed at the top of receipts, vouchers and payslips.': 'ही माहिती, लोगो आणि PAN / 80G क्रमांक पावत्या, व्हाउचर आणि पगार पावत्यांच्या वर छापले जातात.',
   'Enable WhatsApp Alerts': 'WhatsApp सूचना सुरू करा',
   'Send WhatsApp messages when stock drops below threshold': 'साठा मर्यादेपेक्षा कमी झाल्यावर WhatsApp संदेश पाठवा',

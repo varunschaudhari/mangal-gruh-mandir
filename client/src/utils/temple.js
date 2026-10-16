@@ -9,7 +9,7 @@ import { getTemple } from '../api/settings.api.js';
 
 const KEY = 'mgm-temple';
 const DEFAULT = {
-  name: 'Mangal Grah Mandir', nameMr: 'श्री मंगळग्रह मंदिर, अमळनेर',
+  name: 'Mangal Grah Mandir', nameMr: 'श्री मंगळग्रह मंदिर, अमळनेर', legalName: '',
   address: '', phone: '', email: '', website: '', trustReg: '', pan: '', reg80G: '',
 };
 
@@ -19,7 +19,7 @@ try {
   if (saved?.name) current = { ...DEFAULT, ...saved };
 } catch { /* private mode or bad JSON */ }
 
-/** { name, nameMr, address, phone, email, website, trustReg, pan, reg80G } — the last value fetched. */
+/** { name, nameMr, legalName, address, phone, email, website, trustReg, pan, reg80G } — the last value fetched. */
 export const temple = () => current;
 
 /** The name, safe to put in printed HTML. */

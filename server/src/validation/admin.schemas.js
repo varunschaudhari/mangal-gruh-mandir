@@ -106,6 +106,7 @@ export const updateSettings = {
     templeName: clearableText('Temple name', { max: 150 }),
     templeNameMr: clearableText('Temple name in Marathi', { max: 150 }),
     trustRegNumber: clearableText('Trust registration number', { max: 100 }),
+    trustLegalName: clearableText('Trust legal name', { max: 150 }),
     templeAddress: clearableText('Temple address', { max: 300 }),
     templePhone: clearableText('Temple phone', { max: 30 }),
     templeEmail: clearableText('Temple email', { max: 150 }),

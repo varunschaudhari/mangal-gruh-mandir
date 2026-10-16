@@ -15,6 +15,7 @@ export const getMahaprasadWhatsApp = (date)    => api.get('/mahaprasad/report/wh
 
 export const reserveOffline     = (data) => api.post('/mahaprasad/offline/reserve', data);
 export const getTodayForOffline = ()     => api.get('/mahaprasad/offline/today');
+export const getRedeemCopy      = ()     => api.get('/mahaprasad/offline/redeem-copy');
 export const syncOfflineCoupons = (data) => api.post('/mahaprasad/offline/sync',    data);
 // 200 when the server and its database are up, 503 when the database is down
 export const checkServer        = ()     => api.get('/health', { timeout: 5000 });

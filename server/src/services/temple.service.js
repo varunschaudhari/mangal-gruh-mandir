@@ -10,7 +10,7 @@ const DEFAULT_NAME = 'Mangal Grah Mandir';
 
 const DEFAULT_NAME_MR = 'श्री मंगळग्रह मंदिर, अमळनेर';
 
-let current = { name: DEFAULT_NAME, nameMr: DEFAULT_NAME_MR, address: '', phone: '', email: '', website: '', trustReg: '', pan: '', reg80G: '' };
+let current = { name: DEFAULT_NAME, nameMr: DEFAULT_NAME_MR, legalName: '', address: '', phone: '', email: '', website: '', trustReg: '', pan: '', reg80G: '' };
 
 /** Reload from Settings — pass the saved record to skip the read. */
 export async function refreshTemple(settings) {
@@ -18,6 +18,8 @@ export async function refreshTemple(settings) {
   current = {
     name: s.templeName?.trim() || DEFAULT_NAME,
     nameMr: s.templeNameMr?.trim() ?? DEFAULT_NAME_MR,
+    // The registered trust that runs the temple (receipts are issued in its name)
+    legalName: s.trustLegalName?.trim() || '',
     address: s.templeAddress?.trim() || '',
     phone: s.templePhone?.trim() || '',
     email: s.templeEmail?.trim() || '',
@@ -30,5 +32,5 @@ export async function refreshTemple(settings) {
   return current;
 }
 
-/** { name, nameMr, address, phone, email, website, trustReg, pan, reg80G } */
+/** { name, nameMr, legalName, address, phone, email, website, trustReg, pan, reg80G } */
 export const temple = () => current;

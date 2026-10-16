@@ -145,7 +145,7 @@ export function generateDonationReceipt(res, { donation, settings }) {
   const LEFT = 50;
   const box  = { left: LEFT, width: W };
 
-  const templeName = settings?.templeName || temple().name;
+  const templeName = temple().legalName || settings?.templeName || temple().name;   // signed for the trust
   const donorName  = donation.donor?.name || donation.donorName || (donation.donationType === 'hundi' ? 'Hundi Collection' : 'Anonymous');
   const donorPhone = donation.donorPhone || donation.donor?.phone || '';
   const donorPAN   = donation.panNumber   || donation.donor?.panNumber || '';
@@ -315,7 +315,7 @@ export function generate80GReceipt(res, { donation, settings }) {
   const LEFT = 50;
   const box  = { left: LEFT, width: W };
 
-  const templeName = settings.templeName || temple().name;
+  const templeName = temple().legalName || settings.templeName || temple().name;   // signed for the trust
   const donorName  = donation.donor?.name || donation.donorName || 'Anonymous';
   const donorPAN   = donation.panNumber   || donation.donor?.panNumber || '';
   const amount     = donation.cashAmount  || 0;

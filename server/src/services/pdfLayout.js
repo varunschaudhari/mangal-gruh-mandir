@@ -81,6 +81,10 @@ export function letterhead(doc, { title, number, date, numberLabel = 'No.' } = {
     doc.font('Body-SemiBold').fontSize(11).fillColor(PDF_COLORS.text).text(t.name, x, y, { width: w });
     y = doc.y;
   }
+  if (t.legalName && t.legalName !== t.name) {
+    doc.font('Body').fontSize(9).fillColor(PDF_COLORS.text).text(`Managed by ${t.legalName}`, x, y, { width: w });
+    y = doc.y;
+  }
   const lines = [
     t.address,
     [t.phone && `Phone ${t.phone}`, t.email, t.website].filter(Boolean).join('   ·   '),

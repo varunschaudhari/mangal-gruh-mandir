@@ -47,4 +47,15 @@ const authorize = (...requiredPermissions) => async (req, res, next) => {
   }
 };
 
+/** Allows the request when the role has at least one of the permissions. */
+export const authorizeAny = (...anyOf) => async (req, res, next) => {
+  try {
+    const perms = await getPermissionsForRole(req.user.role);
+    if (perms.includes('*') || anyOf.some((p) => perms.includes(p))) return next();
+    next(new ApiError(403, 'You do not have permission to perform this action'));
+  } catch (err) {
+    next(err);
+  }
+};
+
 export default authorize;
