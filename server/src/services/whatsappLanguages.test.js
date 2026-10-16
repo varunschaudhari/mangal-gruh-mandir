@@ -12,7 +12,9 @@ mock.method(logger, 'info', () => {});
 mock.method(logger, 'error', () => {});
 
 const ready = { enabled: true, phoneNumberId: '111', accessToken: 'EAAtok', templates: {}, languages: {} };
-const texts = (call) => call.arguments[1].template.components[0].parameters.map((p) => p.text);
+const part = (call, type) => call.arguments[1].template.components.find((c) => c.type === type);
+const texts = (call) => part(call, 'body').parameters.map((p) => p.text);
+const picture = (call) => part(call, 'header')?.parameters[0].image.link;
 const settingsWith = (extra = {}) => mock.method(Settings, 'getOrCreate',
   async () => new Settings({ waEnabled: true, waPhoneNumberId: '111', waAccessToken: 'EAAtok', ...extra }));
 
@@ -65,17 +67,42 @@ test('donation thank-you in English when chosen', async (t) => {
   assert.deepEqual(texts(post.mock.calls[0]), ['Devotee', '501', 'Diwali', '16 Oct 2026', '-']);
 });
 
-test('Mahaprasad coupons in Marathi, with the QR link', async (t) => {
+test('Mahaprasad coupons in Marathi, with the QR picture on top and the QR link', async (t) => {
   const s = settingsWith({ waTemplates: { mahaprasadCoupons: 'mahaprasad_coupon_qr' } });
   const post = mock.method(axios, 'post', async () => ({ data: {} }));
   t.after(() => { post.mock.restore(); s.mock.restore(); });
   const out = await sendCouponMessage({
     mobile: '9876543210', numbers: ['MP-20261013-007', 'MP-20261013-008', 'MP-20261013-009'],
     date: new Date('2026-10-13T10:00:00+05:30'), persons: 3, link: 'https://mandir.aumora.io/m/AbCd',
+    image: 'https://mandir.aumora.io/api/public/mahaprasad/AbCd/qr.png',
   });
   assert.equal(out.whatsapp, 'sent');
   assert.equal(post.mock.calls[0].arguments[1].template.language.code, 'mr');
+  assert.equal(picture(post.mock.calls[0]), 'https://mandir.aumora.io/api/public/mahaprasad/AbCd/qr.png');
+  assert.equal(post.mock.calls[0].arguments[1].template.components[0].type, 'header');   // Meta wants the header first
   assert.deepEqual(texts(post.mock.calls[0]), ['मंगळवार, १३ ऑक्टोबर, २०२६', 'MP-20261013-007 ते 009 (3)', '3 व्यक्ती', 'https://mandir.aumora.io/m/AbCd']);
+});
+
+test('the English fallback keeps the picture', async (t) => {
+  let n = 0;
+  const post = mock.method(axios, 'post', async () => {
+    n += 1;
+    if (n === 1) throw Object.assign(new Error('x'), { response: { data: { error: { code: 132001 } } } });
+    return { data: {} };
+  });
+  t.after(() => post.mock.restore());
+  await sendTemplate(ready, { to: '9876543210', template: 'mahaprasad_coupon_qr', language: 'mr', body: ['x'], image: 'https://x/qr.png', fallback: { language: 'en', body: ['y'] } });
+  assert.equal(post.mock.calls[1].arguments[1].template.language.code, 'en');
+  assert.equal(picture(post.mock.calls[1]), 'https://x/qr.png');
+  assert.deepEqual(texts(post.mock.calls[1]), ['y']);
+});
+
+test('no picture unless one is given', async (t) => {
+  const post = mock.method(axios, 'post', async () => ({ data: {} }));
+  t.after(() => post.mock.restore());
+  await sendTemplate(ready, { to: '9876543210', template: 'donation_thankyou', body: ['a'] });
+  assert.equal(picture(post.mock.calls[0]), undefined);
+  assert.equal(post.mock.calls[0].arguments[1].template.components.length, 1);
 });
 
 test('coupon list in Marathi', () => {

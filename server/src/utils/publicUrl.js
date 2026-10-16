@@ -5,3 +5,6 @@ export const appUrl = () => (process.env.PUBLIC_APP_URL || (process.env.CLIENT_U
 
 /** The page with a sale's Mahaprasad coupon QRs (client: pages/mahaprasad/PublicCoupons.jsx). */
 export const couponPageUrl = (shareToken) => `${appUrl()}/m/${shareToken}`;
+
+/** The same QRs as a picture, for the top of the WhatsApp message (Meta fetches it when sending). */
+export const couponImageUrl = (shareToken) => `${appUrl()}/api/public/mahaprasad/${shareToken}/qr.png`;

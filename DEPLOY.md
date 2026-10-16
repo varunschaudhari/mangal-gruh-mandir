@@ -437,13 +437,19 @@ of Today's Batches) opens WhatsApp with the coupon numbers and the QR link ready
 needed. **Automatic sending** (optional):
 
 - **WhatsApp:** in Meta WhatsApp Manager → Message templates → Create: category **Utility**, name
-  `mahaprasad_coupon_qr`, language **English**, no header, body:
+  `mahaprasad_coupon_qr`, language **English**, **Header: Image** (the coupons' QR picture goes there,
+  so the QR is in the devotee's chat and needs no internet at the hall — for the sample, upload any
+  QR picture), body:
   ```
   Namaste! Your Mahaprasad coupon(s) at Shri Mangal Grah Mandir, Amalner for {{1}}: {{2}} ({{3}}). Your coupon QR: {{4}} Please show it at the Mahaprasad hall.
   ```
   Samples for review: `{{1}}` Fri, 16 Oct 2026 · `{{2}}` MP-20261016-007 to 009 (3) · `{{3}}` 3 persons ·
   `{{4}}` https://mandir.aumora.io/m/AbCdEfGh1234. Once it shows **Active**, type its name in
-  Settings → WhatsApp → *Mahaprasad coupons*. (The body must have exactly these 4 parts, or Meta refuses each message.)
+  Settings → WhatsApp → *Mahaprasad coupons*. (The template must have the image header and exactly
+  these 4 parts, or Meta refuses each message.) **Marathi:** add Marathi to the same template, with
+  the same image header — the Marathi wording is in Settings → WhatsApp → *Mahaprasad coupons* →
+  *Wording to submit to Meta*, where you also choose which language goes first; if that one isn't
+  approved yet, the other is sent.
 - **SMS:** an MSG91 Flow with a DLT-approved template using `##date##`, `##coupons##`, `##persons##`
   and `##link##`; set `MSG91_MAHAPRASAD_TEMPLATE_ID` in `server/.env` (SMS turned on in Settings) and restart the server.
 

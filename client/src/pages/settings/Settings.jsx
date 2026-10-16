@@ -112,6 +112,8 @@ const WA_TEMPLATES = [
     text: 'Dear {{1}}, thank you for your generous donation of ₹{{2}} towards {{3}} on {{4}}. Receipt no. {{5}}. 🙏 Jai Jai Mangal Grah Mandir!',
     textMr: 'प्रिय {{1}}, आपण दिलेल्या ₹{{2}} च्या उदार देणगीबद्दल ({{3}}, दिनांक {{4}}) मनःपूर्वक धन्यवाद. पावती क्र. {{5}}. 🙏 जय जय मंगळग्रह मंदिर!' },
   { key: 'mahaprasadCoupons', label: 'Mahaprasad coupons', to: 'To devotees', example: 'mahaprasad_coupon_qr',
+    // The coupons' QR picture on top, so it's in the devotee's chat (no internet needed at the hall)
+    header: 'Header: Image — the coupon QR (for the sample, upload any QR picture)',
     text: 'Namaste! Your Mahaprasad coupon(s) at Shri Mangal Grah Mandir, Amalner for {{1}}: {{2}} ({{3}}). Your coupon QR: {{4}} Please show it at the Mahaprasad hall.',
     textMr: 'नमस्कार! श्री मंगळग्रह मंदिर, अमळनेर येथे {{1}} साठी आपले महाप्रसाद कूपन: {{2}} ({{3}}). आपल्या कूपनचा QR: {{4}} कृपया तो महाप्रसाद सभागृहात दाखवा.' },
 ];
@@ -303,7 +305,7 @@ const Settings = () => {
                     <p className="text-xs text-gray-400 mt-0.5">{t('The name of each approved template in WhatsApp Manager. Leave a name empty to not send that message. The booking receipt’s template is in Bookings → Setup.')}</p>
                     <p className="text-xs text-gray-400 mt-1">{t('Donation and Mahaprasad messages can also go in Marathi: add Marathi to the same template in WhatsApp Manager. If the chosen language isn’t approved yet, the other one is sent.')}</p>
                   </div>
-                  {WA_TEMPLATES.map(({ key, label, to, example, text, textMr }) => (
+                  {WA_TEMPLATES.map(({ key, label, to, example, header, text, textMr }) => (
                     <div key={key} className="border-t border-gray-100 pt-3">
                       <div className="grid grid-cols-1 sm:grid-cols-[1fr_15rem] gap-1.5 sm:gap-3 sm:items-center">
                         <label htmlFor={`wa-${key}`} className="text-sm text-gray-700">
@@ -324,6 +326,7 @@ const Settings = () => {
                       )}
                       <details className="mt-1.5">
                         <summary className="cursor-pointer text-xs text-green-700">{t('Wording to submit to Meta')}</summary>
+                        {header && <p className="mt-2 text-xs font-semibold text-gray-600">{t(header)}</p>}
                         {textMr && <p className="mt-2 text-xs font-semibold text-gray-500">English</p>}
                         <p className="mt-1 rounded-lg bg-gray-50 p-2.5 font-mono text-xs leading-relaxed text-gray-700 break-words select-all">{text}</p>
                         {textMr && (

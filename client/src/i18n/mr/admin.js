@@ -253,6 +253,7 @@ export default {
   'To devotees': 'भाविकांना',
   'Mahaprasad coupons': 'महाप्रसाद कूपन',
   'Wording to submit to Meta': 'Meta ला पाठवायचा मजकूर',
+  'Header: Image — the coupon QR (for the sample, upload any QR picture)': 'हेडर: चित्र (Image) — कूपनचा QR (नमुन्यासाठी कोणतेही QR चित्र अपलोड करा)',
   'Donation and Mahaprasad messages can also go in Marathi: add Marathi to the same template in WhatsApp Manager. If the chosen language isn’t approved yet, the other one is sent.': 'देणगी व महाप्रसादाचे संदेश मराठीतही जाऊ शकतात: WhatsApp Manager मध्ये त्याच टेम्पलेटला मराठी भाषा जोडा. निवडलेली भाषा अजून मंजूर नसेल तर दुसऱ्या भाषेतील संदेश जातो.',
   'Send in': 'या भाषेत पाठवा',
   'same name, language Marathi': 'तेच नाव, भाषा मराठी',

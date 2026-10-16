@@ -38,7 +38,7 @@ import salaryRoutes from './salary.routes.js';
 import pincodeRoutes from './pincode.routes.js';
 import { bookingRouter, bookingSetupRouter, bookingShiftRouter } from './booking.routes.js';
 import { publicReceipt, publicSlip } from '../controllers/booking.controller.js';
-import { publicCoupons } from '../controllers/mahaprasad.controller.js';
+import { publicCoupons, publicCouponsImage } from '../controllers/mahaprasad.controller.js';
 
 const router = Router();
 
@@ -88,5 +88,6 @@ router.get('/public/receipts/:token', publicReceipt);
 router.get('/public/receipts/:token/slip.png', publicSlip);
 // …and the Mahaprasad coupon page link (the coupon QRs to show at the food counter)
 router.get('/public/mahaprasad/:token', publicCoupons);
+router.get('/public/mahaprasad/:token/qr.png', publicCouponsImage);
 
 export default router;

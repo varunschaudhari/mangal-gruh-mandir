@@ -366,6 +366,12 @@ async function mahaprasadChecks(api, today) {
   check((await page(linkToken)).body.data.coupons.find((c) => c.couponNumber === linked.coupons[0].couponNumber)?.status === 'redeemed',
     'the page shows a coupon as served once it is scanned');
   check((await page('NoSuchToken123')).status === 404 && (await page('bad')).status === 404, 'an unknown or malformed link → not found');
+  // The same QRs as a picture, for the top of the WhatsApp message
+  const pic = await fetch(`${BASE}/api/public/mahaprasad/${linkToken}/qr.png`);
+  const picBytes = Buffer.from(await pic.arrayBuffer());
+  check(pic.status === 200 && pic.headers.get('content-type') === 'image/png' && picBytes.subarray(1, 4).toString() === 'PNG' && picBytes.length > 5000,
+    'the QR picture for WhatsApp is a PNG, without sign-in', `${pic.status} ${pic.headers.get('content-type')} ${picBytes.length} bytes`);
+  check((await fetch(`${BASE}/api/public/mahaprasad/NoSuchToken123/qr.png`)).status === 404, '…and an unknown link has no picture');
 
   // Groups count as persons in reports
   const day = `${today.slice(0, 4)}-${today.slice(4, 6)}-${today.slice(6)}`;

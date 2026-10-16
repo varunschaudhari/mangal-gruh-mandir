@@ -65,6 +65,9 @@ export const bodyComponent = (values) => ({
   parameters: values.map((v) => ({ type: 'text', text: String(v ?? '').trim() || '-' })),
 });
 
+/** A picture (its https address) for a template with an Image header. */
+export const imageHeader = (link) => ({ type: 'header', parameters: [{ type: 'image', image: { link } }] });
+
 // What the usual Meta errors mean, in words the office can act on.
 const META_HINTS = {
   190: 'The access token has expired or is wrong. Paste a permanent System User token in Settings → WhatsApp.',
@@ -98,12 +101,13 @@ const masked = (raw) => {
 };
 
 /**
- * Sends one approved template. `body` = the {{1}}, {{2}}… values; or pass full `components`
- * (e.g. with an image header). `fallback` ({ language, body | components }) is sent instead when
- * Meta has no approved version in `language`. Returns 'sent', 'off' (not set up / template not
- * named) or 'failed' (logged). Never throws.
+ * Sends one approved template. `body` = the {{1}}, {{2}}… values; `image` = the address of a
+ * picture for a template with an Image header (fetched by Meta); or pass full `components`.
+ * `fallback` ({ language, body | components }) is sent instead when Meta has no approved version
+ * in `language` — with the same `image`. Returns 'sent', 'off' (not set up / template not named)
+ * or 'failed' (logged). Never throws.
  */
-export async function sendTemplate(cfg, { to, template, language = 'en', body = [], components, label = 'WhatsApp', fallback }) {
+export async function sendTemplate(cfg, { to, template, language = 'en', body = [], image, components, label = 'WhatsApp', fallback }) {
   if (!whatsappReady(cfg) || !template) return 'off';
   const number = whatsappNumber(to);
   if (!number) {
@@ -117,7 +121,11 @@ export async function sendTemplate(cfg, { to, template, language = 'en', body = 
         messaging_product: 'whatsapp',
         to: number,
         type: 'template',
-        template: { name: template, language: { code: language }, components: components || [bodyComponent(body)] },
+        template: {
+          name: template,
+          language: { code: language },
+          components: components || [...(image ? [imageHeader(image)] : []), bodyComponent(body)],
+        },
       },
       { headers: { Authorization: `Bearer ${cfg.accessToken}`, 'Content-Type': 'application/json' }, timeout: 15000 },
     );
@@ -126,7 +134,7 @@ export async function sendTemplate(cfg, { to, template, language = 'en', body = 
     const e = err.response?.data?.error;
     if (e?.code === 132001 && fallback) {
       logger.info(`${label}: no approved "${language}" version of ${template}, sending "${fallback.language}"`);
-      return sendTemplate(cfg, { to, template, label, ...fallback });
+      return sendTemplate(cfg, { to, template, label, image, ...fallback });
     }
     logger.error(`${label}: WhatsApp message failed`, {
       to: masked(number), template, language, error: e ? metaErrorText(e) : err.message,

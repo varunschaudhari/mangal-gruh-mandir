@@ -13,7 +13,7 @@ import { logger } from '../utils/logger.js';
 import { APP_TIMEZONE, localDateStr } from '../utils/dates.js';
 import { temple } from '../services/temple.service.js';
 import { sendCouponMessage } from '../services/mahaprasadNotify.service.js';
-import { couponPageUrl } from '../utils/publicUrl.js';
+import { couponImageUrl, couponPageUrl } from '../utils/publicUrl.js';
 const nanoid = () => randomBytes(6).toString('hex');
 // Unguessable: the coupon page link is as good as the paper coupon
 const newShareToken = () => randomBytes(12).toString('base64url');
@@ -297,7 +297,7 @@ export const issueCoupons = asyncHandler(async (req, res) => {
   logAction(req, { action: 'mahaprasad.issue', entity: 'MahaprasadCoupon', entityId: batchId, entityRef: coupons[0]._id, after: { qty, type, isGroup: Boolean(isGroup), groupSize, date: localDateStr(couponDate), occasion: type === 'free' ? occasion : undefined, mobile, amount: paid ? totalDue : 0, paymentMode: paid ? mode : undefined } });
   // Coupon numbers to the devotee's phone, in the background (only when WhatsApp / SMS is set up for it).
   const shareUrl = couponPageUrl(shareToken);
-  sendCouponMessage({ mobile, numbers, date: couponDate, persons: qty, link: shareUrl });
+  sendCouponMessage({ mobile, numbers, date: couponDate, persons: qty, link: shareUrl, image: couponImageUrl(shareToken) });
   const msg = isGroup ? `Group coupon (${qty} persons) issued` : `${qty} coupon(s) issued`;
   res.status(201).json(new ApiResponse(201, { coupons, batchId, drawerChange, shareUrl }, msg));
 });
@@ -819,6 +819,22 @@ export const publicCoupons = asyncHandler(async (req, res) => {
     validityDays: settings.mahaprasadCouponValidityDays ?? 1,
     temple: temple(),
   }));
+});
+
+// GET /api/public/mahaprasad/:token/qr.png — no sign-in. The same coupons as a picture, for the
+// top of the WhatsApp message: Meta fetches it when sending, so the QR sits in the devotee's chat
+// and needs no internet at the hall.
+export const publicCouponsImage = asyncHandler(async (req, res) => {
+  const token = String(req.params.token || '');
+  if (!/^[A-Za-z0-9_-]{10,40}$/.test(token)) throw new ApiError(404, 'Coupon not found');
+  const coupons = await MahaprasadCoupon.find({ shareToken: token, status: { $ne: 'reserved' } })
+    .select('-_id couponNumber date type occasion status groupSize')
+    .sort({ couponNumber: 1 })
+    .lean();
+  if (!coupons.length) throw new ApiError(404, 'Coupon not found');
+  const { couponsQrPng } = await import('../services/mahaprasadQrImage.js');
+  const png = await couponsQrPng(coupons, { temple: temple() });
+  res.set('Cache-Control', 'public, max-age=300').type('png').send(png);
 });
 
 // GET /mahaprasad/offline/redeem-copy

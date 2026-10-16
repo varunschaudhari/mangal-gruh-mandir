@@ -8,7 +8,9 @@ import { bilingual, sendTemplate, whatsappConfig } from './whatsappClient.servic
 // (otherwise the counter's "Send on WhatsApp" button opens WhatsApp with the message ready):
 //   WhatsApp — Settings → WhatsApp turned on, and the Mahaprasad template named there: a
 //              Meta-approved Utility template, in English and / or Marathi under the one name
-//              (Settings → WhatsApp shows both wordings and which language goes first), English body
+//              (Settings → WhatsApp shows both wordings and which language goes first), with
+//              Header: Image — the coupons' QR picture (`image`, mahaprasadQrImage.js), so the QR
+//              is in the chat and needs no internet at the hall — and the English body
 //              "Namaste! Your Mahaprasad coupon(s) at Shri Mangal Grah Mandir, Amalner for {{1}}:
 //               {{2}} ({{3}}). Your coupon QR: {{4}} Please show it at the Mahaprasad hall."
 //              ({{1}} date, {{2}} coupon numbers, {{3}} persons, {{4}} link — DEPLOY.md §13)
@@ -36,7 +38,7 @@ const personsText = (n) => (n === 1 ? '1 person' : `${n} persons`);
 const dateTextMr = (d) => new Date(d).toLocaleDateString('mr-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
 
 /** Returns { whatsapp, sms } with 'sent' | 'off' | 'failed'. Never throws. */
-export async function sendCouponMessage({ mobile, numbers, date, persons, link = '' }) {
+export async function sendCouponMessage({ mobile, numbers, date, persons, link = '', image }) {
   const result = { whatsapp: 'off', sms: 'off' };
   if (!mobile || !numbers?.length) return result;
   const coupons = couponListText(numbers);
@@ -48,7 +50,7 @@ export async function sendCouponMessage({ mobile, numbers, date, persons, link =
     const wa = await whatsappConfig();
     const count = persons || numbers.length;
     result.whatsapp = await sendTemplate(wa, {
-      to: mobile, template: wa.templates.mahaprasadCoupons, label: 'Mahaprasad coupons',
+      to: mobile, template: wa.templates.mahaprasadCoupons, label: 'Mahaprasad coupons', image,
       ...bilingual(wa, 'mahaprasadCoupons', {
         en: [when, coupons, people, link],
         mr: [dateTextMr(date), couponListText(numbers, 'mr'), `${count} व्यक्ती`, link],
