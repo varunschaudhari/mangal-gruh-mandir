@@ -4,6 +4,7 @@ import AuditLog from '../models/AuditLog.js';
 import ApiResponse from '../utils/ApiResponse.js';
 import asyncHandler from '../utils/asyncHandler.js';
 import { logAction, visibleToRole } from '../services/audit.service.js';
+import { tablePdf } from '../services/tablePdf.js';
 
 // Search text is matched as typed (a "(" or "*" must not break the query)
 const escapeRegex = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -66,10 +67,44 @@ export const getEntityHistory = asyncHandler(async (req, res) => {
   res.json(new ApiResponse(200, logs));
 });
 
+// GET /audit-logs/export — Excel, or ?format=pdf
 export const exportAuditLogs = asyncHandler(async (req, res) => {
   const logs = await AuditLog.find(await auditQuery(req, { search: false })).sort({ timestamp: -1 }).limit(5000).lean();
   const { dateFrom, dateTo, userId, entity, action } = req.query;
-  logAction(req, { action: 'audit.export', entity: 'AuditLog', meta: { rows: logs.length, dateFrom, dateTo, userId, entity, action } });
+  const pdf = req.query.format === 'pdf';
+  logAction(req, { action: 'audit.export', entity: 'AuditLog', meta: { rows: logs.length, format: pdf ? 'pdf' : 'excel', dateFrom, dateTo, userId, entity, action } });
+
+  if (pdf) {
+    const period = [dateFrom, dateTo].filter(Boolean).join(' to ');
+    const details = (meta) => {
+      const text = meta ? JSON.stringify(meta) : '';
+      return text.length > 300 ? `${text.slice(0, 300)}…` : text;   // the full text is in Excel / on screen
+    };
+    return tablePdf(res, {
+      title: 'Audit log',
+      subtitle: [period, `${logs.length} entries${logs.length === 5000 ? ' (the latest 5,000)' : ''}`].filter(Boolean).join(' · '),
+      filename: 'audit-log.pdf',
+      landscape: true,
+      columns: [
+        { header: 'Time', key: 'time', width: 1.3 },
+        { header: 'User', key: 'user', width: 1.1 },
+        { header: 'Role', key: 'role', width: 0.8 },
+        { header: 'Action', key: 'action', width: 1.4 },
+        { header: 'Entity', key: 'entity', width: 1 },
+        { header: 'Details', key: 'details', width: 4 },
+        { header: 'IP', key: 'ip', width: 0.9 },
+      ],
+      rows: logs.map((log) => ({
+        time: log.timestamp ? new Date(log.timestamp).toLocaleString('en-IN') : '',
+        user: log.user?.name || 'System',
+        role: log.user?.role || '',
+        action: log.action,
+        entity: log.entity,
+        details: details(log.meta),
+        ip: log.ip || '',
+      })),
+    });
+  }
 
   const wb = new ExcelJS.Workbook();
   const ws = wb.addWorksheet('Audit Log');

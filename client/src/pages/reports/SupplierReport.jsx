@@ -11,6 +11,7 @@ import toast from 'react-hot-toast';
 import { useIsMobile } from '../../hooks/useMediaQuery.js';
 import { localDateStr } from '../../utils/formatters.js';
 import { useT } from '../../i18n/index.jsx';
+import { ExcelOnly } from '../../components/ui/ExportButtons.jsx';
 
 const fmt     = (n) => Number(n || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
@@ -71,11 +72,13 @@ const SupplierReport = () => {
                 <FileText className="h-4 w-4 text-red-500" />
                 {pdfMut.isPending ? t('Generating…') : 'PDF'}
               </button>
-              <button onClick={() => excelMut.mutate()} disabled={excelMut.isPending}
-                className="btn btn-ghost text-sm flex items-center gap-1.5 border">
-                <Sheet className="h-4 w-4 text-green-600" />
-                {excelMut.isPending ? t('Generating…') : t('Excel')}
-              </button>
+              <ExcelOnly>
+                <button onClick={() => excelMut.mutate()} disabled={excelMut.isPending}
+                  className="btn btn-ghost text-sm flex items-center gap-1.5 border">
+                  <Sheet className="h-4 w-4 text-green-600" />
+                  {excelMut.isPending ? t('Generating…') : t('Excel')}
+                </button>
+              </ExcelOnly>
             </div>
           )
         }

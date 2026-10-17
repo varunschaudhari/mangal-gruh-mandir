@@ -13,6 +13,7 @@ import toast from 'react-hot-toast';
 import { shareText } from '../../utils/fileSaver.js';
 import { useIsMobile } from '../../hooks/useMediaQuery.js';
 import { useT } from '../../i18n/index.jsx';
+import { ExcelOnly } from '../../components/ui/ExportButtons.jsx';
 
 const TYPE_LABELS = {
   STOCK_IN: 'Stock In', STOCK_OUT: 'Stock Out',
@@ -156,14 +157,16 @@ const DailyMovement = () => {
               <FileText className="h-4 w-4 text-red-500" />
               {pdfMutation.isPending ? t('Generating…') : 'PDF'}
             </button>
-            <button
-              onClick={() => excelMutation.mutate()}
-              disabled={excelMutation.isPending || transactions.length === 0}
-              className="btn btn-ghost text-sm flex items-center gap-1.5 border"
-            >
-              <Sheet className="h-4 w-4 text-green-600" />
-              {excelMutation.isPending ? t('Generating…') : t('Excel')}
-            </button>
+            <ExcelOnly>
+              <button
+                onClick={() => excelMutation.mutate()}
+                disabled={excelMutation.isPending || transactions.length === 0}
+                className="btn btn-ghost text-sm flex items-center gap-1.5 border"
+              >
+                <Sheet className="h-4 w-4 text-green-600" />
+                {excelMutation.isPending ? t('Generating…') : t('Excel')}
+              </button>
+            </ExcelOnly>
             <button
               onClick={() => whatsappMutation.mutate()}
               disabled={whatsappMutation.isPending}

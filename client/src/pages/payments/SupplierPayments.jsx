@@ -16,6 +16,7 @@ import toast from 'react-hot-toast';
 import { saveFile } from '../../utils/fileSaver.js';
 import haptics from '../../utils/haptics.js';
 import { useT, rich } from '../../i18n/index.jsx';
+import { ExcelOnly } from '../../components/ui/ExportButtons.jsx';
 
 const fmt    = (d)  => d ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
 const fmtAmt = (n)  => `₹${Number(n || 0).toLocaleString('en-IN')}`;
@@ -203,20 +204,22 @@ export default function SupplierPayments() {
 
   // ── Export ─────────────────────────────────────────────────────────────────
 
-  const handleExport = async () => {
-    setExporting(true);
+  const handleExport = async (format) => {
+    setExporting(format);
     try {
+      const pdf = format === 'pdf';
       const res = await exportPayments({
         from:   exportFrom || undefined,
         to:     exportTo   || undefined,
         status: statusFilter || undefined,
+        format: pdf ? 'pdf' : undefined,
       });
-      await saveFile(res.data, `payments-${exportFrom || 'all'}.xlsx`);
+      await saveFile(res.data, `payments-${exportFrom || 'all'}.${pdf ? 'pdf' : 'xlsx'}`);
       setExportModal(false);
     } catch {
       toast.error(t('Export failed'));
     } finally {
-      setExporting(false);
+      setExporting(null);
     }
   };
 
@@ -563,12 +566,21 @@ export default function SupplierPayments() {
           )}
           <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
             <button onClick={() => setExportModal(false)} className="btn-secondary">{t('Cancel')}</button>
+            <ExcelOnly>
+              <button
+                onClick={() => handleExport('excel')}
+                disabled={!!exporting}
+                className="btn-secondary flex items-center gap-2 text-sm disabled:opacity-50">
+                <Download className="h-4 w-4" />
+                {exporting === 'excel' ? t('Generating…') : t('Download Excel')}
+              </button>
+            </ExcelOnly>
             <button
-              onClick={handleExport}
-              disabled={exporting}
+              onClick={() => handleExport('pdf')}
+              disabled={!!exporting}
               className="btn-primary flex items-center gap-2 text-sm disabled:opacity-50">
               <Download className="h-4 w-4" />
-              {exporting ? t('Generating…') : t('Download Excel')}
+              {exporting === 'pdf' ? t('Generating…') : t('Download PDF')}
             </button>
           </div>
         </div>

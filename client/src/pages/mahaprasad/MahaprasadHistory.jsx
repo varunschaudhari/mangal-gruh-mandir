@@ -2,14 +2,15 @@ import { useEffect, useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
   History, RefreshCw, Printer, Search,
-  FileSpreadsheet, CheckCircle2, Clock, IndianRupee, Gift, Share2,
+  CheckCircle2, Clock, IndianRupee, Gift, Share2,
 } from 'lucide-react';
 import { getCoupons, printCoupons } from '../../api/mahaprasad.api.js';
 import PageHeader from '../../components/ui/PageHeader.jsx';
 import Badge from '../../components/ui/Badge.jsx';
 import MobileCard from '../../components/ui/MobileCard.jsx';
 import { PageLoader } from '../../components/ui/Spinner.jsx';
-import { exportToExcel } from '../../utils/exportToExcel.js';
+import { exportRows as exportTable } from '../../utils/exportToPdf.js';
+import ExportButtons from '../../components/ui/ExportButtons.jsx';
 import toast from 'react-hot-toast';
 import { openFile } from '../../utils/fileSaver.js';
 import { isNative } from '../../utils/platform.js';
@@ -100,7 +101,7 @@ export default function MahaprasadHistory() {
     finally   { setPrinting(false); }
   };
 
-  const handleExport = async () => {
+  const handleExport = async (format) => {
     if (coupons.length === 0) return;
     try {
       const rows = coupons.map((c) => ({
@@ -116,7 +117,7 @@ export default function MahaprasadHistory() {
         'Redeemed By':   c.redeemedBy?.name || '',
       }));
       const label = search ? 'search' : (date || 'all');
-      await exportToExcel(rows, `mahaprasad-history-${label}`, 'Coupons');
+      await exportTable(format, rows, `mahaprasad-history-${label}`, 'Mahaprasad coupons', { subtitle: search ? `Search: ${search}` : (date || '') });
     } catch { toast.error(t('Export failed')); }
   };
 
@@ -128,10 +129,8 @@ export default function MahaprasadHistory() {
         breadcrumbs={[{ label: 'Mahaprasad', to: '/mahaprasad' }, { label: 'History' }]}
         actions={
           <div className="flex items-center gap-2">
-            <button onClick={handleExport} disabled={coupons.length === 0}
-              className="btn btn-ghost border text-sm flex items-center gap-1.5 disabled:opacity-40 max-sm:py-2.5">
-              <FileSpreadsheet className="h-4 w-4" /> {t('Export')}
-            </button>
+            <ExportButtons onExport={handleExport} disabled={coupons.length === 0}
+              className="btn btn-ghost border text-sm flex items-center gap-1.5 disabled:opacity-40 max-sm:py-2.5" />
             <button onClick={() => refetch()} disabled={isFetching}
               className="btn btn-ghost border text-sm flex items-center gap-1.5 max-sm:py-2.5">
               <RefreshCw className={`h-4 w-4 ${isFetching ? 'animate-spin' : ''}`} /> {t('Refresh')}

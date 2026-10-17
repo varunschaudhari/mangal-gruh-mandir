@@ -101,6 +101,7 @@ export default {
   'Leave dates blank to export all records.': 'सर्व नोंदी हव्या असल्यास तारखा रिकाम्या ठेवा.',
   'Active filter {status} will be applied to the export.': 'निवडलेला फिल्टर {status} निर्यातीलाही लागू होईल.',
   'Download Excel': 'Excel डाउनलोड करा',
+  'Download PDF': 'PDF डाउनलोड करा',
 
   // ── Supplier payment detail ──────────────────────────────────────────────
   'Payment not found.': 'पेमेंट सापडले नाही.',

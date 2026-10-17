@@ -6,8 +6,9 @@ import PageHeader from '../../components/ui/PageHeader.jsx';
 import Badge from '../../components/ui/Badge.jsx';
 import { PageLoader } from '../../components/ui/Spinner.jsx';
 import { fDate, localDateStr } from '../../utils/formatters.js';
-import { exportToExcel } from '../../utils/exportToExcel.js';
-import { Download, RefreshCw, Search } from 'lucide-react';
+import { exportRows as exportTable } from '../../utils/exportToPdf.js';
+import ExportButtons from '../../components/ui/ExportButtons.jsx';
+import { RefreshCw, Search } from 'lucide-react';
 import { useT } from '../../i18n/index.jsx';
 
 const CurrentStock = () => {
@@ -24,7 +25,7 @@ const CurrentStock = () => {
     ...(lowStockOnly && { lowStock: 'true' }),
   };
 
-  const handleExport = () => {
+  const handleExport = (format) => {
     const rows = balances.map((b) => ({
       'Department':    b.department?.name || '',
       'Product':       b.product?.name || '',
@@ -38,7 +39,7 @@ const CurrentStock = () => {
       'Last Updated':  b.lastTransactionDate ? new Date(b.lastTransactionDate).toLocaleDateString('en-IN') : '',
     }));
     const dateStr = localDateStr();
-    exportToExcel(rows, `Stock_Statement_${dateStr}`, 'Current Stock');
+    exportTable(format, rows, `Stock_Statement_${dateStr}`, 'Current Stock', { subtitle: `As on ${new Date().toLocaleDateString('en-IN')}` });
   };
 
   const { data, isLoading, isFetching, refetch } = useQuery({
@@ -77,9 +78,7 @@ const CurrentStock = () => {
               <span className="hidden sm:inline">{t('Refresh')}</span>
             </button>
             {balances.length > 0 && (
-              <button onClick={handleExport} className="btn btn-ghost text-sm flex items-center gap-1.5 px-2.5 sm:px-4">
-                <Download className="h-4 w-4" /> <span className="sm:hidden">{t('Export')}</span><span className="hidden sm:inline">{t('Export Excel')}</span>
-              </button>
+              <ExportButtons onExport={handleExport} className="btn btn-ghost text-sm flex items-center gap-1.5 px-2.5 sm:px-4" />
             )}
           </div>
         }

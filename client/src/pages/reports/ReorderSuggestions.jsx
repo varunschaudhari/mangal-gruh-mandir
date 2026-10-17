@@ -1,12 +1,13 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { ShoppingCart, RefreshCw, Download } from 'lucide-react';
+import { ShoppingCart, RefreshCw } from 'lucide-react';
 import { getReorderSuggestions } from '../../api/report.api.js';
 import { getDepartments } from '../../api/department.api.js';
 import PageHeader from '../../components/ui/PageHeader.jsx';
 import Badge from '../../components/ui/Badge.jsx';
 import { PageLoader } from '../../components/ui/Spinner.jsx';
-import { exportToExcel } from '../../utils/exportToExcel.js';
+import { exportRows as exportTable } from '../../utils/exportToPdf.js';
+import ExportButtons from '../../components/ui/ExportButtons.jsx';
 import { localDateStr } from '../../utils/formatters.js';
 import { useT } from '../../i18n/index.jsx';
 
@@ -37,7 +38,7 @@ const ReorderSuggestions = () => {
     rows = rows.filter((r) => r.product?.name?.toLowerCase().includes(q) || r.product?.code?.toLowerCase().includes(q));
   }
 
-  const handleExport = () => {
+  const handleExport = (format) => {
     const STATUS = { out_of_stock: 'Out of Stock', low_stock: 'Low Stock', reorder: 'Reorder Soon' };
     const exportRows = rows.map((r) => ({
       'Product':          r.product?.name || '',
@@ -51,7 +52,7 @@ const ReorderSuggestions = () => {
       'Avg Monthly (3M)': r.avgMonthlyConsumption,
       'Suggested Order':  r.suggestedQty,
     }));
-    exportToExcel(exportRows, `Reorder-Suggestions-${localDateStr()}`, 'Reorder Suggestions');
+    exportTable(format, exportRows, `Reorder-Suggestions-${localDateStr()}`, 'Reorder Suggestions');
   };
 
   const criticalCount = rows.filter((r) => r.alertLevel === 'out_of_stock').length;
@@ -70,9 +71,7 @@ const ReorderSuggestions = () => {
               <RefreshCw className={`h-4 w-4 ${isFetching ? 'animate-spin' : ''}`} /> {t('Refresh')}
             </button>
             {rows.length > 0 && (
-              <button onClick={handleExport} className="btn btn-ghost text-sm flex items-center gap-1.5 border">
-                <Download className="h-4 w-4 text-green-600" /> {t('Excel')}
-              </button>
+              <ExportButtons onExport={handleExport} />
             )}
           </div>
         }

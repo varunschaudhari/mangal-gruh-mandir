@@ -10,7 +10,7 @@ import { getTemple } from '../api/settings.api.js';
 const KEY = 'mgm-temple';
 const DEFAULT = {
   name: 'Mangal Grah Mandir', nameMr: 'श्री मंगळग्रह मंदिर, अमळनेर', legalName: '',
-  address: '', phone: '', email: '', website: '', trustReg: '', pan: '', reg80G: '',
+  address: '', phone: '', email: '', website: '', trustReg: '', pan: '', reg80G: '', excel: false,
 };
 
 let current = DEFAULT;
@@ -19,7 +19,7 @@ try {
   if (saved?.name) current = { ...DEFAULT, ...saved };
 } catch { /* private mode or bad JSON */ }
 
-/** { name, nameMr, legalName, address, phone, email, website, trustReg, pan, reg80G } — the last value fetched. */
+/** { name, nameMr, legalName, address, phone, email, website, trustReg, pan, reg80G, excel } — the last value fetched. */
 export const temple = () => current;
 
 /** The name, safe to put in printed HTML. */
@@ -42,3 +42,6 @@ export function useTemple() {
   });
   return data || current;
 }
+
+/** Whether report screens offer Excel downloads (Settings → Reports; off = PDF only). */
+export const useExcelExport = () => Boolean(useTemple().excel);

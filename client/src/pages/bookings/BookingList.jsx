@@ -3,7 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { keepPreviousData, useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import {
-  Search, X, SlidersHorizontal, FileSpreadsheet, Plus, Printer, FileText, ChevronLeft, ChevronRight, Users,
+  Search, X, SlidersHorizontal, Plus, Printer, FileText, ChevronLeft, ChevronRight, Users,
 } from 'lucide-react';
 import PageHeader from '../../components/ui/PageHeader.jsx';
 import Sheet from '../../components/ui/Sheet.jsx';
@@ -11,7 +11,7 @@ import Badge from '../../components/ui/Badge.jsx';
 import MobileCard from '../../components/ui/MobileCard.jsx';
 import Spinner, { PageLoader } from '../../components/ui/Spinner.jsx';
 import BookingDetailSheet from '../../components/booking/BookingDetailSheet.jsx';
-import { exportBookingsExcel, getBookingOptions, getBookings } from '../../api/booking.api.js';
+import { exportBookingsExcel, exportBookingsPdf, getBookingOptions, getBookings } from '../../api/booking.api.js';
 import { printBookingReceipt, printBookingSlip } from '../../utils/bookingReceipt.js';
 import { saveFile } from '../../utils/fileSaver.js';
 import { usePermissions } from '../../hooks/usePermissions.js';
@@ -22,6 +22,7 @@ import { useLanguage, useT } from '../../i18n/index.jsx';
 import {
   MODES, MODE_BADGE, MODE_LABEL, fmtDateTime, fmtDay, fmtRange, fmtTime, presetRange, rupees, sevaLabel,
 } from '../../components/booking/registerUtils.js';
+import ExportButtons from '../../components/ui/ExportButtons.jsx';
 
 // The booking register: every receipt, searchable by receipt no. / name / phone, filtered by
 // date booked or puja date, seva, payment mode, staff and status. Paged on the server —
@@ -198,16 +199,17 @@ export default function BookingList() {
     setSevaType(''); setPaymentMode(''); setCreatedBy(''); setStatus('confirmed'); setArrival('');
   };
 
-  const doExport = async () => {
-    setExporting(true);
+  const doExport = async (format) => {
+    setExporting(format);
     try {
-      const res = await exportBookingsExcel(filters);
+      const pdf = format === 'pdf';
+      const res = await (pdf ? exportBookingsPdf : exportBookingsExcel)(filters);
       const span = range.from ? `${range.from}${range.to && range.to !== range.from ? `-to-${range.to}` : ''}` : 'all';
-      await saveFile(res.data, `bookings-${span}.xlsx`);
+      await saveFile(res.data, `bookings-${span}.${pdf ? 'pdf' : 'xlsx'}`);
     } catch (e) {
       toast.error((await blobErrorMessage(e)) || t('Export failed'));
     } finally {
-      setExporting(false);
+      setExporting(null);
     }
   };
 
@@ -279,10 +281,7 @@ export default function BookingList() {
         breadcrumbs={[{ label: 'Pooja Booking' }, { label: 'All Bookings' }]}
         actions={(
           <>
-            <button onClick={doExport} disabled={exporting || !total} className="btn-secondary whitespace-nowrap">
-              {exporting ? <Spinner size="sm" /> : <FileSpreadsheet className="h-4 w-4 text-green-600" />}
-              {t('Download Excel')}
-            </button>
+            <ExportButtons onExport={doExport} disabled={!total} busy={exporting} className="btn-secondary whitespace-nowrap" />
             {can('bookings:create') && (
               <Link to="/bookings/new" className="btn-primary max-sm:hidden"><Plus className="h-4 w-4" /> {t('New Booking')}</Link>
             )}

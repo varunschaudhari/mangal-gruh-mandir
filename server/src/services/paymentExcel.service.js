@@ -1,5 +1,6 @@
 import ExcelJS from 'exceljs';
 import { temple } from './temple.service.js';
+import { tablePdf } from './tablePdf.js';
 
 const PM_LABELS     = { cash: 'Cash', upi: 'UPI', neft: 'NEFT', rtgs: 'RTGS', cheque: 'Cheque' };
 const STATUS_LABELS = { pending_approval: 'Pending', approved: 'Approved', rejected: 'Rejected' };
@@ -23,6 +24,47 @@ function setHeaderRow(sheet, values) {
     cell.border    = { top: { style: 'thin' }, bottom: { style: 'thin' }, left: { style: 'thin' }, right: { style: 'thin' } };
   });
   row.height = 20;
+}
+
+const rupees = (n) => `₹${Number(n || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+/** The payment register as PDF (the same rows as the Excel file, without bank and notes columns). */
+export function generatePaymentPdf(res, { payments, from, to }) {
+  const approved = payments.filter((p) => p.status === 'approved');
+  const period = from && to ? `${fmtDate(new Date(from))} – ${fmtDate(new Date(to))}` : from ? `From ${fmtDate(new Date(from))}` : 'All dates';
+  tablePdf(res, {
+    title: 'Payment register',
+    subtitle: period,
+    filename: `payments-${from ? from.slice(0, 10) : 'all'}${to ? `_to_${to.slice(0, 10)}` : ''}.pdf`,
+    landscape: true,
+    columns: [
+      { header: 'Voucher No.', key: 'number', width: 1.3 },
+      { header: 'Supplier', key: 'supplier', width: 1.7 },
+      { header: 'Date', key: 'date', width: 0.9 },
+      { header: 'Mode', key: 'mode', width: 0.7 },
+      { header: 'Amount', key: 'amount', width: 1, align: 'right' },
+      { header: 'Status', key: 'status', width: 0.8 },
+      { header: 'Invoices', key: 'invoices', width: 2 },
+      { header: 'Reference No.', key: 'ref', width: 1.1 },
+      { header: 'Submitted by', key: 'by', width: 1 },
+      { header: 'Approved by', key: 'approver', width: 1 },
+    ],
+    rows: payments.map((p) => ({
+      number: p.paymentNumber || '—',
+      supplier: p.supplier?.name || '—',
+      date: fmtDate(p.paymentDate),
+      mode: PM_LABELS[p.paymentMode] || p.paymentMode || '—',
+      amount: rupees(p.totalAmount),
+      status: STATUS_LABELS[p.status] || p.status,
+      invoices: p.invoices?.length
+        ? p.invoices.map((inv) => `${inv.invoiceNumber || 'Advance'}: ${rupees(inv.paidAmount)}`).join('\n')
+        : '—',
+      ref: p.referenceNumber || '—',
+      by: p.createdBy?.name || '—',
+      approver: p.approvedBy?.name || '—',
+    })),
+    footer: `Total approved: ${rupees(approved.reduce((s, p) => s + (p.totalAmount || 0), 0))} (${approved.length} payments) · ${payments.length} in the list`,
+  });
 }
 
 export async function generatePaymentExcel(res, { payments, from, to }) {

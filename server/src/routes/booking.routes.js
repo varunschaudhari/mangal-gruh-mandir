@@ -2,7 +2,7 @@ import { Router } from 'express';
 import protect from '../middleware/auth.js';
 import authorize from '../middleware/authorize.js';
 import {
-  availability, checkIn, checkInOne, checkInStatus, create, devotee, exportExcel, getOne, getOptions, hallEvents, hallScreen, list, move,
+  availability, checkIn, checkInOne, checkInStatus, create, devotee, exportExcel, exportPdf, getOne, getOptions, hallEvents, hallScreen, list, move,
   reportAttendance, reportDaySheet, reportSummary, reportSummaryPdf, resend, undoCheckInOne, update, voidOne,
 } from '../controllers/booking.controller.js';
 import * as shifts from '../controllers/bookingShift.controller.js';
@@ -18,6 +18,7 @@ bookingRouter.get('/options',              authorize('bookings:read'),   getOpti
 bookingRouter.get('/availability',         authorize('bookings:read'),   availability);
 bookingRouter.get('/devotee',              authorize('bookings:create'), devotee);
 bookingRouter.get('/export/excel',         authorize('bookings:read'),   exportExcel);
+bookingRouter.get('/export/pdf',           authorize('bookings:read'),   exportPdf);
 bookingRouter.get('/reports/summary',      authorize('bookings:read'),   reportSummary);
 bookingRouter.get('/reports/summary/pdf',  authorize('bookings:read'),   reportSummaryPdf);
 bookingRouter.get('/reports/day-sheet',    authorize('bookings:read'),   reportDaySheet);

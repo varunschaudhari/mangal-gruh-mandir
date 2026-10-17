@@ -1,12 +1,13 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { BarChart2, RefreshCw, Download, CalendarDays, Users, AlertTriangle, BarChart3, MessageCircle } from 'lucide-react';
+import { BarChart2, RefreshCw, CalendarDays, Users, AlertTriangle, BarChart3, MessageCircle } from 'lucide-react';
 import { getReport, getMonthlyReport, getStaffReport, getWastageReport, getMahaprasadWhatsApp } from '../../api/mahaprasad.api.js';
 import toast from 'react-hot-toast';
 import PageHeader from '../../components/ui/PageHeader.jsx';
 import MobileCard from '../../components/ui/MobileCard.jsx';
 import { PageLoader } from '../../components/ui/Spinner.jsx';
-import { exportToExcel } from '../../utils/exportToExcel.js';
+import { exportRows as exportTable } from '../../utils/exportToPdf.js';
+import ExportButtons from '../../components/ui/ExportButtons.jsx';
 import { shareText } from '../../utils/fileSaver.js';
 import { isNative } from '../../utils/platform.js';
 import { localDateStr } from '../../utils/formatters.js';
@@ -98,8 +99,8 @@ function DailyTab() {
   const totals        = res.totals       || {};
   const pricePerPlate = res.pricePerPlate || 0;
 
-  const handleExport = () => {
-    exportToExcel(
+  const handleExport = (format) => {
+    exportTable(format, 
       rows.map((r) => ({ Date: r._id, 'Total Issued': r.total, Redeemed: r.redeemed, 'Redemption %': pct(r.redeemed, r.total), Pending: r.total - r.redeemed, Paid: r.paid, Free: r.free, 'Collected (₹)': r.collected })),
       `Mahaprasad-Daily-${params.from}-to-${params.to}`, 'Daily Report'
     );
@@ -150,9 +151,7 @@ function DailyTab() {
           )}
         </button>
         {rows.length > 0 && (
-          <button onClick={handleExport} className={ACTION_BTN}>
-            <Download className="h-4 w-4 text-green-600" /> Excel
-          </button>
+          <ExportButtons onExport={handleExport} className={ACTION_BTN} />
         )}
       </div>
 
@@ -307,8 +306,8 @@ function MonthlyTab() {
   const totals = data?.data?.data?.totals || {};
   const maxTotal = Math.max(...rows.map((r) => r.total), 1);
 
-  const handleExport = () => {
-    exportToExcel(
+  const handleExport = (format) => {
+    exportTable(format, 
       rows.map((r) => ({ Month: fmtMonth(r._id), 'Total Issued': r.total, Redeemed: r.redeemed, 'Redemption %': pct(r.redeemed, r.total), Pending: r.total - r.redeemed, Paid: r.paid, Free: r.free, 'Collected (₹)': r.collected })),
       `Mahaprasad-Monthly-${params.from}-to-${params.to}`, 'Monthly Report'
     );
@@ -321,9 +320,7 @@ function MonthlyTab() {
           <RefreshCw className={`h-4 w-4 ${isFetching ? 'animate-spin' : ''}`} /> {t('Refresh')}
         </button>
         {rows.length > 0 && (
-          <button onClick={handleExport} className={ACTION_BTN}>
-            <Download className="h-4 w-4 text-green-600" /> Excel
-          </button>
+          <ExportButtons onExport={handleExport} className={ACTION_BTN} />
         )}
       </div>
 
@@ -453,8 +450,8 @@ function StaffTab() {
   const rows = data?.data?.data?.rows || [];
   const totals = rows.reduce((a, r) => ({ issued: a.issued + r.issued, redeemed: a.redeemed + r.redeemed, freeSeva: a.freeSeva + r.freeSeva, collected: a.collected + r.collected }), { issued: 0, redeemed: 0, freeSeva: 0, collected: 0 });
 
-  const handleExport = () => {
-    exportToExcel(
+  const handleExport = (format) => {
+    exportTable(format, 
       rows.map((r) => ({ Staff: r.name, Issued: r.issued, Redeemed: r.redeemed, 'Free Seva Issued': r.freeSeva, 'Collected (₹)': r.collected })),
       `Mahaprasad-Staff-${params.from}-to-${params.to}`, 'Staff Activity'
     );
@@ -467,9 +464,7 @@ function StaffTab() {
           <RefreshCw className={`h-4 w-4 ${isFetching ? 'animate-spin' : ''}`} /> {t('Refresh')}
         </button>
         {rows.length > 0 && (
-          <button onClick={handleExport} className={ACTION_BTN}>
-            <Download className="h-4 w-4 text-green-600" /> Excel
-          </button>
+          <ExportButtons onExport={handleExport} className={ACTION_BTN} />
         )}
       </div>
 
@@ -550,8 +545,8 @@ function WastageTab() {
   const totals       = res.totals       || {};
   const validityDays = res.validityDays;
 
-  const handleExport = () => {
-    exportToExcel(
+  const handleExport = (format) => {
+    exportTable(format, 
       rows.map((r) => ({ Date: r._id, 'Expired (Total)': r.count, 'Paid (Expired)': r.paid, 'Free (Expired)': r.free, 'Amount Lost (₹)': r.wasted })),
       `Mahaprasad-Wastage`, 'Wastage Report'
     );
@@ -564,9 +559,7 @@ function WastageTab() {
           <RefreshCw className={`h-4 w-4 ${isFetching ? 'animate-spin' : ''}`} /> {t('Refresh')}
         </button>
         {rows.length > 0 && (
-          <button onClick={handleExport} className={ACTION_BTN}>
-            <Download className="h-4 w-4 text-green-600" /> Excel
-          </button>
+          <ExportButtons onExport={handleExport} className={ACTION_BTN} />
         )}
       </div>
 

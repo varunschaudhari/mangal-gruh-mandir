@@ -28,7 +28,7 @@ async function login(email, password) {
       method, headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
       body: body ? JSON.stringify(body) : undefined,
     });
-    return { status: r.status, body: await r.json().catch(() => ({})) };
+    return { status: r.status, type: r.headers.get('content-type') || '', body: await r.json().catch(() => ({})) };
   };
 }
 
@@ -144,6 +144,21 @@ async function main() {
     'WhatsApp message language saved per message (the other keeps Marathi)', show(langSave));
   check((await api('PUT', '/settings', { waLanguages: { donationThanks: 'hi' } })).status === 400, 'WhatsApp message language other than Marathi / English → 400');
   await api('PUT', '/settings', { waLanguages: { donationThanks: 'mr' } });
+
+  // Reports: Excel is offered only when Settings → Reports allows it; every list has a PDF
+  const templeNow = async () => (await (await fetch(`${BASE}/api/settings/temple`)).json()).data;
+  check((await templeNow()).excel === false, 'reports: Excel downloads are off until Settings → Reports turns them on');
+  const excelOn = await api('PUT', '/settings', { allowExcelExport: true });
+  check(excelOn.status === 200 && (await templeNow()).excel === true, 'reports: turning Excel on reaches every user (temple details)', show(excelOn));
+  await api('PUT', '/settings', { allowExcelExport: false });
+  for (const [path, label] of [
+    ['/bookings/export/pdf', 'booking register'],
+    ['/audit-logs/export?format=pdf', 'audit log'],
+    ['/supplier-payments/export?format=pdf', 'payment register'],
+  ]) {
+    const r = await api('GET', path);
+    check(r.status === 200 && r.type.includes('application/pdf'), `reports: ${label} downloads as PDF`, `${r.status} ${r.type}`);
+  }
 
   const email = `val-${stamp.toLowerCase()}@test.local`;
   const user = await api('POST', '/users', { name: 'Val User', email: email.toUpperCase(), password: 'Val-Pass-123!', role: 'viewer', departments: false, phone: '' });

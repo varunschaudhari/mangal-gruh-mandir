@@ -11,6 +11,7 @@ import toast from 'react-hot-toast';
 import { saveFile } from '../../utils/fileSaver.js';
 import { localDateStr } from '../../utils/formatters.js';
 import { useT, tNow } from '../../i18n/index.jsx';
+import { ExcelOnly } from '../../components/ui/ExportButtons.jsx';
 
 const col = createColumnHelper();
 
@@ -134,9 +135,11 @@ const AssetReports = () => {
         breadcrumbs={[{ label: 'Assets' }, { label: 'Reports' }]}
         actions={
           <div className="flex gap-2">
-            <button onClick={handleExportExcel} disabled={exporting} className="btn-secondary flex items-center gap-2 text-sm">
-              <Download className="h-4 w-4" /> {t('Excel')}
-            </button>
+            <ExcelOnly>
+              <button onClick={handleExportExcel} disabled={exporting} className="btn-secondary flex items-center gap-2 text-sm">
+                <Download className="h-4 w-4" /> {t('Excel')}
+              </button>
+            </ExcelOnly>
             <button onClick={handleExportPDF} disabled={exporting} className="btn-secondary flex items-center gap-2 text-sm">
               <FileText className="h-4 w-4" /> PDF
             </button>

@@ -10,7 +10,7 @@ const DEFAULT_NAME = 'Mangal Grah Mandir';
 
 const DEFAULT_NAME_MR = 'श्री मंगळग्रह मंदिर, अमळनेर';
 
-let current = { name: DEFAULT_NAME, nameMr: DEFAULT_NAME_MR, legalName: '', address: '', phone: '', email: '', website: '', trustReg: '', pan: '', reg80G: '' };
+let current = { name: DEFAULT_NAME, nameMr: DEFAULT_NAME_MR, legalName: '', address: '', phone: '', email: '', website: '', trustReg: '', pan: '', reg80G: '', excel: false };
 
 /** Reload from Settings — pass the saved record to skip the read. */
 export async function refreshTemple(settings) {
@@ -28,9 +28,12 @@ export async function refreshTemple(settings) {
     trustReg: s.trustRegNumber?.trim() || '',
     pan: s.trustPAN?.trim() || '',
     reg80G: s.reg80GNumber?.trim() || '',
+    // Settings → Reports: Excel downloads on report screens (sent with the temple details, which
+    // every screen already has; not a secret)
+    excel: Boolean(s.allowExcelExport),
   };
   return current;
 }
 
-/** { name, nameMr, legalName, address, phone, email, website, trustReg, pan, reg80G } */
+/** { name, nameMr, legalName, address, phone, email, website, trustReg, pan, reg80G, excel } */
 export const temple = () => current;

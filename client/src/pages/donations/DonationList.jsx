@@ -15,6 +15,7 @@ import toast from 'react-hot-toast';
 import { saveFile } from '../../utils/fileSaver.js';
 import { localDateStr } from '../../utils/formatters.js';
 import { useT, rich } from '../../i18n/index.jsx';
+import { ExcelOnly } from '../../components/ui/ExportButtons.jsx';
 
 const TYPE_COLORS = { named: 'green', hundi: 'blue', anonymous: 'gray' };
 const TYPE_LABELS = { named: 'Named', hundi: 'Hundi', anonymous: 'Anonymous' };
@@ -165,9 +166,11 @@ const DonationList = () => {
               </button>
               {exporting === 'menu' && (
                 <div className="absolute right-0 top-10 z-20 bg-white border border-gray-200 rounded-xl shadow-lg py-1 w-36">
-                  <button onClick={() => doExport('excel')} className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">
-                    <FileSpreadsheet className="h-4 w-4 text-green-600" /> {t('Excel (.xlsx)')}
-                  </button>
+                  <ExcelOnly>
+                    <button onClick={() => doExport('excel')} className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">
+                      <FileSpreadsheet className="h-4 w-4 text-green-600" /> {t('Excel (.xlsx)')}
+                    </button>
+                  </ExcelOnly>
                   <button onClick={() => doExport('pdf')} className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">
                     <FileText className="h-4 w-4 text-red-500" /> PDF
                   </button>

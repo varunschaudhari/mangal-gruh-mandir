@@ -115,6 +115,7 @@ export const updateSettings = {
     templePhone: clearableText('Temple phone', { max: 30 }),
     templeEmail: clearableText('Temple email', { max: 150 }),
     templeWebsite: clearableText('Temple website', { max: 200 }),
+    allowExcelExport: flag('Excel downloads'),
     waEnabled: flag('WhatsApp'),
     waPhoneNumberId: clearableText('WhatsApp phone number id', { max: 50 }),
     waAccessToken: clearableText('WhatsApp access token', { max: 1000 }),

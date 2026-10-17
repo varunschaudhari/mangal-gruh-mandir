@@ -21,6 +21,7 @@ import toast from 'react-hot-toast';
 import { saveFile } from '../../utils/fileSaver.js';
 import { localDateStr } from '../../utils/formatters.js';
 import { useT } from '../../i18n/index.jsx';
+import { ExcelOnly } from '../../components/ui/ExportButtons.jsx';
 
 const STATUS_COLORS = { approved: 'blue', checked_out: 'green', returned: 'gray', overdue: 'red', cancelled: 'gray' };
 const STATUS_LABELS = { approved: 'Approved', checked_out: 'Checked Out', returned: 'Returned', overdue: 'Overdue', cancelled: 'Cancelled' };
@@ -240,10 +241,12 @@ const ExportMenu = ({ statusFilter, searchInput }) => {
       </button>
       {open && (
         <div className="absolute right-0 top-10 z-20 bg-white border border-gray-200 rounded-xl shadow-lg py-1 w-36">
-          <button onClick={() => doExport('excel')}
-            className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">
-            <FileSpreadsheet className="h-4 w-4 text-green-600" /> {t('Excel (.xlsx)')}
-          </button>
+          <ExcelOnly>
+            <button onClick={() => doExport('excel')}
+              className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">
+              <FileSpreadsheet className="h-4 w-4 text-green-600" /> {t('Excel (.xlsx)')}
+            </button>
+          </ExcelOnly>
           <button onClick={() => doExport('pdf')}
             className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">
             <FileText className="h-4 w-4 text-red-500" /> PDF

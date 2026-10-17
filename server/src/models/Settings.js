@@ -28,6 +28,10 @@ const settingsSchema = new mongoose.Schema(
     templeEmail:   { type: String, default: '' },
     templeWebsite: { type: String, default: '' },
 
+    // ── Reports ──────────────────────────────────────────────────────────────
+    // Excel downloads on report screens; off = PDF only (salary bank / ESI files are always offered)
+    allowExcelExport: { type: Boolean, default: false },
+
     // ── WhatsApp (Meta Cloud API) ────────────────────────────────────────────
     waEnabled:       { type: Boolean, default: false },
     waPhoneNumberId: { type: String, default: '' },

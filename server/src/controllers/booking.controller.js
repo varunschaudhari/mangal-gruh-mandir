@@ -16,7 +16,7 @@ import { onHallEvent, publishHallEvent } from '../services/booking/hallEvents.js
 import { hallNames } from '../services/booking/halls.js';
 import { receiptUrl, sendReceipt } from '../services/booking/notify.js';
 import { attendanceReport, daySheet, registerFilter, summary } from '../services/booking/reports.js';
-import { bookingsExcel, summaryPdf } from '../services/booking/exports.js';
+import { bookingsExcel, bookingsPdf, summaryPdf } from '../services/booking/exports.js';
 import { dateKeyOf, isDateKey } from '../services/booking/rules.js';
 import { temple as templeDetails } from '../services/temple.service.js';
 import { slipPng } from '../services/booking/slipImage.js';
@@ -218,16 +218,24 @@ export const resend = asyncHandler(async (req, res) => {
   res.json(new ApiResponse(200, result, result.whatsapp === 'sent' || result.sms === 'sent' ? 'Receipt sent' : 'Not sent'));
 });
 
-// GET /bookings/export/excel
-export const exportExcel = asyncHandler(async (req, res) => {
+// GET /bookings/export/excel and /bookings/export/pdf (same filters as the register)
+const exportBookings = (format) => asyncHandler(async (req, res) => {
   const filter = await registerFilter({ ...req.query, status: req.query.status || 'all' });
   const count = await Booking.countDocuments(filter);
-  if (count > 50000) throw new ApiError(400, `${count} bookings — narrow the date range (max 50,000 per file)`);
+  const max = format === 'pdf' ? 5000 : 50000;
+  if (count > max) throw new ApiError(400, `${count} bookings — narrow the date range (max ${max.toLocaleString('en-IN')} per ${format === 'pdf' ? 'PDF' : 'file'})`);
   const bookings = await Booking.find(filter).sort({ paidAt: 1 }).populate('createdBy', 'name').lean();
   // Devotees' phone numbers and addresses leave the app: note who took them
-  logAction(req, { action: 'booking.export', entity: 'Booking', meta: { rows: bookings.length, from: req.query.from, to: req.query.to } });
-  await bookingsExcel(res, { bookings, halls: await hallNames() });
+  logAction(req, { action: 'booking.export', entity: 'Booking', meta: { rows: bookings.length, format, from: req.query.from, to: req.query.to } });
+  const halls = await hallNames();
+  if (format === 'pdf') {
+    const period = [req.query.from, req.query.to].filter(Boolean);
+    return bookingsPdf(res, { bookings, halls, subtitle: period.length ? period.join(' to ') : '' });
+  }
+  await bookingsExcel(res, { bookings, halls });
 });
+export const exportExcel = exportBookings('excel');
+export const exportPdf = exportBookings('pdf');
 
 // GET /bookings/reports/summary?from=&to=
 export const reportSummary = asyncHandler(async (req, res) => {

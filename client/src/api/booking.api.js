@@ -16,6 +16,7 @@ export const updateBooking      = (id, data)       => api.patch(`/bookings/${id}
 export const moveBooking        = (id, data)       => api.post(`/bookings/${id}/move`, data);
 export const resendReceipt      = (id)             => api.post(`/bookings/${id}/send`);
 export const exportBookingsExcel = (params)        => api.get('/bookings/export/excel', { params, responseType: 'blob' });
+export const exportBookingsPdf   = (params)        => api.get('/bookings/export/pdf', { params, responseType: 'blob' });
 
 // ── Reports ───────────────────────────────────────────────────────────────────
 export const getBookingSummary   = (params) => api.get('/bookings/reports/summary', { params });

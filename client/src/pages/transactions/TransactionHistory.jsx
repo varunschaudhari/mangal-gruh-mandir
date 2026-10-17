@@ -15,8 +15,9 @@ import { useIsMobile } from '../../hooks/useMediaQuery.js';
 import toast from 'react-hot-toast';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
-import { Printer, Download, X, SlidersHorizontal } from 'lucide-react';
-import { exportToExcel } from '../../utils/exportToExcel.js';
+import { Printer, X, SlidersHorizontal } from 'lucide-react';
+import { exportRows as exportTable } from '../../utils/exportToPdf.js';
+import ExportButtons from '../../components/ui/ExportButtons.jsx';
 import { useT, rich } from '../../i18n/index.jsx';
 
 
@@ -106,7 +107,7 @@ const TransactionHistory = () => {
 
   const setFilter = (key, value) => { setFilters((f) => ({ ...f, [key]: value })); setPage(1); };
 
-  const handleExport = () => {
+  const handleExport = (format) => {
     const rows = txns.map((tx) => ({
       'TXN #':           tx.transactionNumber,
       'Date':            tx.transactionDate ? new Date(tx.transactionDate).toLocaleDateString('en-IN') : '',
@@ -124,7 +125,7 @@ const TransactionHistory = () => {
       'Status':          tx.isVoided ? 'Voided' : 'Active',
     }));
     const dateStr = localDateStr();
-    exportToExcel(rows, `Transactions_${dateStr}`, 'Transactions');
+    exportTable(format, rows, `Transactions_${dateStr}`, 'Transactions');
   };
 
   const clearProductFilter = () => {
@@ -147,9 +148,9 @@ const TransactionHistory = () => {
         breadcrumbs={[{ label: 'Transactions' }, { label: 'History' }]}
         actions={
           txns.length > 0 && (
-            <button onClick={handleExport} className="btn btn-ghost text-sm flex items-center gap-1.5">
-              <Download className="h-4 w-4" /> {t('Export Excel')}
-            </button>
+            <div className="flex gap-2">
+              <ExportButtons onExport={handleExport} className="btn btn-ghost text-sm flex items-center gap-1.5" />
+            </div>
           )
         }
       />

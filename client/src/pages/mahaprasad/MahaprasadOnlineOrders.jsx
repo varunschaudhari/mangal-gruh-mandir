@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { ExternalLink, FileSpreadsheet, Globe, QrCode, RefreshCw } from 'lucide-react';
+import { ExternalLink, Globe, QrCode, RefreshCw } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { getOnlineOrders, getOnlinePoster } from '../../api/mahaprasadOnline.api.js';
 import { openFile } from '../../utils/fileSaver.js';
@@ -8,7 +8,8 @@ import PageHeader from '../../components/ui/PageHeader.jsx';
 import Badge from '../../components/ui/Badge.jsx';
 import MobileCard from '../../components/ui/MobileCard.jsx';
 import { PageLoader } from '../../components/ui/Spinner.jsx';
-import { exportToExcel } from '../../utils/exportToExcel.js';
+import { exportRows as exportTable } from '../../utils/exportToPdf.js';
+import ExportButtons from '../../components/ui/ExportButtons.jsx';
 import { localDateStr } from '../../utils/formatters.js';
 import { publicUrl } from '../../utils/platform.js';
 import { useT } from '../../i18n/index.jsx';
@@ -57,9 +58,9 @@ export default function MahaprasadOnlineOrders() {
     finally { setPosterLoading(false); }
   };
 
-  const handleExport = async () => {
+  const handleExport = async (format) => {
     try {
-      await exportToExcel(orders.map((o) => ({
+      await exportTable(format, orders.map((o) => ({
         'Ordered':      fmtTs(o.createdAt),
         'Mahaprasad day': fmtDay(o.date),
         'Plates':       o.plates,
@@ -72,7 +73,7 @@ export default function MahaprasadOnlineOrders() {
         'Razorpay payment':  o.paymentId || '',
         'Razorpay order':    o.razorpayOrderId || '',
         'Refund':       o.refundId ? `${o.refundId} — ${o.refundReason || ''}` : '',
-      })), `mahaprasad-online-${from}-to-${to}`, 'Online orders');
+      })), `mahaprasad-online-${from}-to-${to}`, 'Online Mahaprasad orders', { subtitle: `${from} to ${to}` });
     } catch { toast.error(t('Export failed')); }
   };
 
@@ -88,10 +89,8 @@ export default function MahaprasadOnlineOrders() {
               className="btn btn-ghost border text-sm flex items-center gap-1.5 disabled:opacity-40 max-sm:py-2.5">
               <QrCode className="h-4 w-4" /> {posterLoading ? t('Opening…') : t('QR poster')}
             </button>
-            <button onClick={handleExport} disabled={orders.length === 0}
-              className="btn btn-ghost border text-sm flex items-center gap-1.5 disabled:opacity-40 max-sm:py-2.5">
-              <FileSpreadsheet className="h-4 w-4" /> {t('Export')}
-            </button>
+            <ExportButtons onExport={handleExport} disabled={orders.length === 0}
+              className="btn btn-ghost border text-sm flex items-center gap-1.5 disabled:opacity-40 max-sm:py-2.5" />
             <button onClick={() => refetch()} disabled={isFetching}
               className="btn btn-ghost border text-sm flex items-center gap-1.5 max-sm:py-2.5">
               <RefreshCw className={`h-4 w-4 ${isFetching ? 'animate-spin' : ''}`} /> {t('Refresh')}

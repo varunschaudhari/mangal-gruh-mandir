@@ -21,6 +21,7 @@ import { useLanguage, useT } from '../../i18n/index.jsx';
 import {
   MODES, MODE_LABEL, addDays, fmtDay, fmtRange, nBookings, parseDay, presetRange, rupees, rupeesShort, sevaLabel,
 } from '../../components/booking/registerUtils.js';
+import { ExcelOnly } from '../../components/ui/ExportButtons.jsx';
 
 // Collections from abhishek / puja bookings, by the day the money was received:
 // tiles, date / month / year charts, and the cash each counter clerk has to hand over.
@@ -256,9 +257,11 @@ export default function BookingReports() {
             <button onClick={() => download('pdf')} disabled={!!downloading || empty} className="btn-secondary whitespace-nowrap">
               {downloading === 'pdf' ? <Spinner size="sm" /> : <FileText className="h-4 w-4 text-red-500" />} {t('Summary PDF')}
             </button>
-            <button onClick={() => download('excel')} disabled={!!downloading || empty} className="btn-secondary whitespace-nowrap">
-              {downloading === 'excel' ? <Spinner size="sm" /> : <FileSpreadsheet className="h-4 w-4 text-green-600" />} Excel
-            </button>
+            <ExcelOnly>
+              <button onClick={() => download('excel')} disabled={!!downloading || empty} className="btn-secondary whitespace-nowrap">
+                {downloading === 'excel' ? <Spinner size="sm" /> : <FileSpreadsheet className="h-4 w-4 text-green-600" />} Excel
+              </button>
+            </ExcelOnly>
           </>
         )}
       />

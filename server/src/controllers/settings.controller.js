@@ -36,6 +36,7 @@ export const updateSettings = asyncHandler(async (req, res) => {
   const before = settings.toObject();
   const {
     templeName, templeNameMr, trustRegNumber, trustLegalName, templeAddress, templePhone, templeEmail, templeWebsite,
+    allowExcelExport,
     waEnabled, waPhoneNumberId, waAccessToken, waTemplates, waLanguages,
     smsEnabled, msg91AuthKey, msg91TemplateId,
     alertOnOutOfStock, alertOnLowStock, alertOnReorder,
@@ -53,6 +54,7 @@ export const updateSettings = asyncHandler(async (req, res) => {
   if (templePhone   !== undefined) settings.templePhone   = templePhone;
   if (templeEmail   !== undefined) settings.templeEmail   = templeEmail;
   if (templeWebsite !== undefined) settings.templeWebsite = templeWebsite;
+  if (allowExcelExport !== undefined) settings.allowExcelExport = allowExcelExport;
 
   if (waEnabled       !== undefined) settings.waEnabled       = waEnabled;
   if (waPhoneNumberId !== undefined) settings.waPhoneNumberId = waPhoneNumberId;

@@ -615,9 +615,10 @@ export const exportPayments = asyncHandler(async (req, res) => {
     .sort({ paymentDate: -1, createdAt: -1 })
     .lean();
 
-  logAction(req, { action: 'payment.export', entity: 'SupplierPayment', meta: { rows: payments.length, from: req.query.from, to: req.query.to, status: req.query.status } });
-  const { generatePaymentExcel } = await import('../services/paymentExcel.service.js');
-  await generatePaymentExcel(res, { payments, from: req.query.from, to: req.query.to });
+  const format = req.query.format === 'pdf' ? 'pdf' : 'excel';
+  logAction(req, { action: 'payment.export', entity: 'SupplierPayment', meta: { rows: payments.length, format, from: req.query.from, to: req.query.to, status: req.query.status } });
+  const { generatePaymentExcel, generatePaymentPdf } = await import('../services/paymentExcel.service.js');
+  await (format === 'pdf' ? generatePaymentPdf : generatePaymentExcel)(res, { payments, from: req.query.from, to: req.query.to });
 });
 
 // PATCH /supplier-payments/:id/void

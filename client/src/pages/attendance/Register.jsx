@@ -16,6 +16,7 @@ import {
   DayDetailSheet, MonthLockNote, STATUS, codeCell, dayCode, fDays, fMinutes, shiftMonth, thisMonth, weekdayOf,
 } from './attendanceUi.jsx';
 import { PRINT_FONT, PRINT_HEADER_CSS, reportHeaderHtml } from '../../utils/printTemplate.js';
+import { ExcelOnly } from '../../components/ui/ExportButtons.jsx';
 
 // Month at a glance: one row per person, a code per day, and the totals salary will use.
 
@@ -162,9 +163,11 @@ export default function Register() {
         breadcrumbs={[{ label: 'Attendance' }, { label: 'Monthly Register' }]}
         actions={(
           <>
-            <button onClick={exportExcel} disabled={exporting || !res} className="btn-secondary flex items-center gap-1.5 px-3">
-              <FileSpreadsheet className="h-4 w-4" />{t('Excel')}
-            </button>
+            <ExcelOnly>
+              <button onClick={exportExcel} disabled={exporting || !res} className="btn-secondary flex items-center gap-1.5 px-3">
+                <FileSpreadsheet className="h-4 w-4" />{t('Excel')}
+              </button>
+            </ExcelOnly>
             <button onClick={exportPdf} disabled={!res} className="btn-secondary flex items-center gap-1.5 px-3">
               <FileDown className="h-4 w-4" />{t('PDF')}
             </button>

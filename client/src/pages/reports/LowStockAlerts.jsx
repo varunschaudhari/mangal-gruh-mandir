@@ -12,6 +12,7 @@ import toast from 'react-hot-toast';
 import { shareText } from '../../utils/fileSaver.js';
 import { localDateStr } from '../../utils/formatters.js';
 import { useT } from '../../i18n/index.jsx';
+import { ExcelOnly } from '../../components/ui/ExportButtons.jsx';
 
 const LowStockAlerts = () => {
   const t = useT();
@@ -96,9 +97,11 @@ const LowStockAlerts = () => {
                 <button onClick={() => pdfMut.mutate()} disabled={pdfMut.isPending} className="btn btn-ghost text-sm flex items-center gap-1.5 border">
                   <FileText className="h-4 w-4 text-red-500" /> {pdfMut.isPending ? t('Generating…') : 'PDF'}
                 </button>
-                <button onClick={handleExport} className="btn btn-ghost text-sm flex items-center gap-1.5 border">
-                  <Download className="h-4 w-4 text-green-600" /> {t('Excel')}
-                </button>
+                <ExcelOnly>
+                  <button onClick={handleExport} className="btn btn-ghost text-sm flex items-center gap-1.5 border">
+                    <Download className="h-4 w-4 text-green-600" /> {t('Excel')}
+                  </button>
+                </ExcelOnly>
                 <button onClick={() => waMut.mutate()} disabled={waMut.isPending} className="btn btn-ghost text-sm flex items-center gap-1.5 border">
                   <MessageCircle className="h-4 w-4 text-green-500" /> {waMut.isPending ? t('Preparing…') : t('WhatsApp')}
                 </button>

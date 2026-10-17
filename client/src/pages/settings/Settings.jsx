@@ -4,7 +4,7 @@ import { useForm } from 'react-hook-form';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Building2, MessageCircle, MessageSquare, Bell, Armchair,
-  Save, Eye, EyeOff, CheckCircle2, Send, FileCheck2, Utensils, Printer, Fingerprint,
+  Save, Eye, EyeOff, CheckCircle2, Send, FileCheck2, Utensils, Printer, Fingerprint, FileText,
 } from 'lucide-react';
 import { getSettings, updateSettings, testWhatsApp } from '../../api/settings.api.js';
 import { connectToQzTray, getPrinters } from '../../utils/thermalPrint.js';
@@ -81,6 +81,7 @@ const TABS = [
   { id: 'tax80g',     label: '80G',        icon: FileCheck2,    accent: 'emerald' },
   { id: 'assets',     label: 'Assets',     icon: Armchair,      accent: 'purple'  },
   { id: 'mahaprasad', label: 'Mahaprasad', icon: Utensils,      accent: 'orange'  },
+  { id: 'reports',    label: 'Reports',    icon: FileText,      accent: 'blue'    },
   // Has its own data and save button (AttendanceSettingsPanel)
   { id: 'attendance', label: 'Attendance', icon: Fingerprint,   accent: 'orange', permission: 'attendance:manage' },
 ];
@@ -94,6 +95,7 @@ const TAB_FIELDS = {
   assets:     ['assetMaxBorrowDays'],
   mahaprasad: ['mahaprasadDayPricing', 'mahaprasadDailyCap', 'mahaprasadCouponValidityDays', 'mahaprasadPrinterName',
     'mahaprasadOnlineEnabled', 'mahaprasadOnlineDaysAhead', 'mahaprasadOnlineMaxPlates', 'mahaprasadOnlineCutoff'],
+  reports:    ['allowExcelExport'],
 };
 
 // The WhatsApp messages the app sends (besides the booking receipt, set in Bookings → Setup), with
@@ -634,6 +636,19 @@ const Settings = () => {
             </div>
 
             <SaveFooter onSave={saveTab} isPending={mutation.isPending} savedTabId={savedTabId} tabId="mahaprasad" />
+          </>
+        )}
+
+        {/* Reports */}
+        {activeTab === 'reports' && (
+          <>
+            <Toggle
+              label={t('Allow Excel downloads')}
+              description={t('When off, report screens offer only PDF. The salary bank-transfer and ESI files are always available.')}
+              checked={watch('allowExcelExport')}
+              onChange={(e) => setValue('allowExcelExport', e.target.checked, { shouldDirty: true })}
+            />
+            <SaveFooter onSave={saveTab} isPending={mutation.isPending} savedTabId={savedTabId} tabId="reports" />
           </>
         )}
 

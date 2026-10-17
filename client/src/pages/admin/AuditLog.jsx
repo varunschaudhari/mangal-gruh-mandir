@@ -1,14 +1,15 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { Shield, Download, ChevronDown, ChevronRight, Search, ExternalLink, X } from 'lucide-react';
-import { getAuditLogs, exportAuditLogsExcel } from '../../api/auditLog.api.js';
+import { Shield, ChevronDown, ChevronRight, Search, ExternalLink, X } from 'lucide-react';
+import { getAuditLogs, exportAuditLogsExcel, exportAuditLogsPdf } from '../../api/auditLog.api.js';
 import { getUsers } from '../../api/user.api.js';
 import PageHeader from '../../components/ui/PageHeader.jsx';
 import { fDateTime, localDateStr } from '../../utils/formatters.js';
 import toast from 'react-hot-toast';
 import { saveFile } from '../../utils/fileSaver.js';
 import { useT } from '../../i18n/index.jsx';
+import ExportButtons from '../../components/ui/ExportButtons.jsx';
 
 // ── Date shortcut helpers ─────────────────────────────────────────────────────
 
@@ -526,18 +527,19 @@ const AuditLog = () => {
 
   const set = (key, val) => setFilters((f) => ({ ...f, [key]: val, page: key !== 'page' ? 1 : val }));
 
-  const handleExport = async () => {
-    setExporting(true);
+  const handleExport = async (format) => {
+    setExporting(format);
     try {
       const params = Object.fromEntries(
         Object.entries(filters).filter(([k, v]) => v !== '' && !['page', 'limit', 'search'].includes(k))
       );
-      const res = await exportAuditLogsExcel(params);
-      await saveFile(new Blob([res.data]), 'audit-log.xlsx');
+      const pdf = format === 'pdf';
+      const res = await (pdf ? exportAuditLogsPdf : exportAuditLogsExcel)(params);
+      await saveFile(new Blob([res.data], pdf ? { type: 'application/pdf' } : undefined), `audit-log.${pdf ? 'pdf' : 'xlsx'}`);
     } catch {
       toast.error(t('Export failed'));
     } finally {
-      setExporting(false);
+      setExporting(null);
     }
   };
 
@@ -547,14 +549,10 @@ const AuditLog = () => {
         title="Audit Log"
         subtitle="Complete activity trail for all system actions"
         actions={
-          <button
-            onClick={handleExport}
-            disabled={exporting}
-            className="flex items-center gap-2 px-3 py-2 text-sm border rounded hover:bg-gray-50 disabled:opacity-50"
-          >
-            <Download size={15} />
-            {exporting ? t('Exporting…') : t('Export Excel')}
-          </button>
+          <div className="flex gap-2">
+            <ExportButtons onExport={handleExport} busy={exporting}
+              className="flex items-center gap-2 px-3 py-2 text-sm border rounded hover:bg-gray-50 disabled:opacity-50" />
+          </div>
         }
       />
 

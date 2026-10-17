@@ -3,6 +3,7 @@ import { formatAddress } from '../../utils/address.js';
 import { createPdf, reportHeader, pageFooters, ensureSpace, PDF_COLORS, mid } from '../pdfLayout.js';
 import { localDateStr } from '../../utils/dates.js';
 import { hallTitle } from './halls.js';
+import { tablePdf } from '../tablePdf.js';
 
 const HDR_FILL = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFEA580C' } };
 const BORDER = { top: { style: 'thin' }, bottom: { style: 'thin' }, left: { style: 'thin' }, right: { style: 'thin' } };
@@ -10,6 +11,47 @@ const MODE = { cash: 'Cash', upi: 'UPI', card: 'Card', online: 'Online' };
 const fmtDate = (d) => (d ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '');
 const fmtTime = (d) => (d ? new Date(d).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }) : '');
 const money = (n) => `₹${Math.round(n || 0).toLocaleString('en-IN')}`; // the PDF font (Mukta) has the ₹ glyph
+
+/** Booking register as PDF — the main columns of the Excel file (that one has all 26). */
+export function bookingsPdf(res, { bookings, halls = {}, subtitle = '' }) {
+  const confirmed = bookings.filter((b) => b.status !== 'voided');
+  const voided = bookings.length - confirmed.length;
+  tablePdf(res, {
+    title: 'Booking register',
+    subtitle,
+    filename: `bookings-${localDateStr()}.pdf`,
+    landscape: true,
+    columns: [
+      { header: 'Receipt No.', key: 'receiptNo', width: 1.5 },
+      { header: 'Booked on', key: 'paidOn', width: 1 },
+      { header: 'Seva', key: 'seva', width: 1.6 },
+      { header: 'Puja date', key: 'pujaDate', width: 1 },
+      { header: 'Batch', key: 'batch', width: 1.3 },
+      { header: 'Hall', key: 'hall', width: 1.2 },
+      { header: 'Name', key: 'name', width: 1.6 },
+      { header: 'Phone', key: 'phone', width: 1 },
+      { header: 'People', key: 'people', width: 0.6, align: 'right' },
+      { header: 'Amount', key: 'amount', width: 0.9, align: 'right' },
+      { header: 'Payment', key: 'mode', width: 0.8 },
+      { header: 'Status', key: 'status', width: 0.8 },
+    ],
+    rows: bookings.map((b) => ({
+      receiptNo: b.receiptNo,
+      paidOn: `${fmtDate(b.paidAt)} ${fmtTime(b.paidAt)}`,
+      seva: b.sevaName,
+      pujaDate: fmtDate(b.performDate),
+      batch: b.batchLabel,
+      hall: hallTitle(b.hall, halls),
+      name: b.devotee?.name,
+      phone: b.devotee?.phone,
+      people: b.peopleCount,
+      amount: money(b.amount),
+      mode: MODE[b.paymentMode] || b.paymentMode,
+      status: b.status === 'voided' ? 'Voided' : 'Confirmed',
+    })),
+    footer: `${confirmed.length} bookings · ${money(confirmed.reduce((s, b) => s + b.amount, 0))}${voided ? ` · ${voided} voided (not counted)` : ''}`,
+  });
+}
 
 /** Booking register as .xlsx */
 export async function bookingsExcel(res, { bookings, title, halls = {} }) {
