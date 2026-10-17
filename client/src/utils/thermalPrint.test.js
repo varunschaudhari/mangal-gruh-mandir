@@ -25,20 +25,21 @@ function fakeCanvas() {
 const rightEdge = (d) => d.x + d.s.length * 0.55 * d.size;
 
 describe('Mahaprasad coupon slip — number of persons', () => {
-  it('is drawn as a picture: each digit apart, the word beside it, one short line, 58 mm wide', () => {
+  it('is drawn as a picture: number and word one size, one short line, each digit apart', () => {
     let canvas;
     const bytes = personsBytes(108, () => (canvas = fakeCanvas()));
     const digits = canvas.drawn.filter((d) => /^\d$/.test(d.s));
     expect(digits.map((d) => d.s)).toEqual(['1', '0', '8']);
-    digits.slice(1).forEach((d, i) => expect(d.x - rightEdge(digits[i])).toBeGreaterThanOrEqual(10));   // a clear gap
-    expect(digits[0].size).toBeGreaterThanOrEqual(96);                       // about 9 mm tall
+    digits.slice(1).forEach((d, i) => expect(d.x - rightEdge(digits[i])).toBeGreaterThanOrEqual(4));    // extra gap on top of the font's own
+    expect(digits[0].size).toBeGreaterThanOrEqual(40);                       // ≥ 5 mm tall
     const word = canvas.drawn.at(-1);
     expect(word.s).toBe('PERSONS');
     expect(word.y).toBe(digits[0].y);                                        // same line
+    expect(word.size).toBe(digits[0].size);                                  // same size
     expect(word.x).toBeGreaterThan(rightEdge(digits.at(-1)));
-    // Centred raster image, 384 dots (48 bytes) wide, 96 rows (12 mm) — no printer reset inside the slip
+    // Centred raster image, 384 dots (48 bytes) wide, 60 rows (7.5 mm) — no printer reset inside the slip
     expect(bytes.slice(0, 3)).toEqual([0x1B, 0x61, 1]);
-    expect(includes(bytes, [0x1D, 0x76, 0x30, 0x00, 48, 0, 96, 0])).toBe(true);
+    expect(includes(bytes, [0x1D, 0x76, 0x30, 0x00, 48, 0, 60, 0])).toBe(true);
     expect(includes(bytes, [0x1B, 0x40])).toBe(false);
   });
 
@@ -55,17 +56,17 @@ describe('Mahaprasad coupon slip — number of persons', () => {
     expect(canvas.drawn.at(-1).s).toBe('PERSON');
   });
 
-  it('falls back to the printer font without a canvas', () => {
+  it('falls back to the printer font without a canvas: number and word both 2×', () => {
     const bytes = personsBytes(4, () => null);
-    expect(includes(bytes, [...GS_SIZE(0x33), ...ascii('4'), ...GS_SIZE(0x11), ...ascii(' PERSONS\n')])).toBe(true);
+    expect(includes(bytes, [...GS_SIZE(0x11), ...ascii('4 PERSONS\n')])).toBe(true);
     expect(bytes.slice(-3)).toEqual(GS_SIZE(0x00));
   });
 
   it('is on group and single coupons', () => {
     const base = { couponNumber: 'MP-20261017-004', date: '2026-10-17T12:00:00', type: 'paid', amount: 50 };
     // No document in these tests, so the fallback shows which count was printed
-    expect(includes(buildReceiptBytes({ ...base, isGroup: true, groupSize: 6 }), [...GS_SIZE(0x33), ...ascii('6')])).toBe(true);
-    expect(includes(buildReceiptBytes(base), [...GS_SIZE(0x33), ...ascii('1')])).toBe(true);
+    expect(includes(buildReceiptBytes({ ...base, isGroup: true, groupSize: 6 }), ascii('6 PERSONS\n'))).toBe(true);
+    expect(includes(buildReceiptBytes(base), ascii('1 PERSON\n'))).toBe(true);
   });
 
   it('keeps the slip short: the count right under the coupon number, not repeated in the footer', () => {

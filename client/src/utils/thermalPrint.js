@@ -97,7 +97,7 @@ function qrEscPos(data, moduleSize = 7) {
 // Loads /logo.png, scales to maxWidth dots, converts to 1-bit raster, and
 // returns the GS v 0 byte sequence. Returns [] if the logo can't be loaded.
 
-async function logoToEscPosBytes(maxWidth = 140) {
+async function logoToEscPosBytes(maxWidth = 104) {   // ≈ 13 mm — keeps the coupon short
   try {
     const img = new Image();
     img.crossOrigin = 'anonymous';
@@ -148,7 +148,7 @@ async function logoToEscPosBytes(maxWidth = 140) {
       ...align(1),                               // center the image
       GS, 0x76, 0x30, 0x00, xL, xH, yL, yH,    // GS v 0 — raster image
       ...raster,
-      LF,                                         // line feed after logo
+      ...feedDots(10),                            // a little white after the logo
     ];
   } catch {
     return [];
@@ -157,14 +157,14 @@ async function logoToEscPosBytes(maxWidth = 140) {
 
 // ── Receipt layout ────────────────────────────────────────────────────────────
 
-// How many people the coupon is for, big enough to read across the prasad counter. Drawn as a
-// picture, like the logo: the printer's own font enlarged comes out tall and thin, and its digits
-// run together from 3 digits on (seen on the counter's printer, which also ignores character
-// spacing). Here each digit is drawn on its own with a clear gap — about 9 mm tall, in bold — with
-// the word beside it on one line (≈ 12 mm of paper), centred on a 58 mm roll's width (and so in
-// the middle of an 80 mm one). Long counts shrink to fit.
+// How many people the coupon is for, easy to read at the prasad counter. Drawn as a picture,
+// like the logo: the printer's own font enlarged comes out tall and thin, and its digits run
+// together from 3 digits on (seen on the counter's printer, which also ignores character spacing).
+// Number and word are one size, in bold, on one line — as large as fits a 58 mm roll (about 5 mm
+// tall for "108 PERSONS"), with a clear gap between digits — in 7.5 mm of paper; centred, so it
+// sits in the middle of an 80 mm roll too.
 const PERSONS_W = 384;   // dots
-const PERSONS_H = 96;
+const PERSONS_H = 60;
 
 const newCanvas = () => (typeof document === 'undefined' ? null : document.createElement('canvas'));
 
@@ -178,30 +178,24 @@ export function personsCanvas(count, makeCanvas = newCanvas) {
   ctx.fillRect(0, 0, canvas.width, canvas.height);
   ctx.fillStyle = '#000';
   ctx.textBaseline = 'alphabetic';
-  const font = (px) => `bold ${px}px Arial, Roboto, "Segoe UI", sans-serif`;
 
   const digits = String(count).split('');
   const word = count === 1 ? 'PERSON' : 'PERSONS';
-  let size = 104;
+  let size = 64;   // largest: digits ~46 dots tall, inside the 60-dot strip
   const measure = () => {
-    ctx.font = font(size);
+    ctx.font = `bold ${size}px Arial, Roboto, "Segoe UI", sans-serif`;
     const widths = digits.map((d) => ctx.measureText(d).width);
-    const gap = Math.round(size * 0.14);
-    const numW = widths.reduce((s, w) => s + w, 0) + gap * (digits.length - 1);
-    const wordSize = Math.round(size * 0.34);
-    ctx.font = font(wordSize);
-    const wordW = ctx.measureText(word).width;
-    const space = Math.round(size * 0.16);
-    return { widths, gap, wordSize, space, total: numW + space + wordW };
+    const gap = Math.round(size * 0.08);   // on top of the font's own spacing
+    const space = Math.round(size * 0.4);
+    const total = widths.reduce((s, w) => s + w, 0) + gap * (digits.length - 1) + space + ctx.measureText(word).width;
+    return { widths, gap, space, total };
   };
   let m = measure();
-  while (m.total > PERSONS_W - 16 && size > 40) { size -= 6; m = measure(); }
+  while (m.total > PERSONS_W - 16 && size > 24) { size -= 2; m = measure(); }
 
-  const baseline = 86;   // digits are ~0.72 em tall: about 10 dots of white above and below
+  const baseline = Math.round((PERSONS_H + 0.72 * size) / 2);   // digits ~0.72 em tall, centred
   let x = (PERSONS_W - m.total) / 2;
-  ctx.font = font(size);
   digits.forEach((d, i) => { ctx.fillText(d, x, baseline); x += m.widths[i] + m.gap; });
-  ctx.font = font(m.wordSize);
   ctx.fillText(word, x - m.gap + m.space, baseline);
   return canvas;
 }
@@ -209,10 +203,9 @@ export function personsCanvas(count, makeCanvas = newCanvas) {
 export function personsBytes(count, makeCanvas) {
   const canvas = personsCanvas(count, makeCanvas);
   if (canvas) return [...align(1), ...rasterBands(canvas), ...align(1)];
-  // No canvas (only outside a browser): the printer's own font, 4× tall
+  // No canvas (only outside a browser): the printer's own font, number and word both 2×
   return [
-    ...bold(1), ...charSize(0x33), ...enc(String(count)),
-    ...charSize(0x11), ...enc(count === 1 ? ' PERSON' : ' PERSONS'), LF,
+    ...bold(1), ...charSize(0x11), ...enc(`${count} ${count === 1 ? 'PERSON' : 'PERSONS'}`), LF,
     ...bold(0), ...charSize(0x00),
   ];
 }
