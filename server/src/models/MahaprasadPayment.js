@@ -11,6 +11,7 @@ const mahaprasadPaymentSchema = new mongoose.Schema({
   paymentMode:    { type: String, enum: ['cash', 'upi', 'online'], required: true, default: 'cash' },
   razorpayPaymentId: { type: String },
   razorpayOrderId:   { type: String },
+  testMode:          { type: Boolean },   // Razorpay test mode: no real money came in
   amountReceived: { type: Number, default: 0, min: 0 },
   changeReturned: { type: Number, default: 0, min: 0 },
   issuedBy:       { type: mongoose.Schema.Types.ObjectId, ref: 'User' },

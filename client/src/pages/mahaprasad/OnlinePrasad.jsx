@@ -179,7 +179,7 @@ export default function OnlinePrasad() {
 
   const header = useMemo(() => (d?.mode === 'test' ? (
     <p className="mb-3 rounded-xl border border-amber-300 bg-amber-50 px-3 py-2 text-center text-xs font-semibold text-amber-800">
-      {t('Test mode — no real money is taken')}
+      {t('Test mode — no real money is taken, and these coupons are not valid at the hall')}
     </p>
   ) : null), [d?.mode, t]);
 

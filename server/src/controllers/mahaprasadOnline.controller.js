@@ -97,7 +97,7 @@ export const listOnlineOrders = asyncHandler(async (req, res) => {
       _id: o._id, token: o.token, createdAt: o.createdAt, date: o.date, plates: o.plates, amount: o.amount,
       mobile: o.mobile, name: o.name, status: o.status, paymentId: o.paymentId, method: o.method, paidAt: o.paidAt,
       razorpayOrderId: o.razorpayOrderId, refundId: o.refundId, refundedAt: o.refundedAt, refundReason: o.refundReason,
-      couponNumber: coupon?.couponNumber, couponStatus: coupon?.status,
+      couponNumber: coupon?.couponNumber, couponStatus: coupon?.status, testMode: Boolean(o.testMode),
       couponUrl: o.status === 'paid' && o.shareToken ? couponPageUrl(o.shareToken) : null,
     };
   });

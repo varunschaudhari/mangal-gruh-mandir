@@ -108,6 +108,8 @@ const PublicReceipt = lazyPage(() => import('./pages/bookings/PublicReceipt.jsx'
 const PublicCoupons = lazyPage(() => import('./pages/mahaprasad/PublicCoupons.jsx'));
 const OnlinePrasad = lazyPage(() => import('./pages/mahaprasad/OnlinePrasad.jsx'));
 const MahaprasadOnlineOrders = lazyPage(() => import('./pages/mahaprasad/MahaprasadOnlineOrders.jsx'));
+const MahaprasadDashboard = lazyPage(() => import('./pages/mahaprasad/MahaprasadDashboard.jsx'));
+const MahaprasadScreen = lazyPage(() => import('./pages/mahaprasad/MahaprasadScreen.jsx'));
 
 const App = () => (
   <>
@@ -127,6 +129,8 @@ const App = () => (
     <Route element={<PrivateRoute />}>
       {/* TV at the hall: full screen, no sidebar */}
       <Route path="/hall-screen" element={<HallScreen />} />
+      {/* TV at the Mahaprasad hall / kitchen: prasad served against the day's total */}
+      <Route path="/mahaprasad/screen" element={<MahaprasadScreen />} />
       <Route element={<AppLayout />}>
         <Route path="/" element={<Navigate to="/dashboard" replace />} />
         <Route path="/dashboard" element={<Dashboard />} />
@@ -227,6 +231,7 @@ const App = () => (
         <Route path="/mahaprasad/history" element={<MahaprasadHistory />} />
         <Route path="/mahaprasad/report"    element={<MahaprasadReport />} />
         <Route path="/mahaprasad/online"    element={<MahaprasadOnlineOrders />} />
+        <Route path="/mahaprasad/dashboard" element={<MahaprasadDashboard />} />
         <Route path="/mahaprasad/occasions" element={<MahaprasadOccasionList />} />
 
         {/* Attendance */}

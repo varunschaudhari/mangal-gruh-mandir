@@ -126,6 +126,7 @@ export async function createOrder({ date: day, plates, mobile, name = '', ip }, 
     order = await MahaprasadOrder.create({
       token: newOrderToken(), date, plates, pricePerPlate, amount, mobile, name,
       status: 'pending', personsHeld: true, expiresAt: new Date(now.getTime() + HOLD_MINUTES * 60_000), ip,
+      ...(razorpay.razorpayMode() === 'test' && { testMode: true }),
     });
     const rz = await razorpay.createOrder({
       amountPaise: paise(amount),
@@ -285,15 +286,17 @@ async function issueForOrder(order, payment, source) {
   try {
     [number] = await generateCouponNumbers(prev.date, 1);
     const issuedAt = new Date();
+    // Paid with test keys: marked, so the hall refuses it (refuseUnredeemable) and it's told apart
+    const test = prev.testMode ? { testMode: true } : {};
     coupon = await MahaprasadCoupon.create({
       couponNumber: number, date: prev.date, type: 'paid', amount: prev.amount, occasion: '',
       mobile: prev.mobile, status: 'issued', channel: 'online', issuedAt, batchId,
-      groupSize: prev.plates, isGroup: prev.plates > 1, shareToken,
+      groupSize: prev.plates, isGroup: prev.plates > 1, shareToken, ...test,
     });
     await MahaprasadPayment.create({
       batchId, date: prev.date, couponNumbers: [number], qty: prev.plates, mobile: prev.mobile,
       totalDue: prev.amount, paymentMode: 'online', amountReceived: prev.amount, issuedAt,
-      razorpayPaymentId: payment.id, razorpayOrderId: prev.razorpayOrderId,
+      razorpayPaymentId: payment.id, razorpayOrderId: prev.razorpayOrderId, ...test,
     });
   } catch (err) {
     logger.error('Mahaprasad online: coupon not issued for a paid order — will try again', { order: prev.token, error: err.message });

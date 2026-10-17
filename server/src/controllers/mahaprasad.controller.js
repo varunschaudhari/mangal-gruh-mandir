@@ -71,6 +71,10 @@ function refuseUnredeemable(coupon) {
       `Coupon ${coupon.couponNumber} has not been sold — if it was issued offline, sync that counter first`,
       [{ code: 'not_sold' }]);
   }
+  // Bought on the public page while Razorpay had test keys: nobody paid for it
+  if (coupon.testMode) {
+    throw new ApiError(409, `Coupon ${coupon.couponNumber} is a TEST coupon (no real payment) — do not serve`, [{ code: 'test' }]);
+  }
 }
 
 // ── Controllers ───────────────────────────────────────────────────────────────
@@ -730,7 +734,7 @@ export const publicCoupons = asyncHandler(async (req, res) => {
   if (!/^[A-Za-z0-9_-]{10,40}$/.test(token)) throw new ApiError(404, 'Coupon not found');
   const [coupons, settings] = await Promise.all([
     MahaprasadCoupon.find({ shareToken: token, status: { $ne: 'reserved' } })
-      .select('-_id couponNumber date type occasion status groupSize isGroup redeemedAt channel')
+      .select('-_id couponNumber date type occasion status groupSize isGroup redeemedAt channel testMode')
       .sort({ couponNumber: 1 })
       .lean(),
     Settings.getOrCreate(),
@@ -742,6 +746,8 @@ export const publicCoupons = asyncHandler(async (req, res) => {
     temple: temple(),
     // Bought on the public page: it has a payment receipt (/api/public/mahaprasad/<token>/receipt.pdf)
     online: coupons.some((c) => c.channel === 'online'),
+    // …bought with Razorpay test keys: the page says it isn't valid at the hall
+    test: coupons.some((c) => c.testMode),
   }));
 });
 
@@ -771,7 +777,7 @@ export const getRedeemCopy = asyncHandler(async (req, res) => {
   const from = new Date(); from.setHours(0, 0, 0, 0);
   from.setDate(from.getDate() - (Math.min(validityDays > 0 ? validityDays : 7, 7) - 1));
   const coupons = await MahaprasadCoupon.find({ date: { $gte: from }, status: { $ne: 'reserved' } })
-    .select('couponNumber date type amount occasion status issuedAt issuedBy redeemedAt redeemedBy groupSize isGroup')
+    .select('couponNumber date type amount occasion status issuedAt issuedBy redeemedAt redeemedBy groupSize isGroup testMode')
     .populate('issuedBy', 'name')
     .populate('redeemedBy', 'name')
     .lean();
@@ -864,16 +870,16 @@ export const syncOffline = asyncHandler(async (req, res) => {
   for (const item of redeemed) {
     const redeemedAt = item.redeemedAt ? new Date(item.redeemedAt) : new Date();
     const updated = await MahaprasadCoupon.findOneAndUpdate(
-      { couponNumber: item.couponNumber, status: 'issued' },
+      { couponNumber: item.couponNumber, status: 'issued', testMode: { $ne: true } },
       { $set: { status: 'redeemed', redeemedBy: item.redeemedById || req.user._id, redeemedAt } },
     );
     if (updated) { results.redeemed.ok++; continue; }
-    const c = await MahaprasadCoupon.findOne({ couponNumber: item.couponNumber }).select('status redeemedAt').lean();
+    const c = await MahaprasadCoupon.findOne({ couponNumber: item.couponNumber }).select('status redeemedAt testMode').lean();
     if (c?.status === 'redeemed' && c.redeemedAt?.getTime() === redeemedAt.getTime()) { results.redeemed.ok++; continue; } // sent before
     results.redeemed.skipped++;
     results.redeemed.conflicts.push({
       couponNumber: item.couponNumber,
-      reason: !c ? 'not_found' : c.status === 'redeemed' ? 'already_redeemed' : c.status === 'voided' ? 'voided' : 'not_sold',
+      reason: !c ? 'not_found' : c.status === 'redeemed' ? 'already_redeemed' : c.status === 'voided' ? 'voided' : c.testMode ? 'test' : 'not_sold',
     });
   }
 

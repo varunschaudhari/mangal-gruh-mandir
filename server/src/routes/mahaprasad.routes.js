@@ -11,6 +11,8 @@ import {
   getCashDrawer, setOpeningFloat, adjustDrawer, voidBatch,
 } from '../controllers/mahaprasad.controller.js';
 import { listOnlineOrders } from '../controllers/mahaprasadOnline.controller.js';
+import { getDashboard, setTarget } from '../controllers/mahaprasadDashboard.controller.js';
+import * as dash from '../validation/mahaprasadDashboard.schemas.js';
 
 const router = Router();
 router.use(protect);
@@ -29,6 +31,10 @@ router.get('/report',              authorize('mahaprasad:read'),   getReport);
 router.get('/batches',             authorize('mahaprasad:read'),   getBatches);
 // Coupons bought by devotees on the public page (Razorpay)
 router.get('/online-orders',       authorize('mahaprasad:read'),   validate(v.onlineOrderList), listOnlineOrders);
+// Dashboard and TV screen: prasad given against the day's total; admins (who can change
+// Settings) set the totals
+router.get('/dashboard',           authorize('mahaprasad:read'),   validate(dash.getDashboard), getDashboard);
+router.put('/dashboard/target',    authorize('masters:write'),     validate(dash.setTarget), setTarget);
 
 // Cash drawer
 router.get('/cash-drawer',         authorize('mahaprasad:issue'),  getCashDrawer);

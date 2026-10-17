@@ -66,6 +66,7 @@ const init     = ()    => [ESC, 0x40];
 const align    = (n)   => [ESC, 0x61, n];   // 0=L 1=C 2=R
 const bold     = (on)  => [ESC, 0x45, on ? 1 : 0];
 const charSize = (n)   => [GS,  0x21, n];   // 0x00=1x  0x11=2x2  0x01=2xH  0x10=2xW
+const charSpacing = (n) => [ESC, 0x20, n];  // extra dots right of each character (grows with width)
 const feedN        = (n) => [ESC, 0x64, n];
 const partCut      = ()  => [GS,  0x56, 0x41, 4];
 const cashDrawerKick = () => [ESC, 0x70, 0x00, 0x19, 0xFA]; // ESC p pin2 on=50ms off=500ms
@@ -157,13 +158,16 @@ async function logoToEscPosBytes(maxWidth = 140) {
 // ── Receipt layout ────────────────────────────────────────────────────────────
 
 // How many people the coupon is for, big enough to read across the prasad counter: the number
-// 4× (about 1 cm tall) and the word 2×, on one line — fits a 58 mm printer up to 3 digits.
+// 4× tall (about 1 cm) on its own line, the word 2× below it. The number is not bold and has
+// extra space between digits — at this size bold strokes bleed into each other — and from 3
+// digits it is 3× wide instead of 4×, so it stays clear and well inside a 58 mm line.
 export function personsBytes(count) {
+  const digits = String(count);
   return [
-    ...bold(1),
-    ...charSize(0x33), ...enc(String(count)),
-    ...charSize(0x11), ...enc(count === 1 ? ' PERSON' : ' PERSONS'),
-    LF,
+    ...bold(0),
+    ...charSize(digits.length >= 3 ? 0x23 : 0x33), ...charSpacing(2), ...enc(digits), LF,
+    ...charSpacing(0),
+    ...bold(1), ...charSize(0x11), ...enc(count === 1 ? 'PERSON' : 'PERSONS'), LF,
     ...bold(0), ...charSize(0x00),
   ];
 }

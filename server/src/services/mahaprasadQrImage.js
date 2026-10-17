@@ -47,6 +47,16 @@ function outline({ run, k }, x, baseline, fill) {
 
 const dateText = (d) => new Date(d).toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
 const STAMP = { redeemed: 'SERVED', voided: 'CANCELLED' };
+const PURPLE = '#6b21a8';
+
+// How many people a coupon is for, big enough to read across the food counter: the number, and the
+// word at half its size, centred in a cell (like the thermal slip — utils/thermalPrint.js).
+function personsOutline(n, x, cellW, baseline, size) {
+  const num = shape(String(n), size, 700);
+  const word = shape(n === 1 ? ' PERSON' : ' PERSONS', Math.round(size * 0.5), 700);
+  const left = x + (cellW - num.width - word.width) / 2;
+  return outline(num, left, baseline, PURPLE) + outline(word, left + num.width, baseline, PURPLE);
+}
 
 /**
  * PNG of the coupons. `coupons` (lean, sorted): couponNumber, date, type, occasion, status,
@@ -69,9 +79,8 @@ export async function couponsQrPng(coupons, { temple = {} } = {}) {
   if (temple.nameMr && temple.name) line(temple.name, 28, { fill: '#444', gap: 4 });
   line('महाप्रसाद कूपन · Mahaprasad coupon', 34, { weight: 700, fill: '#c2410c', gap: 6 });
 
-  const persons = coupons.reduce((s, c) => s + (c.groupSize || 1), 0);
   const kind = coupons[0]?.type === 'free' ? (coupons[0].occasion || 'Free Seva') : 'Paid';
-  line(`${dateText(coupons[0]?.date || Date.now())} · ${persons} ${persons === 1 ? 'person' : 'persons'} · ${kind}`, 30, { gap: 18 });
+  line(`${dateText(coupons[0]?.date || Date.now())} · ${kind}`, 30, { gap: 18 });
 
   // One big QR, or two columns
   const shown = coupons.slice(0, MAX_SHOWN);
@@ -96,12 +105,10 @@ export async function couponsQrPng(coupons, { temple = {} } = {}) {
       }
       const num = shape(c.couponNumber, cols === 1 ? 44 : 32, 700);
       out.push(outline(num, x + (cell - num.width) / 2, y + qrSize + (cols === 1 ? 52 : 42), '#111'));
-      if ((c.groupSize || 1) > 1) {
-        const g = shape(`Group · ${c.groupSize} persons`, 26, 400);
-        out.push(outline(g, x + (cell - g.width) / 2, y + qrSize + (cols === 1 ? 90 : 76), '#6b21a8'));
-      }
+      // Every coupon, single ones too: the number of people to serve
+      out.push(personsOutline(c.groupSize || 1, x, cell, y + qrSize + (cols === 1 ? 152 : 114), cols === 1 ? 96 : 64));
     }
-    y += qrSize + (cols === 1 ? 110 : 96);
+    y += qrSize + (cols === 1 ? 180 : 138);
   }
   if (coupons.length > shown.length) line(`+${coupons.length - shown.length} more — open the link in the message`, 28, { fill: '#444' });
 

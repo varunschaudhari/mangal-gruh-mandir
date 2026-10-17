@@ -25,6 +25,13 @@ export function writeOnlineReceipt(out, { order, validityDays = 1 }) {
   let y = letterhead(doc, { title: 'Payment Receipt', number: order.couponNumber, numberLabel: 'Coupon No.', date: timeText(order.paidAt) });
   doc.moveTo(LEFT, y).lineTo(LEFT + W, y).strokeColor(C.line).lineWidth(1).stroke();
   y += 14;
+  if (order.testMode) {
+    // Paid with Razorpay test keys
+    doc.rect(LEFT, y, W, 24).lineWidth(1.2).strokeColor('#b91c1c').stroke();
+    doc.fillColor('#b91c1c').fontSize(11).font('Helvetica-Bold')
+      .text('TEST — no real payment. This coupon is not valid at the Mahaprasad hall.', LEFT, y + mid(24, 11), { width: W, align: 'center' });
+    y += 36;
+  }
 
   doc.fillColor(C.gray).fontSize(8).font('Helvetica').text('Received with thanks from:', LEFT, y);
   doc.fillColor(C.dark).fontSize(15).font('Helvetica-Bold').text(order.name || 'Devotee', LEFT, doc.y, { width: W });

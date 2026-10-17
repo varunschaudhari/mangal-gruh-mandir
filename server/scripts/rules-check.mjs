@@ -410,6 +410,31 @@ async function mahaprasadChecks(api, today) {
   const freed = rush.find((r) => r.status === 201).body.data.batchId;
   await api('PATCH', `/mahaprasad/batches/${freed}/void`, { reason: 'Free a place' });
   check((await issue(counter, { type: 'free' })).status === 201, 'a cancelled coupon frees its place under the limit');
+  await api('PUT', '/settings', { mahaprasadDailyCap: 0 });
+
+  // Dashboard: prasad sold and served against the day's total (2500 unless set; a target only)
+  const dash = async (who = counter) => (await who('GET', '/mahaprasad/dashboard')).body.data;
+  const d0 = await dash();
+  check(d0?.target === 2500 && d0.targetForThisDay === false && d0.usualTarget === 2500, 'the day\'s total is 2500 unless set', JSON.stringify(d0 && { t: d0.target, u: d0.usualTarget }));
+  const fam = (await issue(counter, { quantity: 4, isGroup: true, type: 'free' })).body.data.coupons[0].couponNumber;
+  const d1 = await dash();
+  check(d1.sold.persons - d0.sold.persons === 4 && d1.toServe - d0.toServe === 4 && d1.left === Math.max(0, 2500 - d1.sold.persons),
+    'a group of 4 sold: sold +4, still to serve +4, left of the total −4');
+  await redeemer('PATCH', `/mahaprasad/redeem/${fam}`);
+  const d2 = await dash();
+  check(d2.served - d1.served === 4 && d1.toServe - d2.toServe === 4 && d2.hours.some((h) => h.served >= 4) && d2.lastServedAt,
+    'served at the hall: served +4, still to serve −4, shown by hour');
+  check((await counter('PUT', '/mahaprasad/dashboard/target', { target: 5000 })).status === 403, 'counter staff cannot change the day\'s total');
+  check((await admin('PUT', '/mahaprasad/dashboard/target', { date: d2.date, target: -5 })).status === 400, 'a negative total is refused');
+  check((await admin('PUT', '/mahaprasad/dashboard/target', { date: d2.date, target: 5000 })).status === 200, 'an admin sets today\'s total to 5000');
+  const d3 = await dash();
+  check(d3.target === 5000 && d3.targetForThisDay && d3.usualTarget === 2500 && d3.left === 5000 - d3.sold.persons, '…the dashboard counts against 5000 for today only');
+  await admin('PUT', '/mahaprasad/dashboard/target', { target: 3000 });
+  check((await dash()).target === 5000, 'changing the usual total leaves a day with its own total alone');
+  await admin('PUT', '/mahaprasad/dashboard/target', { date: d2.date, target: null });
+  check((await dash()).target === 3000, 'back to the usual total (now 3000) when the day\'s own is removed');
+  await admin('PUT', '/mahaprasad/dashboard/target', { target: 2500 });
+  check((await dash()).target === 2500, 'usual total back to 2500');
 
   await api('PUT', '/settings', { mahaprasadDayPricing: settingsBefore.mahaprasadDayPricing, mahaprasadDailyCap: settingsBefore.mahaprasadDailyCap || 0 });
 }

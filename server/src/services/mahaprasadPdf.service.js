@@ -27,6 +27,9 @@ const C = {
   muted:        '#6b7280',
   light:        '#9ca3af',
   divider:      '#e5e7eb',
+
+  purple:       '#6b21a8',   // the number of persons (as on the thermal slip and the phone)
+  purpleBg:     '#f5f3ff',
 };
 
 // ── Layout ────────────────────────────────────────────────────────────────────
@@ -130,13 +133,6 @@ async function drawCoupon(doc, coupon, settings, cx, cy) {
     .text(coupon.couponNumber, x, iy - lift(11.5), { width: w, align: 'center', lineBreak: false });
   iy += 15;
 
-  // Group label — shown below coupon number for group coupons
-  if (isGroup) {
-    doc.font('Helvetica-Bold').fontSize(7.5).fillColor(accent)
-      .text(`GROUP COUPON  ·  ${groupSize} PERSONS`, x, iy - lift(7.5), { width: w, align: 'center', lineBreak: false });
-    iy += 11;
-  }
-
   // Thin divider
   const DIV_PAD = w * 0.15;
   doc.save().moveTo(x + DIV_PAD, iy).lineTo(x + w - DIV_PAD, iy)
@@ -155,10 +151,20 @@ async function drawCoupon(doc, coupon, settings, cx, cy) {
     iy += 10;
   }
 
-  // ── QR code — centered ────────────────────────────────────────────────────
-  const QR_SZ = 82;
-  const QR_X  = x + (w - QR_SZ) / 2;
-  const QR_Y  = iy + 8;
+  // ── QR code, with the number of persons beside it — big, for the food counter ──
+  const QR_SZ  = 82;
+  const PB_W   = 84;                       // persons box
+  const PB_GAP = 14;
+  const rowX   = x + (w - (PB_W + PB_GAP + QR_SZ)) / 2;
+  const QR_X   = rowX + PB_W + PB_GAP;
+  const QR_Y   = iy + 8;
+
+  doc.save().roundedRect(rowX, QR_Y + 8, PB_W, QR_SZ - 16, 6).lineWidth(1.2).fillAndStroke(C.purpleBg, C.purple).restore();
+  const numSize = groupSize >= 100 ? 26 : 34;
+  doc.font('Helvetica-Bold').fontSize(numSize).fillColor(C.purple)
+    .text(String(groupSize), rowX, QR_Y + 20 - lift(numSize), { width: PB_W, align: 'center', lineBreak: false });
+  doc.font('Helvetica-Bold').fontSize(9).fillColor(C.purple)
+    .text(groupSize === 1 ? 'PERSON' : 'PERSONS', rowX, QR_Y + 57 - lift(9), { width: PB_W, align: 'center', characterSpacing: 0.6, lineBreak: false });
 
   // White frame around QR
   doc.save()
@@ -172,7 +178,7 @@ async function drawCoupon(doc, coupon, settings, cx, cy) {
   doc.image(qrBuf, QR_X, QR_Y, { width: QR_SZ, height: QR_SZ });
 
   doc.font('Helvetica').fontSize(5.5).fillColor(C.light)
-    .text('SCAN TO VERIFY', x, QR_Y + QR_SZ + 5 - lift(5.5), { width: w, align: 'center', lineBreak: false });
+    .text('SCAN TO VERIFY', QR_X - 20, QR_Y + QR_SZ + 5 - lift(5.5), { width: QR_SZ + 40, align: 'center', lineBreak: false });
 
   // ── Details bar (validity + batch) ────────────────────────────────────────
   const detY = QR_Y + QR_SZ + 18;

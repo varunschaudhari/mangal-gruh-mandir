@@ -2,10 +2,11 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import QRCode from 'qrcode/lib/browser.js';
-import { AlertTriangle, Ban, CheckCircle2, Clock, FileText, SearchX, Users } from 'lucide-react';
+import { AlertTriangle, Ban, CheckCircle2, Clock, FileText, SearchX } from 'lucide-react';
 import { getPublicCoupons } from '../../api/mahaprasad.api.js';
 import { onlineReceiptUrl } from '../../api/mahaprasadOnline.api.js';
 import Spinner from '../../components/ui/Spinner.jsx';
+import PersonsCount from './PersonsCount.jsx';
 import { temple as cachedTemple } from '../../utils/temple.js';
 import { LanguageSwitch, useT } from '../../i18n/index.jsx';
 
@@ -83,12 +84,11 @@ function CouponCard({ c, validityDays }) {
           {c.type === 'free' ? (c.occasion || t('Free Seva')) : t('Paid|coupon')}
         </span>
         {persons > 1 && (
-          <span className="inline-flex items-center gap-1 rounded-full bg-purple-100 px-2.5 py-1 text-xs font-bold text-purple-700">
-            <Users className="h-3.5 w-3.5" /> {t('{n} persons', { n: persons })}
-          </span>
+          <span className="rounded-full bg-purple-100 px-2.5 py-1 text-xs font-bold text-purple-700">{t('Group coupon')}</span>
         )}
       </div>
-      <div className="relative mt-3">
+      <PersonsCount n={persons} className={`mt-3 ${state !== 'valid' ? 'opacity-40' : ''}`} />
+      <div className="relative mt-2">
         <Qr text={c.couponNumber} dim={state !== 'valid'} />
         {banner && (
           <div className="absolute inset-0 flex items-center justify-center">
@@ -148,7 +148,13 @@ export default function PublicCoupons() {
 
   return (
     <Shell temple={d.temple}>
-      {anyValid && (
+      {/* Bought online while Razorpay had test keys: the hall refuses it */}
+      {d.test && (
+        <p className="mb-3 rounded-xl border-2 border-red-300 bg-red-50 px-4 py-2.5 text-center text-sm font-bold text-red-800">
+          {t('TEST coupon — no real payment. Not valid at the Mahaprasad hall.')}
+        </p>
+      )}
+      {anyValid && !d.test && (
         <p className="mb-3 rounded-xl border border-orange-200 bg-white px-4 py-2.5 text-center text-sm text-gray-700">
           {t('Show this QR at the Mahaprasad hall. Each coupon can be used once.')}
           <span className="mt-0.5 block text-xs text-gray-500">{t('If the scanner can’t read it, turn up the screen brightness.')}</span>

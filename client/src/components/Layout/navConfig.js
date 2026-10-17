@@ -5,7 +5,7 @@ import {
   Armchair, ClipboardList, Settings2, BarChart2, TrendingUp, Heart, CreditCard, Plus,
   ShoppingCart, BookTemplate, FileText, Utensils, ScanLine, BarChart3, Receipt, PiggyBank, Bug,
   Fingerprint, CalendarDays, CalendarRange, UsersRound, Clock3, CalendarHeart, Wallet, HandCoins, IndianRupee,
-  CalendarCheck, ListOrdered, ClipboardList as DaySheetIcon, Vault, QrCode, MonitorPlay, Globe,
+  CalendarCheck, ListOrdered, ClipboardList as DaySheetIcon, Vault, QrCode, MonitorPlay, Globe, Gauge,
 } from 'lucide-react';
 
 // Single source of truth for navigation: the desktop sidebar, the mobile bottom tab bar,
@@ -74,6 +74,7 @@ export const navConfig = [
     icon: Utensils,
     permission: 'mahaprasad:read',
     children: [
+      { label: 'Prasad Dashboard', to: '/mahaprasad/dashboard', icon: Gauge, permission: 'mahaprasad:read' },
       { label: 'Issue Coupons', to: '/mahaprasad',          icon: Utensils,  permission: 'mahaprasad:issue'  },
       { label: 'Redeem',        to: '/mahaprasad/redeem',  icon: ScanLine,  permission: 'mahaprasad:redeem' },
       { label: 'History',       to: '/mahaprasad/history', icon: History,   permission: 'mahaprasad:read'   },

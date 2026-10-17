@@ -8,7 +8,9 @@ export default {
   'Buy Mahaprasad coupons online': 'महाप्रसाद कूपन ऑनलाइन घ्या',
   'Pay online and get your coupon QR on WhatsApp / SMS. Show it at the Mahaprasad hall.':
     'ऑनलाइन पैसे भरा आणि कूपनचा QR WhatsApp / SMS वर मिळवा. तो महाप्रसाद सभागृहात दाखवा.',
-  'Test mode — no real money is taken': 'चाचणी मोड — खरे पैसे घेतले जात नाहीत',
+  'Test mode — no real money is taken, and these coupons are not valid at the hall': 'चाचणी मोड — खरे पैसे घेतले जात नाहीत, आणि ही कूपन सभागृहात चालत नाहीत',
+  'TEST coupon — no real payment. Not valid at the Mahaprasad hall.': 'चाचणी कूपन — खरे पैसे भरलेले नाहीत. महाप्रसाद सभागृहात चालणार नाही.',
+  'Coupon {number} is a TEST coupon (no real payment) — do not serve': 'कूपन {number} हे चाचणी कूपन आहे (खरे पैसे भरलेले नाहीत) — देऊ नका',
   '1. Choose the day': '1. दिवस निवडा',
   '2. Number of plates': '2. थाळ्यांची संख्या',
   '3. Your mobile number': '3. आपला मोबाइल नंबर',
@@ -87,6 +89,7 @@ export default {
   'Waiting for payment': 'पेमेंट बाकी',
   'Confirming': 'खात्री करत आहे',
   'Not paid': 'भरले नाही',
+  'Test|order': 'चाचणी',
   'Ordered': 'ऑर्डर वेळ',
   'Mahaprasad day': 'महाप्रसाद दिवस',
   'Plates': 'थाळ्या',

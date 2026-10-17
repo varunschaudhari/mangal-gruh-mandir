@@ -4,7 +4,7 @@ import { useSearchParams } from 'react-router-dom';
 import {
   ScanLine, KeyboardIcon, CheckCircle2, XCircle, RotateCcw,
   Clock, AlertTriangle, Info, ChevronRight, CloudOff, CloudUpload,
-  Maximize2, Minimize2, Users,
+  Maximize2, Minimize2,
 } from 'lucide-react';
 import { lookupCoupon, redeemCoupon, getDailySummary } from '../../api/mahaprasad.api.js';
 import { CONFLICTS_KEY, readCopyMeta, serverDown, useRedeemOffline } from '../../hooks/useRedeemOffline.js';
@@ -18,6 +18,7 @@ import { scanQrCode } from '../../utils/nativeScanner.js';
 import { useBackHandler } from '../../hooks/useBackHandler.js';
 import { localDateStr } from '../../utils/formatters.js';
 import { useT } from '../../i18n/index.jsx';
+import PersonsCount from './PersonsCount.jsx';
 
 const fmt     = (d) => d ? new Date(d).toLocaleString('en-IN',  { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : '—';
 const todayStr = () => localDateStr();
@@ -126,11 +127,7 @@ function CouponCard({ coupon, onRedeem, redeeming, justRedeemed, countdown }) {
         <div>
           <p className="text-lg font-black text-green-800">{t('Redeemed!')}</p>
           <p className="font-mono text-sm text-green-700 mt-0.5">{coupon.couponNumber}</p>
-          {isGroupCoupon && (
-            <div className="inline-flex items-center gap-1.5 mt-2 px-3 py-1 rounded-full bg-purple-100 text-purple-700 text-sm font-semibold">
-              <Users className="h-3.5 w-3.5" /> {t('{n} persons', { n: groupSize })}
-            </div>
-          )}
+          <PersonsCount n={groupSize} className="mt-3" />
           {coupon.type === 'free' && coupon.occasion && (
             <p className="text-xs text-green-600 mt-1">{coupon.occasion}</p>
           )}
@@ -190,11 +187,14 @@ function CouponCard({ coupon, onRedeem, redeeming, justRedeemed, countdown }) {
             {coupon.type === 'free' ? (coupon.occasion || t('Free Seva')) : `${t('Paid|coupon')} · ₹${coupon.amount}`}
           </span>
           {isGroupCoupon && (
-            <span className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full bg-purple-100 text-purple-700">
-              <Users className="h-3 w-3" /> {t('{n} persons', { n: groupSize })}
-            </span>
+            <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-purple-100 text-purple-700">{t('Group coupon')}</span>
           )}
         </div>
+      </div>
+
+      {/* How many to serve — big, for the counter */}
+      <div className="rounded-xl border-2 border-purple-200 bg-white py-3">
+        <PersonsCount n={groupSize} />
       </div>
 
       {/* Meta */}
@@ -353,6 +353,12 @@ export default function MahaprasadRedeem() {
         redeemFeedback.notFound();
         return;
       }
+      if (local.testMode) {
+        setError(t('Coupon {number} is a TEST coupon (no real payment) — do not serve', { number }));
+        setErrorType('blocked');
+        redeemFeedback.error();
+        return;
+      }
       if (status === 'redeemed' || status === 'redeemed-offline') {
         setCoupon(offlineStore.normalizeForUi(local));
         redeemFeedback.alreadyRedeemed();
@@ -401,6 +407,13 @@ export default function MahaprasadRedeem() {
     try {
       const res = await lookupCoupon(number);
       const couponData = res.data.data;
+      // Bought online while Razorpay had test keys: nobody paid for it
+      if (couponData.testMode) {
+        setError(t('Coupon {number} is a TEST coupon (no real payment) — do not serve', { number }));
+        setErrorType('blocked');
+        redeemFeedback.error();
+        return;
+      }
       if (couponData.status === 'redeemed') {
         setCoupon(couponData);
         redeemFeedback.alreadyRedeemed();
@@ -594,9 +607,9 @@ export default function MahaprasadRedeem() {
       }
       const status  = e.response?.status;
       const message = e.response?.data?.message || e.message || t('Failed to redeem');
-      const code    = e.response?.data?.errors?.[0]?.code; // voided / not_sold / redeemed
+      const code    = e.response?.data?.errors?.[0]?.code; // voided / not_sold / test / redeemed
       setError(message);
-      if (code === 'voided' || code === 'not_sold') {
+      if (code === 'voided' || code === 'not_sold' || code === 'test') {
         setCoupon(null);
         setErrorType('blocked');
         redeemFeedback.error();

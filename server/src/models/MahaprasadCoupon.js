@@ -11,6 +11,8 @@ const mahaprasadCouponSchema = new mongoose.Schema({
   // Sold at a counter, or bought by the devotee on the public page (MahaprasadOrder) — then no staff issued it
   channel:      { type: String, enum: ['counter', 'online'], default: 'counter' },
   issuedBy:     { type: mongoose.Schema.Types.ObjectId, ref: 'User', required() { return this.channel !== 'online'; } },
+  // Bought online while Razorpay was in test mode (no real money): never served at the hall
+  testMode:     { type: Boolean },
   issuedAt:     { type: Date, default: Date.now },
   redeemedBy:   { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   redeemedAt:   { type: Date },

@@ -87,6 +87,8 @@ export async function storeOnlineIssued(coupons) {
       redeemedByName: c.redeemedBy?.name || '',
       groupSize:      c.groupSize || 1,
       isGroup:        Boolean(c.isGroup),
+      // bought online with Razorpay test keys — refused offline too
+      testMode:       Boolean(c.testMode),
       synced:         true,
     });
   }

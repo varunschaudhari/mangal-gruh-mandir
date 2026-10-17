@@ -52,7 +52,7 @@ export default function MahaprasadOnlineOrders() {
         'Mahaprasad day': fmtDay(o.date),
         'Plates':       o.plates,
         'Amount (₹)':   o.amount,
-        'Status':       t(STATUS[o.status]?.label || o.status),
+        'Status':       `${t(STATUS[o.status]?.label || o.status)}${o.testMode ? ' (TEST)' : ''}`,
         'Coupon No.':   o.couponNumber || '',
         'Mobile':       o.mobile,
         'Name':         o.name || '',
@@ -143,7 +143,7 @@ export default function MahaprasadOnlineOrders() {
                 key={o._id}
                 title={<span className="font-semibold">{rupees(o.amount)} · {t(o.plates === 1 ? '{n} plate' : '{n} plates', { n: o.plates })}</span>}
                 subtitle={[fmtTs(o.createdAt), o.mobile, o.name].filter(Boolean).join(' · ')}
-                aside={<Badge variant={STATUS[o.status]?.variant}>{t(STATUS[o.status]?.label || o.status)}</Badge>}
+                aside={<>{o.testMode && <Badge variant="red">{t('Test|order')}</Badge>}<Badge variant={STATUS[o.status]?.variant}>{t(STATUS[o.status]?.label || o.status)}</Badge></>}
                 fields={[
                   { label: t('Mahaprasad day'), value: fmtDay(o.date) },
                   { label: t('Coupon No.'), value: o.couponNumber },
@@ -179,6 +179,7 @@ export default function MahaprasadOnlineOrders() {
                     <td className="table-td text-right tabular-nums">{o.plates}</td>
                     <td className="table-td text-right font-medium tabular-nums">{rupees(o.amount)}</td>
                     <td className="table-td">
+                      {o.testMode && <Badge variant="red" className="mr-1">{t('Test|order')}</Badge>}
                       <Badge variant={STATUS[o.status]?.variant}>{t(STATUS[o.status]?.label || o.status)}</Badge>
                       {o.refundReason && <p className="mt-0.5 max-w-[220px] text-[11px] text-gray-500">{t(o.refundReason)}</p>}
                     </td>

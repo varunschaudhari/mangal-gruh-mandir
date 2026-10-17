@@ -35,6 +35,8 @@ const mahaprasadOrderSchema = new mongoose.Schema({
   refundedAt:      { type: Date },
   refundReason:    { type: String },
   ip:              { type: String },
+  // Made with Razorpay test keys: no real money, and its coupon is never served
+  testMode:        { type: Boolean },
 }, { timestamps: true });
 
 mahaprasadOrderSchema.index({ status: 1, expiresAt: 1 });
