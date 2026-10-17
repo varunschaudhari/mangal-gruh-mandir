@@ -591,7 +591,13 @@ docker compose exec server npm run golive                   # preview: what goes
 ./backup-db.sh                                             # required: it refuses without a backup from the last 2 hours
 docker compose exec server npm run golive -- --confirm=<database name the preview shows>
 docker compose restart server
+docker compose exec server npm run users:temple             # preview the temple's staff logins
+docker compose exec server npm run users:temple -- --confirm  # create them — note the passwords shown
 ```
+
+`users:temple` creates the agreed staff logins (trust viewers, accounts, booking counter, hall achari
+and hall managers, purchase managers — the list is in `server/src/seeds/templeUsers.js`). Each new
+login's password is shown once and must be changed at first sign-in.
 
 Only some super admins to stay? Add `--keep-users=first@x.org,second@y.org`. Then, in the app: enter
 the products and suppliers, the opening stock (a purchase entry or stock-in per product), the staff

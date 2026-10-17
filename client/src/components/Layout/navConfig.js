@@ -218,6 +218,7 @@ const ROLE_TABS = {
   attendance_supervisor: ['attendance', 'roster'],
   booking_counter:    ['bookings', 'daySheet'],
   hall_checkin:       ['checkIn'],
+  hall_manager:       ['checkIn', 'daySheet', 'bookings'],
 };
 const TAB_PRIORITY = ['stock', 'scan', 'coupons', 'payments', 'purchases', 'donations', 'reports', 'prasad', 'expenses', 'attendance'];
 

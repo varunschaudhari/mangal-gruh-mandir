@@ -4,6 +4,7 @@
 export default {
   // ── Menu and page (pages/bookings/BookingCheckIn.jsx) ─────────────────────
   'Hall Check-in': 'हॉल हजेरी',
+  'Hall Manager': 'हॉल व्यवस्थापक',
   'Check-in': 'हजेरी',
   'Scan the QR code on the devotee’s slip': 'भाविकाच्या स्लिपवरील QR कोड स्कॅन करा',
   'This entrance': 'हे प्रवेशद्वार',

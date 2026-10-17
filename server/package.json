@@ -24,6 +24,7 @@
     "seed:demo:remove": "node src/seeds/demoDay.seed.js --remove",
     "golive": "node src/seeds/goLive.js",
     "users:modules": "node src/seeds/moduleLogins.js",
+    "users:temple": "node src/seeds/templeUsers.js",
     "migrate:bookings": "node src/migrations/addBookingModule.js",
     "migrate:roles": "node src/migrations/syncRoles.js",
     "seed:mahaprasad-occasions": "node src/seeds/mahaprasadOccasions.seed.js",

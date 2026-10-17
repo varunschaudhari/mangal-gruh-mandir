@@ -116,6 +116,13 @@ export const rolesSeed = [
     isSystem: true,
   },
   {
+    slug: 'hall_manager',
+    name: 'Hall Manager',
+    description: 'Scans booking slips at the hall and sees the bookings and the day / sankalp sheet',
+    permissions: ['bookings:read', 'bookings:checkin'],
+    isSystem: true,
+  },
+  {
     slug: 'payroll',
     name: 'Payroll',
     description: 'Work out and pay monthly salary, advances, bank sheet and PF/ESI files; sees attendance',
