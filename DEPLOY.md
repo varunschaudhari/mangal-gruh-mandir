@@ -570,6 +570,34 @@ passes again it's closed with a comment (another notification). Make sure **Sett
 - Different address: set the repository variable `SITE_URL` (defaults to `DEPLOY_URL`, then
   `https://mandir.aumora.io`).
 
+## 16. Going live — clearing the test data
+
+Once, before the temple starts using the app for real. `server/src/seeds/goLive.js` removes every
+test and demo record and keeps the setup:
+
+- **Kept:** Settings (temple details, prices, WhatsApp / SMS / payment keys), roles, departments,
+  categories, units, donation and Mahaprasad occasions, seva types, halls, batches, booking setup
+  and closed dates, attendance settings (shifts, holidays, approved machines), payroll settings, the
+  usual daily Mahaprasad total — and the **super admin** login(s).
+- **Emptied:** products, suppliers, assets, all stock (it starts at zero), purchases, supplier
+  payments, expenses and budgets (with their receipt files), donations, pooja bookings, Mahaprasad
+  coupons, payments and online orders, attendance and salary, **every other login** with its staff
+  profile, the numbering (every receipt, coupon and booking number starts again from 1), and the
+  audit and app-error logs.
+
+```bash
+cd /root/mangal-gruh-mandir
+docker compose exec server npm run golive                   # preview: what goes, what stays — changes nothing
+./backup-db.sh                                             # required: it refuses without a backup from the last 2 hours
+docker compose exec server npm run golive -- --confirm=<database name the preview shows>
+docker compose restart server
+```
+
+Only some super admins to stay? Add `--keep-users=first@x.org,second@y.org`. Then, in the app: enter
+the products and suppliers, the opening stock (a purchase entry or stock-in per product), the staff
+logins (Admin → Users), and check Settings. If anything was removed by mistake, the backup restores
+it: `./restore-db.sh live <archive>` (§10).
+
 ## Operations cheatsheet
 
 ```bash

@@ -67,6 +67,7 @@ const align    = (n)   => [ESC, 0x61, n];   // 0=L 1=C 2=R
 const bold     = (on)  => [ESC, 0x45, on ? 1 : 0];
 const charSize = (n)   => [GS,  0x21, n];   // 0x00=1x  0x11=2x2  0x01=2xH  0x10=2xW
 const feedN        = (n) => [ESC, 0x64, n];
+const feedDots     = (n) => [ESC, 0x4A, n];   // feed n dots (a part of a line)
 const partCut      = ()  => [GS,  0x56, 0x41, 4];
 const cashDrawerKick = () => [ESC, 0x70, 0x00, 0x19, 0xFA]; // ESC p pin2 on=50ms off=500ms
 
@@ -159,9 +160,11 @@ async function logoToEscPosBytes(maxWidth = 140) {
 // How many people the coupon is for, big enough to read across the prasad counter. Drawn as a
 // picture, like the logo: the printer's own font enlarged comes out tall and thin, and its digits
 // run together from 3 digits on (seen on the counter's printer, which also ignores character
-// spacing). Here each digit is drawn on its own with a clear gap — about 1 cm tall, in bold — and
-// the word below, centred on a 58 mm roll's width (and so in the middle of an 80 mm one).
+// spacing). Here each digit is drawn on its own with a clear gap — about 9 mm tall, in bold — with
+// the word beside it on one line (≈ 12 mm of paper), centred on a 58 mm roll's width (and so in
+// the middle of an 80 mm one). Long counts shrink to fit.
 const PERSONS_W = 384;   // dots
+const PERSONS_H = 96;
 
 const newCanvas = () => (typeof document === 'undefined' ? null : document.createElement('canvas'));
 
@@ -170,7 +173,7 @@ export function personsCanvas(count, makeCanvas = newCanvas) {
   const ctx = canvas?.getContext?.('2d');
   if (!ctx) return null;
   canvas.width = PERSONS_W;
-  canvas.height = 156;
+  canvas.height = PERSONS_H;
   ctx.fillStyle = '#fff';
   ctx.fillRect(0, 0, canvas.width, canvas.height);
   ctx.fillStyle = '#000';
@@ -178,21 +181,28 @@ export function personsCanvas(count, makeCanvas = newCanvas) {
   const font = (px) => `bold ${px}px Arial, Roboto, "Segoe UI", sans-serif`;
 
   const digits = String(count).split('');
-  let size = 112;
+  const word = count === 1 ? 'PERSON' : 'PERSONS';
+  let size = 104;
   const measure = () => {
     ctx.font = font(size);
     const widths = digits.map((d) => ctx.measureText(d).width);
     const gap = Math.round(size * 0.14);
-    return { widths, gap, total: widths.reduce((s, w) => s + w, 0) + gap * (digits.length - 1) };
+    const numW = widths.reduce((s, w) => s + w, 0) + gap * (digits.length - 1);
+    const wordSize = Math.round(size * 0.34);
+    ctx.font = font(wordSize);
+    const wordW = ctx.measureText(word).width;
+    const space = Math.round(size * 0.16);
+    return { widths, gap, wordSize, space, total: numW + space + wordW };
   };
   let m = measure();
-  while (m.total > PERSONS_W - 24 && size > 48) { size -= 8; m = measure(); }
-  let x = (PERSONS_W - m.total) / 2;
-  digits.forEach((d, i) => { ctx.fillText(d, x, 98); x += m.widths[i] + m.gap; });
+  while (m.total > PERSONS_W - 16 && size > 40) { size -= 6; m = measure(); }
 
-  const word = count === 1 ? 'PERSON' : 'PERSONS';
-  ctx.font = font(36);
-  ctx.fillText(word, (PERSONS_W - ctx.measureText(word).width) / 2, 146);
+  const baseline = 86;   // digits are ~0.72 em tall: about 10 dots of white above and below
+  let x = (PERSONS_W - m.total) / 2;
+  ctx.font = font(size);
+  digits.forEach((d, i) => { ctx.fillText(d, x, baseline); x += m.widths[i] + m.gap; });
+  ctx.font = font(m.wordSize);
+  ctx.fillText(word, x - m.gap + m.space, baseline);
   return canvas;
 }
 
@@ -201,8 +211,8 @@ export function personsBytes(count, makeCanvas) {
   if (canvas) return [...align(1), ...rasterBands(canvas), ...align(1)];
   // No canvas (only outside a browser): the printer's own font, 4× tall
   return [
-    ...bold(1), ...charSize(0x33), ...enc(String(count)), LF,
-    ...charSize(0x11), ...enc(count === 1 ? 'PERSON' : 'PERSONS'), LF,
+    ...bold(1), ...charSize(0x33), ...enc(String(count)),
+    ...charSize(0x11), ...enc(count === 1 ? ' PERSON' : ' PERSONS'), LF,
     ...bold(0), ...charSize(0x00),
   ];
 }
@@ -222,8 +232,6 @@ export function buildReceiptBytes(coupon, settings) {
     ? (isFree ? `GROUP  ${groupSize} PERSONS` : `GROUP  ${groupSize}x  Rs.${coupon.amount}`)
     : (isFree ? 'FREE SEVA' : `Rs.${coupon.amount}  PAID`);
 
-  const servingText = isGroup ? `Valid for ${groupSize} servings` : 'Valid for one serving';
-
   return [
     ...init(),
     ...align(1),
@@ -242,9 +250,7 @@ export function buildReceiptBytes(coupon, settings) {
     ...line(coupon.couponNumber),
     ...bold(0), ...charSize(0x00),
 
-    ...dashes(),
-
-    // ── PERSONS (large, for the prasad counter) ──────────────────────────────
+    // ── PERSONS (large, for the prasad counter; the picture has its own margin) ──
     ...personsBytes(groupSize),
 
     ...dashes(),
@@ -252,15 +258,14 @@ export function buildReceiptBytes(coupon, settings) {
     // ── DATE + OCCASION + QR (merged — one less dash line) ──────────────────
     ...line(dateStr),
     ...(isFree && coupon.occasion ? line(coupon.occasion) : []),
-    ...nl(),
+    ...feedDots(14),   // a little white above the QR for the scanner
     ...qrEscPos(coupon.couponNumber, 5),
     ...line('- SCAN TO VERIFY -'),
 
     ...dashes(),
 
-    // ── FOOTER ───────────────────────────────────────────────────────────────
+    // ── FOOTER (the number of servings is the big count above) ───────────────
     ...bold(1), ...line('Present at Prasad counter'), ...bold(0),
-    ...bold(1), ...line(servingText), ...bold(0),
     ...line('Non-transferable'),
 
     // Cut + cash drawer kick for paid coupons
