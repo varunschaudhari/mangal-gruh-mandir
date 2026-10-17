@@ -596,8 +596,9 @@ docker compose exec server npm run users:temple -- --confirm  # create them — 
 ```
 
 `users:temple` creates the agreed staff logins (trust viewers, accounts, booking counter, hall achari
-and hall managers, purchase managers — the list is in `server/src/seeds/templeUsers.js`). Each new
-login's password is shown once and must be changed at first sign-in.
+and hall managers, purchase managers — the list, with each person's simple password (first name +
+`@123`), is in `server/src/seeds/templeUsers.js`). Nobody is asked to change it; a login that
+already exists keeps its own password.
 
 Only some super admins to stay? Add `--keep-users=first@x.org,second@y.org`. Then, in the app: enter
 the products and suppliers, the opening stock (a purchase entry or stock-in per product), the staff

@@ -9,6 +9,9 @@ test('every temple login has a built-in role and its own e-mail', () => {
   const emails = PEOPLE.map((p) => p.email);
   assert.equal(new Set(emails).size, emails.length);
   for (const e of emails) assert.equal(e, e.toLowerCase());
+  // Simple, fixed passwords (first name + @123), long enough for the login rules, one per person
+  for (const p of PEOPLE) assert.ok(p.password?.length >= 6, `${p.name}: password`);
+  assert.equal(new Set(PEOPLE.map((p) => p.password)).size, PEOPLE.length);
 });
 
 test('hall managers see bookings and scan slips, nothing more', () => {
