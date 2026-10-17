@@ -4,6 +4,8 @@
  *
  *   docker compose exec server npm run users:temple                what it would do (changes nothing)
  *   docker compose exec server npm run users:temple -- --confirm   create / update the logins
+ *   add --reset-passwords   staff logins that already exist get their listed password too (and are
+ *                           not asked to change it); super admins always keep their own
  *
  * A new login gets the simple password listed here (first name + @123, as the trust asked) and is
  * not asked to change it. A login whose e-mail already exists keeps its own password; its name and
@@ -44,6 +46,7 @@ export const PEOPLE = [
 
 async function main() {
   const confirm = process.argv.includes('--confirm');
+  const resetPasswords = process.argv.includes('--reset-passwords');
   await connectDB();
 
   // The roles these logins need, as defined in roles.seed.js (built-in roles, kept up to date)
@@ -56,12 +59,23 @@ async function main() {
   console.log(confirm ? '\nLogins:\n' : '\nPreview — nothing is changed (add --confirm):\n');
   for (const p of PEOPLE) {
     const label = `${p.name} (${rolesSeed.find((r) => r.slug === p.role).name})`;
-    const existing = await User.findOne({ email: p.email });
+    const existing = await User.findOne({ email: p.email }).select('+password');
     if (existing) {
-      const change = [existing.name !== p.name && `name "${existing.name}" → "${p.name}"`, existing.role !== p.role && `role ${existing.role} → ${p.role}`]
-        .filter(Boolean).join(', ');
-      if (confirm && change) await User.updateOne({ _id: existing._id }, { $set: { name: p.name, role: p.role, isActive: true } });
-      console.log(`  ${p.email.padEnd(28)} ${label} — ${change ? (confirm ? `updated: ${change}` : `would update: ${change}`) : 'already as listed'} (keeps its own password)`);
+      // --reset-passwords: staff logins (never super admins) get their listed password back
+      const resetPw = resetPasswords && p.role !== 'super_admin' && !(await existing.matchPassword(p.password));
+      const change = [
+        existing.name !== p.name && `name "${existing.name}" → "${p.name}"`,
+        existing.role !== p.role && `role ${existing.role} → ${p.role}`,
+        resetPw && `password → ${p.password}`,
+        resetPasswords && p.role !== 'super_admin' && existing.mustChangePassword && 'no longer asked to change it',
+      ].filter(Boolean).join(', ');
+      if (confirm && change) {
+        Object.assign(existing, { name: p.name, role: p.role, isActive: true });
+        if (resetPasswords && p.role !== 'super_admin') Object.assign(existing, { mustChangePassword: false, ...(resetPw && { password: p.password }) });
+        await existing.save();   // the model encrypts a changed password on save
+      }
+      const pw = resetPasswords && p.role !== 'super_admin' ? '' : ' (keeps its own password)';
+      console.log(`  ${p.email.padEnd(28)} ${label} — ${change ? (confirm ? `updated: ${change}` : `would update: ${change}`) : 'already as listed'}${pw}`);
       continue;
     }
     if (!confirm) {
