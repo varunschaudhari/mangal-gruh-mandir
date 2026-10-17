@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { ExternalLink, FileSpreadsheet, Globe, RefreshCw } from 'lucide-react';
+import { ExternalLink, FileSpreadsheet, Globe, QrCode, RefreshCw } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { getOnlineOrders } from '../../api/mahaprasadOnline.api.js';
+import { getOnlineOrders, getOnlinePoster } from '../../api/mahaprasadOnline.api.js';
+import { openFile } from '../../utils/fileSaver.js';
 import PageHeader from '../../components/ui/PageHeader.jsx';
 import Badge from '../../components/ui/Badge.jsx';
 import MobileCard from '../../components/ui/MobileCard.jsx';
@@ -45,6 +46,17 @@ export default function MahaprasadOnlineOrders() {
   const totals = data?.totals;
   const state = data?.state;
 
+  // The A4 poster with the QR to the public page, to print and put up at the temple
+  const [posterLoading, setPosterLoading] = useState(false);
+  const handlePoster = async () => {
+    setPosterLoading(true);
+    try {
+      const r = await getOnlinePoster();
+      await openFile(r.data, 'mahaprasad-online-qr-poster.pdf');
+    } catch { toast.error(t('Failed to generate PDF')); }
+    finally { setPosterLoading(false); }
+  };
+
   const handleExport = async () => {
     try {
       await exportToExcel(orders.map((o) => ({
@@ -72,6 +84,10 @@ export default function MahaprasadOnlineOrders() {
         breadcrumbs={[{ label: 'Mahaprasad', to: '/mahaprasad' }, { label: 'Online orders' }]}
         actions={
           <div className="flex items-center gap-2">
+            <button onClick={handlePoster} disabled={posterLoading}
+              className="btn btn-ghost border text-sm flex items-center gap-1.5 disabled:opacity-40 max-sm:py-2.5">
+              <QrCode className="h-4 w-4" /> {posterLoading ? t('Opening…') : t('QR poster')}
+            </button>
             <button onClick={handleExport} disabled={orders.length === 0}
               className="btn btn-ghost border text-sm flex items-center gap-1.5 disabled:opacity-40 max-sm:py-2.5">
               <FileSpreadsheet className="h-4 w-4" /> {t('Export')}

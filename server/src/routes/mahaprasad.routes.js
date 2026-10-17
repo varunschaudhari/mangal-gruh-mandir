@@ -10,7 +10,7 @@ import {
   reserveOffline, getTodayForOffline, getRedeemCopy, syncOffline,
   getCashDrawer, setOpeningFloat, adjustDrawer, voidBatch,
 } from '../controllers/mahaprasad.controller.js';
-import { listOnlineOrders } from '../controllers/mahaprasadOnline.controller.js';
+import { listOnlineOrders, onlinePosterPdf } from '../controllers/mahaprasadOnline.controller.js';
 import { getDashboard, setTarget } from '../controllers/mahaprasadDashboard.controller.js';
 import * as dash from '../validation/mahaprasadDashboard.schemas.js';
 
@@ -31,6 +31,7 @@ router.get('/report',              authorize('mahaprasad:read'),   getReport);
 router.get('/batches',             authorize('mahaprasad:read'),   getBatches);
 // Coupons bought by devotees on the public page (Razorpay)
 router.get('/online-orders',       authorize('mahaprasad:read'),   validate(v.onlineOrderList), listOnlineOrders);
+router.get('/online-poster.pdf',   authorize('mahaprasad:read'),   onlinePosterPdf);   // QR to the public page, to print
 // Dashboard and TV screen: prasad given against the day's total; admins (who can change
 // Settings) set the totals
 router.get('/dashboard',           authorize('mahaprasad:read'),   validate(dash.getDashboard), getDashboard);

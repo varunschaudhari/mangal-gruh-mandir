@@ -5,7 +5,8 @@ import ApiError from '../utils/ApiError.js';
 import ApiResponse from '../utils/ApiResponse.js';
 import asyncHandler from '../utils/asyncHandler.js';
 import { logger } from '../utils/logger.js';
-import { couponPageUrl } from '../utils/publicUrl.js';
+import { appUrl, couponPageUrl } from '../utils/publicUrl.js';
+import { writeOnlinePoster } from '../services/mahaprasadPoster.service.js';
 import * as online from '../services/mahaprasadOnline.service.js';
 import { webhookSignatureOk } from '../services/razorpay.service.js';
 import { writeOnlineReceipt } from '../services/mahaprasadReceiptPdf.service.js';
@@ -67,6 +68,13 @@ export const onlineReceiptPdf = asyncHandler(async (req, res) => {
   res.setHeader('Content-Type', 'application/pdf');
   res.setHeader('Content-Disposition', `inline; filename="mahaprasad-receipt-${coupon.couponNumber}.pdf"`);
   writeOnlineReceipt(res, { order: { ...order, couponNumber: coupon.couponNumber }, validityDays: settings.mahaprasadCouponValidityDays ?? 1 });
+});
+
+// GET /api/mahaprasad/online-poster.pdf — the A4 poster with the QR to the public page, to print
+export const onlinePosterPdf = asyncHandler(async (req, res) => {
+  res.setHeader('Content-Type', 'application/pdf');
+  res.setHeader('Content-Disposition', 'inline; filename="mahaprasad-online-qr-poster.pdf"');
+  await writeOnlinePoster(res, { url: `${appUrl()}/prasad` });
 });
 
 // GET /api/mahaprasad/online-orders?from&to&status — every online order, to match with Razorpay

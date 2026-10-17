@@ -95,6 +95,7 @@ export default {
   'Plates': 'थाळ्या',
   'Razorpay payment': 'Razorpay पेमेंट',
   'Open the public page': 'सार्वजनिक पान उघडा',
+  'QR poster': 'QR पोस्टर',
   '{n} orders': '{n} ऑर्डर',
   '{n} order': '{n} ऑर्डर',
   '{n} plates': '{n} थाळ्या',

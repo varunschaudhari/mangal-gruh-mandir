@@ -15,3 +15,5 @@ export const onlineReceiptUrl = (shareToken) => serverUrl(`/api/public/mahaprasa
 
 // Staff: every online order, to match with Razorpay
 export const getOnlineOrders = (params) => api.get('/mahaprasad/online-orders', { params });
+// The A4 poster with the QR to the public page (PDF)
+export const getOnlinePoster = () => api.get('/mahaprasad/online-poster.pdf', { responseType: 'blob' });

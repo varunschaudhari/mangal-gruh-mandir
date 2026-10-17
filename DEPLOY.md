@@ -475,7 +475,7 @@ Settings → Mahaprasad) if Razorpay starts refusing it.
    RAZORPAY_KEY_SECRET=xxxxxxxx
    RAZORPAY_WEBHOOK_SECRET=any-long-random-text
    ```
-   `docker compose restart server`, then turn on **Settings → Mahaprasad → Sell coupons online**. Set
+   `docker compose up -d server` (not `restart`: that keeps the old `.env` values), then turn on **Settings → Mahaprasad → Sell coupons online**. Set
    the days ahead, plates per order and the last time for today there. The page shows "Test mode";
    pay with Razorpay's test UPI ID `success@razorpay` or a test card.
 2. **Webhook** (on the Razorpay dashboard of the account whose keys are in use, computer only, not
@@ -499,7 +499,8 @@ Settings → Mahaprasad) if Razorpay starts refusing it.
    Razorpay reviews it by hand. The option exists only for the "e-commerce" business category; if
    it's missing, ask Razorpay support to add the domain.
 4. **Go live** once the website is approved: put the live key ID and secret (from NGOGuru) and the
-   webhook secret in `server/.env`, add the webhook on the trust's dashboard (step 2), and restart.
+   webhook secret in `server/.env`, add the webhook on the trust's dashboard (step 2), and run
+   `docker compose up -d server`.
    Settings → Mahaprasad should then show "LIVE". Do one real purchase and check that it appears in
    Online orders and in the Razorpay dashboard. Then share the link.
 
@@ -573,7 +574,8 @@ passes again it's closed with a comment (another notification). Make sure **Sett
 
 ```bash
 docker compose logs -f server        # tail server logs
-docker compose restart server        # restart after env change
+docker compose restart server        # restart (keeps the old server/.env values)
+docker compose up -d server          # after changing server/.env — recreates the container with the new values
 git pull && ./deploy.sh             # deploy by hand (normally GitHub does it — section 14)
 ```
 
