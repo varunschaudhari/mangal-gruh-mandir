@@ -66,7 +66,6 @@ const init     = ()    => [ESC, 0x40];
 const align    = (n)   => [ESC, 0x61, n];   // 0=L 1=C 2=R
 const bold     = (on)  => [ESC, 0x45, on ? 1 : 0];
 const charSize = (n)   => [GS,  0x21, n];   // 0x00=1x  0x11=2x2  0x01=2xH  0x10=2xW
-const charSpacing = (n) => [ESC, 0x20, n];  // extra dots right of each character (grows with width)
 const feedN        = (n) => [ESC, 0x64, n];
 const partCut      = ()  => [GS,  0x56, 0x41, 4];
 const cashDrawerKick = () => [ESC, 0x70, 0x00, 0x19, 0xFA]; // ESC p pin2 on=50ms off=500ms
@@ -157,17 +156,53 @@ async function logoToEscPosBytes(maxWidth = 140) {
 
 // ── Receipt layout ────────────────────────────────────────────────────────────
 
-// How many people the coupon is for, big enough to read across the prasad counter: the number
-// 4× tall (about 1 cm) on its own line, the word 2× below it. The number is not bold and has
-// extra space between digits — at this size bold strokes bleed into each other — and from 3
-// digits it is 3× wide instead of 4×, so it stays clear and well inside a 58 mm line.
-export function personsBytes(count) {
-  const digits = String(count);
+// How many people the coupon is for, big enough to read across the prasad counter. Drawn as a
+// picture, like the logo: the printer's own font enlarged comes out tall and thin, and its digits
+// run together from 3 digits on (seen on the counter's printer, which also ignores character
+// spacing). Here each digit is drawn on its own with a clear gap — about 1 cm tall, in bold — and
+// the word below, centred on a 58 mm roll's width (and so in the middle of an 80 mm one).
+const PERSONS_W = 384;   // dots
+
+const newCanvas = () => (typeof document === 'undefined' ? null : document.createElement('canvas'));
+
+export function personsCanvas(count, makeCanvas = newCanvas) {
+  const canvas = makeCanvas();
+  const ctx = canvas?.getContext?.('2d');
+  if (!ctx) return null;
+  canvas.width = PERSONS_W;
+  canvas.height = 156;
+  ctx.fillStyle = '#fff';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = '#000';
+  ctx.textBaseline = 'alphabetic';
+  const font = (px) => `bold ${px}px Arial, Roboto, "Segoe UI", sans-serif`;
+
+  const digits = String(count).split('');
+  let size = 112;
+  const measure = () => {
+    ctx.font = font(size);
+    const widths = digits.map((d) => ctx.measureText(d).width);
+    const gap = Math.round(size * 0.14);
+    return { widths, gap, total: widths.reduce((s, w) => s + w, 0) + gap * (digits.length - 1) };
+  };
+  let m = measure();
+  while (m.total > PERSONS_W - 24 && size > 48) { size -= 8; m = measure(); }
+  let x = (PERSONS_W - m.total) / 2;
+  digits.forEach((d, i) => { ctx.fillText(d, x, 98); x += m.widths[i] + m.gap; });
+
+  const word = count === 1 ? 'PERSON' : 'PERSONS';
+  ctx.font = font(36);
+  ctx.fillText(word, (PERSONS_W - ctx.measureText(word).width) / 2, 146);
+  return canvas;
+}
+
+export function personsBytes(count, makeCanvas) {
+  const canvas = personsCanvas(count, makeCanvas);
+  if (canvas) return [...align(1), ...rasterBands(canvas), ...align(1)];
+  // No canvas (only outside a browser): the printer's own font, 4× tall
   return [
-    ...bold(0),
-    ...charSize(digits.length >= 3 ? 0x23 : 0x33), ...charSpacing(2), ...enc(digits), LF,
-    ...charSpacing(0),
-    ...bold(1), ...charSize(0x11), ...enc(count === 1 ? 'PERSON' : 'PERSONS'), LF,
+    ...bold(1), ...charSize(0x33), ...enc(String(count)), LF,
+    ...charSize(0x11), ...enc(count === 1 ? 'PERSON' : 'PERSONS'), LF,
     ...bold(0), ...charSize(0x00),
   ];
 }
@@ -368,9 +403,15 @@ export async function printThermalCoupon(coupon, settings) {
 // printers drop very tall single images).
 
 export function canvasToEscPos(canvas, { cut = true } = {}) {
+  const bytes = [...init(), ...align(1), ...rasterBands(canvas)];
+  return cut ? [...bytes, ...feedN(4), ...partCut()] : bytes;
+}
+
+// The canvas as GS v 0 raster images, without resetting the printer (so it can sit inside a slip)
+function rasterBands(canvas) {
   const widthBytes = Math.ceil(canvas.width / 8);
   const { data: px } = canvas.getContext('2d').getImageData(0, 0, widthBytes * 8, canvas.height);
-  const bytes = [...init(), ...align(1)];
+  const bytes = [];
   const BAND = 200;
   for (let top = 0; top < canvas.height; top += BAND) {
     const rows = Math.min(BAND, canvas.height - top);
@@ -387,7 +428,7 @@ export function canvasToEscPos(canvas, { cut = true } = {}) {
       }
     }
   }
-  return cut ? [...bytes, ...feedN(4), ...partCut()] : bytes;
+  return bytes;
 }
 
 /** Sends ESC/POS bytes to the desktop app's printer, or through QZ Tray in the browser. */
