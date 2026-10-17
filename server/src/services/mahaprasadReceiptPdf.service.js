@@ -1,3 +1,4 @@
+import QRCode from 'qrcode';
 import { createPdf, letterhead, pageFooters, PDF_COLORS, mid } from './pdfLayout.js';
 import { amountToWords } from './donationPdf.service.js';
 import { maskMobile } from '../utils/phone.js';
@@ -16,7 +17,7 @@ const METHOD = { upi: 'UPI', card: 'Card', netbanking: 'Net banking', wallet: 'W
  * Writes the PDF to `out` (an HTTP response or a file stream).
  * order: { couponNumber, date, plates, pricePerPlate, amount, mobile, name, method, paymentId, paidAt }
  */
-export function writeOnlineReceipt(out, { order, validityDays = 1 }) {
+export async function writeOnlineReceipt(out, { order, validityDays = 1 }) {
   const doc = createPdf({ size: 'A4', margin: 50 });
   doc.pipe(out);
   const LEFT = 50;
@@ -86,15 +87,29 @@ export function writeOnlineReceipt(out, { order, validityDays = 1 }) {
   line('Paid on', timeText(order.paidAt));
   y += 12;
 
-  // How it is used
+  // The coupon itself: the same QR as on the coupon page (the coupon number), scanned at the hall —
+  // so the printed or saved receipt works as the coupon too
   const valid = validityDays > 1 ? `on ${dayText(order.date)} or within ${validityDays} days of it` : `on ${dayText(order.date)} only`;
-  doc.fillColor(C.dark).fontSize(9).font('Helvetica-Bold').text('Your coupon', LEFT, y);
-  doc.font('Helvetica').fillColor(C.dark).fontSize(9).text(
-    `Show the coupon QR from your message (or the coupon page) at the Mahaprasad hall. It can be used once, ${valid}${order.plates > 1 ? `, for ${order.plates} persons together` : ''}. `
-    + 'Coupons are not refunded and cannot be moved to another day.',
-    LEFT, doc.y + 2, { width: W, lineGap: 1.5 },
-  );
-  y = doc.y + 24;
+  const QR = 132;
+  const BOX = QR + 24;
+  const qr = await QRCode.toBuffer(order.couponNumber, { type: 'png', width: 600, margin: 1, errorCorrectionLevel: 'M' });
+  doc.roundedRect(LEFT, y, W, BOX, 10).lineWidth(1.2).strokeColor(C.accent).stroke();
+  doc.image(qr, LEFT + 12, y + 12, { width: QR, height: QR });
+  const tx = LEFT + QR + 30;
+  const tw = W - QR - 42;
+  doc.font('Helvetica-Bold').fontSize(8.5).fillColor(C.accent)
+    .text('YOUR COUPON — SHOW THIS QR AT THE MAHAPRASAD HALL', tx, y + 14, { width: tw, characterSpacing: 0.4 });
+  doc.font('Helvetica-Bold').fontSize(17).fillColor(C.dark).text(order.couponNumber, tx, doc.y + 4, { width: tw });
+  doc.font('Helvetica-Bold').fontSize(14).fillColor(C.dark)
+    .text(order.plates > 1 ? `${order.plates} persons (group coupon)` : '1 person', tx, doc.y + 2, { width: tw });
+  doc.font('Helvetica').fontSize(9.5).fillColor(C.dark)
+    .text(`Valid ${valid}. It can be used once${order.plates > 1 ? ', for all its persons together' : ''}.`, tx, doc.y + 6, { width: tw, lineGap: 1 });
+  doc.font('Helvetica').fontSize(8.5).fillColor(C.gray)
+    .text('Coupons are not refunded and cannot be moved to another day.', tx, doc.y + 3, { width: tw });
+  if (order.testMode) {
+    doc.font('Helvetica-Bold').fontSize(9.5).fillColor('#b91c1c').text('TEST — not valid at the hall', tx, doc.y + 4, { width: tw });
+  }
+  y = Math.max(y + BOX, doc.y) + 24;
 
   doc.moveTo(LEFT, y).lineTo(LEFT + W, y).strokeColor(C.line).lineWidth(0.5).stroke();
   doc.fillColor(C.gray).fontSize(8).font('Helvetica')

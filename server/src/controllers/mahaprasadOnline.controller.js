@@ -67,7 +67,7 @@ export const onlineReceiptPdf = asyncHandler(async (req, res) => {
   if (!order || !coupon) throw new ApiError(404, 'Receipt not found');
   res.setHeader('Content-Type', 'application/pdf');
   res.setHeader('Content-Disposition', `inline; filename="mahaprasad-receipt-${coupon.couponNumber}.pdf"`);
-  writeOnlineReceipt(res, { order: { ...order, couponNumber: coupon.couponNumber }, validityDays: settings.mahaprasadCouponValidityDays ?? 1 });
+  await writeOnlineReceipt(res, { order: { ...order, couponNumber: coupon.couponNumber }, validityDays: settings.mahaprasadCouponValidityDays ?? 1 });
 });
 
 // GET /api/mahaprasad/online-poster.pdf — the A4 poster with the QR to the public page, to print

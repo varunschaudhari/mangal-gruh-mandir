@@ -26,6 +26,7 @@ describe('checkForUpdate', () => {
       notes: 'Faster',
       required: false,
       url: 'https://mandir.example/api/app/mgm-mandir-1.2.apk',
+      file: 'mgm-mandir-1.2.apk',
     });
   });
 

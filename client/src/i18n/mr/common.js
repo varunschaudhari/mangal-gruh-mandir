@@ -172,6 +172,16 @@ export default {
     'डाउनलोड दाबा, मग डाउनलोड झालेली फाइल उघडून इन्स्टॉल करा. तुमची माहिती आणि लॉग-इन तसेच राहतील.',
   'Download update': 'अपडेट डाउनलोड करा',
   'Later': 'नंतर',
+  'Tap Download: the update downloads here and Android asks you to install it. Your data and login stay as they are.':
+    'डाउनलोड दाबा: अपडेट इथेच डाउनलोड होईल आणि Android इन्स्टॉल करायला विचारेल. तुमची माहिती आणि लॉग-इन तसेच राहतील.',
+  'Downloading…': 'डाउनलोड होत आहे…',
+  'Downloading… {done} of {total} MB': 'डाउनलोड होत आहे… {total} पैकी {done} MB',
+  'Install update': 'अपडेट इन्स्टॉल करा',
+  'Android asks once: turn on “Allow from this source” for MGM Mandir, then come back — the install continues.':
+    'Android एकदाच विचारेल: MGM Mandir साठी “Allow from this source” चालू करा आणि परत या — इन्स्टॉल पुढे सुरू होईल.',
+  'The update could not be opened': 'अपडेट उघडता आले नाही',
+  'Download failed — check the internet connection and try again': 'डाउनलोड झाले नाही — इंटरनेट तपासा आणि पुन्हा प्रयत्न करा',
+  'Download in the browser instead': 'त्याऐवजी ब्राउझरमध्ये डाउनलोड करा',
 
   // ── Scanning ─────────────────────────────────────────────────────────────
   'Scan a label or barcode': 'लेबल किंवा बारकोड स्कॅन करा',

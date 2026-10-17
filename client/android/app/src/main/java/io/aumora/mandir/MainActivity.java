@@ -10,6 +10,7 @@ public class MainActivity extends BridgeActivity {
         // The app's own plugins are registered before the bridge starts
         registerPlugin(BluetoothPrinterPlugin.class);
         registerPlugin(WhatsAppSharePlugin.class);
+        registerPlugin(AppUpdatePlugin.class);
         super.onCreate(savedInstanceState);
     }
 }
