@@ -331,7 +331,8 @@ export default {
   '({n} skipped)': '({n} वगळल्या)',
   'Sync failed — {reason}': 'सिंक अयशस्वी — {reason}',
   'Back online — syncing…': 'इंटरनेट परत आले — सिंक होत आहे…',
-  'Offline pool low ({n} left) — refilling…': 'ऑफलाइन कूपन कमी ({n} बाकी) — आणखी घेत आहे…',
+  'Offline: not ready': 'ऑफलाइन: तयार नाही',
+  'Hold coupon numbers on this device, to issue without internet': 'इंटरनेटशिवाय कूपन देण्यासाठी या उपकरणावर कूपन क्रमांक राखून ठेवा',
 
   // ── Audit trail actions (components/ui/EntityAuditTrail.jsx) ──────────────
   'Login': 'प्रवेश',

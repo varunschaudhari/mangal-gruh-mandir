@@ -272,7 +272,8 @@ export const getCoupons = asyncHandler(async (req, res) => {
     const { start, end } = dayBounds(date);
     filter.date = { $gte: start, $lte: end };
   }
-  if (status) filter.status = status;
+  // Numbers held for offline sale (reserved) aren't coupons yet — never listed
+  filter.status = status || { $ne: 'reserved' };
   if (type)   filter.type   = type;
   // Search by coupon number, or by the devotee's mobile number (4+ digits)
   if (search) {

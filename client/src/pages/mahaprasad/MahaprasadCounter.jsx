@@ -825,8 +825,8 @@ export default function MahaprasadCounter() {
       ) : (syncPending > 0 || poolCount <= 10) && (
         <div className="card px-3 py-1.5 border flex flex-wrap items-center gap-2">
           <span className="text-gray-500 flex items-center gap-1.5 text-xs">
-            <span className={`w-1.5 h-1.5 rounded-full ${poolCount > 50 ? 'bg-green-400' : poolCount > 10 ? 'bg-amber-400' : 'bg-red-400'}`} />
-            {t('Offline pool:')} <strong>{poolCount}</strong>
+            <span className={`w-1.5 h-1.5 rounded-full ${poolCount > 50 ? 'bg-green-400' : poolCount > 10 ? 'bg-amber-400' : poolCount > 0 ? 'bg-red-400' : 'bg-gray-300'}`} />
+            {poolCount > 0 ? <>{t('Offline pool:')} <strong>{poolCount}</strong></> : t('Offline: not ready')}
           </span>
           <div className="flex gap-1.5 ml-auto">
             {syncPending > 0 && (
@@ -835,7 +835,7 @@ export default function MahaprasadCounter() {
                 <CloudUpload className="h-3 w-3" /> {isSyncing ? t('Syncing…') : t('Sync ({n})', { n: syncPending })}
               </button>
             )}
-            <button onClick={() => prefetch(200)} disabled={isPrefetching}
+            <button onClick={() => prefetch(200)} disabled={isPrefetching} title={t('Hold coupon numbers on this device, to issue without internet')}
               className="flex items-center gap-1 px-2.5 py-0.5 max-sm:py-2 rounded-lg border border-gray-200 text-gray-600 text-xs font-medium disabled:opacity-50">
               <Download className="h-3 w-3" /> {isPrefetching ? t('Fetching…') : t('Pre-fetch {n}', { n: 200 })}
             </button>

@@ -15,12 +15,10 @@ export function useOfflineMode() {
   const [syncPending,   setSyncPending]   = useState(0);
   const [isSyncing,     setIsSyncing]     = useState(false);
   const [isPrefetching, setIsPrefetching] = useState(false);
-  const [countsLoaded,  setCountsLoaded]  = useState(false); // true after first IndexedDB read
 
   const todayDateStr      = localDateStr().replace(/-/g, '');
   const syncingRef        = useRef(false);
   const prevOnlineRef     = useRef(null); // null = first mount, then true/false
-  const lastAutoFetchRef  = useRef(0);    // timestamp of last auto-prefetch
 
   const refreshCounts = useCallback(async () => {
     const [pool, pending] = await Promise.all([
@@ -30,7 +28,6 @@ export function useOfflineMode() {
     setPoolCount(pool.available);
     setOfflineIssued(pool.offlineIssued);
     setSyncPending(pending.length);
-    setCountsLoaded(true);
   }, [todayDateStr]);
 
   // Listen to browser online/offline events
@@ -182,19 +179,9 @@ export function useOfflineMode() {
     return () => clearTimeout(t);
   }, [isOnline, sync]);
 
-  // Auto-prefetch when the offline pool runs low (< 50 coupons remaining).
-  // Waits until counts are loaded from IndexedDB and at least 5 min between
-  // attempts so a repeated failure doesn't spam the VPS.
-  useEffect(() => {
-    if (!isOnline || !countsLoaded || poolCount >= 50 || isPrefetching) return;
-    const now = Date.now();
-    if (now - lastAutoFetchRef.current < 5 * 60 * 1000) return; // 5-min cooldown
-    lastAutoFetchRef.current = now;
-    if (poolCount > 0) {
-      toast(tNow('Offline pool low ({n} left) — refilling…', { n: poolCount }), { icon: '📦', duration: 3000 });
-    }
-    prefetch(200);
-  }, [isOnline, countsLoaded, poolCount, isPrefetching, prefetch]);
+  // No automatic pool: numbers are held only when someone taps "Pre-fetch". Refilling on its own,
+  // every device took 200 numbers a day — the day's coupon numbers ran far ahead of the coupons
+  // sold (1,400 held for 31 sold on 17 Oct 2026).
 
   // Read helpers for offline-cached data
   const getOfflineUser     = () => { try { return JSON.parse(localStorage.getItem(USER_KEY)     || '{}'); } catch { return {}; } };

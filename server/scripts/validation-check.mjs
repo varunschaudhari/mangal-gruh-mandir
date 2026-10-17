@@ -118,6 +118,12 @@ async function main() {
     const oldApp = await api('POST', '/mahaprasad/offline/sync', { issued: [{ couponNumber: second, type: 'free', amount: 0 }], redeemed: [] });
     check(oldApp.body.data?.results?.issued?.ok === 1, 'mahaprasad: offline coupons from an older app (no mobile) still sync');
   }
+  const third = reserved[2]?.couponNumber || reserved[2];
+  if (third) {
+    const found = (await api('GET', `/mahaprasad/coupons?search=${third}`)).body.data?.coupons || [];
+    const listed = (await api('GET', '/mahaprasad/coupons')).body.data?.coupons || [];
+    check(found.length === 0 && listed.every((c) => c.status !== 'reserved'), 'mahaprasad: history never lists numbers held for offline sale', `${found.length} found`);
+  }
   check((await api('POST', '/mahaprasad/offline/sync', { issued: [{ type: 'free' }] })).status === 400, 'mahaprasad: sync item without a coupon number → 400');
   check((await api('PATCH', '/mahaprasad/cash-drawer/adjust', { denomination: 3, delta: 1 })).status === 400, 'cash drawer: unknown denomination → 400');
 
