@@ -156,7 +156,19 @@ async function logoToEscPosBytes(maxWidth = 140) {
 
 // ── Receipt layout ────────────────────────────────────────────────────────────
 
-function buildReceiptBytes(coupon, settings) {
+// How many people the coupon is for, big enough to read across the prasad counter: the number
+// 4× (about 1 cm tall) and the word 2×, on one line — fits a 58 mm printer up to 3 digits.
+export function personsBytes(count) {
+  return [
+    ...bold(1),
+    ...charSize(0x33), ...enc(String(count)),
+    ...charSize(0x11), ...enc(count === 1 ? ' PERSON' : ' PERSONS'),
+    LF,
+    ...bold(0), ...charSize(0x00),
+  ];
+}
+
+export function buildReceiptBytes(coupon, settings) {
   const isFree    = coupon.type === 'free';
   const isGroup   = coupon.isGroup && (coupon.groupSize || 1) > 1;
   const groupSize = coupon.groupSize || 1;
@@ -183,7 +195,6 @@ function buildReceiptBytes(coupon, settings) {
     ...bold(1),
     ...line(`[ ${badgeLabel} ]`),
     ...bold(0),
-    ...(isGroup ? line(`GROUP  \xB7  ${groupSize} PERSONS`) : []),
 
     ...dashes(),
 
@@ -191,6 +202,11 @@ function buildReceiptBytes(coupon, settings) {
     ...bold(1), ...charSize(0x01),
     ...line(coupon.couponNumber),
     ...bold(0), ...charSize(0x00),
+
+    ...dashes(),
+
+    // ── PERSONS (large, for the prasad counter) ──────────────────────────────
+    ...personsBytes(groupSize),
 
     ...dashes(),
 
