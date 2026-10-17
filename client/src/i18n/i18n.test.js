@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { translate } from './index.jsx';
 import common from './mr/common.js';
 import mahaprasad from './mr/mahaprasad.js';
+import mahaprasadOnline from './mr/mahaprasadOnline.js';
 import stock from './mr/stock.js';
 import dashboard from './mr/dashboard.js';
 import attendance from './mr/attendance.js';
@@ -50,7 +51,7 @@ describe('translate', () => {
 });
 
 describe('Marathi dictionaries', () => {
-  const all = [common, mahaprasad, stock, dashboard, attendance, salary, booking, bookingRegister, bookingSetup, bookingFix, bookingShift, bookingCheckIn, admin, assets, finance];
+  const all = [common, mahaprasad, mahaprasadOnline, stock, dashboard, attendance, salary, booking, bookingRegister, bookingSetup, bookingFix, bookingShift, bookingCheckIn, admin, assets, finance];
 
   it('translate every menu, tab and quick-action label', () => {
     const labels = [

@@ -1,6 +1,7 @@
 import { createContext, Fragment, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import common from './mr/common.js';
 import mahaprasad from './mr/mahaprasad.js';
+import mahaprasadOnline from './mr/mahaprasadOnline.js';
 import stock from './mr/stock.js';
 import dashboard from './mr/dashboard.js';
 import attendance from './mr/attendance.js';
@@ -28,7 +29,7 @@ export const LANGUAGES = [
 ];
 
 const DICTIONARIES = {
-  mr: { ...common, ...mahaprasad, ...stock, ...dashboard, ...attendance, ...salary, ...booking, ...bookingRegister, ...bookingSetup, ...bookingFix, ...bookingShift, ...bookingCheckIn, ...admin, ...assets, ...finance },
+  mr: { ...common, ...mahaprasad, ...mahaprasadOnline, ...stock, ...dashboard, ...attendance, ...salary, ...booking, ...bookingRegister, ...bookingSetup, ...bookingFix, ...bookingShift, ...bookingCheckIn, ...admin, ...assets, ...finance },
 };
 
 const STORAGE_KEY = 'mgm-lang';

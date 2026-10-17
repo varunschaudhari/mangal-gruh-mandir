@@ -150,6 +150,11 @@ export const updateSettings = {
     mahaprasadDailyCap: optionalNumber('Daily coupon limit', { integer: true, min: 0, max: 1000000 }),
     mahaprasadCouponValidityDays: optionalNumber('Coupon validity (days)', { integer: true, min: 0, max: 365 }),
     mahaprasadPrinterName: clearableText('Printer', { max: 200 }),
+    mahaprasadOnlineEnabled: flag('Online Mahaprasad coupons'),
+    mahaprasadOnlineDaysAhead: optionalNumber('Days ahead for online coupons', { integer: true, min: 0, max: 60 }),
+    mahaprasadOnlineMaxPlates: optionalNumber('Plates per online order', { integer: true, min: 1, max: 50 }),
+    mahaprasadOnlineCutoff: z.preprocess((v) => (typeof v === 'string' ? v.trim() : v === null ? '' : v),
+      z.string().regex(/^(([01]\d|2[0-3]):[0-5]\d)?$/, 'Last time for today’s online coupons must be a time like 11:30').optional()),
   }),
 };
 export const testWhatsApp = { body: z.object({ phone: clearableText('Phone number', { max: 20 }) }) };

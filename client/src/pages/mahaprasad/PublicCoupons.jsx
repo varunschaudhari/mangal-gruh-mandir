@@ -2,8 +2,9 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import QRCode from 'qrcode/lib/browser.js';
-import { AlertTriangle, Ban, CheckCircle2, Clock, SearchX, Users } from 'lucide-react';
+import { AlertTriangle, Ban, CheckCircle2, Clock, FileText, SearchX, Users } from 'lucide-react';
 import { getPublicCoupons } from '../../api/mahaprasad.api.js';
+import { onlineReceiptUrl } from '../../api/mahaprasadOnline.api.js';
 import Spinner from '../../components/ui/Spinner.jsx';
 import { temple as cachedTemple } from '../../utils/temple.js';
 import { LanguageSwitch, useT } from '../../i18n/index.jsx';
@@ -29,7 +30,8 @@ export function couponState(c, validityDays, now = new Date()) {
 const dateText = (d) => new Date(d).toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
 const timeText = (d) => new Date(d).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
 
-function Shell({ children, temple }) {
+/** The public pages' frame: the temple's name and logo on top, the language switch (also used by /prasad) */
+export function Shell({ children, temple, subtitle = 'Mahaprasad coupon' }) {
   const t = useT();
   const info = temple || cachedTemple();
   return (
@@ -39,7 +41,7 @@ function Shell({ children, temple }) {
           <img src="/logo.png" alt="" className="h-11 w-11 shrink-0 rounded-lg bg-white object-contain p-1" />
           <div className="min-w-0 flex-1">
             <p className="text-[15px] font-bold leading-snug">{info.nameMr || info.name}</p>
-            <p className="truncate text-xs text-orange-100">{t('Mahaprasad coupon')}</p>
+            <p className="truncate text-xs text-orange-100">{t(subtitle)}</p>
           </div>
           <LanguageSwitch className="shrink-0 border-white/30 text-xs" />
         </div>
@@ -155,6 +157,12 @@ export default function PublicCoupons() {
       <div className="space-y-4">
         {d.coupons.map((c) => <CouponCard key={c.couponNumber} c={c} validityDays={d.validityDays} />)}
       </div>
+      {d.online && (
+        <a href={onlineReceiptUrl(token)} target="_blank" rel="noopener noreferrer"
+          className="mt-4 flex items-center justify-center gap-2 rounded-xl border border-orange-200 bg-white px-4 py-3 text-sm font-semibold text-primary-700 shadow-sm">
+          <FileText className="h-4 w-4" /> {t('Payment receipt (PDF)')}
+        </a>
+      )}
       {d.temple?.phone && (
         <p className="mt-4 text-center text-sm text-gray-500">
           {t('Questions? Call the temple office:')}{' '}

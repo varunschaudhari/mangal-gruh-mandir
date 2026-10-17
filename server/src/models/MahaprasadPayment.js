@@ -7,7 +7,10 @@ const mahaprasadPaymentSchema = new mongoose.Schema({
   qty:            { type: Number, required: true, min: 1 },
   mobile:         { type: String, default: '' },   // devotee's mobile number
   totalDue:       { type: Number, required: true, min: 0 },
-  paymentMode:    { type: String, enum: ['cash', 'upi'], required: true, default: 'cash' },
+  // online = paid on the public page through Razorpay (no counter, no staff)
+  paymentMode:    { type: String, enum: ['cash', 'upi', 'online'], required: true, default: 'cash' },
+  razorpayPaymentId: { type: String },
+  razorpayOrderId:   { type: String },
   amountReceived: { type: Number, default: 0, min: 0 },
   changeReturned: { type: Number, default: 0, min: 0 },
   issuedBy:       { type: mongoose.Schema.Types.ObjectId, ref: 'User' },

@@ -19,6 +19,8 @@ import { logger } from './utils/logger.js';
 import { refreshTemple } from './services/temple.service.js';
 import { pushMorningDigest } from './services/pushAlerts.service.js';
 import { recountSeats } from './services/booking/booking.service.js';
+import { nightlyOnlineCheck, sweepOnlineOrders } from './services/mahaprasadOnline.service.js';
+import { razorpayWebhook } from './controllers/mahaprasadOnline.controller.js';
 import { backupStatus, databaseStatus } from './services/health.service.js';
 
 const app = express();
@@ -90,6 +92,9 @@ if (IS_PROD) {
 
 // Attendance machine (ADMS protocol) — before the JSON/form parsers, it reads raw text bodies.
 app.use('/iclock', iclockRoutes);
+// Razorpay's webhook (online Mahaprasad payments) — also before the JSON parser: its signature is
+// over the raw body. The trust's website shares the Razorpay account, so its payments arrive here too.
+app.post('/api/webhooks/razorpay', express.raw({ type: '*/*', limit: '1mb' }), razorpayWebhook);
 
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
@@ -140,6 +145,11 @@ app.listen(PORT, () => {
     const fixed = await recountSeats({ settleMs: 0 });
     if (fixed.length) logger.warn('Booking seat counts corrected', { fixed });
   });
+  // Online Mahaprasad: unpaid orders give their plates back once their 15 minutes are up (or get
+  // their coupon if the payment came after all) — every 2 minutes. 02:45 IST: is the Razorpay key
+  // still accepted, and was any order of the last two days paid without getting its coupon?
+  setInterval(() => sweepOnlineOrders().catch((err) => logger.error('Online Mahaprasad check failed', { error: err.message })), 2 * 60 * 1000);
+  scheduleDaily(2, 45, nightlyOnlineCheck);
 });
 
 function scheduleDaily(hour, minute, fn) {

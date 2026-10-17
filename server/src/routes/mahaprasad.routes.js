@@ -10,6 +10,7 @@ import {
   reserveOffline, getTodayForOffline, getRedeemCopy, syncOffline,
   getCashDrawer, setOpeningFloat, adjustDrawer, voidBatch,
 } from '../controllers/mahaprasad.controller.js';
+import { listOnlineOrders } from '../controllers/mahaprasadOnline.controller.js';
 
 const router = Router();
 router.use(protect);
@@ -26,6 +27,8 @@ router.get('/report/wastage',      authorize('mahaprasad:read'),   getWastageRep
 router.get('/report/whatsapp',     authorize('mahaprasad:read'),   getMahaprasadWhatsApp);
 router.get('/report',              authorize('mahaprasad:read'),   getReport);
 router.get('/batches',             authorize('mahaprasad:read'),   getBatches);
+// Coupons bought by devotees on the public page (Razorpay)
+router.get('/online-orders',       authorize('mahaprasad:read'),   validate(v.onlineOrderList), listOnlineOrders);
 
 // Cash drawer
 router.get('/cash-drawer',         authorize('mahaprasad:issue'),  getCashDrawer);

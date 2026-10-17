@@ -453,6 +453,61 @@ needed. **Automatic sending** (optional):
 - **SMS:** an MSG91 Flow with a DLT-approved template using `##date##`, `##coupons##`, `##persons##`
   and `##link##`; set `MSG91_MAHAPRASAD_TEMPLATE_ID` in `server/.env` (SMS turned on in Settings) and restart the server.
 
+## 13a. Mahaprasad coupons online (Razorpay)
+
+Devotees buy coupons at **`https://<domain>/prasad`**: day (today + the next days), plates, mobile →
+pay by UPI / card / net banking through Razorpay → the coupon page (`/m/<code>`) opens, and the coupon
+goes to their mobile like a counter sale (section 13). One QR for the whole order. The plates count
+against the day's cap while the devotee pays (15 minutes). Staff see every order in **Mahaprasad →
+Online orders**, with its Razorpay payment ID. Online sales show as "Online" in History and reports.
+The policy pages Razorpay asks for are `/pricing`, `/terms`, `/refund`, plus `/about` and `/privacy`.
+
+**The Razorpay account is the trust's and is shared with the temple website (built by NGOGuru).**
+Razorpay allows one live key per account. **Never press "Regenerate" on the key**: the website would
+stop taking payments. The live key secret comes from NGOGuru; Razorpay shows it only once, when the
+key is made. The server checks the key every night at 02:45 and alerts admins (app notification,
+Settings → Mahaprasad) if Razorpay starts refusing it.
+
+1. **Test first.** Use test keys (`rzp_test_…`) from an Ashaparth AI Razorpay account. Test mode
+   needs no KYC. In `server/.env`:
+   ```
+   RAZORPAY_KEY_ID=rzp_test_xxxxxxxx
+   RAZORPAY_KEY_SECRET=xxxxxxxx
+   RAZORPAY_WEBHOOK_SECRET=any-long-random-text
+   ```
+   `docker compose restart server`, then turn on **Settings → Mahaprasad → Sell coupons online**. Set
+   the days ahead, plates per order and the last time for today there. The page shows "Test mode";
+   pay with Razorpay's test UPI ID `success@razorpay` or a test card.
+2. **Webhook** (on the Razorpay dashboard of the account whose keys are in use, computer only, not
+   the phone app): Account & Settings → Webhooks → Add new webhook.
+   - URL: `https://<domain>/api/webhooks/razorpay`
+   - Secret: the same text as `RAZORPAY_WEBHOOK_SECRET`
+   - Events: `payment.captured`, `payment.authorized`, `order.paid`
+
+   The website's payments also reach this URL and are ignored. Without a webhook, payments are
+   still confirmed: by the devotee's browser, by the page asking again, by a check every 2 minutes,
+   and by the nightly check.
+3. **Add the website to the trust's account** (web dashboard): Account & Settings → Business website
+   detail → **Add additional website/app details**. Do **not** use "Update website/app details":
+   that changes the main website, `mangalagrahmandir.in`, which the NGOGuru website needs. Give:
+   - website `https://<domain>/prasad`
+   - About & Contact `https://<domain>/about`
+   - Pricing `/pricing`, Terms `/terms`, Privacy `/privacy`, Cancellation/Refund `/refund`
+   - the sample invoice `docs/razorpay/sample-invoice-mahaprasad.pdf`
+   - the reason text in `docs/razorpay/README.md`
+
+   Razorpay reviews it by hand. The option exists only for the "e-commerce" business category; if
+   it's missing, ask Razorpay support to add the domain.
+4. **Go live** once the website is approved: put the live key ID and secret (from NGOGuru) and the
+   webhook secret in `server/.env`, add the webhook on the trust's dashboard (step 2), and restart.
+   Settings → Mahaprasad should then show "LIVE". Do one real purchase and check that it appears in
+   Online orders and in the Razorpay dashboard. Then share the link.
+
+**Refunds:** none by staff action. A payment is refunded automatically only when it arrives after
+its 15 minutes and the day has filled up or is over (Online orders shows "Refunded" and why).
+Cancelling an online sale in History does **not** return the money; refund it from the Razorpay
+dashboard if the trust agrees.
+
 ## 14. Automatic deploys from GitHub
 
 Every push to `main` runs the checks in `.github/workflows/ci.yml` (web app, server, Android test

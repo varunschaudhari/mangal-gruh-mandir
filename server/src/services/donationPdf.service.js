@@ -5,7 +5,7 @@ import { createPdf, letterhead, reportHeader, pageFooters, ensureSpace, PDF_COLO
 const C = { accent: PDF_COLORS.accent, dark: PDF_COLORS.text, gray: PDF_COLORS.muted, light: PDF_COLORS.accentSoft, white: '#ffffff', line: PDF_COLORS.line };
 
 // ── Amount to words (Indian numbering system) ─────────────────────────────────
-function amountToWords(amount) {
+export function amountToWords(amount) {
   const n = Math.floor(amount || 0);
   if (n === 0) return 'Zero';
   const ones = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine',

@@ -5,7 +5,7 @@ import {
   Armchair, ClipboardList, Settings2, BarChart2, TrendingUp, Heart, CreditCard, Plus,
   ShoppingCart, BookTemplate, FileText, Utensils, ScanLine, BarChart3, Receipt, PiggyBank, Bug,
   Fingerprint, CalendarDays, CalendarRange, UsersRound, Clock3, CalendarHeart, Wallet, HandCoins, IndianRupee,
-  CalendarCheck, ListOrdered, ClipboardList as DaySheetIcon, Vault, QrCode, MonitorPlay,
+  CalendarCheck, ListOrdered, ClipboardList as DaySheetIcon, Vault, QrCode, MonitorPlay, Globe,
 } from 'lucide-react';
 
 // Single source of truth for navigation: the desktop sidebar, the mobile bottom tab bar,
@@ -78,6 +78,7 @@ export const navConfig = [
       { label: 'Redeem',        to: '/mahaprasad/redeem',  icon: ScanLine,  permission: 'mahaprasad:redeem' },
       { label: 'History',       to: '/mahaprasad/history', icon: History,   permission: 'mahaprasad:read'   },
       { label: 'Report',        to: '/mahaprasad/report',  icon: BarChart3, permission: 'mahaprasad:read'   },
+      { label: 'Online orders', to: '/mahaprasad/online',  icon: Globe,     permission: 'mahaprasad:read'   },
     ],
   },
   {

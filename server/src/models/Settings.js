@@ -67,6 +67,12 @@ const settingsSchema = new mongoose.Schema(
     mahaprasadDailyCap:            { type: Number, default: 0,  min: 0 }, // 0 = no limit
     mahaprasadCouponValidityDays:  { type: Number, default: 1,  min: 0 }, // 0 = no expiry
     mahaprasadPrinterName:         { type: String, default: '' },
+    // Coupons bought by devotees on the public page (/prasad), paid through Razorpay — the keys are
+    // in the server's .env (services/razorpay.service.js); rules in services/mahaprasadOnlineRules.js
+    mahaprasadOnlineEnabled:   { type: Boolean, default: false },
+    mahaprasadOnlineDaysAhead: { type: Number, default: 7,  min: 0, max: 60 },  // 0 = today only
+    mahaprasadOnlineMaxPlates: { type: Number, default: 10, min: 1, max: 50 },  // per order
+    mahaprasadOnlineCutoff:    { type: String, default: '' },                   // 'HH:mm' last time to buy for today; '' = all day
   },
   { timestamps: true }
 );

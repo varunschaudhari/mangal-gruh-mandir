@@ -8,7 +8,9 @@ const mahaprasadCouponSchema = new mongoose.Schema({
   occasion:     { type: String, default: '' },
   mobile:       { type: String, default: '', index: true },  // devotee's mobile, one per issue (all coupons of the batch)
   status:       { type: String, enum: ['issued', 'redeemed', 'reserved', 'voided'], default: 'issued', index: true },
-  issuedBy:     { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  // Sold at a counter, or bought by the devotee on the public page (MahaprasadOrder) — then no staff issued it
+  channel:      { type: String, enum: ['counter', 'online'], default: 'counter' },
+  issuedBy:     { type: mongoose.Schema.Types.ObjectId, ref: 'User', required() { return this.channel !== 'online'; } },
   issuedAt:     { type: Date, default: Date.now },
   redeemedBy:   { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   redeemedAt:   { type: Date },

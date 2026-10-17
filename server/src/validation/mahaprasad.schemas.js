@@ -30,6 +30,38 @@ export const issueCoupons = {
 
 export const couponByNumber = { params: z.object({ number: couponNumber }) };
 
+// ── The public page (/prasad): devotees buying online. The price, plates left and which days are
+// on sale are the server's (services/mahaprasadOnline.service.js).
+const orderToken = z.object({ token: z.string().regex(/^[A-Za-z0-9_-]{10,40}$/, 'Order not found') });
+
+export const onlineOrder = {
+  body: z.object({
+    date: text('Date', { max: 10 }),
+    plates: number('Plates', { integer: true, min: 1, max: 50 }),
+    mobile: z.preprocess((v) => normaliseMobile(v), z.string().min(1, 'Enter your 10-digit mobile number')),
+    name: optionalText('Name', { max: 60 }),
+  }),
+};
+
+export const onlineOrderByToken = { params: orderToken };
+
+export const onlineVerify = {
+  params: orderToken,
+  body: z.object({
+    razorpay_order_id: text('Order', { max: 64 }),
+    razorpay_payment_id: text('Payment', { max: 64 }),
+    razorpay_signature: text('Signature', { max: 128 }),
+  }),
+};
+
+export const onlineOrderList = {
+  query: z.object({
+    from: optionalDate('From'),
+    to: optionalDate('To'),
+    status: optionalOneOf(['pending', 'issuing', 'paid', 'expired', 'refunded', 'failed'], 'Status'),
+  }),
+};
+
 export const reserveOffline = {
   body: z.object({ qty: optionalNumber('Quantity', { integer: true, min: 1, max: 500 }), date: optionalDate('Date') }),
 };

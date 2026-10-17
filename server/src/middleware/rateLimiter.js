@@ -47,6 +47,17 @@ export const apiLimiter = rateLimit({
   legacyHeaders: false,
 });
 
+// Devotees starting an online Mahaprasad payment (no sign-in). Each start holds plates on the day's
+// limit for a while, so one connection can't start enough of them to empty a day.
+export const onlineOrderLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000,
+  max: Number(process.env.ONLINE_ORDER_RATE_LIMIT) || 10,
+  keyGenerator: (req) => ipKeyGenerator(req.ip),
+  message: { success: false, message: 'Too many tries from this connection. Please wait a few minutes and try again.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 // The biometric machine endpoint (/iclock, no sign-in): a machine polls every ~10 s and sends
 // punches in batches, so a few requests a minute is normal. Anything far above that from one
 // address is someone else — refused before the request body is even read.

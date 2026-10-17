@@ -12,6 +12,7 @@ import PageHeader from '../../components/ui/PageHeader.jsx';
 import { PageLoader } from '../../components/ui/Spinner.jsx';
 import AttendanceSettingsPanel from '../attendance/AttendanceSettingsPanel.jsx';
 import { usePermissions } from '../../hooks/usePermissions.js';
+import { publicUrl } from '../../utils/platform.js';
 import toast from 'react-hot-toast';
 import { useT } from '../../i18n/index.jsx';
 
@@ -91,7 +92,8 @@ const TAB_FIELDS = {
   alerts:     ['alertOnOutOfStock', 'alertOnLowStock', 'alertOnReorder'],
   tax80g:     ['trustPAN', 'reg80GNumber', 'reg80GFrom', 'reg80GTo'],
   assets:     ['assetMaxBorrowDays'],
-  mahaprasad: ['mahaprasadDayPricing', 'mahaprasadDailyCap', 'mahaprasadCouponValidityDays', 'mahaprasadPrinterName'],
+  mahaprasad: ['mahaprasadDayPricing', 'mahaprasadDailyCap', 'mahaprasadCouponValidityDays', 'mahaprasadPrinterName',
+    'mahaprasadOnlineEnabled', 'mahaprasadOnlineDaysAhead', 'mahaprasadOnlineMaxPlates', 'mahaprasadOnlineCutoff'],
 };
 
 // The WhatsApp messages the app sends (besides the booking receipt, set in Bookings → Setup), with
@@ -117,6 +119,32 @@ const WA_TEMPLATES = [
     text: 'Namaste! Your Mahaprasad coupon(s) at Shri Mangal Grah Mandir, Amalner for {{1}}: {{2}} ({{3}}). Your coupon QR: {{4}} Please show it at the Mahaprasad hall.',
     textMr: 'नमस्कार! श्री मंगळग्रह मंदिर, अमळनेर येथे {{1}} साठी आपले महाप्रसाद कूपन: {{2}} ({{3}}). आपल्या कूपनचा QR: {{4}} कृपया तो महाप्रसाद सभागृहात दाखवा.' },
 ];
+
+// ── Online payments (Razorpay) status — the keys live in the server's .env, not here ───────────
+
+function OnlinePaymentsStatus({ info, switchedOn }) {
+  const t = useT();
+  if (!info) return null;
+  const check = info.lastCheck;
+  const rows = [
+    [t('Razorpay keys on the server'), info.keysSet
+      ? `${t('Set')} · ${info.mode === 'live' ? t('LIVE — real payments') : t('test mode — no real money')} · ${info.keyId}`
+      : t('Not set — add RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET to the server .env')],
+    [t('Webhook secret'), info.webhookSet ? t('Set') : t('Not set — payments are still confirmed, but more slowly if a devotee closes the page')],
+    check && [t('Last nightly check'), `${new Date(check.at).toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })} · ${
+      { ok: t('key accepted'), bad_key: t('Razorpay REFUSED the key — was it regenerated?'), unreachable: t('Razorpay could not be reached'), off: t('keys not set') }[check.result] || check.result}`],
+  ].filter(Boolean);
+  const bad = !info.keysSet || check?.result === 'bad_key';
+  return (
+    <div className={`rounded-lg border p-3 text-xs space-y-1 ${bad && switchedOn ? 'border-red-200 bg-red-50 text-red-800' : 'border-gray-200 bg-gray-50 text-gray-700'}`}>
+      {rows.map(([label, value]) => (
+        <p key={label}><span className="font-semibold">{label}:</span> {value}</p>
+      ))}
+      {switchedOn && !info.keysSet && <p className="font-semibold">{t('The public page stays closed until the keys are set.')}</p>}
+      <p className="text-gray-500">{t('Never regenerate the key on the Razorpay dashboard: the temple website uses the same key and would stop taking payments.')}</p>
+    </div>
+  );
+}
 
 // ── Save footer (per tab) ─────────────────────────────────────────────────────
 
@@ -568,6 +596,34 @@ const Settings = () => {
                 </button>
               </div>
             </Field>
+
+            {/* Coupons bought by devotees on the public page (/prasad), paid through Razorpay */}
+            <div className="rounded-xl border border-gray-200 p-4 space-y-4">
+              <Toggle
+                label="Sell coupons online"
+                description="Devotees buy on the public page and pay through Razorpay; the coupon QR goes to their mobile"
+                checked={Boolean(watch('mahaprasadOnlineEnabled'))}
+                onChange={(e) => setValue('mahaprasadOnlineEnabled', e.target.checked, { shouldDirty: true })}
+              />
+              <OnlinePaymentsStatus info={data?.data?.data?.onlinePayments} switchedOn={Boolean(watch('mahaprasadOnlineEnabled'))} />
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <Field label="Days ahead" hint="How many days after today can be bought (0 = today only)">
+                  <input type="number" {...register('mahaprasadOnlineDaysAhead', { min: 0, max: 60, valueAsNumber: true })}
+                    className="input w-32" min={0} max={60} step={1} placeholder="7" />
+                </Field>
+                <Field label="Plates per order" hint="Most plates in one online order">
+                  <input type="number" {...register('mahaprasadOnlineMaxPlates', { min: 1, max: 50, valueAsNumber: true })}
+                    className="input w-32" min={1} max={50} step={1} placeholder="10" />
+                </Field>
+                <Field label="Last time for today" hint="After this, today's coupons are only sold at the counter (empty = all day)">
+                  <input type="time" {...register('mahaprasadOnlineCutoff')} className="input w-36" />
+                </Field>
+              </div>
+              <p className="text-xs text-gray-500">
+                {t('Prices, the daily cap and coupon validity above apply to online coupons too. Public page:')}{' '}
+                <a href={publicUrl('/prasad')} target="_blank" rel="noopener noreferrer" className="font-mono text-primary-700 hover:underline">{publicUrl('/prasad')}</a>
+              </p>
+            </div>
 
             <div className="text-xs text-orange-700 bg-orange-50 border border-orange-200 rounded-lg p-3 space-y-1">
               <p className="font-semibold">{t('One-click thermal printing setup:')}</p>

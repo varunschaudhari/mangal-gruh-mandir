@@ -1,12 +1,10 @@
 import MahaprasadCoupon from '../models/MahaprasadCoupon.js';
 import MahaprasadPayment from '../models/MahaprasadPayment.js';
 import MahaprasadCashDrawer from '../models/MahaprasadCashDrawer.js';
-import DailyCounter from '../models/DailyCounter.js';
 import Settings from '../models/Settings.js';
 import ApiError from '../utils/ApiError.js';
 import ApiResponse from '../utils/ApiResponse.js';
 import asyncHandler from '../utils/asyncHandler.js';
-import { randomBytes } from 'crypto';
 import { logAction } from '../services/audit.service.js';
 import { getPermissionsForRole } from '../middleware/authorize.js';
 import { logger } from '../utils/logger.js';
@@ -14,19 +12,10 @@ import { APP_TIMEZONE, localDateStr } from '../utils/dates.js';
 import { temple } from '../services/temple.service.js';
 import { sendCouponMessage } from '../services/mahaprasadNotify.service.js';
 import { couponImageUrl, couponPageUrl } from '../utils/publicUrl.js';
-const nanoid = () => randomBytes(6).toString('hex');
-// Unguessable: the coupon page link is as good as the paper coupon
-const newShareToken = () => randomBytes(12).toString('base64url');
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-const DAY_KEYS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
-
-// Reserved = a number held by an offline counter, not sold yet. Voided = cancelled. Neither is a
-// sale, so neither counts in reports, the daily limit or the money.
-const NOT_SOLD = ['reserved', 'voided'];
-// Persons on a coupon — a group coupon for 5 counts as 5
-const GS = { $ifNull: ['$groupSize', 1] };
+import {
+  GS, NOT_SOLD, adjustPersons, datePart, dayBounds, generateCouponNumbers, getPriceForDate,
+  nanoid, newShareToken, personsCounter, takePersons,
+} from '../services/mahaprasadSale.service.js';
 
 // ── Cash drawer helpers ───────────────────────────────────────────────────────
 
@@ -65,87 +54,8 @@ async function getOrCreateDrawer(dateStr) {
   );
 }
 
-function getPriceForDate(settings, date) {
-  const d   = date ? new Date(date) : new Date();
-  const key = DAY_KEYS[d.getDay()];
-  return settings.mahaprasadDayPricing?.[key] ?? 0;
-}
-
-function dayBounds(date) {
-  const d = date ? new Date(date) : new Date();
-  const start = new Date(d); start.setHours(0, 0, 0, 0);
-  const end   = new Date(d); end.setHours(23, 59, 59, 999);
-  return { start, end };
-}
-
-function datePart(date) {
-  return localDateStr(date ? new Date(date) : new Date()).replace(/-/g, '');
-}
-
-// Atomic counter — returns the starting sequence number for this batch.
-// Uses findOneAndUpdate $inc so concurrent requests never collide.
-async function nextCouponSequence(date, qty) {
-  const dateStr = datePart(date);
-  // $inc atomically adds qty; new:false returns value BEFORE increment
-  const counter = await DailyCounter.findOneAndUpdate(
-    { module: 'mahaprasad', date: dateStr },
-    { $inc: { count: qty } },
-    { upsert: true, new: false, setDefaultsOnInsert: true }
-  );
-  return (counter?.count ?? 0) + 1; // first number of this batch
-}
-
-async function generateCouponNumbers(date, qty) {
-  const prefix  = `MP-${datePart(date)}`;
-  const startAt = await nextCouponSequence(date, qty);
-  const numbers = [];
-  for (let i = 0; i < qty; i++) {
-    numbers.push(`${prefix}-${String(startAt + i).padStart(3, '0')}`);
-  }
-  return numbers;
-}
-
-// ── Daily limit ───────────────────────────────────────────────────────────────
-// Persons sold per date, kept in a counter beside the coupons so two counters issuing at the
-// same moment can't both slip past the limit. Kept even when no limit is set, so turning one on
-// later starts from the right number.
-
-const PERSONS = 'mahaprasad-persons';
-
-// Makes sure the date's counter exists, starting it from the coupons already sold that day.
-// Call it before changing any coupon's status, so that change isn't counted twice.
-async function personsCounter(couponDate) {
-  const date = datePart(couponDate);
-  if (await DailyCounter.exists({ module: PERSONS, date })) return date;
-  const { start, end } = dayBounds(couponDate);
-  const [agg] = await MahaprasadCoupon.aggregate([
-    { $match: { date: { $gte: start, $lte: end }, status: { $nin: NOT_SOLD } } },
-    { $group: { _id: null, total: { $sum: GS } } },
-  ]);
-  await DailyCounter.updateOne({ module: PERSONS, date }, { $setOnInsert: { count: agg?.total || 0 } }, { upsert: true })
-    .catch((err) => { if (err.code !== 11000) throw err; }); // another request started it first
-  return date;
-}
-
-// Counts `qty` more persons for the date, refusing if that would pass the daily limit
-async function takePersons(couponDate, qty, cap) {
-  const date = await personsCounter(couponDate);
-  const filter = { module: PERSONS, date, ...(cap > 0 && { count: { $lte: cap - qty } }) };
-  if (await DailyCounter.findOneAndUpdate(filter, { $inc: { count: qty } })) return;
-  const current   = (await DailyCounter.findOne({ module: PERSONS, date }).lean())?.count || 0;
-  const remaining = Math.max(0, cap - current);
-  throw new ApiError(400,
-    remaining === 0
-      ? `Daily cap of ${cap} persons reached for this date`
-      : `Only ${remaining} more person${remaining !== 1 ? 's' : ''} can be issued today (cap: ${cap})`
-  );
-}
-
-// Adds or gives back persons without a limit check: sales already made offline, cancellations
-async function adjustPersons(couponDate, delta) {
-  const date = await personsCounter(couponDate);
-  await DailyCounter.updateOne({ module: PERSONS, date }, { $inc: { count: delta } });
-}
+// Shown as "issued by" for coupons devotees bought on the public page (/prasad)
+const ONLINE_ISSUER = { _id: null, name: 'Online' };
 
 // Why a coupon can't be served. `code` lets the redeem screen show the right warning.
 function refuseUnredeemable(coupon) {
@@ -381,6 +291,8 @@ export const getCoupons = asyncHandler(async (req, res) => {
       .lean(),
     MahaprasadCoupon.countDocuments(filter),
   ]);
+  // Bought on the public page: no staff issued it
+  for (const c of coupons) if (c.channel === 'online' && !c.issuedBy) c.issuedBy = ONLINE_ISSUER;
 
   res.json(new ApiResponse(200, { coupons, total, page: parseInt(page), pages: Math.ceil(total / lim) }));
 });
@@ -454,6 +366,7 @@ export const getBatches = asyncHandler(async (req, res) => {
       groupSize:  { $first: '$groupSize' },
       isGroup:    { $first: '$isGroup' },
       shareToken: { $first: '$shareToken' },
+      channel:    { $first: '$channel' },
       statuses:   { $addToSet: '$status' },
     }},
     { $sort: { issuedAt: -1 } },
@@ -466,7 +379,7 @@ export const getBatches = asyncHandler(async (req, res) => {
   const userMap = Object.fromEntries(users.map((u) => [u._id.toString(), u.name]));
   const result  = batches.map(({ shareToken, ...b }) => ({
     ...b,
-    issuedBy: b.issuedById ? { _id: b.issuedById, name: userMap[b.issuedById.toString()] || '—' } : null,
+    issuedBy: b.issuedById ? { _id: b.issuedById, name: userMap[b.issuedById.toString()] || '—' } : b.channel === 'online' ? ONLINE_ISSUER : null,
     shareUrl: shareToken ? couponPageUrl(shareToken) : null,   // sales from before links existed have none
     shareImageUrl: shareToken ? couponImageUrl(shareToken) : null,   // the QR picture, for the WhatsApp button
   }));
@@ -557,7 +470,9 @@ export const getStaffReport = asyncHandler(async (req, res) => {
 
   const merged = new Map();
   issuedRows.forEach((r) => {
-    const uid = r._id?.toString(); if (!uid) return;
+    const uid = r._id?.toString();
+    // No staff on it: bought by devotees on the public page
+    if (!uid) { merged.set('online', { userId: 'online', name: 'Online (website)', issued: r.issued, freeSeva: r.freeSeva, collected: r.collected, redeemed: 0 }); return; }
     merged.set(uid, { userId: uid, name: userMap[uid] || 'Unknown', issued: r.issued, freeSeva: r.freeSeva, collected: r.collected, redeemed: redeemedMap[uid] || 0 });
   });
   redeemedRows.forEach((r) => {
@@ -657,6 +572,7 @@ export const getMahaprasadWhatsApp = asyncHandler(async (req, res) => {
   const collected = paidAgg[0]?.collected || 0;
   const cashTotal = paymentAgg.find((p) => p._id === 'cash')?.total || 0;
   const upiTotal  = paymentAgg.find((p) => p._id === 'upi')?.total  || 0;
+  const onlineTotal = paymentAgg.find((p) => p._id === 'online')?.total || 0;
   const pending   = total - redeemed;
   const redPct    = total > 0 ? Math.round((redeemed / total) * 100) : 0;
   const fmtN      = (n) => Number(n || 0).toLocaleString('en-IN');
@@ -668,7 +584,9 @@ export const getMahaprasadWhatsApp = asyncHandler(async (req, res) => {
     `📿 ${temple().name} — ${shortDate}`,
     `Coupons: ${fmtN(total)} | Free: ${fmtN(free)} | Paid: ${fmtN(paid)}`,
     `Redeemed: ${fmtN(redeemed)} (${redPct}%) | Pending: ${fmtN(pending)}`,
-    (cashTotal > 0 || upiTotal > 0) ? `Cash: ₹${fmtN(cashTotal)} | UPI: ₹${fmtN(upiTotal)}` : null,
+    (cashTotal > 0 || upiTotal > 0 || onlineTotal > 0)
+      ? [`Cash: ₹${fmtN(cashTotal)}`, `UPI: ₹${fmtN(upiTotal)}`, onlineTotal > 0 && `Online: ₹${fmtN(onlineTotal)}`].filter(Boolean).join(' | ')
+      : null,
     `Total: ₹${fmtN(collected)}`,
   ].filter(Boolean);
 
@@ -681,7 +599,7 @@ export const getMahaprasadWhatsApp = asyncHandler(async (req, res) => {
 
   res.json(new ApiResponse(200, {
     text: lines.join('\n'),
-    data: { total, free, paid, redeemed, pending, redPct, cashTotal, upiTotal, collected, shortDate, dateLabel },
+    data: { total, free, paid, redeemed, pending, redPct, cashTotal, upiTotal, onlineTotal, collected, shortDate, dateLabel },
   }));
 });
 
@@ -705,6 +623,8 @@ export const getReport = asyncHandler(async (req, res) => {
         paid:      { $sum: { $cond: [{ $eq: ['$type',   'paid']     }, GS, 0] } },
         free:      { $sum: { $cond: [{ $eq: ['$type',   'free']     }, GS, 0] } },
         collected: { $sum: { $cond: [{ $eq: ['$type',   'paid']     }, '$amount', 0] } },
+        // …of which bought online (the public page)
+        online:    { $sum: { $cond: [{ $eq: ['$channel', 'online'] }, '$amount', 0] } },
       }},
       { $sort: { _id: -1 } },
     ]),
@@ -723,8 +643,9 @@ export const getReport = asyncHandler(async (req, res) => {
       paid:      acc.paid      + r.paid,
       free:      acc.free      + r.free,
       collected: acc.collected + r.collected,
+      online:    acc.online    + r.online,
     }),
-    { total: 0, redeemed: 0, paid: 0, free: 0, collected: 0 }
+    { total: 0, redeemed: 0, paid: 0, free: 0, collected: 0, online: 0 }
   );
 
   res.json(new ApiResponse(200, {
@@ -809,7 +730,7 @@ export const publicCoupons = asyncHandler(async (req, res) => {
   if (!/^[A-Za-z0-9_-]{10,40}$/.test(token)) throw new ApiError(404, 'Coupon not found');
   const [coupons, settings] = await Promise.all([
     MahaprasadCoupon.find({ shareToken: token, status: { $ne: 'reserved' } })
-      .select('-_id couponNumber date type occasion status groupSize isGroup redeemedAt')
+      .select('-_id couponNumber date type occasion status groupSize isGroup redeemedAt channel')
       .sort({ couponNumber: 1 })
       .lean(),
     Settings.getOrCreate(),
@@ -819,6 +740,8 @@ export const publicCoupons = asyncHandler(async (req, res) => {
     coupons,
     validityDays: settings.mahaprasadCouponValidityDays ?? 1,
     temple: temple(),
+    // Bought on the public page: it has a payment receipt (/api/public/mahaprasad/<token>/receipt.pdf)
+    online: coupons.some((c) => c.channel === 'online'),
   }));
 });
 
@@ -983,7 +906,8 @@ export const getCashDrawer = asyncHandler(async (req, res) => {
   const total    = DRAWER_DENOMS.reduce((s, d) => s + d * (drawer.counts[String(d)] || 0), 0);
   const cashTotal = paymentTotals.find((p) => p._id === 'cash')?.total || 0;
   const upiTotal  = paymentTotals.find((p) => p._id === 'upi')?.total  || 0;
-  res.json(new ApiResponse(200, { ...drawer.toObject(), total, cashTotal, upiTotal }));
+  const onlineTotal = paymentTotals.find((p) => p._id === 'online')?.total || 0;   // not in the drawer: paid on the public page
+  res.json(new ApiResponse(200, { ...drawer.toObject(), total, cashTotal, upiTotal, onlineTotal }));
 });
 
 // PUT /mahaprasad/cash-drawer/float  — set opening float by denomination

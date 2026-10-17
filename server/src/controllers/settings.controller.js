@@ -6,6 +6,17 @@ import asyncHandler from '../utils/asyncHandler.js';
 import { changedValues, logAction, maskSecret } from '../services/audit.service.js';
 import { refreshTemple } from '../services/temple.service.js';
 import { GRAPH_VERSION, metaErrorText, whatsappConfig, whatsappNumber } from '../services/whatsappClient.service.js';
+import { lastRazorpayCheck, onlineState } from '../services/mahaprasadOnline.service.js';
+import { razorpayConfig } from '../services/razorpay.service.js';
+
+// Online Mahaprasad payments, for Settings → Mahaprasad: switched on, keys on the server (test or
+// live), webhook secret set, and the last nightly key check. The key id is public (the payment
+// page shows it); the secrets never leave the server.
+const onlinePayments = async (settings) => ({
+  ...(await onlineState(settings)),
+  keyId: razorpayConfig().keyId,
+  lastCheck: lastRazorpayCheck(),
+});
 
 // The WhatsApp access token and MSG91 key never leave the server in full — only the last 6 characters.
 const withMaskedKeys = (settings) => {
@@ -17,7 +28,7 @@ const withMaskedKeys = (settings) => {
 
 export const getSettings = asyncHandler(async (req, res) => {
   const settings = await Settings.getOrCreate();
-  res.json(new ApiResponse(200, withMaskedKeys(settings)));
+  res.json(new ApiResponse(200, { ...withMaskedKeys(settings), onlinePayments: await onlinePayments(settings) }));
 });
 
 export const updateSettings = asyncHandler(async (req, res) => {
@@ -31,6 +42,7 @@ export const updateSettings = asyncHandler(async (req, res) => {
     trustPAN, reg80GNumber, reg80GFrom, reg80GTo,
     assetMaxBorrowDays,
     mahaprasadDayPricing, mahaprasadDailyCap, mahaprasadCouponValidityDays, mahaprasadPrinterName,
+    mahaprasadOnlineEnabled, mahaprasadOnlineDaysAhead, mahaprasadOnlineMaxPlates, mahaprasadOnlineCutoff,
   } = req.body;
 
   if (templeName    !== undefined) settings.templeName    = templeName;
@@ -78,13 +90,17 @@ export const updateSettings = asyncHandler(async (req, res) => {
   if (mahaprasadDailyCap           !== undefined) settings.mahaprasadDailyCap           = mahaprasadDailyCap;
   if (mahaprasadCouponValidityDays !== undefined) settings.mahaprasadCouponValidityDays = mahaprasadCouponValidityDays;
   if (mahaprasadPrinterName        !== undefined) settings.mahaprasadPrinterName        = mahaprasadPrinterName;
+  if (mahaprasadOnlineEnabled   !== undefined) settings.mahaprasadOnlineEnabled   = mahaprasadOnlineEnabled;
+  if (mahaprasadOnlineDaysAhead !== undefined) settings.mahaprasadOnlineDaysAhead = mahaprasadOnlineDaysAhead;
+  if (mahaprasadOnlineMaxPlates !== undefined) settings.mahaprasadOnlineMaxPlates = mahaprasadOnlineMaxPlates;
+  if (mahaprasadOnlineCutoff    !== undefined) settings.mahaprasadOnlineCutoff    = mahaprasadOnlineCutoff;
 
   await settings.save();
   await refreshTemple(settings);
   // Old → new for what changed; access tokens and keys only as "(set)" / "(empty)"
   const change = changedValues(before, settings.toObject(), Object.keys(req.body), { mask: { waAccessToken: maskSecret, msg91AuthKey: maskSecret } });
   if (change) logAction(req, { action: 'settings.update', entity: 'Settings', entityRef: settings._id, ...change });
-  res.json(new ApiResponse(200, withMaskedKeys(settings), 'Settings saved'));
+  res.json(new ApiResponse(200, { ...withMaskedKeys(settings), onlinePayments: await onlinePayments(settings) }, 'Settings saved'));
 });
 
 const NAME_STATUS = {
