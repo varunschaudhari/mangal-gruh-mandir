@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { createColumnHelper } from '@tanstack/react-table';
-import { Plus, Pencil, KeyRound, MessageCircle, MessageSquare, Key } from 'lucide-react';
+import { Plus, Pencil, KeyRound, MessageCircle, MessageSquare, Key, Search, X } from 'lucide-react';
 import { getUsers, resetUserPassword } from '../../api/user.api.js';
 import DataTable from '../../components/ui/DataTable.jsx';
 import PageHeader from '../../components/ui/PageHeader.jsx';
@@ -24,6 +24,7 @@ const UserList = () => {
   const t = useT();
   const qc = useQueryClient();
   const [resetTarget, setResetTarget] = useState(null);
+  const [search, setSearch] = useState('');
   const { register, handleSubmit, reset, formState: { errors } } = useForm();
 
   const { data, isLoading } = useQuery({ queryKey: ['users'], queryFn: () => getUsers() });
@@ -34,6 +35,14 @@ const UserList = () => {
   });
 
   const users = data?.data?.data || [];
+  // Search by name, email, phone, role (as shown, in either language), staff code or department
+  const q = search.trim().toLowerCase();
+  const shown = q
+    ? users.filter((u) => [
+      u.name, u.email, u.phone, u.staffCode, u.role, ROLE_LABELS[u.role], t(ROLE_LABELS[u.role] || ''),
+      ...(u.departments || []).map((d) => `${d.code || ''} ${d.name || ''}`),
+    ].filter(Boolean).join(' ').toLowerCase().includes(q))
+    : users;
 
   const columns = [
     col.accessor('name', {
@@ -113,7 +122,24 @@ const UserList = () => {
         breadcrumbs={[{ label: 'Admin' }, { label: 'Users' }]}
         actions={can('users:write') && <Link to="/admin/users/new" className="btn-primary"><Plus className="h-4 w-4" /> {t('Add User')}</Link>}
       />
-      <DataTable columns={columns} data={users} loading={isLoading} />
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="relative w-full sm:max-w-sm">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+          <input type="search" value={search} onChange={(e) => setSearch(e.target.value)} autoComplete="off"
+            placeholder={t('Search name, email, phone or role')} aria-label={t('Search users')}
+            className="input pl-9 pr-9" />
+          {search && (
+            <button type="button" onClick={() => setSearch('')} aria-label={t('Clear search')}
+              className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-gray-400 hover:text-gray-600">
+              <X className="h-4 w-4" />
+            </button>
+          )}
+        </div>
+        {q && !isLoading && (
+          <p className="text-sm text-gray-500">{t('{n} of {total} users', { n: shown.length, total: users.length })}</p>
+        )}
+      </div>
+      <DataTable columns={columns} data={shown} loading={isLoading} />
 
       <Modal open={!!resetTarget} onClose={() => setResetTarget(null)} title={t('Reset Password — {name}', { name: resetTarget?.name })} size="sm">
         <form onSubmit={handleSubmit(({ newPassword }) => resetMut.mutate({ id: resetTarget._id, newPassword }))} className="space-y-4">
