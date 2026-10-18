@@ -448,11 +448,16 @@ function StaffTab() {
   });
 
   const rows = data?.data?.data?.rows || [];
-  const totals = rows.reduce((a, r) => ({ issued: a.issued + r.issued, redeemed: a.redeemed + r.redeemed, freeSeva: a.freeSeva + r.freeSeva, collected: a.collected + r.collected }), { issued: 0, redeemed: 0, freeSeva: 0, collected: 0 });
+  // Persons on paid coupons (a group of 5 is 5, like Issued and Free Seva); the money split by how it was paid
+  const SUMS = ['issued', 'paid', 'freeSeva', 'redeemed', 'cash', 'upi', 'online', 'collected'];
+  const totals = rows.reduce((a, r) => Object.fromEntries(SUMS.map((k) => [k, a[k] + (r[k] || 0)])), Object.fromEntries(SUMS.map((k) => [k, 0])));
 
   const handleExport = (format) => {
-    exportTable(format, 
-      rows.map((r) => ({ Staff: r.name, Issued: r.issued, Redeemed: r.redeemed, 'Free Seva Issued': r.freeSeva, 'Collected (₹)': r.collected })),
+    exportTable(format,
+      rows.map((r) => ({
+        Staff: r.name, Issued: r.issued, 'Paid Coupons': r.paid || 0, 'Free Seva Issued': r.freeSeva, Redeemed: r.redeemed,
+        'Cash (₹)': r.cash || 0, 'UPI (₹)': r.upi || 0, 'Online (₹)': r.online || 0, 'Collected (₹)': r.collected,
+      })),
       `Mahaprasad-Staff-${params.from}-to-${params.to}`, 'Staff Activity'
     );
   };
@@ -482,8 +487,12 @@ function StaffTab() {
               aside={<span className="font-semibold text-primary-700">{fmtRs(r.collected)}</span>}
               fields={[
                 { label: t('Issued'),    value: <span className="font-bold text-orange-700">{r.issued}</span> },
+                { label: t('Paid Coupons'), value: <span className="text-blue-700">{r.paid || 0}</span> },
                 { label: t('Free Seva'), value: <span className="text-purple-700">{r.freeSeva}</span> },
                 { label: t('Redeemed'),  value: <span className="text-green-700">{r.redeemed}</span> },
+                { label: t('Cash'),      value: fmtRs(r.cash) },
+                { label: t('UPI'),       value: fmtRs(r.upi) },
+                (r.online > 0) && { label: t('Online'), value: fmtRs(r.online) },
               ]}
             />
           ))}
@@ -494,8 +503,12 @@ function StaffTab() {
               <thead><tr className="bg-gray-50 border-b">
                 <th className="table-th">{t('Staff')}</th>
                 <th className="table-th text-right">{t('Coupons Issued')}</th>
+                <th className="table-th text-right">{t('Paid Coupons')}</th>
                 <th className="table-th text-right">{t('Free Seva Issued')}</th>
                 <th className="table-th text-right">{t('Coupons Redeemed')}</th>
+                <th className="table-th text-right">{t('Cash')}</th>
+                <th className="table-th text-right">{t('UPI')}</th>
+                <th className="table-th text-right">{t('Online')}</th>
                 <th className="table-th text-right">{t('Amount Collected')}</th>
               </tr></thead>
               <tbody className="divide-y divide-gray-50">
@@ -505,16 +518,24 @@ function StaffTab() {
                       <span className="font-medium text-gray-900">{r.name}</span>
                     </td>
                     <td className="table-td text-right font-bold text-orange-700">{r.issued}</td>
+                    <td className="table-td text-right text-blue-700">{r.paid || 0}</td>
                     <td className="table-td text-right text-purple-700">{r.freeSeva}</td>
                     <td className="table-td text-right text-green-700">{r.redeemed}</td>
+                    <td className="table-td text-right text-gray-700 tabular-nums">{fmtRs(r.cash)}</td>
+                    <td className="table-td text-right text-gray-700 tabular-nums">{fmtRs(r.upi)}</td>
+                    <td className="table-td text-right text-gray-700 tabular-nums">{fmtRs(r.online)}</td>
                     <td className="table-td text-right font-semibold text-primary-700">{fmtRs(r.collected)}</td>
                   </tr>
                 ))}
                 <tr className="bg-gray-50 font-bold border-t-2 border-gray-200">
                   <td className="table-td text-gray-700">{t('Totals')}</td>
                   <td className="table-td text-right text-orange-700">{totals.issued}</td>
+                  <td className="table-td text-right text-blue-700">{totals.paid}</td>
                   <td className="table-td text-right text-purple-700">{totals.freeSeva}</td>
                   <td className="table-td text-right text-green-700">{totals.redeemed}</td>
+                  <td className="table-td text-right text-gray-700 tabular-nums">{fmtRs(totals.cash)}</td>
+                  <td className="table-td text-right text-gray-700 tabular-nums">{fmtRs(totals.upi)}</td>
+                  <td className="table-td text-right text-gray-700 tabular-nums">{fmtRs(totals.online)}</td>
                   <td className="table-td text-right text-primary-700">{fmtRs(totals.collected)}</td>
                 </tr>
               </tbody>

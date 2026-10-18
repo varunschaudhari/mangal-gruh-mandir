@@ -399,6 +399,7 @@ export default {
   'Set a day’s total to see how much is left.': 'किती शिल्लक आहे ते पाहण्यासाठी दिवसाचे एकूण ठेवा.',
   'Set it with Change, or in Settings → Mahaprasad': '"बदला" दाबून किंवा सेटिंग्ज → महाप्रसाद मध्ये ठेवा',
   'Daily total saved': 'दिवसाचे एकूण जतन केले',
+  'Paid Coupons': 'सशुल्क कूपन',
   'Max persons per day — also the day’s total on the Mahaprasad dashboard and TV (0 = no limit)':
     'दररोज कमाल व्यक्ती — महाप्रसाद डॅशबोर्ड आणि TV वर हेच दिवसाचे एकूण (0 = मर्यादा नाही)',
 };

@@ -447,12 +447,13 @@ export const getStaffReport = asyncHandler(async (req, res) => {
     if (to)   { const e = new Date(to);   e.setHours(23,59,59,999); filter.date.$lte = e; }
   }
 
-  const [issuedRows, redeemedRows] = await Promise.all([
+  const [issuedRows, redeemedRows, paymentRows] = await Promise.all([
     MahaprasadCoupon.aggregate([
       { $match: { ...filter, status: { $nin: NOT_SOLD } } },
       { $group: {
         _id:       '$issuedBy',
         issued:    { $sum: GS },
+        paid:      { $sum: { $cond: [{ $eq: ['$type', 'paid'] }, GS, 0] } },   // persons, like issued and free seva
         freeSeva:  { $sum: { $cond: [{ $eq: ['$type', 'free'] }, GS, 0] } },
         collected: { $sum: { $cond: [{ $eq: ['$type', 'paid'] }, '$amount', 0] } },
       }},
@@ -461,7 +462,20 @@ export const getStaffReport = asyncHandler(async (req, res) => {
       { $match: { ...filter, status: 'redeemed' } },
       { $group: { _id: '$redeemedBy', redeemed: { $sum: GS } } },
     ]),
+    // The money by how it was paid: cash and UPI at the counters, online on the public page (no staff)
+    MahaprasadPayment.aggregate([
+      { $match: { ...filter, voided: { $ne: true } } },
+      { $group: { _id: { by: '$issuedBy', mode: '$paymentMode' }, total: { $sum: '$totalDue' } } },
+    ]),
   ]);
+  const byMode = new Map();   // user id (or 'online') → { cash, upi, online }
+  for (const p of paymentRows) {
+    const key = p._id.by?.toString() || 'online';
+    const m = byMode.get(key) || { cash: 0, upi: 0, online: 0 };
+    if (p._id.mode in m) m[p._id.mode] += p.total;
+    byMode.set(key, m);
+  }
+  const money = (key) => byMode.get(key) || { cash: 0, upi: 0, online: 0 };
 
   const User = (await import('../models/User.js')).default;
   const allIds = [...new Set([
@@ -477,12 +491,12 @@ export const getStaffReport = asyncHandler(async (req, res) => {
   issuedRows.forEach((r) => {
     const uid = r._id?.toString();
     // No staff on it: bought by devotees on the public page
-    if (!uid) { merged.set('online', { userId: 'online', name: 'Online (website)', issued: r.issued, freeSeva: r.freeSeva, collected: r.collected, redeemed: 0 }); return; }
-    merged.set(uid, { userId: uid, name: userMap[uid] || 'Unknown', issued: r.issued, freeSeva: r.freeSeva, collected: r.collected, redeemed: redeemedMap[uid] || 0 });
+    if (!uid) { merged.set('online', { userId: 'online', name: 'Online (website)', issued: r.issued, paid: r.paid, freeSeva: r.freeSeva, collected: r.collected, redeemed: 0, ...money('online') }); return; }
+    merged.set(uid, { userId: uid, name: userMap[uid] || 'Unknown', issued: r.issued, paid: r.paid, freeSeva: r.freeSeva, collected: r.collected, redeemed: redeemedMap[uid] || 0, ...money(uid) });
   });
   redeemedRows.forEach((r) => {
     const uid = r._id?.toString(); if (!uid || merged.has(uid)) return;
-    merged.set(uid, { userId: uid, name: userMap[uid] || 'Unknown', issued: 0, freeSeva: 0, collected: 0, redeemed: r.redeemed });
+    merged.set(uid, { userId: uid, name: userMap[uid] || 'Unknown', issued: 0, paid: 0, freeSeva: 0, collected: 0, redeemed: r.redeemed, ...money(uid) });
   });
 
   const rows = [...merged.values()].sort((a, b) => b.issued - a.issued);
