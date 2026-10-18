@@ -18,9 +18,23 @@ const waitForAssets = async (doc) => {
   await doc.fonts?.ready;
 };
 
+// html2canvas finds where text sits on its line with a 1×1 image it lays out in the app's own page
+// (FontMetrics). Tailwind's base styles make every img `display: block`, which spoils that
+// measurement, and all text in the PDF is drawn too low (rows overlapping the next row on phones).
+// This puts only that measuring image back inline; nothing else in the app is touched.
+export const H2C_MEASURE_IMG = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
+function keepTextMeasureInline() {
+  if (document.getElementById('h2c-measure-inline')) return;
+  const style = document.createElement('style');
+  style.id = 'h2c-measure-inline';
+  style.textContent = `img[src="${H2C_MEASURE_IMG}"] { display: inline !important; vertical-align: baseline !important; }`;
+  document.head.appendChild(style);
+}
+
 // Render an HTML document to an A4 PDF on the device (multi-page if needed).
 async function htmlToPdf(html, width) {
   const [{ default: html2canvas }, { jsPDF }] = await Promise.all([import('html2canvas'), import('jspdf')]);
+  keepTextMeasureInline();
 
   const iframe = document.createElement('iframe');
   iframe.setAttribute('aria-hidden', 'true');
