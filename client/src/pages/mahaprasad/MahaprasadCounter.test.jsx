@@ -146,16 +146,18 @@ describe('Mahaprasad counter', () => {
     expect(sentBody().receivedNotes).toBeUndefined();
   });
 
-  it('free coupons carry the occasion chosen from the list', async () => {
+  it('free coupons carry the devotee\'s name and the occasion chosen from the list', async () => {
     const user = setup({ occasions: [{ _id: 'o1', name: 'Guru Purnima' }] });
     await waitFor(() => expect(issueButton()).toHaveTextContent('₹50'));
     await typeMobile(user);
     await user.click(screen.getByText('Free Seva').closest('button'));
+    await user.type(screen.getByLabelText(/Devotee’s name/), 'Ramesh Patil');
     await user.selectOptions(await screen.findByRole('combobox'), 'Guru Purnima');
     await user.click(issueButton());
     await waitFor(() => expect(issueCoupons).toHaveBeenCalled());
-    expect(sentBody()).toMatchObject({ type: 'free', occasion: 'Guru Purnima' });
+    expect(sentBody()).toMatchObject({ type: 'free', occasion: 'Guru Purnima', name: 'Ramesh Patil' });
     expect(sentBody().paymentMode).toBeUndefined();
+    await waitFor(() => expect(screen.getByLabelText(/Devotee’s name/)).toHaveValue(''));   // cleared for the next devotee
   });
 
   it('free coupons carry a typed occasion when no occasions are set up', async () => {
@@ -163,10 +165,32 @@ describe('Mahaprasad counter', () => {
     await waitFor(() => expect(issueButton()).toHaveTextContent('₹50'));
     await typeMobile(user);
     await user.click(screen.getByText('Free Seva').closest('button'));
+    await user.type(screen.getByLabelText(/Devotee’s name/), 'Sunita Joshi');
     await user.type(screen.getByPlaceholderText('Occasion (optional)…'), 'Annadan');
     await user.click(issueButton());
     await waitFor(() => expect(issueCoupons).toHaveBeenCalled());
-    expect(sentBody()).toMatchObject({ type: 'free', occasion: 'Annadan' });
+    expect(sentBody()).toMatchObject({ type: 'free', occasion: 'Annadan', name: 'Sunita Joshi' });
+  });
+
+  it('tapping Free Seva puts the cursor in the name box, and typing the occasion straight away stays there', async () => {
+    const user = setup({ occasions: [] });
+    await waitFor(() => expect(issueButton()).toHaveTextContent('₹50'));
+    await user.click(screen.getByText('Free Seva').closest('button'));
+    expect(screen.getByLabelText(/Devotee’s name/)).toHaveFocus();
+    await user.type(screen.getByPlaceholderText('Occasion (optional)…'), 'Annadan');
+    expect(screen.getByPlaceholderText('Occasion (optional)…')).toHaveValue('Annadan');
+    expect(screen.getByLabelText(/Devotee’s name/)).toHaveValue('');
+  });
+
+  it('does not issue Free Seva without the devotee\'s name, and says so', async () => {
+    const user = setup();
+    await waitFor(() => expect(issueButton()).toHaveTextContent('₹50'));
+    await typeMobile(user);
+    await user.click(screen.getByText('Free Seva').closest('button'));
+    await user.click(issueButton());
+    expect(issueCoupons).not.toHaveBeenCalled();
+    expect(toast.error).toHaveBeenCalledWith('Enter the devotee’s name for Free Seva', expect.anything());
+    expect(screen.getByLabelText(/Devotee’s name/)).toHaveAttribute('aria-invalid', 'true');
   });
 
   it('does not issue without the devotee\'s mobile number, and says so', async () => {

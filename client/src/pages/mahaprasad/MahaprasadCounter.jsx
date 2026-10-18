@@ -171,6 +171,7 @@ export default function MahaprasadCounter() {
   const qtyInputRef    = useRef(null);
   const mobileRef      = useRef(null);
   const nameRef        = useRef(null);
+  const focusNameNext  = useRef(false);   // set when Free Seva is tapped (see the effect below)
   const cashDrawerRef  = useRef(null);   // imperative handle on CashDrawer
   const cashDrawerElRef = useRef(null);  // DOM node for scroll-into-view
 
@@ -615,6 +616,14 @@ export default function MahaprasadCounter() {
   };
 
   useEffect(() => { if (canAutoFocus()) mobileRef.current?.focus(); }, []);
+  // Free Seva tapped: the cursor goes to the name box as soon as it appears — not on a timer, which
+  // could pull it away from the occasion box if staff click that first
+  useEffect(() => {
+    if (type === 'free' && focusNameNext.current) {
+      focusNameNext.current = false;
+      nameRef.current?.focus();
+    }
+  }, [type]);
 
   const canIssue           = !issueMut.isPending && !atCap && !wouldExceed && qty >= 1;
   const canIssueOffline    = !offlineIssuing && poolCount > 0 && isToday;
@@ -1107,7 +1116,7 @@ export default function MahaprasadCounter() {
                     </p>
                   </div>
                 </button>
-                <button type="button" onClick={() => { setType('free'); setTimeout(() => nameRef.current?.focus(), 50); }}
+                <button type="button" onClick={() => { focusNameNext.current = true; setType('free'); }}
                   className={`flex items-center gap-3 p-3 rounded-xl border-2 transition-all text-left ${
                     type === 'free' ? 'border-green-400 bg-green-50' : 'border-gray-100 text-gray-400 hover:border-gray-300'
                   }`}>
