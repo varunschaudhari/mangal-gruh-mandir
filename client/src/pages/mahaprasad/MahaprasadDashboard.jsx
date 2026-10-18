@@ -12,11 +12,11 @@ import { usePermissions } from '../../hooks/usePermissions.js';
 import { localDateStr } from '../../utils/formatters.js';
 import { useT } from '../../i18n/index.jsx';
 
-// How much Mahaprasad was given today against the day's total (2500 unless an admin sets
-// another): persons on coupons sold (counter and online), plates served at the hall, what's still
-// to be served, and the day hour by hour. The total is a target — nothing stops at it.
-// Admins (Settings permission) set the day's total and the usual one. The same figures, big, for a
-// TV: MahaprasadScreen.jsx.
+// How much Mahaprasad was given today against the day's total: persons on coupons sold (counter
+// and online), plates served at the hall, what's still to be served, and the day hour by hour.
+// The day's total is the daily cap in Settings → Mahaprasad — one number: coupon issuing stops at
+// it, and admins (Settings permission) can change it here too. 0 = no limit, so no total.
+// The same figures, big, for a TV: MahaprasadScreen.jsx.
 
 // Chart colours: categorical slots 1–2 of the validated palette (dataviz skill) — sold, served
 export const SOLD = '#2a78d6';
@@ -48,55 +48,41 @@ function Tile({ label, value, sub, tone = 'text-gray-900' }) {
   );
 }
 
+// The day's total, saved as Settings → Mahaprasad daily cap (the same number in both places)
 function TargetSheet({ open, onClose, data }) {
   const t = useT();
   const qc = useQueryClient();
-  const [day, setDay] = useState('');
-  const [usual, setUsual] = useState('');
+  const [total, setTotal] = useState('');
   useEffect(() => {
-    if (open && data) { setDay(String(data.target)); setUsual(String(data.usualTarget)); }
+    if (open && data) setTotal(String(data.target || 0));
   }, [open, data]);
 
   const save = useMutation({
-    mutationFn: (body) => setMahaprasadTarget(body),
+    mutationFn: (target) => setMahaprasadTarget({ target }),
     onSuccess: (res) => {
       toast.success(t(res.data.message));
       qc.invalidateQueries({ queryKey: ['mahaprasad-dashboard'] });
+      qc.invalidateQueries({ queryKey: ['settings'] });
       onClose();
     },
     onError: (e) => toast.error(e.response?.data?.message || t('Could not save')),
   });
   if (!data) return null;
-  const whole = (v) => /^\d+$/.test(String(v).trim());
+  const whole = /^\d+$/.test(String(total).trim());
 
   return (
-    <Sheet open={open} onClose={onClose} title={t('Prasad to be given')} size="sm">
-      <div className="space-y-5">
-        <div>
-          <label htmlFor="day-total" className="text-sm font-medium text-gray-700">{t('Total for {date}', { date: dayText(data.date) })}</label>
-          <div className="mt-1 flex gap-2">
-            <input id="day-total" type="number" inputMode="numeric" min="0" value={day} onChange={(e) => setDay(e.target.value)} className="input flex-1" />
-            <button type="button" disabled={!whole(day) || save.isPending} onClick={() => save.mutate({ date: data.date, target: Number(day) })} className="btn-primary">
-              {t('Save')}
-            </button>
-          </div>
-          {data.targetForThisDay && (
-            <button type="button" onClick={() => save.mutate({ date: data.date, target: null })} disabled={save.isPending}
-              className="mt-2 text-sm font-medium text-primary-700 hover:underline">
-              {t('Use the usual total ({n})', { n: num(data.usualTarget) })}
-            </button>
-          )}
+    <Sheet open={open} onClose={onClose} title={t('Day’s total')} size="sm">
+      <div className="space-y-3">
+        <label htmlFor="day-total" className="text-sm font-medium text-gray-700">{t('Prasad to be given in a day')}</label>
+        <div className="flex gap-2">
+          <input id="day-total" type="number" inputMode="numeric" min="0" value={total} onChange={(e) => setTotal(e.target.value)} className="input flex-1" />
+          <button type="button" disabled={!whole || save.isPending} onClick={() => save.mutate(Number(total))} className="btn-primary">
+            {t('Save')}
+          </button>
         </div>
-        <div className="border-t border-gray-100 pt-4">
-          <label htmlFor="usual-total" className="text-sm font-medium text-gray-700">{t('Usual daily total')}</label>
-          <p className="text-xs text-gray-500">{t('Every day starts with this, unless a day has its own total.')}</p>
-          <div className="mt-1 flex gap-2">
-            <input id="usual-total" type="number" inputMode="numeric" min="0" value={usual} onChange={(e) => setUsual(e.target.value)} className="input flex-1" />
-            <button type="button" disabled={!whole(usual) || save.isPending} onClick={() => save.mutate({ target: Number(usual) })} className="btn-secondary">
-              {t('Save')}
-            </button>
-          </div>
-        </div>
+        <p className="text-xs text-gray-500">
+          {t('This is the daily cap in Settings → Mahaprasad — the same number in both places. Coupon issuing stops at it, at the counters and online. 0 = no limit.')}
+        </p>
       </div>
     </Sheet>
   );
@@ -152,13 +138,13 @@ export default function MahaprasadDashboard() {
             <p className="text-sm font-medium text-gray-500">{t('Prasad served')}</p>
             <p className="mt-1 flex items-baseline gap-2">
               <span className="text-5xl font-semibold text-gray-900 sm:text-6xl">{num(d.served)}</span>
-              <span className="text-xl text-gray-500">{t('of {n}', { n: num(d.target) })}</span>
+              {d.limited && <span className="text-xl text-gray-500">{t('of {n}', { n: num(d.target) })}</span>}
             </p>
           </div>
           <div className="text-right">
             <p className="text-sm text-gray-500">
-              {t('Day’s total')}: <span className="font-semibold text-gray-900">{num(d.target)}</span>
-              <span className="ml-1 text-xs">({t(d.targetForThisDay ? 'set for this day' : 'usual')})</span>
+              {t('Day’s total')}: <span className="font-semibold text-gray-900">{d.limited ? num(d.target) : t('No limit')}</span>
+              <span className="ml-1 text-xs">({t('Settings daily cap')})</span>
             </p>
             {can('masters:write') && (
               <button type="button" onClick={() => setEditing(true)} className="mt-1 inline-flex items-center gap-1 text-sm font-medium text-primary-700 hover:underline">
@@ -167,6 +153,9 @@ export default function MahaprasadDashboard() {
             )}
           </div>
         </div>
+        {!d.limited ? (
+          <p className="mt-4 text-sm text-gray-500">{t('Set a day’s total to see how much is left.')}</p>
+        ) : (
         <div className="mt-4 space-y-3">
           <div>
             <div className="mb-1 flex justify-between text-xs text-gray-600">
@@ -183,6 +172,7 @@ export default function MahaprasadDashboard() {
             <Meter value={d.sold.persons} total={d.target} color={SOLD} track="#dbe8f8" />
           </div>
         </div>
+        )}
       </section>
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -191,9 +181,11 @@ export default function MahaprasadDashboard() {
             d.sold.online ? `${num(d.sold.online)} ${t('online')}` : null,
             d.sold.free ? `${num(d.sold.free)} ${t('Free')}` : null].filter(Boolean).join(' · ')} />
         <Tile label={t('Still to serve')} value={num(d.toServe)} sub={t('Sold, not scanned at the hall yet')} />
-        {d.over > 0
-          ? <Tile label={t('Over the day’s total')} value={`+${num(d.over)}`} tone="text-amber-700" sub={t('More sold than the total')} />
-          : <Tile label={t('Left of the total')} value={num(d.left)} sub={t('Not sold yet')} />}
+        {!d.limited
+          ? <Tile label={t('Day’s total')} value={t('No limit')} sub={t('Set it with Change, or in Settings → Mahaprasad')} />
+          : d.over > 0
+            ? <Tile label={t('Over the day’s total')} value={`+${num(d.over)}`} tone="text-amber-700" sub={t('More sold than the total')} />
+            : <Tile label={t('Left of the total')} value={num(d.left)} sub={t('Not sold yet')} />}
         <Tile label={t('Last served')} value={d.lastServedAt ? timeText(d.lastServedAt) : '—'}
           sub={isToday ? t('Updates every 30 seconds') : null} />
       </div>

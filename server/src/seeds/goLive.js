@@ -59,7 +59,7 @@ export const CLEAR = [
   'Sequence', 'DailyCounter', 'AuditLog', 'ClientError',
 ];
 // Kept in part — see partFilter()
-export const PART = ['User', 'Staff', 'Session', 'DeviceToken', 'MahaprasadTarget'];
+export const PART = ['User', 'Staff', 'Session', 'DeviceToken'];
 // Not a model: the demo seed's list of what it added (seeds/demoDay.seed.js)
 const EXTRA_CLEAR = ['demo_records'];
 
@@ -69,7 +69,6 @@ const has = (name) => process.argv.includes(`--${name}`);
 // What to delete from a collection that is kept in part
 function partFilter(model, keptUserIds) {
   if (model === 'User') return { _id: { $nin: keptUserIds } };
-  if (model === 'MahaprasadTarget') return { key: { $ne: 'default' } };   // keep the usual daily total
   return { user: { $nin: keptUserIds } };                                 // Staff, Session, DeviceToken
 }
 

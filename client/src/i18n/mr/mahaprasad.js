@@ -390,4 +390,15 @@ export default {
   'served': 'दिला',
   'sold': 'विकले',
   'Not updating — check the internet. Showing figures from {time}.': 'अद्ययावत होत नाही — इंटरनेट तपासा. {time} चे आकडे दिसत आहेत.',
+
+  // ── Day's total = Settings → Mahaprasad daily cap ───────────────────────
+  'Prasad to be given in a day': 'दिवसात द्यायचा प्रसाद',
+  'This is the daily cap in Settings → Mahaprasad — the same number in both places. Coupon issuing stops at it, at the counters and online. 0 = no limit.':
+    'हीच सेटिंग्ज → महाप्रसाद मधील दैनिक मर्यादा आहे — दोन्ही ठिकाणी एकच आकडा. काउंटरवर आणि ऑनलाइन कूपन देणे इथे थांबते. 0 = मर्यादा नाही.',
+  'Settings daily cap': 'सेटिंग्जमधील दैनिक मर्यादा',
+  'Set a day’s total to see how much is left.': 'किती शिल्लक आहे ते पाहण्यासाठी दिवसाचे एकूण ठेवा.',
+  'Set it with Change, or in Settings → Mahaprasad': '"बदला" दाबून किंवा सेटिंग्ज → महाप्रसाद मध्ये ठेवा',
+  'Daily total saved': 'दिवसाचे एकूण जतन केले',
+  'Max persons per day — also the day’s total on the Mahaprasad dashboard and TV (0 = no limit)':
+    'दररोज कमाल व्यक्ती — महाप्रसाद डॅशबोर्ड आणि TV वर हेच दिवसाचे एकूण (0 = मर्यादा नाही)',
 };

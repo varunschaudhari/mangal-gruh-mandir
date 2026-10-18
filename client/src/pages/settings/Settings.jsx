@@ -553,7 +553,7 @@ const Settings = () => {
             </Field>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <Field label={t('Daily Cap')} hint={t('Max coupons per day (0 = no limit)')}>
+              <Field label={t('Daily Cap')} hint={t('Max persons per day — also the day’s total on the Mahaprasad dashboard and TV (0 = no limit)')}>
                 <input
                   type="number"
                   {...register('mahaprasadDailyCap', { min: 0, valueAsNumber: true })}

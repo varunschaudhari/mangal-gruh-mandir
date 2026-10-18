@@ -1,5 +1,5 @@
 import MahaprasadCoupon from '../models/MahaprasadCoupon.js';
-import MahaprasadTarget, { DEFAULT_TARGET } from '../models/MahaprasadTarget.js';
+import Settings from '../models/Settings.js';
 import User from '../models/User.js';
 import ApiResponse from '../utils/ApiResponse.js';
 import asyncHandler from '../utils/asyncHandler.js';
@@ -7,7 +7,9 @@ import { logAction } from '../services/audit.service.js';
 import { APP_TIMEZONE, localDateStr } from '../utils/dates.js';
 
 // The Mahaprasad dashboard and TV screen: for one day, how much prasad was given against the
-// day's total (a target — nothing is stopped by it).
+// day's total. The total IS the daily cap in Settings → Mahaprasad — one number: coupon issuing
+// stops there (counters and online), and changing it on the dashboard changes it in Settings.
+// 0 = no limit, and then the dashboard shows no total.
 //   sold     — persons on coupons for that day (counter and online), not cancelled
 //   served   — persons whose coupons were scanned at the hall that day
 //   toServe  — persons on that day's coupons not scanned yet
@@ -24,12 +26,9 @@ const dayRange = (day) => {
   return { start, end };
 };
 
-/** The day's total: that day's own, else the usual one, else DEFAULT_TARGET. */
-async function targetFor(day) {
-  const docs = await MahaprasadTarget.find({ key: { $in: [day, 'default'] } }).lean();
-  const own = docs.find((d) => d.key === day);
-  const usual = docs.find((d) => d.key === 'default')?.target ?? DEFAULT_TARGET;
-  return { target: own ? own.target : usual, forThisDay: Boolean(own), usual };
+/** The day's total = Settings → Mahaprasad daily cap (the same for every day); 0 = no limit */
+async function dayTotal() {
+  return (await Settings.getOrCreate()).mahaprasadDailyCap || 0;
 }
 
 // GET /mahaprasad/dashboard?date=YYYY-MM-DD (today when not given)
@@ -40,7 +39,7 @@ export const getDashboard = asyncHandler(async (req, res) => {
   const hourOf = (field) => ({ $toInt: { $dateToString: { format: '%H', date: field, timezone: APP_TIMEZONE } } });
 
   const [target, [sold = {}], [served = {}], soldByHour, servedByHour, byCounter, [last]] = await Promise.all([
-    targetFor(day),
+    dayTotal(),
     MahaprasadCoupon.aggregate([
       { $match: ofTheDay },
       { $group: {
@@ -96,11 +95,11 @@ export const getDashboard = asyncHandler(async (req, res) => {
   }));
 
   const soldPersons = sold.persons || 0;
+  const limited = target > 0;
   res.json(new ApiResponse(200, {
     date: day,
-    target: target.target,
-    targetForThisDay: target.forThisDay,
-    usualTarget: target.usual,
+    target,      // Settings → Mahaprasad daily cap
+    limited,     // false: no daily cap, so no total to count against
     sold: {
       persons: soldPersons,
       coupons: sold.coupons || 0,
@@ -111,8 +110,8 @@ export const getDashboard = asyncHandler(async (req, res) => {
     },
     served: served.persons || 0,
     toServe: sold.toServe || 0,
-    left: Math.max(0, target.target - soldPersons),     // of the day's total, not sold yet
-    over: Math.max(0, soldPersons - target.target),     // sold past the total
+    left: limited ? Math.max(0, target - soldPersons) : null,   // of the day's total, not sold yet
+    over: limited ? Math.max(0, soldPersons - target) : 0,      // sold past the total (offline sales can pass it)
     hours,
     counters,
     lastServedAt: last?.redeemedAt || null,
@@ -120,22 +119,18 @@ export const getDashboard = asyncHandler(async (req, res) => {
   }));
 });
 
-// PUT /mahaprasad/dashboard/target  { date?: 'YYYY-MM-DD', target: number | null }
-// With a date: that day's total (null = back to the usual one). Without: the usual daily total.
+// PUT /mahaprasad/dashboard/target  { target: number } — the day's total, saved as the daily cap in
+// Settings → Mahaprasad (the same number in both places; 0 = no limit)
 export const setTarget = asyncHandler(async (req, res) => {
-  const { date, target } = req.body;
-  const key = date || 'default';
-  const before = (await MahaprasadTarget.findOne({ key }).lean())?.target ?? null;
-  if (target === null) {
-    await MahaprasadTarget.deleteOne({ key });
-  } else {
-    await MahaprasadTarget.updateOne({ key }, { $set: { target, setBy: req.user._id } }, { upsert: true });
-  }
+  const { target } = req.body;
+  const settings = await Settings.getOrCreate();
+  const before = settings.mahaprasadDailyCap || 0;
+  settings.mahaprasadDailyCap = target;
+  await settings.save();
   logAction(req, {
-    action: 'mahaprasad.target_set', entity: 'MahaprasadTarget', entityId: key,
-    before: { target: before ?? (date ? 'usual' : DEFAULT_TARGET) },
-    after: { target: target ?? 'usual' },
+    action: 'settings.update', entity: 'Settings', entityRef: settings._id,
+    before: { mahaprasadDailyCap: before }, after: { mahaprasadDailyCap: target },
+    meta: { from: 'Mahaprasad dashboard' },
   });
-  const day = date || localDateStr();
-  res.json(new ApiResponse(200, await targetFor(day), date ? 'Total for the day saved' : 'Usual daily total saved'));
+  res.json(new ApiResponse(200, { target, limited: target > 0 }, 'Daily total saved'));
 });

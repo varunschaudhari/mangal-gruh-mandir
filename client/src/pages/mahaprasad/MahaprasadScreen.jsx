@@ -116,24 +116,29 @@ export default function MahaprasadScreen() {
             <p className="text-[clamp(1.4rem,2.6vw,3rem)] text-gray-300">{t('Prasad served')}</p>
             <p className="flex flex-wrap items-baseline gap-x-[1.5vw] leading-none">
               <span className="text-[clamp(5rem,16vw,20rem)] font-bold" style={{ color: SERVED }}>{num(d.served)}</span>
-              <span className="text-[clamp(2rem,5vw,6rem)] text-gray-400">/ {num(d.target)}</span>
+              {d.limited && <span className="text-[clamp(2rem,5vw,6rem)] text-gray-400">/ {num(d.target)}</span>}
             </p>
-            <div className="space-y-[1.4vh]">
-              <Bar value={d.served} total={d.target} color={SERVED} />
-              <Bar value={d.sold.persons} total={d.target} color={SOLD} />
-            </div>
-            <p className="text-[clamp(1rem,1.6vw,1.8rem)] text-gray-400">
-              {pct(d.served, d.target)}% {t('served')} · {pct(d.sold.persons, d.target)}% {t('sold')}
-            </p>
+            {/* The day's total = Settings → Mahaprasad daily cap; with no cap there's nothing to measure against */}
+            {d.limited && (
+              <>
+                <div className="space-y-[1.4vh]">
+                  <Bar value={d.served} total={d.target} color={SERVED} />
+                  <Bar value={d.sold.persons} total={d.target} color={SOLD} />
+                </div>
+                <p className="text-[clamp(1rem,1.6vw,1.8rem)] text-gray-400">
+                  {pct(d.served, d.target)}% {t('served')} · {pct(d.sold.persons, d.target)}% {t('sold')}
+                </p>
+              </>
+            )}
           </main>
 
           <footer className="flex flex-col gap-[2vw] sm:flex-row">
             <Figure label={t('Sold')} value={num(d.sold.persons)} color={SOLD}
               note={d.sold.online ? `${num(d.sold.online)} ${t('online')}` : null} />
             <Figure label={t('Still to serve')} value={num(d.toServe)} />
-            {d.over > 0
+            {d.limited && (d.over > 0
               ? <Figure label={t('Over the day’s total')} value={`+${num(d.over)}`} />
-              : <Figure label={t('Left of the total')} value={num(d.left)} />}
+              : <Figure label={t('Left of the total')} value={num(d.left)} />)}
           </footer>
         </>
       )}
