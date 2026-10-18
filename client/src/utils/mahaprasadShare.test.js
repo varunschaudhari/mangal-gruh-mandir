@@ -25,6 +25,13 @@ describe('coupon numbers on WhatsApp', () => {
     expect(text).toContain('Your coupon QR: https://mandir.aumora.io/m/AbCdEf123456');
     expect(text).toContain('Please show it at the Mahaprasad hall.');
   });
+
+  it('greets a Free Seva devotee by name', () => {
+    const text = decodeURIComponent(couponWhatsAppUrl({ mobile: '9881180662', name: '  Ramesh Patil ', numbers: ['MP-20261013-012'], date: '2026-10-13T12:00:00' }).split('text=')[1]);
+    expect(text.startsWith('Namaste Ramesh Patil! Your Mahaprasad coupon')).toBe(true);
+    const noName = decodeURIComponent(couponWhatsAppUrl({ mobile: '9881180662', numbers: ['MP-20261013-012'], date: '2026-10-13T12:00:00' }).split('text=')[1]);
+    expect(noName.startsWith('Namaste! Your Mahaprasad coupon')).toBe(true);
+  });
 });
 
 describe('mobile numbers', () => {

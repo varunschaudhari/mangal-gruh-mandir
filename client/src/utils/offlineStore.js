@@ -123,6 +123,7 @@ export async function confirmIssue(couponNumber, data) {
     amount:       data.amount,
     occasion:     data.occasion || '',
     mobile:       data.mobile || '',
+    name:         data.name || '',         // Free Seva: the devotee's name
     paymentMode:  data.paymentMode,
     status:       'issued-offline',
     issuedAt:     data.issuedAt,

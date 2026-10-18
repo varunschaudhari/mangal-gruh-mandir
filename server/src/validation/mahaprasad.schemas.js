@@ -25,6 +25,9 @@ export const issueCoupons = {
     receivedNotes: z.array(z.preprocess((v) => (typeof v === 'string' ? Number(v) : v),
       z.number().refine((n) => DENOMS.includes(n), 'Unknown note or coin'))).max(500).optional(),
     mobile,
+    // Free Seva: the devotee's name. The counter screen requires it; optional here so counters
+    // still on an older app version can issue until they update.
+    name: optionalText('Name', { max: 80 }),
   }),
 };
 
@@ -79,6 +82,7 @@ export const syncOffline = {
       paymentMode: optionalOneOf(['cash', 'upi'], 'Payment mode'),
       // Optional here: coupons issued offline on an older app version have none.
       mobile: z.preprocess((v) => normaliseMobile(v), z.string()).optional(),
+      name: optionalText('Name', { max: 80 }),
     })).max(5000).optional(),
     redeemed: z.array(z.object({
       couponNumber,

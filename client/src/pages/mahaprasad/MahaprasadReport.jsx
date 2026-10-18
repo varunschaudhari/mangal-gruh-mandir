@@ -20,6 +20,8 @@ const ACTION_BTN = 'btn btn-ghost border text-sm flex items-center gap-1.5 max-s
 // ── Shared helpers ─────────────────────────────────────────────────────────────
 
 const fmt    = (d) => d ? new Date(d + 'T00:00:00').toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', weekday: 'short' }) : '—';
+// A full date from the server (Free Seva rows), not a YYYY-MM-DD day
+const fmtWhen = (d) => (d ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—');
 const pct    = (n, d) => d > 0 ? `${Math.round((n / d) * 100)}%` : '—';
 const fmtRs  = (n) => `₹${Number(n || 0).toLocaleString('en-IN')}`;
 function isoDate(d) { return localDateStr(d); }
@@ -208,6 +210,59 @@ function DailyTab() {
                     <td className="table-td text-right text-purple-700 font-bold">{o.count}</td>
                     <td className="table-td text-right text-green-700">{o.redeemed}</td>
                     <td className="table-td text-right text-gray-500">{pct(o.redeemed, o.count)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* Free Seva, one row per issue: who received it and for what (the latest 500 in the period) */}
+      {!isLoading && res.freeSeva?.length > 0 && (
+        <div className="card overflow-hidden">
+          <div className="flex items-center justify-between gap-3 px-4 sm:px-5 py-3 border-b bg-purple-50">
+            <p className="text-sm font-semibold text-purple-800">{t('Free Seva — who received it')}</p>
+            <button type="button" className="text-xs font-semibold text-purple-800 hover:underline"
+              onClick={() => exportTable('excel', res.freeSeva.map((f) => ({
+                Date: fmtWhen(f.date), Name: f.name || '', Mobile: f.mobile || '', Occasion: f.occasion || '',
+                Persons: f.persons, Served: f.redeemed, 'Issued By': f.issuedBy || '',
+              })), `Mahaprasad-Free-Seva-${params.from}-to-${params.to}`, 'Free Seva')}>
+              {t('Export')}
+            </button>
+          </div>
+          <div className="divide-y divide-gray-50 md:hidden">
+            {res.freeSeva.map((f) => (
+              <div key={f.batchId} className="px-4 py-2.5 text-sm">
+                <div className="flex items-start justify-between gap-3">
+                  <span className="min-w-0 font-semibold text-gray-900 break-words">{f.name || <span className="text-gray-400">{t('No name')}</span>}</span>
+                  <span className="shrink-0 font-bold text-purple-700">{t(f.persons === 1 ? '{n} person' : '{n} persons', { n: f.persons })}</span>
+                </div>
+                <p className="mt-0.5 text-xs text-gray-500">{[fmtWhen(f.date), f.occasion, f.mobile, f.issuedBy].filter(Boolean).join(' · ')}</p>
+              </div>
+            ))}
+          </div>
+          <div className="hidden md:block overflow-x-auto">
+            <table className="min-w-full">
+              <thead><tr className="bg-gray-50 border-b">
+                <th className="table-th">{t('Date')}</th>
+                <th className="table-th">{t('Name')}</th>
+                <th className="table-th">{t('Mobile')}</th>
+                <th className="table-th">{t('Occasion')}</th>
+                <th className="table-th text-right">{t('Persons')}</th>
+                <th className="table-th text-right">{t('Served')}</th>
+                <th className="table-th">{t('Issued By')}</th>
+              </tr></thead>
+              <tbody className="divide-y divide-gray-50">
+                {res.freeSeva.map((f) => (
+                  <tr key={f.batchId} className="hover:bg-gray-50 text-sm">
+                    <td className="table-td text-gray-500 text-xs">{fmtWhen(f.date)}</td>
+                    <td className="table-td font-medium text-gray-900">{f.name || <span className="text-gray-400">—</span>}</td>
+                    <td className="table-td text-gray-600 text-xs tabular-nums">{f.mobile || '—'}</td>
+                    <td className="table-td text-gray-700">{f.occasion || <span className="text-gray-400">—</span>}</td>
+                    <td className="table-td text-right font-bold text-purple-700">{f.persons}</td>
+                    <td className="table-td text-right text-green-700">{f.redeemed}</td>
+                    <td className="table-td text-gray-500 text-xs">{f.issuedBy || '—'}</td>
                   </tr>
                 ))}
               </tbody>

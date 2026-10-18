@@ -109,6 +109,7 @@ export default function MahaprasadHistory() {
         Date:            fmt(c.date),
         Type:            c.type === 'paid' ? 'Paid' : 'Free',
         Occasion:        c.occasion || '',
+        Name:            c.name || '',
         Mobile:          c.mobile || '',
         Amount:          c.type === 'paid' ? c.amount : 0,
         Status:          c.status === 'redeemed' ? 'Redeemed' : 'Issued',
@@ -149,7 +150,7 @@ export default function MahaprasadHistory() {
               type="text"
               value={searchInput}
               onChange={(e) => setSearchInput(e.target.value.toUpperCase())}
-              placeholder={t('Coupon no. or mobile')}
+              placeholder={t('Coupon no., mobile or name')}
               autoCapitalize="characters"
               autoComplete="off"
               className="input pl-8 text-sm font-mono w-full sm:w-56"
@@ -215,7 +216,7 @@ export default function MahaprasadHistory() {
               key={c._id}
               className={c.status === 'redeemed' ? 'border-green-100' : ''}
               title={<span className="font-mono font-semibold text-sm">{c.couponNumber}</span>}
-              subtitle={[fmt(c.date), c.mobile, c.issuedBy?.name].filter(Boolean).join(' · ')}
+              subtitle={[fmt(c.date), c.name, c.mobile, c.issuedBy?.name].filter(Boolean).join(' · ')}
               aside={
                 <>
                   <Badge variant={STATUS_V[c.status]} size="sm">
@@ -249,7 +250,7 @@ export default function MahaprasadHistory() {
                   <th className="table-th">{t('Coupon No.')}</th>
                   <th className="table-th">{t('Date')}</th>
                   <th className="table-th">{t('Type')}</th>
-                  <th className="table-th">{t('Mobile')}</th>
+                  <th className="table-th">{t('Name / Mobile')}</th>
                   <th className="table-th text-right">{t('Amt')}</th>
                   <th className="table-th">{t('Status')}</th>
                   <th className="table-th">{t('Issued By')}</th>
@@ -269,7 +270,10 @@ export default function MahaprasadHistory() {
                           : t('Paid|coupon')}
                       </Badge>
                     </td>
-                    <td className="table-td text-gray-600 text-xs tabular-nums">{c.mobile || '—'}</td>
+                    <td className="table-td text-gray-600 text-xs tabular-nums">
+                      {c.name && <span className="block font-semibold text-gray-800 not-italic">{c.name}</span>}
+                      {c.mobile || (c.name ? null : '—')}
+                    </td>
                     <td className="table-td text-right font-medium text-xs">
                       {c.type === 'paid' ? `₹${c.amount}` : '—'}
                     </td>

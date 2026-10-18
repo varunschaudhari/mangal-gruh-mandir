@@ -400,6 +400,16 @@ export default {
   'Set it with Change, or in Settings → Mahaprasad': '"बदला" दाबून किंवा सेटिंग्ज → महाप्रसाद मध्ये ठेवा',
   'Daily total saved': 'दिवसाचे एकूण जतन केले',
   'Paid Coupons': 'सशुल्क कूपन',
+
+  // ── Free Seva: the devotee's name ───────────────────────────────────────
+  'Devotee’s name': 'भाविकाचे नाव',
+  'Enter the devotee’s name for Free Seva': 'मोफत सेवेसाठी भाविकाचे नाव टाका',
+  'Fill in the devotee’s name (and occasion) under the mobile number, above.': 'भाविकाचे नाव (आणि प्रसंग) वर मोबाइल नंबरखाली भरा.',
+  'Name / Mobile': 'नाव / मोबाइल',
+  'Coupon no., mobile or name': 'कूपन क्र., मोबाइल किंवा नाव',
+  'Free Seva — who received it': 'मोफत सेवा — कोणाला दिली',
+  'No name': 'नाव नाही',
+  '{n} person': '{n} व्यक्ती',
   'Max persons per day — also the day’s total on the Mahaprasad dashboard and TV (0 = no limit)':
     'दररोज कमाल व्यक्ती — महाप्रसाद डॅशबोर्ड आणि TV वर हेच दिवसाचे एकूण (0 = मर्यादा नाही)',
 };

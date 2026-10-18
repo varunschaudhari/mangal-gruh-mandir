@@ -144,10 +144,13 @@ async function drawCoupon(doc, coupon, settings, cx, cy) {
     .text(fmtDate(coupon.date, { weekday: 'short' }), x, iy - lift(7.5), { width: w, align: 'center', lineBreak: false });
   iy += 11;
 
-  // Occasion (free only)
-  if (isFree && coupon.occasion) {
-    doc.font('Helvetica-Oblique').fontSize(7).fillColor(C.freeAccent)
-      .text(coupon.occasion, x, iy - lift(7), { width: w, align: 'center', lineBreak: false });
+  // Free Seva: who it is for and the occasion, on one line (shortened to fit the card)
+  const forWhom = isFree ? [coupon.name, coupon.occasion].filter(Boolean).join(' · ') : '';
+  if (forWhom) {
+    doc.font('Helvetica-Oblique').fontSize(7).fillColor(C.freeAccent);
+    let label = forWhom;
+    while (label.length > 1 && doc.widthOfString(label) > w - 8) label = `${label.slice(0, -2)}…`;
+    doc.text(label, x, iy - lift(7), { width: w, align: 'center', lineBreak: false });
     iy += 10;
   }
 

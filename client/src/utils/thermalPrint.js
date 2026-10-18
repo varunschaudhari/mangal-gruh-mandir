@@ -250,6 +250,7 @@ export function buildReceiptBytes(coupon, settings) {
 
     // ── DATE + OCCASION + QR (merged — one less dash line) ──────────────────
     ...line(dateStr),
+    ...(isFree && coupon.name ? [...bold(1), ...line(coupon.name), ...bold(0)] : []),   // Free Seva: who it is for
     ...(isFree && coupon.occasion ? line(coupon.occasion) : []),
     ...feedDots(14),   // a little white above the QR for the scanner
     ...qrEscPos(coupon.couponNumber, 5),

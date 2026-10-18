@@ -33,7 +33,7 @@ import { shareCouponsOnWhatsApp } from '../../utils/couponShare.js';
 
 // A row of Today's Batches as the WhatsApp button needs it
 const batchShare = (b) => ({
-  mobile: b.mobile, numbers: b.numbers, date: b.issuedAt, persons: b.isGroup ? b.groupSize : b.count,
+  mobile: b.mobile, name: b.name, numbers: b.numbers, date: b.issuedAt, persons: b.isGroup ? b.groupSize : b.count,
   link: b.shareUrl, image: b.shareImageUrl,
 });
 
@@ -126,6 +126,7 @@ function BatchesSection({ date, onPdfPrint, printing, onVoid }) {
                 <Badge variant={b.type === 'paid' ? 'blue' : 'purple'} size="sm">
                   {b.type === 'free' ? `${t('Free')}${b.occasion ? ` · ${b.occasion}` : ''}` : t('Paid|coupon')}
                 </Badge>
+                {b.type === 'free' && b.name && <span className="text-xs font-semibold text-purple-800">{b.name}</span>}
                 <span className="text-xs font-semibold text-gray-700">
                   {b.isGroup ? t('Group · {n} persons', { n: b.groupSize || b.count }) : t(b.count !== 1 ? '{n} coupons' : '{n} coupon', { n: b.count })}
                 </span>
@@ -169,12 +170,15 @@ export default function MahaprasadCounter() {
   const qc             = useQueryClient();
   const qtyInputRef    = useRef(null);
   const mobileRef      = useRef(null);
+  const nameRef        = useRef(null);
   const cashDrawerRef  = useRef(null);   // imperative handle on CashDrawer
   const cashDrawerElRef = useRef(null);  // DOM node for scroll-into-view
 
   const [date,           setDate]           = useState(todayStr());
   const [mobile,         setMobile]         = useState('');    // devotee's mobile — required for every issue
   const [mobileError,    setMobileError]    = useState(false);
+  const [devoteeName,    setDevoteeName]    = useState('');    // required for Free Seva
+  const [nameError,      setNameError]      = useState(false);
   const [qty,            setQty]            = useState(1);
   const [isGroup,        setIsGroup]        = useState(false);
   const [type,           setType]           = useState('paid');
@@ -422,17 +426,18 @@ export default function MahaprasadCounter() {
       const price       = type === 'paid' ? getDayPrice(pricing, new Date(date)) : 0;
       const batchId     = Math.random().toString(36).slice(2, 10);
 
+      const name = type === 'free' ? devoteeName.trim() : '';
       const issued = await offlineStore.confirmIssue(coupon.couponNumber, {
-        type, amount: price, occasion: type === 'free' ? occasionValue : '', mobile,
+        type, amount: price, occasion: type === 'free' ? occasionValue : '', mobile, name,
         paymentMode: type === 'paid' && price > 0 ? paymentMode : undefined, // recorded as a payment when it syncs
         issuedAt: new Date().toISOString(), issuedById: user._id || '', issuedByName: user.name || 'Staff', batchId,
       });
 
       haptics.success();
-      const offBatch = { numbers: [issued.couponNumber], coupons: [issued], mobile, date, persons: 1 };
+      const offBatch = { numbers: [issued.couponNumber], coupons: [issued], mobile, name, date, persons: 1 };
       setLastBatch(offBatch);
       setLastIssuedBatch(offBatch);
-      setQty(1); clearPayment(); setMobile('');
+      setQty(1); clearPayment(); setMobile(''); setDevoteeName(''); setNameError(false);
       await refreshCounts();
       qc.invalidateQueries({ queryKey: ['mahaprasad-summary'] });
 
@@ -471,6 +476,7 @@ export default function MahaprasadCounter() {
       amountReceived: vars.amountReceived,
       receivedNotes:  vars.receivedNotes,
       mobile:         vars.mobile,
+      name:           vars.name,
     }),
     onSuccess: async (res, vars) => {
       const { coupons, drawerChange, shareUrl, shareImageUrl } = res.data.data;
@@ -484,6 +490,7 @@ export default function MahaprasadCounter() {
         groupQty: vars.qty,
         issuedAt: new Date(),
         mobile:   vars.mobile,
+        name:     vars.name,       // Free Seva: greets the devotee in the WhatsApp message
         link:     shareUrl,        // the page with these coupons' QR, for the WhatsApp message
         image:    shareImageUrl,   // …and the QR picture sent with it
         date:     vars.date,
@@ -498,7 +505,7 @@ export default function MahaprasadCounter() {
       };
       setLastBatch(batchState);
       setLastIssuedBatch(batchState);
-      setQty(1); setIsGroup(false); clearPayment(); setMobile(''); setMobileError(false);
+      setQty(1); setIsGroup(false); clearPayment(); setMobile(''); setMobileError(false); setDevoteeName(''); setNameError(false);
       qc.invalidateQueries({ queryKey: ['mahaprasad-summary'] });
       qc.invalidateQueries({ queryKey: ['mahaprasad-coupons'] });
       qc.invalidateQueries({ queryKey: ['mahaprasad-batches', date] });
@@ -564,6 +571,13 @@ export default function MahaprasadCounter() {
       mobileRef.current?.focus();
       return;
     }
+    if (type === 'free' && !devoteeName.trim()) {
+      setNameError(true);
+      haptics.warning();
+      toast.error(t('Enter the devotee’s name for Free Seva'), { id: 'mp-name' });
+      nameRef.current?.focus();
+      return;
+    }
     if (!isOnline) { handleIssueOffline(); return; }
 
     // Block if customer hasn't paid enough
@@ -584,6 +598,7 @@ export default function MahaprasadCounter() {
 
     issueMut.mutate({
       qty, isGroup, type, date, mobile,
+      name:           type === 'free' ? devoteeName.trim() : undefined,
       occasion:       type === 'free' ? occasionValue : '',
       paymentMode:    type === 'paid' && pricePerPlate > 0 ? paymentMode : undefined,
       amountReceived: type === 'paid' && pricePerPlate > 0 && paymentMode === 'cash' ? cashReceived : undefined,
@@ -966,6 +981,47 @@ export default function MahaprasadCounter() {
               {(mobileError || (mobile.length === 10 && !isValidPhone(mobile))) && (
                 <p className="text-xs text-red-600 flex items-center gap-1 mt-1.5"><AlertTriangle className="h-3 w-3" /> {t('Enter the devotee’s 10-digit mobile number')}</p>
               )}
+
+              {/* Free Seva: who receives it (required) and the occasion (optional), filled in with the mobile */}
+              {type === 'free' && (
+                <div className="mt-3 space-y-3 rounded-xl border border-green-200 bg-green-50/50 p-3">
+                  <div>
+                    <label htmlFor="mp-name" className="block text-xs font-semibold text-green-800 uppercase tracking-widest mb-1.5">
+                      {t('Devotee’s name')} <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      id="mp-name" ref={nameRef} type="text" autoComplete="off" autoCapitalize="words" enterKeyHint="next" maxLength={80}
+                      value={devoteeName} aria-invalid={nameError} placeholder={t('Full name')}
+                      onChange={(e) => { setDevoteeName(e.target.value); setNameError(false); }}
+                      className={`input h-11 text-base font-semibold ${nameError ? 'border-red-400 bg-red-50 focus:border-red-500 focus:ring-red-500' : ''}`}
+                    />
+                    {nameError && (
+                      <p className="text-xs text-red-600 flex items-center gap-1 mt-1.5"><AlertTriangle className="h-3 w-3" /> {t('Enter the devotee’s name for Free Seva')}</p>
+                    )}
+                  </div>
+                  <div className="space-y-2">
+                    <label htmlFor="mp-occasion" className="block text-xs font-semibold text-green-800 uppercase tracking-widest">{t('Occasion')}</label>
+                    {occasions.length > 0 ? (
+                      <>
+                        <select id="mp-occasion" value={occasionPreset}
+                          onChange={(e) => { setOccasionPreset(e.target.value); setOccasionCustom(''); }}
+                          className="input h-11 text-sm">
+                          <option value="">{t('Occasion (optional)…')}</option>
+                          {occasions.map((o) => <option key={o._id} value={o.name}>{o.name}</option>)}
+                          <option value="__other__">{t('Other…')}</option>
+                        </select>
+                        {occasionPreset === '__other__' && (
+                          <input value={occasionCustom} onChange={(e) => setOccasionCustom(e.target.value)}
+                            className="input text-sm" placeholder={t('Describe the occasion…')} />
+                        )}
+                      </>
+                    ) : (
+                      <input id="mp-occasion" value={occasionCustom} onChange={(e) => setOccasionCustom(e.target.value)}
+                        className="input h-11 text-sm" placeholder={t('Occasion (optional)…')} />
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Quantity */}
@@ -1051,7 +1107,7 @@ export default function MahaprasadCounter() {
                     </p>
                   </div>
                 </button>
-                <button type="button" onClick={() => setType('free')}
+                <button type="button" onClick={() => { setType('free'); setTimeout(() => nameRef.current?.focus(), 50); }}
                   className={`flex items-center gap-3 p-3 rounded-xl border-2 transition-all text-left ${
                     type === 'free' ? 'border-green-400 bg-green-50' : 'border-gray-100 text-gray-400 hover:border-gray-300'
                   }`}>
@@ -1063,28 +1119,9 @@ export default function MahaprasadCounter() {
                 </button>
               </div>
 
-              {/* Occasion selector — free only */}
+              {/* Free Seva's name and occasion are filled in under the mobile number, above */}
               {type === 'free' && (
-                <div className="mt-3 space-y-2">
-                  {occasions.length > 0 ? (
-                    <>
-                      <select value={occasionPreset}
-                        onChange={(e) => { setOccasionPreset(e.target.value); setOccasionCustom(''); }}
-                        className="input text-sm">
-                        <option value="">{t('Occasion (optional)…')}</option>
-                        {occasions.map((o) => <option key={o._id} value={o.name}>{o.name}</option>)}
-                        <option value="__other__">{t('Other…')}</option>
-                      </select>
-                      {occasionPreset === '__other__' && (
-                        <input value={occasionCustom} onChange={(e) => setOccasionCustom(e.target.value)}
-                          className="input text-sm" placeholder={t('Describe the occasion…')} />
-                      )}
-                    </>
-                  ) : (
-                    <input value={occasionCustom} onChange={(e) => setOccasionCustom(e.target.value)}
-                      className="input text-sm" placeholder={t('Occasion (optional)…')} />
-                  )}
-                </div>
+                <p className="mt-2 text-xs text-green-700">{t('Fill in the devotee’s name (and occasion) under the mobile number, above.')}</p>
               )}
             </div>
 

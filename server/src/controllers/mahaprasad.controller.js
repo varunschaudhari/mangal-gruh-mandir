@@ -83,8 +83,9 @@ function refuseUnredeemable(coupon) {
 export const issueCoupons = asyncHandler(async (req, res) => {
   const {
     quantity = 1, type = 'paid', occasion = '', date, isGroup = false,
-    paymentMode = 'cash', amountReceived = 0, receivedNotes = [], mobile,
+    paymentMode = 'cash', amountReceived = 0, receivedNotes = [], mobile, name = '',
   } = req.body;
+  const devoteeName = type === 'free' ? String(name || '').trim() : '';   // asked for Free Seva
 
   const qty        = Math.min(Math.max(1, parseInt(quantity) || 1), 200);
   const groupSize  = isGroup ? qty : 1;   // persons per coupon document
@@ -122,6 +123,7 @@ export const issueCoupons = asyncHandler(async (req, res) => {
       amount:       isGroup ? price * groupSize : price,  // total amount for group
       occasion:     type === 'free' ? (occasion || '') : '',
       mobile,
+      name:         devoteeName,
       status:       'issued',
       issuedBy:     req.user._id,
       issuedAt:     new Date(),
@@ -208,7 +210,7 @@ export const issueCoupons = asyncHandler(async (req, res) => {
       .catch((err) => logger.error('Mahaprasad: cash drawer not updated', { batchId, error: err.message }));
   }
 
-  logAction(req, { action: 'mahaprasad.issue', entity: 'MahaprasadCoupon', entityId: batchId, entityRef: coupons[0]._id, after: { qty, type, isGroup: Boolean(isGroup), groupSize, date: localDateStr(couponDate), occasion: type === 'free' ? occasion : undefined, mobile, amount: paid ? totalDue : 0, paymentMode: paid ? mode : undefined } });
+  logAction(req, { action: 'mahaprasad.issue', entity: 'MahaprasadCoupon', entityId: batchId, entityRef: coupons[0]._id, after: { qty, type, isGroup: Boolean(isGroup), groupSize, date: localDateStr(couponDate), occasion: type === 'free' ? occasion : undefined, name: devoteeName || undefined, mobile, amount: paid ? totalDue : 0, paymentMode: paid ? mode : undefined } });
   // Coupon numbers to the devotee's phone, in the background (only when WhatsApp / SMS is set up for it).
   const shareUrl = couponPageUrl(shareToken);
   sendCouponMessage({ mobile, numbers, date: couponDate, persons: qty, link: shareUrl, image: couponImageUrl(shareToken) });
@@ -275,12 +277,14 @@ export const getCoupons = asyncHandler(async (req, res) => {
   // Numbers held for offline sale (reserved) aren't coupons yet — never listed
   filter.status = status || { $ne: 'reserved' };
   if (type)   filter.type   = type;
-  // Search by coupon number, or by the devotee's mobile number (4+ digits)
+  // Search by coupon number, the devotee's mobile number (4+ digits) or name (Free Seva)
   if (search) {
     const s = String(search).trim();
     const digits = s.replace(/\D/g, '');
-    const or = [{ couponNumber: { $regex: s.toUpperCase().replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), $options: 'i' } }];
+    const escaped = s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const or = [{ couponNumber: { $regex: escaped.toUpperCase(), $options: 'i' } }];
     if (digits.length >= 4 && !/^MP/i.test(s)) or.push({ mobile: { $regex: digits.slice(-10) } });
+    if (/\p{L}/u.test(s) && !/^MP-?\d/i.test(s)) or.push({ name: { $regex: escaped, $options: 'i' } });
     filter.$or = or;
   }
 
@@ -363,6 +367,7 @@ export const getBatches = asyncHandler(async (req, res) => {
       type:       { $first: '$type' },
       occasion:   { $first: '$occasion' },
       mobile:     { $first: '$mobile' },
+      name:       { $first: '$name' },
       issuedAt:   { $first: '$issuedAt' },
       issuedById: { $first: '$issuedBy' },
       numbers:    { $push: '$couponNumber' },
@@ -632,7 +637,7 @@ export const getReport = asyncHandler(async (req, res) => {
     if (to)   { const e = new Date(to);   e.setHours(23,59,59,999); filter.date.$lte = e; }
   }
 
-  const [rows, occasionRows, settings] = await Promise.all([
+  const [rows, occasionRows, settings, freeRows] = await Promise.all([
     MahaprasadCoupon.aggregate([
       { $match: { ...filter, status: { $nin: NOT_SOLD } } },
       { $group: {
@@ -653,7 +658,28 @@ export const getReport = asyncHandler(async (req, res) => {
       { $sort: { count: -1 } },
     ]),
     Settings.getOrCreate(),
+    // Free Seva, one row per issue: who received it, for what, how many persons (latest 500)
+    MahaprasadCoupon.aggregate([
+      { $match: { ...filter, status: { $nin: NOT_SOLD }, type: 'free' } },
+      { $group: {
+        _id:      '$batchId',
+        name:     { $first: '$name' },
+        mobile:   { $first: '$mobile' },
+        occasion: { $first: '$occasion' },
+        date:     { $first: '$date' },
+        issuedAt: { $first: '$issuedAt' },
+        issuedBy: { $first: '$issuedBy' },
+        persons:  { $sum: GS },
+        redeemed: { $sum: { $cond: [{ $eq: ['$status', 'redeemed'] }, GS, 0] } },
+      } },
+      { $sort: { issuedAt: -1 } },
+      { $limit: 500 },
+    ]),
   ]);
+  const freeStaff = await (await import('../models/User.js')).default
+    .find({ _id: { $in: [...new Set(freeRows.map((r) => r.issuedBy?.toString()).filter(Boolean))] } }).select('name').lean();
+  const freeStaffName = Object.fromEntries(freeStaff.map((u) => [u._id.toString(), u.name]));
+  const freeSeva = freeRows.map(({ _id, issuedBy, ...r }) => ({ ...r, batchId: _id, issuedBy: issuedBy ? freeStaffName[issuedBy.toString()] || '—' : '' }));
 
   const totals = rows.reduce(
     (acc, r) => ({
@@ -671,6 +697,7 @@ export const getReport = asyncHandler(async (req, res) => {
     rows,
     totals,
     occasionBreakdown: occasionRows,
+    freeSeva,
     dayPricing: settings.mahaprasadDayPricing,
   }));
 });
@@ -855,6 +882,7 @@ export const syncOffline = asyncHandler(async (req, res) => {
         status: 'issued', type, amount, issuedAt, batchId,
         occasion: type === 'free' ? (item.occasion || '') : '',
         mobile:   item.mobile || '',
+        name:     type === 'free' ? String(item.name || '').trim() : '',
         groupSize: 1, isGroup: false, shareToken: linkFor(batchId),
       } },
     );

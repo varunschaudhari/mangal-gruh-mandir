@@ -7,6 +7,7 @@ const mahaprasadCouponSchema = new mongoose.Schema({
   amount:       { type: Number, default: 0, min: 0 },
   occasion:     { type: String, default: '' },
   mobile:       { type: String, default: '', index: true },  // devotee's mobile, one per issue (all coupons of the batch)
+  name:         { type: String, default: '' },               // devotee's name — asked for Free Seva (one per issue)
   status:       { type: String, enum: ['issued', 'redeemed', 'reserved', 'voided'], default: 'issued', index: true },
   // Sold at a counter, or bought by the devotee on the public page (MahaprasadOrder) — then no staff issued it
   channel:      { type: String, enum: ['counter', 'online'], default: 'counter' },

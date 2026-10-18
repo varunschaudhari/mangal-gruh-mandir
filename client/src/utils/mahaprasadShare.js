@@ -18,10 +18,11 @@ export function couponListText(numbers = []) {
  * The message: coupon numbers, date and number of persons (in WhatsApp bold, for the food counter
  * to read) — and `link`, the page with the coupons' QR (/m/<token>) to scan off the phone.
  */
-export function couponWhatsAppText({ numbers = [], date, persons, link }) {
+export function couponWhatsAppText({ numbers = [], date, persons, link, name }) {
   const when = new Date(date || Date.now()).toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
   const people = persons || numbers.length;
-  return `Namaste! Your Mahaprasad coupon${numbers.length > 1 ? 's' : ''} at Shri Mangal Grah Mandir, Amalner for ${when}:`
+  // Free Seva has the devotee's name: greet them by it
+  return `Namaste${name?.trim() ? ` ${name.trim()}` : ''}! Your Mahaprasad coupon${numbers.length > 1 ? 's' : ''} at Shri Mangal Grah Mandir, Amalner for ${when}:`
     + `\n${couponListText(numbers)} · *${people} ${people === 1 ? 'person' : 'persons'}*`
     + (link ? `\nYour coupon QR: ${link}\nPlease show it at the Mahaprasad hall.` : '\nPlease show this at the Mahaprasad hall.');
 }
