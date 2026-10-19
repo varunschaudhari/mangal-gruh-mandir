@@ -87,6 +87,15 @@ function computeChange(amount, counts) {
   return { canMakeExact: remaining === 0, shortBy: remaining };
 }
 
+// ── Opening float notes ───────────────────────────────────────────────────────
+// A note dismissed on this counter stays dismissed for that day (kept on the device)
+const flagKey = (name, day) => `mgm-float-${name}-${day}`;
+const dayFlag = (name, day) => { try { return localStorage.getItem(flagKey(name, day)) === '1'; } catch { return false; } };
+const setDayFlag = (name, day) => { try { localStorage.setItem(flagKey(name, day), '1'); } catch { /* not kept */ } };
+// 'YYYYMMDD' → "18 Oct"
+const dayKeyText = (k) => new Date(`${k.slice(0, 4)}-${k.slice(4, 6)}-${k.slice(6, 8)}T00:00:00`)
+  .toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+
 // ── Batches section ───────────────────────────────────────────────────────────
 function BatchesSection({ date, onPdfPrint, printing, onVoid }) {
   const t = useT();
@@ -209,7 +218,9 @@ export default function MahaprasadCounter() {
   const [lastIssuedBatch,  setLastIssuedBatch]  = useState(null);  // persists after auto-reset
   const [showShiftSummary, setShowShiftSummary] = useState(false);
   const [printQueue,       setPrintQueue]       = useState([]);    // coupons that failed to print, awaiting retry
-  const [floatSkipped,     setFloatSkipped]     = useState(false); // user dismissed the float reminder for this session
+  // The float notes, once dismissed on this counter, stay away for the rest of that day
+  const [floatSkipped,     setFloatSkipped]     = useState(() => dayFlag('later', date));   // "Remind me later"
+  const [carryChecked,     setCarryChecked]     = useState(() => dayFlag('carry-ok', date)); // "It's right"
   const [printerStatus,       setPrinterStatus]       = useState(null);  // null | 'checking' | 'ok' | string
   const [electronPrinterName, setElectronPrinterName] = useState('');
   const [shiftCopied,         setShiftCopied]         = useState(false);
@@ -261,12 +272,15 @@ export default function MahaprasadCounter() {
   });
   const drawerCounts = drawerData?.data?.data?.counts || {};
   const isFloatSet   = drawerData?.data?.data?.isFloatSet ?? true; // default true to avoid false flash before data loads
+  // The day started with the last closing cash, carried over by the server — for the counter to check
+  const carriedFrom  = drawerData?.data?.data?.carriedFrom || null;
+  const carriedTotal = Object.entries(drawerData?.data?.data?.openingCounts || {}).reduce((s, [d, n]) => s + Number(d) * (Number(n) || 0), 0);
   const myCount      = summary.myCount ?? 0;
   const myCash       = summary.myCash  ?? 0;
   const myUpi        = summary.myUpi   ?? 0;
 
-  // Reset float-skipped state when the date changes (new day = new reminder)
-  useEffect(() => { setFloatSkipped(false); }, [date]);
+  // Another date: its own reminders (each kept for that day on this counter)
+  useEffect(() => { setFloatSkipped(dayFlag('later', date)); setCarryChecked(dayFlag('carry-ok', date)); }, [date]);
 
   // In Electron, printing is always "ready" (no QZ Tray required)
   useEffect(() => { setQzReady(window.electronAPI?.isElectron || isConnected()); }, []);
@@ -915,10 +929,37 @@ export default function MahaprasadCounter() {
               <Vault className="h-4 w-4" /> {t('Set Opening Float')}
             </button>
           </div>
-          <button onClick={() => setFloatSkipped(true)} title={t('Remind me later')} aria-label={t('Remind me later')}
+          <button onClick={() => { setFloatSkipped(true); setDayFlag('later', date); }} title={t('Remind me later')} aria-label={t('Remind me later')}
             className="text-amber-400 hover:text-amber-700 shrink-0 mt-0.5 transition-colors max-sm:p-3 max-sm:-m-3">
             <X className="h-4 w-4" />
           </button>
+        </div>
+      )}
+
+      {/* ── Float carried over from the last closing: check it once ─────────── */}
+      {isToday && drawerData && isFloatSet && carriedFrom && !carryChecked && (
+        <div className="card border border-blue-200 bg-blue-50 px-4 sm:px-5 py-3 flex flex-wrap items-center gap-x-4 gap-y-2">
+          <Vault className="h-5 w-5 text-blue-600 shrink-0" />
+          <div className="flex-1 min-w-[12rem]">
+            <p className="text-sm font-semibold text-blue-900">
+              {t('Opening float carried over from {date}: ₹{amount}', { date: dayKeyText(carriedFrom), amount: carriedTotal.toLocaleString('en-IN') })}
+            </p>
+            <p className="text-xs text-blue-700">{t('That was the cash in the drawer at closing. If cash was taken out or added since, correct it.')}</p>
+          </div>
+          <div className="flex gap-2 max-sm:w-full max-sm:[&>*]:flex-1">
+            <button
+              onClick={() => {
+                cashDrawerRef.current?.openFloatForm();
+                setTimeout(() => cashDrawerElRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
+              }}
+              className="btn btn-ghost border border-blue-200 bg-white text-sm px-3 py-1.5 max-sm:py-2.5">
+              {t('Correct it')}
+            </button>
+            <button onClick={() => { setCarryChecked(true); setDayFlag('carry-ok', date); }}
+              className="btn bg-blue-600 hover:bg-blue-700 text-white text-sm px-3 py-1.5 max-sm:py-2.5">
+              {t('It’s right')}
+            </button>
+          </div>
         </div>
       )}
 

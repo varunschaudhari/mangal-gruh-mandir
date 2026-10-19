@@ -46,10 +46,24 @@ function computeChange(amount, counts) {
   return { breakdown, canMakeExact: remaining === 0, shortBy: remaining };
 }
 
+// A day's cash drawer. Today's (or a later day's), when first opened, starts with the cash the
+// drawer closed with on the last earlier day that had an opening float — so the float carries over
+// by itself and the counter only corrects it if cash was taken out or added (carriedFrom marks it).
+// Earlier days opened only to look at them start empty, as before.
 async function getOrCreateDrawer(dateStr) {
+  const existing = await MahaprasadCashDrawer.findOne({ date: dateStr });
+  if (existing) return existing;
+  let start = { counts: { ...EMPTY_COUNTS } };
+  if (dateStr >= datePart()) {
+    const last = await MahaprasadCashDrawer.findOne({ date: { $lt: dateStr }, isFloatSet: true }).sort({ date: -1 }).lean();
+    if (last) {
+      const closing = Object.fromEntries(DRAWER_DENOMS.map((d) => [String(d), Math.max(0, Number(last.counts?.[String(d)]) || 0)]));
+      start = { counts: closing, openingCounts: closing, isFloatSet: true, carriedFrom: last.date, openedAt: new Date() };
+    }
+  }
   return MahaprasadCashDrawer.findOneAndUpdate(
     { date: dateStr },
-    { $setOnInsert: { counts: { ...EMPTY_COUNTS } } },
+    { $setOnInsert: start },
     { upsert: true, returnDocument: 'after' },
   );
 }
@@ -971,7 +985,8 @@ export const setOpeningFloat = asyncHandler(async (req, res) => {
 
   const drawer = await MahaprasadCashDrawer.findOneAndUpdate(
     { date: dateStr },
-    { $set: { counts: safeCounts, openingCounts: safeCounts, isFloatSet: true, openedBy: req.user._id, openedAt: new Date() } },
+    // Counted by hand now, so no longer "carried over"
+    { $set: { counts: safeCounts, openingCounts: safeCounts, isFloatSet: true, openedBy: req.user._id, openedAt: new Date() }, $unset: { carriedFrom: 1 } },
     { upsert: true, returnDocument: 'after' },
   );
 

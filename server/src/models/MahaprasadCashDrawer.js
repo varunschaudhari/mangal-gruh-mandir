@@ -9,6 +9,9 @@ const mahaprasadCashDrawerSchema = new mongoose.Schema({
   receivedCounts:{ type: Object, default: () => ({ '1': 0, '2': 0, '5': 0, '10': 0, '20': 0, '50': 0, '100': 0, '500': 0 }) },
   changeCounts:  { type: Object, default: () => ({ '1': 0, '2': 0, '5': 0, '10': 0, '20': 0, '50': 0, '100': 0, '500': 0 }) },
   isFloatSet:    { type: Boolean, default: false },
+  // 'YYYYMMDD' when the day started with that day's closing cash, carried over automatically —
+  // shown to the counter to check; cleared once someone sets the float by hand
+  carriedFrom:   { type: String },
   openedBy:      { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   openedAt:      { type: Date },
 }, { timestamps: true });

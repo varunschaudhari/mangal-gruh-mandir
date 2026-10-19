@@ -412,4 +412,11 @@ export default {
   '{n} person': '{n} व्यक्ती',
   'Max persons per day — also the day’s total on the Mahaprasad dashboard and TV (0 = no limit)':
     'दररोज कमाल व्यक्ती — महाप्रसाद डॅशबोर्ड आणि TV वर हेच दिवसाचे एकूण (0 = मर्यादा नाही)',
+  // ── Opening float carried over ───────────────────────────────────────────
+  'Opening float carried over from {date}: ₹{amount}': '{date} पासून पुढे आणलेली सुरुवातीची रोकड: ₹{amount}',
+  'That was the cash in the drawer at closing. If cash was taken out or added since, correct it.':
+    'बंद करताना गल्ल्यात इतकी रोकड होती. त्यानंतर रोकड काढली किंवा टाकली असल्यास दुरुस्त करा.',
+  'Correct it': 'दुरुस्त करा',
+  'It’s right': 'बरोबर आहे',
+  'Carried over': 'पुढे आणलेली',
 };

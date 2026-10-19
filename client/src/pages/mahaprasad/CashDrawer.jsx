@@ -123,6 +123,11 @@ const CashDrawer = forwardRef(function CashDrawer({ date }, ref) {
               {t('Float not set')}
             </span>
           )}
+          {drawer?.isFloatSet && drawer?.carriedFrom && (
+            <span className="text-xs font-normal text-blue-700 bg-blue-50 border border-blue-200 px-1.5 py-0.5 rounded">
+              {t('Carried over')}
+            </span>
+          )}
         </span>
         <span className="flex items-center gap-3 shrink-0">
           <span className={`text-base font-black ${total > 0 ? 'text-green-700' : 'text-gray-400'}`}>

@@ -401,6 +401,24 @@ async function mahaprasadChecks(api, today) {
   const theirs = (await issue(counter2, { type: 'free' })).body.data.batchId;
   check((await admin('PATCH', `/mahaprasad/batches/${theirs}/void`, { reason: 'Admin correction' })).status === 200, 'an admin (mahaprasad:void) can cancel anyone\'s sale');
 
+  // Opening float carries over: a new day starts with the last closing cash, for the counter to check.
+  // Days well ahead, so today's drawer is untouched.
+  const ahead = (n) => { const d = new Date(); d.setDate(d.getDate() + n); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
+  const key = (day) => day.replace(/-/g, '');
+  const drawerOn = async (day) => (await counter('GET', `/mahaprasad/cash-drawer?date=${day}`)).body.data;
+  await counter('PUT', '/mahaprasad/cash-drawer/float', { date: ahead(40), counts: { 500: 2, 100: 5, 10: 10 } });
+  await counter('PATCH', '/mahaprasad/cash-drawer/adjust', { date: ahead(40), denomination: 100, delta: 3 });   // the day's takings
+  const nextDay = await drawerOn(ahead(41));
+  check(nextDay?.isFloatSet && nextDay.carriedFrom === key(ahead(40)) && nextDay.counts['100'] === 8 && nextDay.counts['500'] === 2 && nextDay.total === 1900,
+    'a new day starts with the last closing cash (₹1,900, not the morning\'s ₹1,600), marked as carried over',
+    JSON.stringify(nextDay && { set: nextDay.isFloatSet, from: nextDay.carriedFrom, total: nextDay.total }));
+  check((await drawerOn(ahead(42))).carriedFrom === key(ahead(41)), '…and keeps carrying day after day');
+  await counter('PUT', '/mahaprasad/cash-drawer/float', { date: ahead(42), counts: { 500: 1 } });
+  const corrected = await drawerOn(ahead(42));
+  check(corrected.isFloatSet && !corrected.carriedFrom && corrected.total === 500, 'correcting the float by hand clears the "carried over" mark');
+  const lookBack = await drawerOn('2020-01-01');
+  check(lookBack.isFloatSet === false && !lookBack.carriedFrom, 'an old day opened only to look at it is not filled in');
+
   // Daily limit under four parallel issues with room for three
   const now = (await summary()).total;
   await api('PUT', '/settings', { mahaprasadDailyCap: now + 3 });
