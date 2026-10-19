@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
   History, RefreshCw, Printer, Search,
@@ -32,7 +32,9 @@ const ROW_BG = {
 
 // ── Compact summary pill ──────────────────────────────────────────────────────
 
-function SumPill({ icon: Icon, label, value, color }) {
+// value is persons; coupons (the slips) is shown beside it when group coupons make it differ
+function SumPill({ icon: Icon, label, value, coupons, color }) {
+  const t = useT();
   const colors = {
     green:  'text-green-700 bg-green-50 border-green-200',
     amber:  'text-amber-700 bg-amber-50 border-amber-200',
@@ -45,6 +47,9 @@ function SumPill({ icon: Icon, label, value, color }) {
       <Icon className="h-3.5 w-3.5" />
       <span>{label}:</span>
       <span>{value}</span>
+      {coupons != null && coupons !== value && (
+        <span className="font-normal opacity-75">({t('{n} coupons', { n: coupons })})</span>
+      )}
     </div>
   );
 }
@@ -81,16 +86,8 @@ export default function MahaprasadHistory() {
   const coupons = res.coupons || [];
   const total   = res.total   || 0;
   const pages   = res.pages   || 1;
-
-  // Compute summary from current page's coupons
-  const summary = useMemo(() => coupons.reduce((acc, c) => {
-    acc.total++;
-    if (c.status === 'redeemed')  acc.redeemed++;
-    else                           acc.pending++;
-    if (c.type === 'paid') { acc.paid++; acc.collected += (c.amount || 0); }
-    if (c.type === 'free') acc.free++;
-    return acc;
-  }, { total: 0, redeemed: 0, pending: 0, paid: 0, free: 0, collected: 0 }), [coupons]);
+  // Totals for everything the filters match (every page), in persons like the Report
+  const summary = res.summary;
 
   const handleReprint = async (coupon) => {
     setPrinting(true);
@@ -182,12 +179,12 @@ export default function MahaprasadHistory() {
         </div>
 
         {/* Summary pills — only when data loaded */}
-        {!isLoading && coupons.length > 0 && (
+        {!isLoading && coupons.length > 0 && summary && (
           <div className="flex flex-wrap items-center gap-2 pt-1">
-            <SumPill icon={CheckCircle2} label={t('Redeemed')} value={summary.redeemed} color="green" />
-            <SumPill icon={Clock}        label={t('Pending')}  value={summary.pending}  color="amber" />
-            <SumPill icon={IndianRupee}  label={t('Paid|coupon')}     value={summary.paid}     color="blue" />
-            <SumPill icon={Gift}         label={t('Free')}     value={summary.free}     color="purple" />
+            <SumPill icon={CheckCircle2} label={t('Redeemed')}    value={summary.redeemed} coupons={summary.redeemedCoupons} color="green" />
+            <SumPill icon={Clock}        label={t('Pending')}     value={summary.pending}  coupons={summary.pendingCoupons}  color="amber" />
+            <SumPill icon={IndianRupee}  label={t('Paid|coupon')} value={summary.paid}     coupons={summary.paidCoupons}     color="blue" />
+            <SumPill icon={Gift}         label={t('Free')}        value={summary.free}     coupons={summary.freeCoupons}     color="purple" />
             {summary.collected > 0 && (
               <SumPill icon={IndianRupee} label={t('Collected')} value={`₹${summary.collected.toLocaleString('en-IN')}`} color="green" />
             )}

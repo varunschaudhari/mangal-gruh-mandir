@@ -305,7 +305,12 @@ export const getCoupons = asyncHandler(async (req, res) => {
   const skip = (Math.max(1, parseInt(page)) - 1) * Math.min(100, parseInt(limit) || 50);
   const lim  = Math.min(100, parseInt(limit) || 50);
 
-  const [coupons, total] = await Promise.all([
+  // Totals for the summary above the list: every page, persons counted like the Report (a group
+  // coupon for 5 counts as 5, the slips counted too); voided coupons are listed but not counted
+  const isPaid = { $eq: ['$type', 'paid'] };
+  const isFree = { $eq: ['$type', 'free'] };
+  const isRedeemed = { $eq: ['$status', 'redeemed'] };
+  const [coupons, total, summaryAgg] = await Promise.all([
     MahaprasadCoupon.find(filter)
       .populate('issuedBy',   'name')
       .populate('redeemedBy', 'name')
@@ -313,11 +318,32 @@ export const getCoupons = asyncHandler(async (req, res) => {
       .skip(skip).limit(lim)
       .lean(),
     MahaprasadCoupon.countDocuments(filter),
+    MahaprasadCoupon.aggregate([
+      { $match: { ...filter, status: status || { $nin: NOT_SOLD } } },
+      { $group: {
+        _id:             null,
+        persons:         { $sum: GS },
+        coupons:         { $sum: 1 },
+        redeemed:        { $sum: { $cond: [isRedeemed, GS, 0] } },
+        redeemedCoupons: { $sum: { $cond: [isRedeemed, 1, 0] } },
+        paid:            { $sum: { $cond: [isPaid, GS, 0] } },
+        paidCoupons:     { $sum: { $cond: [isPaid, 1, 0] } },
+        free:            { $sum: { $cond: [isFree, GS, 0] } },
+        freeCoupons:     { $sum: { $cond: [isFree, 1, 0] } },
+        collected:       { $sum: { $cond: [isPaid, { $ifNull: ['$amount', 0] }, 0] } },
+      }},
+    ]),
   ]);
   // Bought on the public page: no staff issued it
   for (const c of coupons) if (c.channel === 'online' && !c.issuedBy) c.issuedBy = ONLINE_ISSUER;
 
-  res.json(new ApiResponse(200, { coupons, total, page: parseInt(page), pages: Math.ceil(total / lim) }));
+  const s = summaryAgg[0] || {};
+  const summary = Object.fromEntries(['persons', 'coupons', 'redeemed', 'redeemedCoupons', 'paid', 'paidCoupons', 'free', 'freeCoupons', 'collected']
+    .map((k) => [k, s[k] || 0]));
+  summary.pending        = summary.persons - summary.redeemed;
+  summary.pendingCoupons = summary.coupons - summary.redeemedCoupons;
+
+  res.json(new ApiResponse(200, { coupons, total, page: parseInt(page), pages: Math.ceil(total / lim), summary }));
 });
 
 // GET /mahaprasad/lookup/:number
