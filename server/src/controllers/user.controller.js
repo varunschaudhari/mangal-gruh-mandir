@@ -7,6 +7,7 @@ import ApiResponse from '../utils/ApiResponse.js';
 import asyncHandler from '../utils/asyncHandler.js';
 import { logAction } from '../services/audit.service.js';
 import { endAllSessions } from '../services/session.service.js';
+import { OWNED_BY_USER, userHistory } from '../services/userHistory.service.js';
 import { profileFor, saveStaffProfile, validateProfile } from '../services/staffProfile.service.js';
 
 // Department ids only — a form can send `false` or a single value for an empty checkbox group
@@ -16,6 +17,12 @@ const departmentIds = (v) => [].concat(v || []).filter((d) => mongoose.isValidOb
 // that leaves one out must not blank it.
 const EDITABLE = ['name', 'phone', 'role', 'departments', 'isActive', 'whatsappAlertsEnabled', 'smsAlertsEnabled', 'canApproveAssets', 'canApprovePayments'];
 const BOOLEANS = ['isActive', 'whatsappAlertsEnabled', 'smsAlertsEnabled', 'canApproveAssets', 'canApprovePayments'];
+
+// The trust must always have an active super admin, or nobody could manage logins again
+async function keepOneSuperAdmin(target) {
+  const others = await User.countDocuments({ role: 'super_admin', isActive: true, _id: { $ne: target._id } });
+  if (!others) throw new ApiError(400, 'This is the only active super admin — make someone else super admin first');
+}
 
 function userChanges(body, target) {
   const out = {};
@@ -116,6 +123,11 @@ export const updateUser = asyncHandler(async (req, res) => {
   if (changes.role && changes.role !== target.role && !(await Role.exists({ slug: changes.role }))) {
     throw new ApiError(400, `Unknown role "${changes.role}"`);
   }
+  if (target._id.equals(req.user._id) && changes.isActive === false) {
+    throw new ApiError(400, 'You can’t deactivate your own login');
+  }
+  const losesSuperAdmin = changes.isActive === false || (changes.role && changes.role !== 'super_admin');
+  if (target.role === 'super_admin' && target.isActive && losesSuperAdmin) await keepOneSuperAdmin(target);
   await validateProfile(req, target, staffProfile, { nextActive: changes.isActive ?? target.isActive });
 
   const before = { role: target.role, isActive: target.isActive, canApprovePayments: target.canApprovePayments, canApproveAssets: target.canApproveAssets };
@@ -156,4 +168,36 @@ export const resetUserPassword = asyncHandler(async (req, res) => {
     entityId: user.email, entityRef: user._id,
   });
   res.json(new ApiResponse(200, null, 'Password reset successfully'));
+});
+
+// Only a super admin deletes logins, never their own, and only one that has done nothing in the
+// app (userHistory) — anyone else is deactivated, so old records still show who did what.
+async function deletable(req) {
+  if (req.user.role !== 'super_admin') throw new ApiError(403, 'Only a super admin can delete a login');
+  const user = await User.findById(req.params.id);
+  if (!user) throw new ApiError(404, 'User not found');
+  if (user._id.equals(req.user._id)) throw new ApiError(400, 'You can’t delete your own login');
+  return { user, records: await userHistory(user._id) };
+}
+
+// GET /users/:id/delete-check — what the Delete box shows before anything is removed
+export const getDeleteCheck = asyncHandler(async (req, res) => {
+  const { records } = await deletable(req);
+  res.json(new ApiResponse(200, { canDelete: !records.length, records }));
+});
+
+export const deleteUser = asyncHandler(async (req, res) => {
+  const { user, records } = await deletable(req);
+  if (records.length) {
+    throw new ApiError(409, `${user.name} has records in the app (${records.join(', ')}) — deactivate the login instead`);
+  }
+  // Its sign-ins and push tokens go with it
+  await Promise.all(OWNED_BY_USER.filter((name) => mongoose.modelNames().includes(name))
+    .map((name) => mongoose.model(name).deleteMany({ user: user._id })));
+  await user.deleteOne();
+  logAction(req, {
+    action: 'user.delete', entity: 'User', entityId: user.email, entityRef: user._id,
+    before: { name: user.name, email: user.email, role: user.role },
+  });
+  res.json(new ApiResponse(200, null, 'Login deleted'));
 });

@@ -21,14 +21,28 @@ const fmt   = (d) => d ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit
 const fmtTs = (d) => d ? new Date(d).toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : '—';
 const today = () => localDateStr();
 
-const STATUS_V = { issued: 'yellow', redeemed: 'green' };
+const STATUS_V     = { issued: 'yellow', redeemed: 'green', voided: 'red' };
+const STATUS_LABEL = { issued: 'Pending', redeemed: 'Redeemed', voided: 'Voided' };
 const TYPE_V   = { paid: 'blue', free: 'purple' };
+// People on a coupon — a group coupon for 5 is 5
+const persons = (c) => c.groupSize || 1;
 
 // Row background by status
 const ROW_BG = {
   redeemed: 'bg-green-50/60 hover:bg-green-50',
   issued:   'bg-amber-50/30 hover:bg-amber-50/60',
+  voided:   'bg-gray-50 text-gray-400',
 };
+
+// "5 persons" beside the coupon number — every coupon, single ones too
+function PersonsPill({ n }) {
+  const t = useT();
+  return (
+    <span className="inline-flex items-baseline gap-1 rounded-full bg-purple-50 border border-purple-200 px-2 py-0.5 text-xs font-semibold text-purple-700 whitespace-nowrap">
+      <span className="tabular-nums">{n}</span> {t(n === 1 ? 'person|count' : 'persons|count')}
+    </span>
+  );
+}
 
 // ── Compact summary pill ──────────────────────────────────────────────────────
 
@@ -108,8 +122,9 @@ export default function MahaprasadHistory() {
         Occasion:        c.occasion || '',
         Name:            c.name || '',
         Mobile:          c.mobile || '',
+        Persons:         persons(c),
         Amount:          c.type === 'paid' ? c.amount : 0,
-        Status:          c.status === 'redeemed' ? 'Redeemed' : 'Issued',
+        Status:          c.status === 'redeemed' ? 'Redeemed' : c.status === 'voided' ? 'Voided' : 'Issued',
         'Issued By':     c.issuedBy?.name || '',
         'Redeemed At':   c.redeemedAt ? fmtTs(c.redeemedAt) : '',
         'Redeemed By':   c.redeemedBy?.name || '',
@@ -211,19 +226,26 @@ export default function MahaprasadHistory() {
           {coupons.map((c) => (
             <MobileCard
               key={c._id}
-              className={c.status === 'redeemed' ? 'border-green-100' : ''}
-              title={<span className="font-mono font-semibold text-sm">{c.couponNumber}</span>}
+              className={c.status === 'redeemed' ? 'border-green-100' : c.status === 'voided' ? 'opacity-70' : ''}
+              title={
+                <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                  <span className={`font-mono font-semibold text-sm ${c.status === 'voided' ? 'line-through' : ''}`}>{c.couponNumber}</span>
+                  <PersonsPill n={persons(c)} />
+                </span>
+              }
               subtitle={[fmt(c.date), c.name, c.mobile, c.issuedBy?.name].filter(Boolean).join(' · ')}
               aside={
                 <>
                   <Badge variant={STATUS_V[c.status]} size="sm">
-                    {c.status === 'redeemed' ? t('Redeemed') : t('Pending')}
+                    {t(STATUS_LABEL[c.status] || 'Pending')}
                   </Badge>
-                  <button onClick={() => handleReprint(c)} disabled={printing}
-                    aria-label={isNative ? t('Share or print PDF') : t('Reprint')}
-                    className="-my-1.5 -mr-1.5 p-2.5 rounded-lg text-gray-400 active:bg-gray-100 disabled:opacity-40">
-                    {isNative ? <Share2 className="h-[18px] w-[18px]" /> : <Printer className="h-[18px] w-[18px]" />}
-                  </button>
+                  {c.status !== 'voided' && (
+                    <button onClick={() => handleReprint(c)} disabled={printing}
+                      aria-label={isNative ? t('Share or print PDF') : t('Reprint')}
+                      className="-my-1.5 -mr-1.5 p-2.5 rounded-lg text-gray-400 active:bg-gray-100 disabled:opacity-40">
+                      {isNative ? <Share2 className="h-[18px] w-[18px]" /> : <Printer className="h-[18px] w-[18px]" />}
+                    </button>
+                  )}
                 </>
               }
               fields={[
@@ -233,6 +255,11 @@ export default function MahaprasadHistory() {
                   label: t('Redeemed'),
                   full: true,
                   value: `${fmtTs(c.redeemedAt)}${c.redeemedBy?.name ? ` · ${c.redeemedBy.name}` : ''}`,
+                },
+                c.status === 'voided' && {
+                  label: t('Voided'),
+                  full: true,
+                  value: `${fmtTs(c.voidedAt)}${c.voidReason ? ` · ${c.voidReason}` : ''}`,
                 },
               ]}
             />
@@ -248,6 +275,7 @@ export default function MahaprasadHistory() {
                   <th className="table-th">{t('Date')}</th>
                   <th className="table-th">{t('Type')}</th>
                   <th className="table-th">{t('Name / Mobile')}</th>
+                  <th className="table-th text-center">{t('Persons')}</th>
                   <th className="table-th text-right">{t('Amt')}</th>
                   <th className="table-th">{t('Status')}</th>
                   <th className="table-th">{t('Issued By')}</th>
@@ -258,7 +286,7 @@ export default function MahaprasadHistory() {
               <tbody className="divide-y divide-gray-100">
                 {coupons.map((c) => (
                   <tr key={c._id} className={`text-sm transition-colors ${ROW_BG[c.status] || ''}`}>
-                    <td className="table-td font-mono font-semibold text-gray-800 text-xs">{c.couponNumber}</td>
+                    <td className={`table-td font-mono font-semibold text-xs ${c.status === 'voided' ? 'line-through text-gray-400' : 'text-gray-800'}`}>{c.couponNumber}</td>
                     <td className="table-td text-gray-500 text-xs">{fmt(c.date)}</td>
                     <td className="table-td">
                       <Badge variant={TYPE_V[c.type]} size="sm">
@@ -271,12 +299,15 @@ export default function MahaprasadHistory() {
                       {c.name && <span className="block font-semibold text-gray-800 not-italic">{c.name}</span>}
                       {c.mobile || (c.name ? null : '—')}
                     </td>
+                    <td className="table-td text-center">
+                      <span className={`tabular-nums ${c.status === 'voided' ? 'text-sm text-gray-400' : persons(c) > 1 ? 'text-base font-bold text-purple-700' : 'text-sm text-gray-600'}`}>{persons(c)}</span>
+                    </td>
                     <td className="table-td text-right font-medium text-xs">
                       {c.type === 'paid' ? `₹${c.amount}` : '—'}
                     </td>
                     <td className="table-td">
                       <Badge variant={STATUS_V[c.status]} size="sm">
-                        {c.status === 'redeemed' ? t('Redeemed') : t('Pending')}
+                        {t(STATUS_LABEL[c.status] || 'Pending')}
                       </Badge>
                     </td>
                     <td className="table-td text-gray-500 text-xs">{c.issuedBy?.name || '—'}</td>
@@ -288,14 +319,21 @@ export default function MahaprasadHistory() {
                             <span className="block text-gray-500 font-medium">{c.redeemedBy.name}</span>
                           )}
                         </div>
+                      ) : c.status === 'voided' ? (
+                        <div className="max-w-[12rem]">
+                          <span className="text-red-700 font-medium">{t('Voided')}</span> <span className="text-gray-400">{fmtTs(c.voidedAt)}</span>
+                          {c.voidReason && <span className="block text-gray-500 truncate" title={c.voidReason}>{c.voidReason}</span>}
+                        </div>
                       ) : <span className="text-gray-300">—</span>}
                     </td>
                     <td className="table-td">
-                      <button onClick={() => handleReprint(c)} disabled={printing}
-                        className="p-1.5 rounded hover:bg-white/60 text-gray-400 hover:text-gray-600 transition-colors"
-                        title={t('Reprint')}>
-                        <Printer className="h-3.5 w-3.5" />
-                      </button>
+                      {c.status !== 'voided' && (
+                        <button onClick={() => handleReprint(c)} disabled={printing}
+                          className="p-1.5 rounded hover:bg-white/60 text-gray-400 hover:text-gray-600 transition-colors"
+                          title={t('Reprint')}>
+                          <Printer className="h-3.5 w-3.5" />
+                        </button>
+                      )}
                     </td>
                   </tr>
                 ))}

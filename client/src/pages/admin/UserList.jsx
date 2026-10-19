@@ -2,8 +2,8 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { createColumnHelper } from '@tanstack/react-table';
-import { Plus, Pencil, KeyRound, MessageCircle, MessageSquare, Key, Search, X } from 'lucide-react';
-import { getUsers, resetUserPassword } from '../../api/user.api.js';
+import { Plus, Pencil, KeyRound, MessageCircle, MessageSquare, Key, Search, X, Trash2 } from 'lucide-react';
+import { getUsers, resetUserPassword, getUserDeleteCheck, deleteUser, updateUser } from '../../api/user.api.js';
 import DataTable from '../../components/ui/DataTable.jsx';
 import PageHeader from '../../components/ui/PageHeader.jsx';
 import Badge, { ActiveBadge } from '../../components/ui/Badge.jsx';
@@ -14,23 +14,46 @@ import { fDateTime } from '../../utils/formatters.js';
 import { usePermissions } from '../../hooks/usePermissions.js';
 import { useForm } from 'react-hook-form';
 import toast from 'react-hot-toast';
-import { useT } from '../../i18n/index.jsx';
+import { useT, rich } from '../../i18n/index.jsx';
 
 const ROLE_COLORS = { super_admin:'red', admin:'orange', store_manager:'blue', staff:'green', viewer:'gray' };
 const col = createColumnHelper();
 
 const UserList = () => {
-  const { can } = usePermissions();
+  const { can, user: me } = usePermissions();
   const t = useT();
   const qc = useQueryClient();
   const [resetTarget, setResetTarget] = useState(null);
+  const [deleteTarget, setDeleteTarget] = useState(null);
   const [search, setSearch] = useState('');
   const { register, handleSubmit, reset, formState: { errors } } = useForm();
+  // Delete is for super admins only, and never their own login
+  const myId = String(me?._id || me?.id || '');
+  const canDelete = (u) => me?.role === 'super_admin' && String(u._id) !== myId;
 
   const { data, isLoading } = useQuery({ queryKey: ['users'], queryFn: () => getUsers() });
   const resetMut = useMutation({
     mutationFn: ({ id, newPassword }) => resetUserPassword(id, { newPassword }),
     onSuccess: () => { toast.success(t('Password reset')); setResetTarget(null); reset(); },
+    onError: (err) => toast.error(err.response?.data?.message || t('Failed')),
+  });
+  // Whether the login has done anything in the app — then it can only be deactivated
+  const { data: checkRes, isLoading: checking, isError: checkFailed } = useQuery({
+    queryKey: ['user-delete-check', deleteTarget?._id],
+    queryFn: () => getUserDeleteCheck(deleteTarget._id),
+    enabled: !!deleteTarget,
+    staleTime: 0,
+  });
+  const check = checkRes?.data?.data;
+  const closeDelete = () => setDeleteTarget(null);
+  const deleteMut = useMutation({
+    mutationFn: (id) => deleteUser(id),
+    onSuccess: () => { toast.success(t('Login deleted')); closeDelete(); qc.invalidateQueries({ queryKey: ['users'] }); },
+    onError: (err) => toast.error(err.response?.data?.message || t('Failed to delete')),
+  });
+  const deactivateMut = useMutation({
+    mutationFn: (id) => updateUser(id, { isActive: false }),
+    onSuccess: () => { toast.success(t('Login deactivated')); closeDelete(); qc.invalidateQueries({ queryKey: ['users'] }); },
     onError: (err) => toast.error(err.response?.data?.message || t('Failed')),
   });
 
@@ -109,6 +132,10 @@ const UserList = () => {
               <button onClick={() => { setResetTarget(row.original); reset(); }} className="btn-ghost p-1 text-gray-400 hover:text-orange-600"><KeyRound className="h-4 w-4" /></button>
             </>
           )}
+          {canDelete(row.original) && (
+            <button onClick={() => setDeleteTarget(row.original)} aria-label={t('Delete')} title={t('Delete')}
+              className="btn-ghost p-1 text-gray-400 hover:text-red-600"><Trash2 className="h-4 w-4" /></button>
+          )}
         </div>
       ),
     }),
@@ -148,6 +175,45 @@ const UserList = () => {
           </FormField>
           <FormActions onCancel={() => setResetTarget(null)} loading={resetMut.isPending} submitLabel="Reset Password" />
         </form>
+      </Modal>
+
+      <Modal open={!!deleteTarget} onClose={closeDelete} title={t('Delete Login — {name}', { name: deleteTarget?.name })} size="sm">
+        <div className="space-y-4">
+          {checking ? (
+            <p className="text-sm text-gray-500">{t('Checking this login’s records…')}</p>
+          ) : checkFailed || !check ? (
+            <p className="text-sm text-red-600">{t('Could not check this login. Try again.')}</p>
+          ) : check.canDelete ? (
+            <p className="text-sm text-gray-600">
+              {rich(t('Delete the login {email}? It has no records in the app. This cannot be undone.'), { email: <strong>{deleteTarget?.email}</strong> })}
+            </p>
+          ) : (
+            <div className="space-y-2 text-sm">
+              <p className="text-red-600">{t('This login can’t be deleted — it has records in the app:')}</p>
+              <ul className="flex flex-wrap gap-1.5">
+                {check.records.map((r) => <li key={r} className="rounded bg-gray-100 px-2 py-0.5 text-gray-700">{t(r)}</li>)}
+              </ul>
+              <p className="text-gray-600">
+                {deleteTarget?.isActive
+                  ? t('Deactivate it instead: they can’t sign in, and old records still show their name.')
+                  : t('It is already inactive, so they can’t sign in.')}
+              </p>
+            </div>
+          )}
+          <div className="flex justify-end gap-2">
+            <button className="btn-ghost" onClick={closeDelete}>{t('Cancel')}</button>
+            {check?.canDelete && (
+              <button className="btn-danger" onClick={() => deleteMut.mutate(deleteTarget._id)} disabled={deleteMut.isPending}>
+                {deleteMut.isPending ? t('Deleting…') : t('Delete')}
+              </button>
+            )}
+            {check && !check.canDelete && deleteTarget?.isActive && (
+              <button className="btn-danger" onClick={() => deactivateMut.mutate(deleteTarget._id)} disabled={deactivateMut.isPending}>
+                {t('Deactivate')}
+              </button>
+            )}
+          </div>
+        </div>
       </Modal>
     </div>
   );
