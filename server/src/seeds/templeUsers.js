@@ -42,6 +42,10 @@ export const PEOPLE = [
   // Purchase managers
   { name: 'Bhushan Patil', email: 'kitchen@mandir.com', role: 'store_manager', password: 'bhushan@123' },
   { name: 'Manohar Tayade', email: 'manager@mandir.com', role: 'store_manager', password: 'manohar@123' },
+  // Ten read-only logins: v1@mandir.com / v11234 … v10@mandir.com / v101234
+  ...Array.from({ length: 10 }, (_, i) => ({
+    name: `Viewer ${i + 1}`, email: `v${i + 1}@mandir.com`, role: 'viewer', password: `v${i + 1}1234`,
+  })),
 ];
 
 async function main() {
