@@ -198,13 +198,26 @@ export default function AttendanceSettingsPanel() {
       <section className="card space-y-3 p-4 sm:p-6">
         <div>
           <h2 className="text-base font-semibold text-gray-800">{t('Biometric machine')}</h2>
-          <p className="text-sm text-gray-500">{t('The machine sends every punch to this app over the internet. On the machine open Menu → Comm. → Cloud Server Setting and enter:')}</p>
+          <p className="text-sm text-gray-500">{t('The machine sends every punch to this app over the internet. On the machine open Menu → Comm. and enter:')}</p>
         </div>
-        <dl className="grid grid-cols-[auto,1fr] gap-x-4 gap-y-1 rounded-xl bg-gray-50 p-3 text-sm">
-          <dt className="text-gray-500">{t('Server address')}</dt><dd className="break-all font-mono font-semibold text-gray-800">{host}</dd>
-          <dt className="text-gray-500">{t('Port')}</dt><dd className="font-mono font-semibold text-gray-800">80</dd>
-          <dt className="text-gray-500">{t('Domain name / DNS')}</dt><dd className="text-gray-800">{t('On')}</dd>
-        </dl>
+        {/* Two kinds of machine: ZKTeco/eSSL (ADMS, /iclock) and Team Office & co. (FkWeb, /fkweb) */}
+        <div className="grid gap-2 sm:grid-cols-2">
+          <div className="rounded-xl bg-gray-50 p-3 text-sm">
+            <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-gray-500">{t('eSSL / ZKTeco — Cloud Server Setting')}</p>
+            <dl className="grid grid-cols-[auto,1fr] gap-x-4 gap-y-1">
+              <dt className="text-gray-500">{t('Server address')}</dt><dd className="break-all font-mono font-semibold text-gray-800">{host}</dd>
+              <dt className="text-gray-500">{t('Port')}</dt><dd className="font-mono font-semibold text-gray-800">80</dd>
+              <dt className="text-gray-500">{t('Domain name / DNS')}</dt><dd className="text-gray-800">{t('On')}</dd>
+            </dl>
+          </div>
+          <div className="rounded-xl bg-gray-50 p-3 text-sm">
+            <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-gray-500">{t('Team Office — Server-Client Mode FkWeb')}</p>
+            <dl className="grid grid-cols-[auto,1fr] gap-x-4 gap-y-1">
+              <dt className="text-gray-500">{t('Server-Client Mode')}</dt><dd className="font-mono font-semibold text-gray-800">FkWeb</dd>
+              <dt className="text-gray-500">{t('Web Server URL')}</dt><dd className="break-all font-mono font-semibold text-gray-800">http://{host}/fkweb</dd>
+            </dl>
+          </div>
+        </div>
         <p className="text-xs text-gray-400">{t('Set the machine clock to India time. A new machine appears below within a minute — approve it, then enrol staff on the machine using their machine numbers.')}</p>
 
         {devices.length === 0 ? (

@@ -235,7 +235,35 @@ async function main() {
   check(await punchesOf(ownerStaff) === 2, 'a number changed on purpose (enrolled again) keeps the punches');
   check((await api('PUT', '/attendance/settings', { devices: listed.map((d) => (d.serial === sn ? { ...d, allowedIps: 'not-an-address' } : d)) })).status === 400,
     'a wrong address in the list is refused');
-  const burst = await Promise.all(Array.from({ length: 130 }, () => machine(`/getrequest?SN=${sn}`)));
+
+  // ── FkWeb machine (Team Office…): punches arrive with the details in headers ──
+  const fkSn = `FK-${stamp}`;
+  const fk = async (code, json, extra = {}) => {
+    let body;
+    if (json !== undefined) {
+      const text = Buffer.from(JSON.stringify(json)); const len = Buffer.alloc(4); len.writeUInt32LE(text.length + 1, 0);
+      body = Buffer.concat([len, text, Buffer.from([0, 0xff, 0x7b])]);
+    }
+    const r = await fetch(`${BASE}/fkweb`, { method: 'POST', body, headers: { request_code: code, dev_id: fkSn, trans_id: '77', 'content-type': 'application/octet-stream', ...extra } });
+    return { status: r.status, code: r.headers.get('response_code'), trans: r.headers.get('trans_id'), body: await r.text() };
+  };
+  const fkFirst = await fk('receive_cmd', { fk_name: 'Z900' });
+  const fkListed = (await api('GET', '/attendance/settings')).body.data.devices;
+  check(fkFirst.code === 'ERROR' && fkListed.some((d) => d.serial === fkSn && !d.approved), 'a new FkWeb machine is refused and waits for approval', JSON.stringify(fkFirst));
+  await api('PUT', '/attendance/settings', { devices: fkListed.map((d) => (d.serial === fkSn ? { ...d, approved: true, allowedIps: d.lastIp } : d)) });
+  const fkPoll = await fk('receive_cmd', { fk_name: 'Z900' });
+  check(fkPoll.status === 200 && fkPoll.code === 'OK' && fkPoll.trans === '77' && fkPoll.body === '', 'once approved its polls get an empty OK', JSON.stringify(fkPoll));
+  const glog = { user_id: `0000${pinC}`, io_time: `${yesterday.replace(/-/g, '')}090000`, verify_mode: 'FACE', io_mode: 1, log_image: 'BIN_1' };
+  const fkPunch = await fk('realtime_glog', glog);
+  check(fkPunch.code === 'OK' && fkPunch.body === '' && await punchesOf(ownerStaff) === 3, 'its punch (zero-padded number) goes to whoever has that machine number', JSON.stringify(fkPunch));
+  check((await fk('realtime_glog', glog)).code === 'OK' && await punchesOf(ownerStaff) === 3, 'the same punch sent again is not counted twice');
+  check((await fk('realtime_glog', undefined, { blk_no: '2' })).code === 'OK', 'a later part of a punch with a photo is acknowledged');
+  check((await fk('realtime_glog', { user_id: '5', io_time: 'garbage' })).code === 'OK' && await punchesOf(ownerStaff) === 3,
+    'a punch it cannot read is acknowledged (not resent forever) and saves nothing');
+  check((await fetch(`${BASE}/fkweb`, { method: 'POST', body: 'x' })).status === 404, 'a request without the machine headers is not found');
+  await api('PUT', '/attendance/settings', { devices: fkListed.filter((d) => d.serial !== fkSn) });
+
+  const burst =await Promise.all(Array.from({ length: 130 }, () => machine(`/getrequest?SN=${sn}`)));
   check(burst.includes(429), 'a flood of requests to the machine endpoint is cut off', JSON.stringify([...new Set(burst)]));
   await api('PUT', '/attendance/settings', { devices: listed.filter((d) => d.serial !== sn) });
 

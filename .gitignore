@@ -15,3 +15,6 @@ client/ios/App/App/GoogleService-Info.plist
 
 # Client documents (trust PAN, registration certificates, bills) — never commit
 docs/temple document/
+
+# deploy.sh: which nginx settings the running web server was last restarted with
+.nginx-applied

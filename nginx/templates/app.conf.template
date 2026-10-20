@@ -12,6 +12,9 @@ server {
     listen 80;
     server_name _;
     set $server_app http://server:5000;
+    # FkWeb machines name their requests in headers with underscores (request_code, dev_id…),
+    # which nginx otherwise drops
+    underscores_in_headers on;
 
     location /.well-known/acme-challenge/ {
         root /var/www/certbot;
@@ -28,7 +31,21 @@ server {
         client_max_body_size 2m;
     }
 
+    # Biometric machines on the FkWeb protocol (Team Office Z900…), Web Server URL
+    # http://<domain>/fkweb. Same approval rules as /iclock.
+    location /fkweb {
+        proxy_pass $server_app;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        client_max_body_size 2m;
+    }
+
     location / {
+        # An FkWeb machine given only the address (no /fkweb) posts to / — send it on
+        if ($http_request_code) {
+            rewrite ^ /fkweb last;
+        }
         return 301 https://$host$request_uri;
     }
 }
@@ -45,6 +62,7 @@ server {
 
     ssl_protocols TLSv1.2 TLSv1.3;
     ssl_prefer_server_ciphers on;
+    underscores_in_headers on;   # FkWeb machines (see the port 80 server)
 
     # Security headers
     add_header X-Frame-Options "SAMEORIGIN";
@@ -70,6 +88,15 @@ server {
 
     # Biometric attendance machine (same as on port 80, for machines that use HTTPS)
     location /iclock/ {
+        proxy_pass $server_app;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        client_max_body_size 2m;
+    }
+
+    # FkWeb biometric machines (same as on port 80, for machines that use HTTPS)
+    location /fkweb {
         proxy_pass $server_app;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;

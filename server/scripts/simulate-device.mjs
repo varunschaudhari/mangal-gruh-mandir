@@ -4,9 +4,11 @@
 //   BASE_URL=http://localhost:5000 node scripts/simulate-device.mjs                 # handshake only
 //   BASE_URL=… node scripts/simulate-device.mjs 12 "2026-10-10 08:03:00" 12 "2026-10-10 17:12:30"
 //   BASE_URL=… SN=MGM-TEST-01 node scripts/simulate-device.mjs --today 12 13       # in at 08:0x, out at 17:1x
+//   PROTOCOL=fkweb BASE_URL=… node scripts/simulate-device.mjs --today 12          # a Team Office (FkWeb) machine
 //
 // A new serial first shows up in Settings → Attendance as "waiting for approval"; until it is
-// approved the server answers 403 and a real machine keeps its punches and retries.
+// approved the server refuses (403, or response_code ERROR for FkWeb) and a real machine keeps
+// its punches and retries.
 
 const BASE = (process.env.BASE_URL || 'http://localhost:5000').replace(/\/$/, '');
 const SN = process.env.SN || 'MGM-SIMULATOR';
@@ -30,8 +32,33 @@ function punchesFromArgs(args) {
   return out;
 }
 
+// FkWeb (Team Office…): POST /fkweb, what it is in headers, body = 4-byte length + JSON
+async function fkweb(punches) {
+  let trans = 0;
+  const send = async (code, json) => {
+    const text = Buffer.from(JSON.stringify(json)); const len = Buffer.alloc(4); len.writeUInt32LE(text.length + 1, 0);
+    const res = await fetch(`${BASE}/fkweb`, {
+      method: 'POST',
+      headers: { request_code: code, dev_id: SN, trans_id: String(++trans), 'content-type': 'application/octet-stream' },
+      body: Buffer.concat([len, text, Buffer.from([0])]),
+    });
+    return `${res.status} response_code=${res.headers.get('response_code')}`;
+  };
+  const poll = await send('receive_cmd', { fk_name: 'SIMULATOR', fk_info: { firmware: 'simulate-device.mjs' } });
+  console.log(`receive_cmd → ${poll}`);
+  if (poll.endsWith('ERROR')) {
+    console.log(`Approve machine "${SN}" in Settings → Attendance, then run this again.`);
+    return;
+  }
+  for (const [pin, time] of punches) {
+    const ioTime = time.replace(/\D/g, '');   // "2026-10-10 08:03:00" → "20261010080300"
+    console.log(`realtime_glog ${pin} ${time} → ${await send('realtime_glog', { user_id: pin.padStart(8, '0'), io_time: ioTime, verify_mode: 'FACE', io_mode: 1 })}`);
+  }
+}
+
 async function main() {
   const punches = punchesFromArgs(process.argv.slice(2));
+  if (process.env.PROTOCOL === 'fkweb') return fkweb(punches);
 
   const hello = await fetch(`${BASE}/iclock/cdata?SN=${encodeURIComponent(SN)}&options=all&pushver=2.4.1&language=69`);
   const helloText = await hello.text();

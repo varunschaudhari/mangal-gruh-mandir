@@ -293,6 +293,22 @@ Then remove the `TEST` entry it creates under **Attendance → Shifts & Machine*
    entered are linked automatically; unknown numbers are listed on the Staff Register page with an
    "Add" link.
 
+**Team Office machines (Z900 and others whose Comm. menu shows "Server-Client Mode: FkWeb")** use
+a different protocol, served at `/fkweb`:
+1. On the machine: **Menu → Comm.** — Server-Client Mode **FkWeb**, Web Server URL
+   `http://mandir.aumora.io/fkweb` (plain `http://mandir.aumora.io` works too: nginx sends any request
+   carrying the machine's `request_code` header to `/fkweb`). Set the machine's clock to India time.
+   The machine then sends only to us — the eTimeOffice portal and app stop getting its punches.
+2. and 3. as above: approve its serial under **Attendance → Shifts & Machine**, and give each
+   person's machine user ID as their **Machine number** (the machine pads it with zeros — `00000012`
+   — the app matches it to `12`).
+
+If it doesn't show up within a minute, check the server log: the first request of each kind from
+each machine is logged with what it sent (`docker compose logs server | grep FkWeb`), and punches the
+app couldn't read are logged as `FkWeb punch not understood` with their contents.
+These machines name their requests in headers with underscores (`request_code`, `dev_id`), so nginx
+has `underscores_in_headers on` — without it nginx drops them and the app answers 404.
+
 **People are always added in Admin → Users.** Every worker gets a login; give workers the
 **Employee** role (no access to other modules). Tick **On attendance & payroll** to fill in their
 machine number, shift, weekly off, joining date and — for `salary:read` — pay, PF/ESI and bank.
@@ -305,6 +321,7 @@ placeholder login `stf-…@staff.mandir` to be given a real email and password).
 ```bash
 BASE_URL=http://localhost:5000 SN=MGM-TEST node scripts/simulate-device.mjs            # first run: shows up for approval
 BASE_URL=http://localhost:5000 SN=MGM-TEST node scripts/simulate-device.mjs --today 101 102
+PROTOCOL=fkweb BASE_URL=http://localhost:5000 SN=FK-TEST node scripts/simulate-device.mjs --today 101   # as a Team Office machine
 ```
 
 **Leave, late penalty and double shifts** (Attendance → Leave & Overtime) need the
@@ -514,8 +531,8 @@ dashboard if the trust agrees.
 Every push to `main` runs the checks in `.github/workflows/ci.yml` (web app, server, Android test
 APK). When the web app and server checks pass, the **Deploy** job logs in to the server over SSH,
 moves the code to exactly the commit that was tested (`git merge --ff-only`), and runs
-[`deploy.sh`](deploy.sh): rebuild and restart the containers, wait for the API, run the add-only
-permission migrations, remove old images. It then checks `https://<domain>/api/health`.
+[`deploy.sh`](deploy.sh): rebuild and restart the containers, wait for the API, restart nginx if its
+settings changed (after checking them), run the add-only permission migrations, remove old images. It then checks `https://<domain>/api/health`.
 A failed check means nothing is deployed; a push with failing tests never reaches the server.
 
 **One-time setup** (deploys stay off until step 2 is done):
@@ -631,8 +648,11 @@ See them under **Admin → App Errors** (grouped, with a count, the screen, app 
   containers up on each request (Docker's DNS, cached 10 s), so new container addresses after
   `docker compose up -d --build` are picked up by themselves. (Before this, a rebuild could leave
   nginx calling the old address — **502 Bad Gateway** until `docker compose restart nginx`.)
-  nginx itself reads the template only when it starts: after pulling a change to
-  `nginx/templates/`, run `docker compose restart nginx` once.
+  nginx itself reads the template only when it starts, so `deploy.sh` restarts it when
+  `nginx/nginx.conf` or `nginx/templates/` changed (it remembers the last applied version in
+  `.nginx-applied`). It first runs `nginx -t` on the new settings in a throwaway container: if that
+  fails the deploy stops with nginx's error and the site keeps running on the old settings. By hand:
+  `docker compose restart nginx`.
 - **One-time step when first pulling the template change** (servers set up before it had the domain
   written into `nginx/conf.d/app.conf`, which blocks the pull):
   ```bash

@@ -25,6 +25,21 @@ if [ -z "$ok" ]; then
   exit 1
 fi
 
+echo "▶ Web server settings (nginx)"
+# nginx fills in its templates only when it starts, so changed settings need a restart. They are
+# checked in a throwaway copy first — a broken config would otherwise take the whole site down.
+nginx_hash="$(cat nginx/nginx.conf nginx/templates/* | sha256sum | cut -d' ' -f1)"
+nginx_check() { docker compose run --rm --no-deps -T --entrypoint /docker-entrypoint.sh nginx nginx -t; }
+if [ "$(cat .nginx-applied 2>/dev/null)" = "$nginx_hash" ]; then
+  echo "  unchanged"
+elif nginx_check >/dev/null 2>&1; then
+  docker compose restart nginx >/dev/null && echo "$nginx_hash" > .nginx-applied && echo "  changed — restarted"
+else
+  echo "✖ The new nginx settings fail nginx's check; the site keeps running on the old ones:"
+  nginx_check || true
+  exit 1
+fi
+
 echo "▶ Permission migrations (add-only)"
 # Not migrate:roles — it resets built-in roles and would undo permissions changed in the app.
 for m in migrate:assets migrate:mahaprasad migrate:attendance migrate:bookings; do

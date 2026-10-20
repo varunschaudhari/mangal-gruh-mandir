@@ -12,6 +12,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 import connectDB from './config/db.js';
 import routes from './routes/index.js';
 import iclockRoutes from './routes/iclock.routes.js';
+import fkwebRoutes from './routes/fkweb.routes.js';
 import errorHandler from './middleware/errorHandler.js';
 import { processAssetReminders } from './services/assetReminder.service.js';
 import { processOverdueInvoiceAlerts } from './services/overdueInvoiceAlert.service.js';
@@ -54,9 +55,10 @@ app.use(cors({
   credentials: true,
 }));
 
-// The attendance machine polls every ~10 s; only its uploads and errors are worth a log line.
+// The attendance machines poll every few seconds; only their uploads and errors are worth a log line.
 const quietPoll = (req, res) => req.path.startsWith('/api/health')
-  || (req.originalUrl.startsWith('/iclock/') && req.method === 'GET' && res.statusCode < 400);
+  || (req.originalUrl.startsWith('/iclock/') && req.method === 'GET' && res.statusCode < 400)
+  || (req.originalUrl.startsWith('/fkweb') && req.get('request_code') !== 'realtime_glog' && res.statusCode < 400);
 
 // ── HTTP access logging ───────────────────────────────────────────────────────
 morgan.token('user', (req) => req.user?.email || '-');
@@ -90,8 +92,9 @@ if (IS_PROD) {
   app.use(morgan('dev', { skip: quietPoll }));
 }
 
-// Attendance machine (ADMS protocol) — before the JSON/form parsers, it reads raw text bodies.
+// Attendance machines (ADMS and FkWeb protocols) — before the JSON/form parsers, they read raw bodies.
 app.use('/iclock', iclockRoutes);
+app.use('/fkweb', fkwebRoutes);
 // Razorpay's webhook (online Mahaprasad payments) — also before the JSON parser: its signature is
 // over the raw body. The trust's website shares the Razorpay account, so its payments arrive here too.
 app.post('/api/webhooks/razorpay', express.raw({ type: '*/*', limit: '1mb' }), razorpayWebhook);
