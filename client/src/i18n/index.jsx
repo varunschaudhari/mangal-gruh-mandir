@@ -34,10 +34,12 @@ const DICTIONARIES = {
 
 const STORAGE_KEY = 'mgm-lang';
 
-const readLang = () => {
+// A screen with its own language (storageKey) starts in the app's until it is switched
+const readLang = (storageKey = STORAGE_KEY) => {
   try {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    return LANGUAGES.some((l) => l.code === saved) ? saved : 'en';
+    const saved = localStorage.getItem(storageKey);
+    if (LANGUAGES.some((l) => l.code === saved)) return saved;
+    return storageKey === STORAGE_KEY ? 'en' : readLang();
   } catch { return 'en'; }
 };
 
@@ -61,15 +63,21 @@ export const rich = (text, parts) => String(text).split(/\{(\w+)\}/g)
 
 const LanguageContext = createContext({ lang: 'en', setLang: () => {} });
 
-export function LanguageProvider({ children }) {
-  const [lang, setLangState] = useState(readLang);
+// The app has one provider (main.jsx). A TV display wraps itself in another with its own
+// storageKey, so switching the TV's language leaves the app's alone on the same device.
+export function LanguageProvider({ children, storageKey = STORAGE_KEY }) {
+  const [lang, setLangState] = useState(() => readLang(storageKey));
 
-  useEffect(() => { document.documentElement.lang = lang; }, [lang]);
+  useEffect(() => {
+    const before = document.documentElement.lang;
+    document.documentElement.lang = lang;
+    return () => { document.documentElement.lang = before; };
+  }, [lang]);
 
   const setLang = useCallback((code) => {
-    try { localStorage.setItem(STORAGE_KEY, code); } catch { /* ignore */ }
+    try { localStorage.setItem(storageKey, code); } catch { /* ignore */ }
     setLangState(code);
-  }, []);
+  }, [storageKey]);
 
   const value = useMemo(() => ({ lang, setLang }), [lang, setLang]);
   return <LanguageContext.Provider value={value}>{children}</LanguageContext.Provider>;

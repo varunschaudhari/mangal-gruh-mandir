@@ -5,7 +5,7 @@ import { AlertTriangle, Check, Eye, EyeOff, Maximize2, Minimize2, X } from 'luci
 import { getHallBoard } from '../../api/booking.api.js';
 import { usePermissions } from '../../hooks/usePermissions.js';
 import { useMediaQuery } from '../../hooks/useMediaQuery.js';
-import { LanguageSwitch, useLanguage, useT } from '../../i18n/index.jsx';
+import { LanguageProvider, LanguageSwitch, useLanguage, useT } from '../../i18n/index.jsx';
 import { fmtDay } from '../../components/booking/counter/counterUtils.js';
 import { fitGrid, minutesUntil, pickPerHall, pickShown, savedHall, saveHall } from '../../components/booking/checkin/checkInUtils.js';
 import { useHallEvents } from '../../utils/hallLive.js';
@@ -288,7 +288,7 @@ function Spotlight({ event, lang, hallNames }) {
   );
 }
 
-export default function HallScreen() {
+function HallScreenBoard() {
   const t = useT();
   const { lang } = useLanguage();
   const { can } = usePermissions();
@@ -495,4 +495,10 @@ export default function HallScreen() {
       )}
     </div>
   );
+}
+
+// The hall TV keeps its own language: switching it there leaves the app's language alone,
+// also when the TV runs in the same browser as the app
+export default function HallScreen() {
+  return <LanguageProvider storageKey="mgm-lang-hall-screen"><HallScreenBoard /></LanguageProvider>;
 }
