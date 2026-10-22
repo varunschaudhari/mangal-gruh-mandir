@@ -415,6 +415,8 @@ export const getBatches = asyncHandler(async (req, res) => {
       couponTo:   { $last: '$couponNumber' },
       groupSize:  { $first: '$groupSize' },
       isGroup:    { $first: '$isGroup' },
+      date:       { $first: '$date' },     // with amount: what a reprinted slip shows (same for the whole sale)
+      amount:     { $first: '$amount' },
       shareToken: { $first: '$shareToken' },
       channel:    { $first: '$channel' },
       statuses:   { $addToSet: '$status' },
@@ -1055,25 +1057,23 @@ export const adjustDrawer = asyncHandler(async (req, res) => {
 });
 
 // PATCH /mahaprasad/batches/:batchId/void  { reason }
-// Counter staff can cancel only their own sales from today (a mistake caught on the spot);
-// anything else needs mahaprasad:void. A second tap finds nothing left to cancel, so the
-// money comes off the drawer once.
+// Only an admin (mahaprasad:void) cancels a sale — a double print or a wrong slip, any staff's,
+// any day — never once a coupon of it has been scanned. A second tap finds nothing left to
+// cancel, so the money comes off the drawer once.
 export const voidBatch = asyncHandler(async (req, res) => {
   const { batchId } = req.params;
   const { reason } = req.body;
+
+  const perms = await getPermissionsForRole(req.user.role);
+  if (!perms.includes('*') && !perms.includes('mahaprasad:void')) {
+    throw new ApiError(403, 'Only an admin can cancel a sale — ask an admin to cancel this one');
+  }
 
   const coupons = await MahaprasadCoupon.find({ batchId, status: { $ne: 'reserved' } }).lean();
   if (!coupons.length) throw new ApiError(404, 'Batch not found');
   if (coupons.some((c) => c.status === 'redeemed')) throw new ApiError(409, 'Cannot void — one or more coupons already redeemed');
   const live = coupons.filter((c) => c.status === 'issued');
   if (!live.length) throw new ApiError(409, 'Batch already voided');
-
-  const perms = await getPermissionsForRole(req.user.role);
-  if (!perms.includes('*') && !perms.includes('mahaprasad:void')) {
-    const own   = live.every((c) => String(c.issuedBy) === String(req.user._id));
-    const today = live.every((c) => localDateStr(new Date(c.issuedAt)) === localDateStr());
-    if (!own || !today) throw new ApiError(403, 'You can cancel only coupons you issued today — ask an admin to cancel this one');
-  }
 
   const couponDate = live[0].date;
   const persons    = live.reduce((s, c) => s + (c.groupSize || 1), 0);

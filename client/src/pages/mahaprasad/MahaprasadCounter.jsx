@@ -97,14 +97,19 @@ const dayKeyText = (k) => new Date(`${k.slice(0, 4)}-${k.slice(4, 6)}-${k.slice(
   .toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
 
 // ── Batches section ───────────────────────────────────────────────────────────
-function BatchesSection({ date, onPdfPrint, printing, onVoid }) {
+// The slips of an earlier sale, for printing them again
+const batchCoupons = (b) => b.numbers.map((couponNumber) => ({
+  couponNumber, type: b.type, isGroup: b.isGroup, groupSize: b.groupSize, date: b.date,
+  amount: b.amount, name: b.name, occasion: b.occasion, status: 'issued',
+}));
+
+// onThermalPrint: set when this device has a thermal printer — each sale can then be printed again
+function BatchesSection({ date, onPdfPrint, onThermalPrint, printing, onVoid }) {
   const t = useT();
   const [open, setOpen] = useState(false);
-  // Counter staff cancel only their own sales from today; mahaprasad:void cancels any
-  const { can, user } = usePermissions();
-  const myId  = String(user?._id || user?.id || '');
-  const today = localDateStr();
-  const canVoid = (b) => can('mahaprasad:void') || (String(b.issuedBy?._id) === myId && localDateStr(new Date(b.issuedAt)) === today);
+  // Only admins (mahaprasad:void) cancel a sale — any staff's, any day
+  const { can } = usePermissions();
+  const canVoid = () => can('mahaprasad:void');
 
   const { data } = useQuery({
     queryKey: ['mahaprasad-batches', date],
@@ -151,6 +156,14 @@ function BatchesSection({ date, onPdfPrint, printing, onVoid }) {
                   className="shrink-0 btn btn-ghost border text-xs text-green-700 flex items-center gap-1 py-1 px-2 max-sm:h-10 max-sm:px-3">
                   <MessageCircle className="h-3 w-3 max-sm:h-4 max-sm:w-4" />
                 </a>
+              )}
+              {/* amount and date come from the server since the reprint button — none from an older one */}
+              {onThermalPrint && b.amount !== undefined && b.date && !b.statuses?.includes('voided') && (
+                <button onClick={() => onThermalPrint(batchCoupons(b))} disabled={printing}
+                  aria-label={t('Print')} title={t('Print')}
+                  className="shrink-0 btn btn-ghost border text-xs flex items-center gap-1 py-1 px-2 max-sm:h-10 max-sm:px-3">
+                  <Printer className="h-3 w-3 max-sm:h-4 max-sm:w-4" /> {t('Print')}
+                </button>
               )}
               <button onClick={() => onPdfPrint(b.numbers)} disabled={printing}
                 aria-label={isNative ? t('Share or print PDF') : 'PDF'}
@@ -425,6 +438,16 @@ export default function MahaprasadCounter() {
       else toast.error(t(msg));
       throw err;
     }
+  };
+
+  // Prints slips on the thermal printer; any that fail wait in the retry queue
+  const printCouponsThermal = async (coupons) => {
+    const failed = [];
+    for (const c of coupons) {
+      try { await handleThermalPrint(c); }
+      catch { failed.push(c); }
+    }
+    if (failed.length > 0) setPrintQueue((q) => [...q, ...failed]);
   };
 
   const handleIssueOffline = async () => {
@@ -1395,7 +1418,8 @@ export default function MahaprasadCounter() {
           <CashDrawer ref={cashDrawerRef} date={date} />
         </div>
       )}
-      <BatchesSection date={date} onPdfPrint={handlePdfPrint} printing={printing} onVoid={(batchId) => setVoidConfirm(batchId)} />
+      <BatchesSection date={date} onPdfPrint={handlePdfPrint} onThermalPrint={thermalOn ? printCouponsThermal : null}
+        printing={printing} onVoid={(batchId) => setVoidConfirm(batchId)} />
     </div>
 
     {/* Shortage warning dialog */}

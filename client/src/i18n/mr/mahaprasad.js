@@ -152,6 +152,7 @@ export default {
   'Last PDF': 'शेवटची PDF',
   '{n} coupon waiting to print': '{n} कूपन छापायचे बाकी',
   '{n} coupons waiting to print': '{n} कूपन छापायचे बाकी',
+  'Printed {number}': '{number} छापले',
   'Retry ({n})': 'पुन्हा ({n})',
   'My Shift Summary': 'माझ्या पाळीचा सारांश',
   'Coupons Issued': 'दिलेले कूपन',

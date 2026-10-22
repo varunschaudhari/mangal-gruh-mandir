@@ -1,10 +1,13 @@
 import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
-  History, RefreshCw, Printer, Search,
+  History, RefreshCw, Printer, Search, FileText,
   CheckCircle2, Clock, IndianRupee, Gift, Share2,
 } from 'lucide-react';
 import { getCoupons, printCoupons } from '../../api/mahaprasad.api.js';
+import { getSettings } from '../../api/settings.api.js';
+import { printThermalCoupon } from '../../utils/thermalPrint.js';
+import { useBluetoothPrinter } from '../../utils/bluetoothPrinter.js';
 import PageHeader from '../../components/ui/PageHeader.jsx';
 import Badge from '../../components/ui/Badge.jsx';
 import MobileCard from '../../components/ui/MobileCard.jsx';
@@ -102,6 +105,21 @@ export default function MahaprasadHistory() {
   const pages   = res.pages   || 1;
   // Totals for everything the filters match (every page), in persons like the Report
   const summary = res.summary;
+
+  // A slip printed again on the thermal printer: the phone's Bluetooth printer, the desktop app's
+  // printer, or the one named in Settings → Mahaprasad (QZ Tray). Without one, only the PDF.
+  const btPrinter = useBluetoothPrinter();
+  const { data: settingsRes } = useQuery({ queryKey: ['settings'], queryFn: getSettings, staleTime: 5 * 60 * 1000 });
+  const settings = settingsRes?.data?.data || {};
+  const canThermal = isNative ? Boolean(btPrinter) : Boolean(window.electronAPI?.isElectron || settings.mahaprasadPrinterName);
+  const handleThermalPrint = async (coupon) => {
+    setPrinting(true);
+    try {
+      await printThermalCoupon(coupon, settings);
+      toast.success(t('Printed {number}', { number: coupon.couponNumber }));
+    } catch (err) { toast.error(t(err.message || 'Thermal print failed')); }
+    finally { setPrinting(false); }
+  };
 
   const handleReprint = async (coupon) => {
     setPrinting(true);
@@ -239,11 +257,17 @@ export default function MahaprasadHistory() {
                   <Badge variant={STATUS_V[c.status]} size="sm">
                     {t(STATUS_LABEL[c.status] || 'Pending')}
                   </Badge>
+                  {c.status !== 'voided' && canThermal && (
+                    <button onClick={() => handleThermalPrint(c)} disabled={printing} aria-label={t('Print')} title={t('Print')}
+                      className="-my-1.5 p-2.5 rounded-lg text-gray-600 active:bg-gray-100 disabled:opacity-40">
+                      <Printer className="h-[18px] w-[18px]" />
+                    </button>
+                  )}
                   {c.status !== 'voided' && (
                     <button onClick={() => handleReprint(c)} disabled={printing}
                       aria-label={isNative ? t('Share or print PDF') : t('Reprint')}
                       className="-my-1.5 -mr-1.5 p-2.5 rounded-lg text-gray-400 active:bg-gray-100 disabled:opacity-40">
-                      {isNative ? <Share2 className="h-[18px] w-[18px]" /> : <Printer className="h-[18px] w-[18px]" />}
+                      {isNative ? <Share2 className="h-[18px] w-[18px]" /> : canThermal ? <FileText className="h-[18px] w-[18px]" /> : <Printer className="h-[18px] w-[18px]" />}
                     </button>
                   )}
                 </>
@@ -328,11 +352,20 @@ export default function MahaprasadHistory() {
                     </td>
                     <td className="table-td">
                       {c.status !== 'voided' && (
-                        <button onClick={() => handleReprint(c)} disabled={printing}
-                          className="p-1.5 rounded hover:bg-white/60 text-gray-400 hover:text-gray-600 transition-colors"
-                          title={t('Reprint')}>
-                          <Printer className="h-3.5 w-3.5" />
-                        </button>
+                        <div className="flex items-center gap-0.5">
+                          {canThermal && (
+                            <button onClick={() => handleThermalPrint(c)} disabled={printing}
+                              className="p-1.5 rounded hover:bg-white/60 text-gray-500 hover:text-gray-800 transition-colors disabled:opacity-40"
+                              title={t('Print')} aria-label={t('Print')}>
+                              <Printer className="h-3.5 w-3.5" />
+                            </button>
+                          )}
+                          <button onClick={() => handleReprint(c)} disabled={printing}
+                            className="p-1.5 rounded hover:bg-white/60 text-gray-400 hover:text-gray-600 transition-colors disabled:opacity-40"
+                            title={canThermal ? 'PDF' : t('Reprint')} aria-label={canThermal ? 'PDF' : t('Reprint')}>
+                            {canThermal ? <FileText className="h-3.5 w-3.5" /> : <Printer className="h-3.5 w-3.5" />}
+                          </button>
+                        </div>
                       )}
                     </td>
                   </tr>

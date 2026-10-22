@@ -32,7 +32,7 @@ const PERMISSION_LABELS = {
   'donations:read': 'View donations', 'donations:write': 'Create/void donations',
   'payments:read': 'View payments', 'payments:write': 'Create/edit payments', 'payments:approve': 'Approve/reject payments',
   'mahaprasad:read': 'View mahaprasad', 'mahaprasad:issue': 'Issue coupons', 'mahaprasad:redeem': 'Redeem coupons',
-  'mahaprasad:void': 'Cancel any coupon sale (other staff, earlier days)',
+  'mahaprasad:void': 'Cancel coupon sales (any staff, any day)',
   'attendance:read': 'View attendance & roster', 'attendance:write': 'Plan roster & correct attendance', 'attendance:manage': 'Staff register, shifts & machine', 'attendance:approve': 'Decide double-shift rewards & overtime',
   'salary:read': 'View salary, payslips & files', 'salary:manage': 'Prepare, finalise & pay salary; advances',
   'bookings:read': 'View pooja bookings & reports', 'bookings:create': 'Book at the counter, fix details, close own shift',
