@@ -8,6 +8,7 @@ describe('hall names', () => {
   it('shows the name with the code, in the chosen language', () => {
     expect(hallTitle('H1', names, 'en')).toBe('Shri Mangal Sabhagruh (H1)');
     expect(hallTitle('H1', names, 'mr')).toBe('श्री मंगल सभागृह (H1)');
+    expect(hallTitle('H1', names, 'hi')).toBe('श्री मंगल सभागृह (H1)');   // Hindi screens: the Marathi name
   });
 
   it('falls back to the English name, then to the bare code', () => {

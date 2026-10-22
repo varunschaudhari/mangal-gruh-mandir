@@ -100,7 +100,7 @@ const TAB_FIELDS = {
 
 // The WhatsApp messages the app sends (besides the booking receipt, set in Bookings → Setup), with
 // the wording to submit to Meta as a Utility template. The server sends the {{…}} values in this order.
-// Those with textMr also go in Marathi: the same template name with a Marathi language added.
+// Those with textMr / textHi also go in Marathi and Hindi: the same template name with that language added.
 const WA_TEMPLATES = [
   { key: 'stockAlert', label: 'Stock alerts', to: 'To staff with WhatsApp alerts on (Users)', example: 'stock_alert',
     text: 'Shri Mangal Grah Mandir office: inventory update for your account. {{1}} in {{2}} is now at {{3}} {{4}} ({{5}}). You get this because store alerts are turned on for you in the office app.' },
@@ -114,12 +114,14 @@ const WA_TEMPLATES = [
     text: 'Namaste {{1}}, this is about {{2}} (quantity {{3}}) from Shri Mangal Grah Mandir, to be returned on {{4}}: {{5}}. Thank you.' },
   { key: 'donationThanks', label: 'Donation thank-you', to: 'To donors', example: 'donation_thankyou',
     text: 'Dear {{1}}, thank you for your generous donation of ₹{{2}} towards {{3}} on {{4}}. Receipt no. {{5}}. 🙏 Jai Jai Mangal Grah Mandir!',
-    textMr: 'प्रिय {{1}}, आपण दिलेल्या ₹{{2}} च्या उदार देणगीबद्दल ({{3}}, दिनांक {{4}}) मनःपूर्वक धन्यवाद. पावती क्र. {{5}}. 🙏 जय जय मंगळग्रह मंदिर!' },
+    textMr: 'प्रिय {{1}}, आपण दिलेल्या ₹{{2}} च्या उदार देणगीबद्दल ({{3}}, दिनांक {{4}}) मनःपूर्वक धन्यवाद. पावती क्र. {{5}}. 🙏 जय जय मंगळग्रह मंदिर!',
+    textHi: 'प्रिय {{1}}, आपके ₹{{2}} के उदार दान ({{3}}, दिनांक {{4}}) के लिए हार्दिक धन्यवाद। रसीद क्र. {{5}}. 🙏 जय जय मंगळग्रह मंदिर!' },
   { key: 'mahaprasadCoupons', label: 'Mahaprasad coupons', to: 'To devotees', example: 'mahaprasad_coupon_qr',
     // The coupons' QR picture on top, so it's in the devotee's chat (no internet needed at the hall)
     header: 'Header: Image — the coupon QR (for the sample, upload any QR picture)',
     text: 'Namaste! Your Mahaprasad coupon(s) at Shri Mangal Grah Mandir, Amalner for {{1}}: {{2}} ({{3}}). Your coupon QR: {{4}} Please show it at the Mahaprasad hall.',
-    textMr: 'नमस्कार! श्री मंगळग्रह मंदिर, अमळनेर येथे {{1}} साठी आपले महाप्रसाद कूपन: {{2}} ({{3}}). आपल्या कूपनचा QR: {{4}} कृपया तो महाप्रसाद सभागृहात दाखवा.' },
+    textMr: 'नमस्कार! श्री मंगळग्रह मंदिर, अमळनेर येथे {{1}} साठी आपले महाप्रसाद कूपन: {{2}} ({{3}}). आपल्या कूपनचा QR: {{4}} कृपया तो महाप्रसाद सभागृहात दाखवा.',
+    textHi: 'नमस्ते! श्री मंगळग्रह मंदिर, अमळनेर में {{1}} के लिए आपका महाप्रसाद कूपन: {{2}} ({{3}}). आपके कूपन का QR: {{4}} कृपया इसे महाप्रसाद हॉल में दिखाएँ।' },
 ];
 
 // ── Online payments (Razorpay) status — the keys live in the server's .env, not here ───────────
@@ -333,9 +335,9 @@ const Settings = () => {
                   <div>
                     <p className="text-sm font-semibold text-gray-700">{t('Message templates')}</p>
                     <p className="text-xs text-gray-400 mt-0.5">{t('The name of each approved template in WhatsApp Manager. Leave a name empty to not send that message. The booking receipt’s template is in Bookings → Setup.')}</p>
-                    <p className="text-xs text-gray-400 mt-1">{t('Donation and Mahaprasad messages can also go in Marathi: add Marathi to the same template in WhatsApp Manager. If the chosen language isn’t approved yet, the other one is sent.')}</p>
+                    <p className="text-xs text-gray-400 mt-1">{t('Donation and Mahaprasad messages can also go in Marathi or Hindi: add that language to the same template in WhatsApp Manager. If the chosen language isn’t approved yet, English is sent (Marathi when English is chosen).')}</p>
                   </div>
-                  {WA_TEMPLATES.map(({ key, label, to, example, header, text, textMr }) => (
+                  {WA_TEMPLATES.map(({ key, label, to, example, header, text, textMr, textHi }) => (
                     <div key={key} className="border-t border-gray-100 pt-3">
                       <div className="grid grid-cols-1 sm:grid-cols-[1fr_15rem] gap-1.5 sm:gap-3 sm:items-center">
                         <label htmlFor={`wa-${key}`} className="text-sm text-gray-700">
@@ -350,6 +352,7 @@ const Settings = () => {
                           <label htmlFor={`wa-lang-${key}`} className="text-xs text-gray-500">{t('Send in')}</label>
                           <select id={`wa-lang-${key}`} {...register(`waLanguages.${key}`)} className="input text-sm">
                             <option value="mr">मराठी (Marathi)</option>
+                            {textHi && <option value="hi">हिंदी (Hindi)</option>}
                             <option value="en">English</option>
                           </select>
                         </div>
@@ -363,6 +366,12 @@ const Settings = () => {
                           <>
                             <p className="mt-2 text-xs font-semibold text-gray-500">मराठी (Marathi) · {t('same name, language Marathi')}</p>
                             <p lang="mr" className="mt-1 rounded-lg bg-gray-50 p-2.5 font-mono text-xs leading-relaxed text-gray-700 break-words select-all">{textMr}</p>
+                          </>
+                        )}
+                        {textHi && (
+                          <>
+                            <p className="mt-2 text-xs font-semibold text-gray-500">हिंदी (Hindi) · {t('same name, language Hindi')}</p>
+                            <p lang="hi" className="mt-1 rounded-lg bg-gray-50 p-2.5 font-mono text-xs leading-relaxed text-gray-700 break-words select-all">{textHi}</p>
                           </>
                         )}
                       </details>

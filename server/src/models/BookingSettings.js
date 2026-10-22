@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import { DEVOTEE_LANGUAGES } from '../../../shared/devoteeLanguage.js';
 import singleton from './singleton.js';
 
 // Single document with booking options (Setup → Settings).
@@ -18,8 +19,8 @@ const bookingSettingsSchema = new mongoose.Schema(
     whatsappImage:    { type: Boolean, default: true },   // the template has the slip picture on top (Header: Image)
     // The template is approved in these languages (same name in each); new bookings start in
     // whatsappLanguage and the counter can change it per devotee
-    whatsappLanguages: { type: [{ type: String, enum: ['mr', 'en'] }], default: ['mr', 'en'] },
-    whatsappLanguage:  { type: String, enum: ['mr', 'en'], default: 'mr' },
+    whatsappLanguages: { type: [{ type: String, enum: DEVOTEE_LANGUAGES }], default: ['mr', 'en'] },
+    whatsappLanguage:  { type: String, enum: DEVOTEE_LANGUAGES, default: 'mr' },
     smsAuto:          { type: Boolean, default: false },  // needs MSG91 + a DLT-approved template
     smsTemplateId:    { type: String, trim: true, default: '' },
   },

@@ -5,7 +5,7 @@ import { ArrowLeft, Maximize2, Minimize2, WifiOff } from 'lucide-react';
 import { getMahaprasadDashboard } from '../../api/mahaprasadDashboard.api.js';
 import { localDateStr } from '../../utils/formatters.js';
 import { temple } from '../../utils/temple.js';
-import { LanguageProvider, LanguageSwitch, useT } from '../../i18n/index.jsx';
+import { DEVOTEE_LANGUAGES, LanguageProvider, LanguageSwitch, useT } from '../../i18n/index.jsx';
 
 // The Mahaprasad TV screen (/mahaprasad/screen), for the hall or the kitchen: prasad served
 // against the day's total, in numbers read from across the room, plus sold, still to serve and
@@ -152,8 +152,8 @@ function MahaprasadBoard() {
   );
 }
 
-// The Mahaprasad TV keeps its own language: switching it there leaves the app's language alone,
+// The Mahaprasad TV keeps its own language (Hindi too): switching it leaves the app's language alone,
 // also when the TV runs in the same browser as the app
 export default function MahaprasadScreen() {
-  return <LanguageProvider storageKey="mgm-lang-mahaprasad-screen"><MahaprasadBoard /></LanguageProvider>;
+  return <LanguageProvider storageKey="mgm-lang-mahaprasad-screen" languages={DEVOTEE_LANGUAGES}><MahaprasadBoard /></LanguageProvider>;
 }

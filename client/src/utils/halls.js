@@ -11,7 +11,7 @@ import { useLanguage } from '../i18n/index.jsx';
 /** The hall's name in the chosen language ('' when it has none). */
 export function hallName(code, names, lang) {
   const h = names?.[code];
-  return (lang === 'mr' && h?.nameMr) || h?.name || '';
+  return (lang !== 'en' && h?.nameMr) || h?.name || '';   // Hindi shows the Marathi name too
 }
 
 /** "Shri Mangal Sabhagruh (H1)" — or just "H1" for a hall with no name. */

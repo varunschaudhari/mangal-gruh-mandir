@@ -4,6 +4,7 @@ import { fileURLToPath } from 'url';
 import * as fontkit from 'fontkit';
 import QRCode from 'qrcode';
 import { Resvg } from '@resvg/resvg-js';
+import { localeOf, receiptText, sevaNameFor } from '../../../../shared/devoteeLanguage.js';
 
 // The counter slip as a picture (PNG), for the WhatsApp receipt: the same layout as the printed
 // slip (client/src/utils/bookingReceipt.js → drawSlip) — hall and serial in big black boxes and
@@ -25,11 +26,12 @@ const LOGO = (() => {
 const W = 576;          // 80 mm thermal width at 203 dpi, like the printed slip
 const M = 14;           // side margin
 const SCALE = 1.5;      // rendered at 864 px wide: sharp on phones, small file
-const MODE = { cash: 'Cash', upi: 'UPI', card: 'Card', online: 'Online' };
 
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-const fmtDate = (key) => new Date(`${key}T00:00:00`).toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
-const fmtPaid = (d) => new Date(d).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+// A Hindi booking's slip is in Hindi; every other one as before (English, Marathi names)
+const slipLocale = (lang) => (lang === 'hi' ? localeOf('hi') : 'en-IN');
+const fmtDate = (key, lang) => new Date(`${key}T00:00:00`).toLocaleDateString(slipLocale(lang), { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
+const fmtPaid = (d, lang) => new Date(d).toLocaleString(slipLocale(lang), { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 const masked = (phone) => (phone ? `XXXXXX${String(phone).slice(-4)}` : '');
 const address = (d = {}) => [d.address, d.area, d.city, d.district, d.state, d.pincode].filter(Boolean).join(', ');
 
@@ -66,9 +68,11 @@ function wrap(str, size, weight, maxW) {
 
 /**
  * PNG of the slip. `b` is a booking (lean), `hall` = { name, nameMr } for its hall,
- * `temple` = { name, nameMr }, `footer` the note printed under it, `receiptUrl` what the QR holds.
+ * `temple` = { name, nameMr }, `footer` the note printed under it, `receiptUrl` what the QR holds,
+ * `lang` the devotee's language (Hindi → a Hindi slip, with the seva's Devanagari `sevaNameMr`).
  */
-export async function slipPng(b, { hall = {}, temple = {}, footer = '', receiptUrl, bookedBy = '' } = {}) {
+export async function slipPng(b, { hall = {}, temple = {}, footer = '', receiptUrl, bookedBy = '', lang = 'en', sevaNameMr = '' } = {}) {
+  const L = receiptText(lang);
   const out = [];
   let y = M;
   const asc = (size) => size * 0.95;   // top of the line → baseline (Mukta's Devanagari rides high)
@@ -98,17 +102,17 @@ export async function slipPng(b, { hall = {}, temple = {}, footer = '', receiptU
   if (LOGO) { out.push(`<image href="${LOGO}" x="${(W - 110) / 2}" y="${y}" width="110" height="110" preserveAspectRatio="xMidYMid meet"/>`); y += 116; }
   text(temple.nameMr, 30, { weight: 700, align: 'center', gap: 0 });
   text(temple.name, 21, { align: 'center', gap: 2 });
-  text(b.status === 'voided' ? '*** VOIDED ***' : 'ABHISHEK / PUJA RECEIPT', 22, { weight: 700, align: 'center', gap: 4 });
+  text(b.status === 'voided' ? L.voided : L.slipTitle, 22, { weight: 700, align: 'center', gap: 4 });
   rule();
-  row('Receipt', b.receiptNo, 26, 700);
-  row('Booked', fmtPaid(b.paidAt), 20, 400);
+  row(L.receipt, b.receiptNo, 26, 700);
+  row(L.booked, fmtPaid(b.paidAt, lang), 20, 400);
   rule();
-  text(b.sevaName, 32, { weight: 700, align: 'center' });
-  if (b.dateKey) row('Puja date', fmtDate(b.dateKey), 26, 700);
-  if (b.batchLabel) row(b.schedule === 'batch' ? 'Batch' : 'Time', b.batchLabel, 24, 700);
+  text(lang === 'hi' ? sevaNameFor(lang, b.sevaName, sevaNameMr) : b.sevaName, 32, { weight: 700, align: 'center' });
+  if (b.dateKey) row(L.pujaDate, fmtDate(b.dateKey, lang), 26, 700);
+  if (b.batchLabel) row(b.schedule === 'batch' ? L.batch : L.time, b.batchLabel, 24, 700);
 
   // Hall and serial in big black boxes — what the devotee and the hall volunteer look for
-  const boxes = [b.hall && ['HALL', b.hall], b.serialNo && ['SERIAL', String(b.serialNo)]].filter(Boolean);
+  const boxes = [b.hall && [L.hallBox, b.hall], b.serialNo && [L.serialBox, String(b.serialNo)]].filter(Boolean);
   if (boxes.length) {
     const gap = 10; const bw = (W - 2 * M - gap * (boxes.length - 1)) / boxes.length; const bh = 96;
     boxes.forEach(([label, value], i) => {
@@ -132,28 +136,28 @@ export async function slipPng(b, { hall = {}, temple = {}, footer = '', receiptU
   const d = b.devotee || {};
   text(d.name, 28, { weight: 700, gap: 2 });
   text(masked(d.phone), 22, { gap: 2 });
-  if (d.gotra) text(`Gotra: ${d.gotra}`, 22, { gap: 2 });
-  if (d.familyNames?.length) text(`Family: ${d.familyNames.join(', ')}`, 21, { gap: 2 });
-  if (b.peopleCount > 1) text(`People: ${b.peopleCount}`, 22, { gap: 2 });
-  if (b.schedule === 'none' && address(d)) text(`Post to: ${address(d)}`, 20, { gap: 2 });
+  if (d.gotra) text(`${L.gotra}: ${d.gotra}`, 22, { gap: 2 });
+  if (d.familyNames?.length) text(`${L.family}: ${d.familyNames.join(', ')}`, 21, { gap: 2 });
+  if (b.peopleCount > 1) text(`${L.people}: ${b.peopleCount}`, 22, { gap: 2 });
+  if (b.schedule === 'none' && address(d)) text(`${L.postTo}: ${address(d)}`, 20, { gap: 2 });
   rule();
 
-  out.push(outline(shape(MODE[b.paymentMode] || b.paymentMode || '', 24, 400), M, y + 10 + asc(24), '#000'));
+  out.push(outline(shape(L.modes[b.paymentMode] || b.paymentMode || '', 24, 400), M, y + 10 + asc(24), '#000'));
   const amt = shape(`₹${Math.round(b.amount || 0).toLocaleString('en-IN')}`, 40, 700);
   out.push(outline(amt, W - M - amt.width, y + asc(40), '#000'));
   y += 58;
 
   if (b.status === 'voided') {
     y += 6;
-    text('This booking was cancelled — not valid for entry', 22, { weight: 700, align: 'center', fill: '#b91c1c' });
+    text(L.cancelled, 22, { weight: 700, align: 'center', fill: '#b91c1c' });
   } else if (receiptUrl) {
     const qr = await QRCode.toDataURL(receiptUrl, { width: 380, margin: 0, errorCorrectionLevel: 'M' });
     out.push(`<image href="${qr}" x="${(W - 220) / 2}" y="${y}" width="220" height="220"/>`);
     y += 226;
-    text(b.dateKey ? 'Show this QR code at the hall entrance' : 'Scan to see this receipt on your phone', 19, { weight: 600, align: 'center' });
+    text(b.dateKey ? L.showQr : L.scanSlip, 19, { weight: 600, align: 'center' });
   }
   text(footer, 18, { align: 'center' });
-  if (bookedBy) text(`Booked by ${bookedBy}`, 17, { align: 'center' });
+  if (bookedBy) text(`${L.bookedBy} ${bookedBy}`, 17, { align: 'center' });
 
   const H = Math.ceil(y + M);
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">`

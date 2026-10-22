@@ -380,16 +380,18 @@ async function mahaprasadChecks(api, today) {
   check((await issue(counter, { quantity: 3, isGroup: true, paymentMode: 'upi' })).status === 201, 'group coupon for 3 issued');
   check(await reportTotal() - reportBefore === 3, 'a group of 3 counts as 3 persons in the report');
 
-  // Cancelling: needs a reason, only one's own sale from today (or mahaprasad:void), happens once
+  // Cancelling: needs a reason, only an admin (mahaprasad:void) — counter staff not even their own sale — happens once
   const before = await drawer();
   const sale = await issue(counter, { quantity: 2, paymentMode: 'cash', amountReceived: 100, receivedNotes: [100] });
   const batchId = sale.body.data?.batchId;
   check(sale.status === 201 && (await drawer()).cashTotal - before.cashTotal === 80, 'cash sale of 2 × ₹40 with a ₹100 note', show(sale));
-  check((await counter('PATCH', `/mahaprasad/batches/${batchId}/void`, {})).status === 400, 'cancelling needs a reason');
+  check((await admin('PATCH', `/mahaprasad/batches/${batchId}/void`, {})).status === 400, 'cancelling needs a reason');
   check((await redeemer('PATCH', `/mahaprasad/batches/${batchId}/void`, { reason: 'test' })).status === 403, 'the food counter cannot cancel sales');
+  const own = await counter('PATCH', `/mahaprasad/batches/${batchId}/void`, { reason: 'test' });
+  check(own.status === 403, 'counter staff cannot cancel a sale, not even their own', show(own));
   const notMine = await counter2('PATCH', `/mahaprasad/batches/${batchId}/void`, { reason: 'test' });
-  check(notMine.status === 403, 'counter staff cannot cancel another person\'s sale', show(notMine));
-  const taps = await Promise.all([1, 2].map(() => counter('PATCH', `/mahaprasad/batches/${batchId}/void`, { reason: 'Wrong quantity' })));
+  check(notMine.status === 403, '…nor another person\'s', show(notMine));
+  const taps = await Promise.all([1, 2].map(() => admin('PATCH', `/mahaprasad/batches/${batchId}/void`, { reason: 'Wrong quantity' })));
   check(taps.map((r) => r.status).sort().join() === '200,409', 'a double tap on cancel cancels once', taps.map(show).join(' | '));
   const after = await drawer();
   check(after.cashTotal === before.cashTotal && after.counts['100'] === before.counts['100'] && JSON.stringify(after.counts) === JSON.stringify(before.counts),
@@ -416,6 +418,22 @@ async function mahaprasadChecks(api, today) {
   await counter('PUT', '/mahaprasad/cash-drawer/float', { date: ahead(42), counts: { 500: 1 } });
   const corrected = await drawerOn(ahead(42));
   check(corrected.isFloatSet && !corrected.carriedFrom && corrected.total === 500, 'correcting the float by hand clears the "carried over" mark');
+  // Two counters share the drawer: a float counted before the other one changed it would wipe that
+  await counter('PATCH', '/mahaprasad/cash-drawer/adjust', { date: ahead(42), denomination: 100, delta: 1 });   // the other counter, meanwhile
+  const stale = await counter('PUT', '/mahaprasad/cash-drawer/float', { date: ahead(42), counts: { 500: 2 }, basedOn: corrected.updatedAt });
+  check(stale.status === 409 && (await drawerOn(ahead(42))).total === 600, 'a float counted before another counter changed the drawer is refused, and the drawer kept', show(stale));
+  const recount = await counter('PUT', '/mahaprasad/cash-drawer/float', { date: ahead(42), counts: { 500: 2 }, basedOn: (await drawerOn(ahead(42))).updatedAt });
+  check(recount.status === 200 && recount.body.data.total === 1000, '…and saves once counted from the drawer as it is now', show(recount));
+  // A drawer that closed empty: the next day asks for its float, and the day after still carries on from it
+  await counter('PUT', '/mahaprasad/cash-drawer/float', { date: ahead(50), counts: {} });
+  const afterEmpty = await drawerOn(ahead(51));
+  check(afterEmpty.isFloatSet === false && afterEmpty.carriedFrom === key(ahead(50)) && afterEmpty.total === 0,
+    'after a day that closed with an empty drawer, the opening float is asked for, not carried over as ₹0',
+    JSON.stringify({ set: afterEmpty.isFloatSet, from: afterEmpty.carriedFrom, total: afterEmpty.total }));
+  await counter('PATCH', '/mahaprasad/cash-drawer/adjust', { date: ahead(51), denomination: 100, delta: 2 });   // that day's takings
+  const nextAfterEmpty = await drawerOn(ahead(52));
+  check(nextAfterEmpty.isFloatSet && nextAfterEmpty.carriedFrom === key(ahead(51)) && nextAfterEmpty.total === 200,
+    '…and the day after carries that day\'s closing cash on', JSON.stringify({ set: nextAfterEmpty.isFloatSet, from: nextAfterEmpty.carriedFrom, total: nextAfterEmpty.total }));
   const lookBack = await drawerOn('2020-01-01');
   check(lookBack.isFloatSet === false && !lookBack.carriedFrom, 'an old day opened only to look at it is not filled in');
 

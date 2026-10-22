@@ -21,14 +21,15 @@ const UPCOMING_SHOWN = 3;
  * Mobile number (looked up as soon as it has 10 digits) and the devotee's name. A returning
  * devotee's bookings still ahead are listed; the one matching the chosen seva + date stands out.
  */
-/** The language of the devotee's WhatsApp receipt: मराठी or English (names in their own script). */
+/** The language of the devotee's WhatsApp receipt: मराठी, हिंदी or English (names in their own script).
+ * Hindi also gives a Hindi slip and receipt. */
 export function MessageLanguage({ value, onChange }) {
   const t = useT();
   return (
     <div className="mt-1.5 flex flex-wrap items-center gap-2 text-xs">
       <span className="inline-flex items-center gap-1 text-gray-500"><MessageCircle className="h-3.5 w-3.5" aria-hidden="true" />{t('WhatsApp message in')}</span>
       <span className="inline-flex rounded-full bg-gray-100 p-0.5" role="radiogroup" aria-label={t('WhatsApp message in')}>
-        {[['mr', 'मराठी'], ['en', 'English']].map(([code, label]) => (
+        {[['mr', 'मराठी'], ['hi', 'हिंदी'], ['en', 'English']].map(([code, label]) => (
           <button key={code} type="button" role="radio" aria-checked={value === code} onClick={() => onChange(code)}
             className={`min-h-[28px] rounded-full px-3 font-semibold transition-colors ${value === code ? 'bg-white text-primary-700 shadow-sm ring-1 ring-primary-200' : 'text-gray-500 hover:text-gray-800'}`}>
             {label}

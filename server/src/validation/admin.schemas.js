@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { DEVOTEE_LANGUAGES } from '../../../shared/devoteeLanguage.js';
 import { EXPENSE_CATEGORIES } from '../models/Expense.js';
 import {
   clearableText, idParams, objectId, optionalBoolean, optionalDate, optionalNumber,
@@ -129,8 +130,8 @@ export const updateSettings = {
       overdueSummary: waTemplate('Overdue invoices'),
     }, { error: 'WhatsApp templates must be a list of names' }).optional(),
     waLanguages: z.object({
-      donationThanks: optionalOneOf(['mr', 'en'], 'Donation message language'),
-      mahaprasadCoupons: optionalOneOf(['mr', 'en'], 'Mahaprasad message language'),
+      donationThanks: optionalOneOf(DEVOTEE_LANGUAGES, 'Donation message language'),
+      mahaprasadCoupons: optionalOneOf(DEVOTEE_LANGUAGES, 'Mahaprasad message language'),
     }, { error: 'WhatsApp languages must be a list' }).optional(),
     smsEnabled: flag('SMS'),
     msg91AuthKey: clearableText('MSG91 key', { max: 200 }),

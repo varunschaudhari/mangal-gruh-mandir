@@ -4,7 +4,8 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { AlertTriangle, Clock, Minus, Plus, RotateCcw, ShieldCheck, Undo2, Users } from 'lucide-react';
 import { createOnlineOrder, getOnlineInfo, getOnlineOrder, verifyOnlineOrder } from '../../api/mahaprasadOnline.api.js';
 import Spinner from '../../components/ui/Spinner.jsx';
-import { useLanguage, useT } from '../../i18n/index.jsx';
+import { DEVOTEE_LANGUAGES, LanguageProvider, useLanguage, useT } from '../../i18n/index.jsx';
+import { localeOf } from '../../../../shared/devoteeLanguage.js';
 import { Shell } from './PublicCoupons.jsx';
 
 // The public page where devotees buy Mahaprasad coupons (/prasad). No sign-in: pick the day, the
@@ -29,9 +30,9 @@ function loadCheckout() {
   });
 }
 
-const dayDate = (date, lang) => new Date(`${date}T12:00:00`).toLocaleDateString(lang === 'mr' ? 'mr-IN' : 'en-IN', { day: 'numeric', month: 'short' });
-const weekday = (date, lang) => new Date(`${date}T12:00:00`).toLocaleDateString(lang === 'mr' ? 'mr-IN' : 'en-IN', { weekday: 'short' });
-const longDate = (date, lang) => new Date(`${date}T12:00:00`).toLocaleDateString(lang === 'mr' ? 'mr-IN' : 'en-IN', { weekday: 'long', day: 'numeric', month: 'long' });
+const dayDate = (date, lang) => new Date(`${date}T12:00:00`).toLocaleDateString(localeOf(lang), { day: 'numeric', month: 'short' });
+const weekday = (date, lang) => new Date(`${date}T12:00:00`).toLocaleDateString(localeOf(lang), { weekday: 'short' });
+const longDate = (date, lang) => new Date(`${date}T12:00:00`).toLocaleDateString(localeOf(lang), { weekday: 'long', day: 'numeric', month: 'long' });
 
 function Card({ children, className = '' }) {
   return <section className={`rounded-2xl bg-white p-4 shadow-sm ${className}`}>{children}</section>;
@@ -47,7 +48,7 @@ function PolicyLinks() {
   );
 }
 
-export default function OnlinePrasad() {
+function OnlinePrasadPage() {
   const t = useT();
   const { lang } = useLanguage();
   const navigate = useNavigate();
@@ -372,4 +373,10 @@ export default function OnlinePrasad() {
       <PolicyLinks />
     </Shell>
   );
+}
+
+// A devotee's page: English, Marathi or Hindi — at first the phone's language — kept apart from the
+// staff app's language (the same choice on all the devotee pages)
+export default function OnlinePrasad() {
+  return <LanguageProvider storageKey="mgm-lang-devotee" languages={DEVOTEE_LANGUAGES} fromBrowser><OnlinePrasadPage /></LanguageProvider>;
 }

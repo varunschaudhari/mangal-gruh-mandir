@@ -97,6 +97,7 @@ export const setOpeningFloat = {
   body: z.object({
     date: optionalDate('Date'),
     counts: z.record(z.string(), optionalNumber('Count', { integer: true, min: 0, max: 100000 }), { error: 'counts object required' }),
+    basedOn: optionalDate('Drawer version'),   // the drawer's updatedAt when the form was filled in
   }),
 };
 export const adjustDrawer = {

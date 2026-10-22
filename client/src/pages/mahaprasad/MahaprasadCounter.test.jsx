@@ -45,9 +45,9 @@ import MahaprasadCounter from './MahaprasadCounter.jsx';
 
 const ok = (data) => Promise.resolve({ data: { data } });
 
-function setup({ summary = {}, occasions = [] } = {}) {
+function setup({ summary = {}, occasions = [], drawer = { counts: { 10: 20, 20: 20, 50: 20, 100: 20, 500: 2 }, isFloatSet: true } } = {}) {
   getDailySummary.mockImplementation(() => ok({ pricePerPlate: 50, cap: 0, total: 0, myCount: 0, myCash: 0, myUpi: 0, ...summary }));
-  getCashDrawer.mockImplementation(() => ok({ counts: { 10: 20, 20: 20, 50: 20, 100: 20, 500: 2 }, isFloatSet: true }));
+  getCashDrawer.mockImplementation(() => ok(drawer));
   getSettings.mockImplementation(() => ok({ mahaprasadDayPricing: {} }));
   getOccasions.mockImplementation(() => ok(occasions));
   getBatches.mockImplementation(() => ok([]));
@@ -121,6 +121,20 @@ describe('Mahaprasad counter', () => {
     await user.click(issueButton());
     await waitFor(() => expect(issueCoupons).toHaveBeenCalled());
     expect(sentBody()).toMatchObject({ paymentMode: 'cash', amountReceived: 100, receivedNotes: [100] });
+  });
+
+  it('warns when the drawer is short of change, and "Proceed anyway" sends the same sale — mobile number and all', async () => {
+    const user = setup({ drawer: { counts: {}, isFloatSet: true } });
+    await waitFor(() => expect(issueButton()).toHaveTextContent('₹50'));
+    await typeMobile(user);
+    await user.click(noteTile(100));
+    await user.click(issueButton());
+    expect(await screen.findByText('Drawer short ₹50')).toBeInTheDocument();
+    expect(issueCoupons).not.toHaveBeenCalled();
+
+    await user.click(screen.getByRole('button', { name: 'Proceed anyway' }));
+    await waitFor(() => expect(issueCoupons).toHaveBeenCalledTimes(1));
+    expect(sentBody()).toMatchObject({ mobile: '9881180662', type: 'paid', paymentMode: 'cash', amountReceived: 100, receivedNotes: [100] });
   });
 
   it('does not issue when the cash handed over is less than the price', async () => {

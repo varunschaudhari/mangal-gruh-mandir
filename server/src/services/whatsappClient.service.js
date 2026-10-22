@@ -2,6 +2,7 @@ import axios from 'axios';
 import Settings, { WA_LANGUAGE_DEFAULTS, WA_TEMPLATE_DEFAULTS } from '../models/Settings.js';
 import { logger } from '../utils/logger.js';
 import { normaliseMobile } from '../utils/phone.js';
+import { DEVOTEE_LANGUAGES, fallbackOf } from '../../../shared/devoteeLanguage.js';
 
 // Every WhatsApp message the app sends goes through here (Meta WhatsApp Cloud API): one place for
 // the settings, the API version, the phone-number format and the error handling.
@@ -28,19 +29,20 @@ export async function whatsappConfig() {
     phoneNumberId: String(s.waPhoneNumberId || fromEnv('WA_PHONE_NUMBER_ID')).trim(),
     accessToken: String(s.waAccessToken || fromEnv('WA_ACCESS_TOKEN')).trim(),
     templates: Object.fromEntries(Object.entries(WA_TEMPLATE_DEFAULTS).map(([k, def]) => [k, String(saved[k] ?? def).trim()])),
-    languages: Object.fromEntries(Object.entries(WA_LANGUAGE_DEFAULTS).map(([k, def]) => [k, ['mr', 'en'].includes(savedLanguages[k]) ? savedLanguages[k] : def])),
+    languages: Object.fromEntries(Object.entries(WA_LANGUAGE_DEFAULTS).map(([k, def]) => [k, DEVOTEE_LANGUAGES.includes(savedLanguages[k]) ? savedLanguages[k] : def])),
   };
 }
 
 /**
- * A message with an English and a Marathi version: the language chosen in Settings → WhatsApp
- * first, and the other as the fallback (for when Meta has only one of them approved).
+ * A devotee message written in each language ({ en, mr, hi }): the language chosen in
+ * Settings → WhatsApp first, and English (Marathi when English was chosen) as the fallback for
+ * when Meta hasn't approved the template in the chosen one.
  */
-export function bilingual(cfg, key, { en, mr }) {
-  const first = cfg?.languages?.[key] === 'en' ? 'en' : 'mr';
-  const body = { en, mr };
-  const other = first === 'mr' ? 'en' : 'mr';
-  return { language: first, body: body[first], fallback: { language: other, body: body[other] } };
+export function inLanguage(cfg, key, bodies) {
+  const chosen = cfg?.languages?.[key];
+  const first = bodies[chosen] ? chosen : 'mr';
+  const other = fallbackOf(first);
+  return { language: first, body: bodies[first], fallback: { language: other, body: bodies[other] } };
 }
 
 /** Can messages be sent at all (switched on, number ID and token there)? */
@@ -78,7 +80,7 @@ const META_HINTS = {
   131026: 'This number could not receive the message: it may not be on WhatsApp.',
   131031: 'The WhatsApp business account is locked. Check WhatsApp Manager.',
   131042: 'Payment problem on the WhatsApp account. Add a payment method in Meta Business Suite → Billing.',
-  132001: 'No approved template with this name in this language. Check the name (and English / Marathi) in WhatsApp Manager.',
+  132001: 'No approved template with this name in this language. Check the name (and its languages: English / Marathi / Hindi) in WhatsApp Manager.',
   132000: 'The template has a different number of {{…}} values than the app sends. Use the wording shown in Settings → WhatsApp.',
   132012: 'The template’s parts don’t match what the app sends (e.g. it has, or lacks, an image header).',
   132015: 'This template is paused by Meta for low quality. Check WhatsApp Manager.',

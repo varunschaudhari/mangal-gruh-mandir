@@ -5,6 +5,7 @@ import { formatAddress, isPincode } from './address.js';
 import { dayCode } from './attendanceCodes.js';
 import { localDateStr } from './dates.js';
 import { cleanPaymentRef, paymentRefProblem } from './payment.js';
+import { amountInWordsHi, fallbackOf, receiptText, sevaNameFor } from './devoteeLanguage.js';
 
 test('address: parts joined, repeated names once, PIN last', () => {
   assert.equal(
@@ -49,4 +50,18 @@ test('payment reference: UPI and card need one the cashier can match, cash none'
   assert.equal(paymentRefProblem('card', '4242'), '');
   assert.equal(paymentRefProblem('card', 'A1B2C3'), '');           // approval code
   assert.equal(cleanPaymentRef(' 4123 5678 9012 '), '412356789012');
+});
+
+test('Hindi for devotees: amount in words, receipt wording, fallback language', () => {
+  assert.equal(amountInWordsHi(2100), 'दो हज़ार एक सौ');
+  assert.equal(amountInWordsHi(125000), 'एक लाख पच्चीस हज़ार');
+  assert.equal(amountInWordsHi(10474927), 'एक करोड़ चार लाख चौहत्तर हज़ार नौ सौ सत्ताईस');
+  assert.equal(amountInWordsHi(99), 'निन्यानवे');
+  assert.equal(amountInWordsHi(0), 'शून्य');
+  assert.equal(receiptText('hi').receipt, 'रसीद');
+  assert.equal(receiptText('mr').receipt, 'Receipt');   // Marathi bookings keep the English slip
+  assert.equal(sevaNameFor('hi', 'Abhishek', 'अभिषेक'), 'अभिषेक');
+  assert.equal(sevaNameFor('hi', 'Abhishek', ''), 'Abhishek');
+  assert.equal(sevaNameFor('en', 'Abhishek', 'अभिषेक'), 'Abhishek');
+  assert.deepEqual(['hi', 'mr', 'en'].map(fallbackOf), ['en', 'en', 'mr']);
 });

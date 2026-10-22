@@ -22,9 +22,10 @@ import { SwitchRow, batchTime, errText, financialYear, hallNamesOf, useRefreshBo
 // the closing sentence). Values: server/src/services/booking/notify.js → whatsappReceipt.
 const WA_TEMPLATE_TEXT = {
   mr: 'नमस्कार {{1}}, श्री मंगळग्रह मंदिर, अमळनेर येथे आपली {{2}} सेवा नोंदवली आहे — {{3}}. पावती {{4}}: {{5}} कृपया हे सभागृहात दाखवा.',
+  hi: 'नमस्ते {{1}}, श्री मंगळग्रह मंदिर, अमळनेर में आपकी {{2}} सेवा बुक हो गई है — {{3}}. रसीद {{4}}: {{5}} कृपया इसे हॉल में दिखाएँ.',
   en: 'Namaste {{1}}, your {{2}} at Shri Mangal Grah Mandir, Amalner is booked for {{3}}. Receipt {{4}}: {{5}} Please show this at the hall.',
 };
-const WA_LANGS = [['mr', 'मराठी (Marathi)'], ['en', 'English']];
+const WA_LANGS = [['mr', 'मराठी (Marathi)'], ['hi', 'हिंदी (Hindi)'], ['en', 'English']];
 const WA_VARS = [
   ['{{1}}', /*t*/ 'devotee\'s name'],
   ['{{2}}', /*t*/ 'seva name'],

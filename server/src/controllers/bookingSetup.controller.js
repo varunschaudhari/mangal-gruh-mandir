@@ -11,6 +11,7 @@ import { changedValues, logAction } from '../services/audit.service.js';
 import { addDays, dateKeyOf, isDateKey } from '../services/booking/rules.js';
 import { listHalls } from '../services/booking/halls.js';
 import { recountSeats } from '../services/booking/booking.service.js';
+import { DEVOTEE_LANGUAGES } from '../../../shared/devoteeLanguage.js';
 
 const pick = (obj, keys) => Object.fromEntries(keys.filter((k) => obj?.[k] !== undefined).map((k) => [k, obj[k]]));
 const weekdays = (w) => (Array.isArray(w) ? [...new Set(w.map(Number).filter((d) => d >= 0 && d <= 6))].sort() : undefined);
@@ -193,10 +194,10 @@ export const updateSettings = asyncHandler(async (req, res) => {
   const data = pick(req.body, ['receiptPrefix', 'capacityUnit', 'maxAdvanceDays', 'printerName', 'paperWidth', 'receiptFooter', 'whatsappAuto', 'whatsappTemplate', 'whatsappImage', 'whatsappLanguages', 'whatsappLanguage', 'smsAuto', 'smsTemplateId']);
   if (data.receiptPrefix !== undefined && !/^[A-Za-z]{1,8}$/.test(data.receiptPrefix)) throw new ApiError(400, 'Receipt prefix: 1–8 letters');
   if (data.whatsappLanguages !== undefined) {
-    data.whatsappLanguages = [...new Set([].concat(data.whatsappLanguages).filter((l) => ['mr', 'en'].includes(l)))];
+    data.whatsappLanguages = [...new Set([].concat(data.whatsappLanguages).filter((l) => DEVOTEE_LANGUAGES.includes(l)))];
     if (!data.whatsappLanguages.length) throw new ApiError(400, 'Tick at least one language the WhatsApp template is approved in');
   }
-  if (data.whatsappLanguage !== undefined && !['mr', 'en'].includes(data.whatsappLanguage)) throw new ApiError(400, 'Message language: Marathi or English');
+  if (data.whatsappLanguage !== undefined && !DEVOTEE_LANGUAGES.includes(data.whatsappLanguage)) throw new ApiError(400, 'Message language: Marathi, Hindi or English');
   const settings = await BookingSettings.getOrCreate();
   const before = settings.toObject();
   Object.assign(settings, data);

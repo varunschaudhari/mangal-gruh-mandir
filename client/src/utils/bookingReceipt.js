@@ -1,5 +1,6 @@
 // Booking receipts: the counter's thermal slip, the A4 receipt, and the WhatsApp link.
-// Text is drawn by the browser (canvas / HTML), so Marathi names print correctly.
+// Text is drawn by the browser (canvas / HTML), so Marathi names print correctly. A booking whose
+// devotee language is Hindi gets them in Hindi (the wording is shared with the server's slip picture).
 import QRCode from 'qrcode/lib/browser.js';
 import { printHtml } from './printHtml.js';
 import { formatAddress } from './address.js';
@@ -8,13 +9,17 @@ import { printBluetooth, savedBluetoothPrinter } from './bluetoothPrinter.js';
 import { isNative, isElectron } from './platform.js';
 import { temple } from './temple.js';
 import { PRINT_FONT as FONT, PRINT_HEADER_CSS, esc, letterheadHtml } from './printTemplate.js';
+import { amountInWordsHi, bookingLanguage, localeOf, receiptText, sevaNameFor } from '../../../shared/devoteeLanguage.js';
 
-const MODE = { cash: 'Cash', upi: 'UPI', card: 'Card', online: 'Online' };
+// The slip and receipt are in Hindi for a Hindi booking; every other one as before (English labels)
+const slipLocale = (lang) => (lang === 'hi' ? localeOf('hi') : 'en-IN');
+// The seva by its Devanagari (Marathi) name on a Hindi slip
+const sevaFor = (b, settings, lang) => (lang === 'hi' ? sevaNameFor(lang, b.sevaName, b.sevaNameMr || settings.sevaNamesMr?.[b.sevaType]) : b.sevaName);
 
-export const fmtPujaDate = (b) => (b.dateKey
-  ? new Date(`${b.dateKey}T00:00:00`).toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })
+export const fmtPujaDate = (b, lang) => (b.dateKey
+  ? new Date(`${b.dateKey}T00:00:00`).toLocaleDateString(slipLocale(lang), { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })
   : '');
-const fmtPaid = (d) => new Date(d).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+const fmtPaid = (d, lang) => new Date(d).toLocaleString(slipLocale(lang), { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 const rupees = (n) => `Rs. ${Math.round(n || 0).toLocaleString('en-IN')}`;
 
 // The hall's names (Setup → Halls): carried on the booking by the public receipt, otherwise
@@ -49,11 +54,15 @@ export function amountInWords(amount) {
 
 /** Pre-filled WhatsApp message to the devotee with the receipt link (works without the WhatsApp API). */
 export function whatsappShareUrl(b, settings = {}) {
-  const hall = hallText(b, settings);
-  const where = !hall ? '' : hall === b.hall ? `, Hall ${b.hall}` : `, ${hall}`;
-  const when = b.dateKey ? `${fmtPujaDate(b)}${b.batchLabel ? `, ${b.batchLabel}` : ''}${where}` : 'on your behalf';
-  const text = `Namaste ${b.devotee?.name || ''}, your ${b.sevaName} at Shri Mangal Grah Mandir, Amalner is booked for ${when}.`
-    + `\nReceipt ${b.receiptNo}${b.serialNo ? ` · Serial ${b.serialNo}` : ''}\n${b.receiptUrl || ''}`;
+  const hi = bookingLanguage(b, settings.whatsappLanguage) === 'hi';
+  const hall = hi ? (hallOf(b, settings).nameMr || hallText(b, settings)) : hallText(b, settings);
+  const where = !hall ? '' : hall === b.hall ? `, ${hi ? 'हॉल' : 'Hall'} ${b.hall}` : `, ${hall}`;
+  const when = b.dateKey ? `${fmtPujaDate(b, hi ? 'hi' : 'en')}${b.batchLabel ? `, ${b.batchLabel}` : ''}${where}` : (hi ? 'आपकी ओर से' : 'on your behalf');
+  const text = hi
+    ? `नमस्ते ${b.devotee?.name || ''}, श्री मंगळग्रह मंदिर, अमळनेर में आपकी ${sevaFor(b, settings, 'hi')} सेवा बुक हो गई है — ${when}.`
+      + `\nरसीद ${b.receiptNo}${b.serialNo ? ` · क्रमांक ${b.serialNo}` : ''}\n${b.receiptUrl || ''}`
+    : `Namaste ${b.devotee?.name || ''}, your ${b.sevaName} at Shri Mangal Grah Mandir, Amalner is booked for ${when}.`
+      + `\nReceipt ${b.receiptNo}${b.serialNo ? ` · Serial ${b.serialNo}` : ''}\n${b.receiptUrl || ''}`;
   const phone = String(b.devotee?.phone || '').replace(/\D/g, '');
   return `https://wa.me/${phone.length === 10 ? `91${phone}` : phone}?text=${encodeURIComponent(text)}`;
 }
@@ -69,6 +78,8 @@ const loadImage = (src) => new Promise((resolve) => {
 
 /** Draws the counter slip on a canvas the width of the paper (80 mm = 576 dots, 58 mm = 384). */
 export async function drawSlip(b, settings = {}) {
+  const lang = bookingLanguage(b, settings.whatsappLanguage);
+  const L = receiptText(lang);
   const W = settings.paperWidth === 58 ? 384 : 576;
   const s = W / 576; // scale fonts for 58 mm paper
   const M = Math.round(14 * s);
@@ -114,17 +125,17 @@ export async function drawSlip(b, settings = {}) {
   const info = { ...temple(), ...settings.temple };
   text(info.nameMr, 30, { weight: 700, align: 'center', gap: 0 });
   text(settings.templeName || info.name, 21, { align: 'center', gap: 2 });
-  text(b.status === 'voided' ? '*** VOIDED ***' : 'ABHISHEK / PUJA RECEIPT', 22, { weight: 700, align: 'center', gap: 4 });
+  text(b.status === 'voided' ? L.voided : L.slipTitle, 22, { weight: 700, align: 'center', gap: 4 });
   rule();
-  row('Receipt', b.receiptNo, 26, 700);
-  row('Booked', fmtPaid(b.paidAt), 20, 400);
+  row(L.receipt, b.receiptNo, 26, 700);
+  row(L.booked, fmtPaid(b.paidAt, lang), 20, 400);
   rule();
-  text(b.sevaName, 32, { weight: 700, align: 'center' });
-  if (b.dateKey) row('Puja date', fmtPujaDate(b), 26, 700);
-  if (b.batchLabel) row(b.schedule === 'batch' ? 'Batch' : 'Time', b.batchLabel, 24, 700);
+  text(sevaFor(b, settings, lang), 32, { weight: 700, align: 'center' });
+  if (b.dateKey) row(L.pujaDate, fmtPujaDate(b, lang), 26, 700);
+  if (b.batchLabel) row(b.schedule === 'batch' ? L.batch : L.time, b.batchLabel, 24, 700);
 
   // Hall and serial in big black boxes — what the devotee and the hall volunteer look for
-  const boxes = [b.hall && ['HALL', b.hall], b.serialNo && ['SERIAL', String(b.serialNo)]].filter(Boolean);
+  const boxes = [b.hall && [L.hallBox, b.hall], b.serialNo && [L.serialBox, String(b.serialNo)]].filter(Boolean);
   if (boxes.length) {
     const gap = Math.round(10 * s); const bw = (W - 2 * M - gap * (boxes.length - 1)) / boxes.length; const bh = Math.round(96 * s);
     boxes.forEach(([label, value], i) => {
@@ -143,22 +154,22 @@ export async function drawSlip(b, settings = {}) {
   rule();
   text(b.devotee?.name, 28, { weight: 700, gap: 2 });
   text(b.devotee?.phone, 22, { gap: 2 });
-  if (b.devotee?.gotra) text(`Gotra: ${b.devotee.gotra}`, 22, { gap: 2 });
-  if (b.devotee?.familyNames?.length) text(`Family: ${b.devotee.familyNames.join(', ')}`, 21, { gap: 2 });
-  if (b.peopleCount > 1) text(`People: ${b.peopleCount}`, 22, { gap: 2 });
-  if (b.schedule === 'none' && formatAddress(b.devotee)) text(`Post to: ${formatAddress(b.devotee)}`, 20, { gap: 2 });
+  if (b.devotee?.gotra) text(`${L.gotra}: ${b.devotee.gotra}`, 22, { gap: 2 });
+  if (b.devotee?.familyNames?.length) text(`${L.family}: ${b.devotee.familyNames.join(', ')}`, 21, { gap: 2 });
+  if (b.peopleCount > 1) text(`${L.people}: ${b.peopleCount}`, 22, { gap: 2 });
+  if (b.schedule === 'none' && formatAddress(b.devotee)) text(`${L.postTo}: ${formatAddress(b.devotee)}`, 20, { gap: 2 });
   rule();
-  font(24); ctx.fillText(MODE[b.paymentMode] || b.paymentMode, M, y + 10 * s);
+  font(24); ctx.fillText(L.modes[b.paymentMode] || b.paymentMode, M, y + 10 * s);
   font(40, 800); const amt = rupees(b.amount); ctx.fillText(amt, W - M - ctx.measureText(amt).width, y);
   y += Math.round(54 * s);
   if (b.receiptUrl) {
     const qr = document.createElement('canvas');
     await QRCode.toCanvas(qr, b.receiptUrl, { width: Math.round(190 * s), margin: 0, errorCorrectionLevel: 'M' });
     ctx.drawImage(qr, (W - qr.width) / 2, y); y += qr.height + Math.round(6 * s);
-    text('Scan to see this receipt on your phone', 18, { align: 'center' });
+    text(L.scanSlip, 18, { align: 'center' });
   }
   text(settings.receiptFooter, 18, { align: 'center' });
-  if (b.createdBy?.name) text(`Booked by ${b.createdBy.name}`, 17, { align: 'center' });
+  if (b.createdBy?.name) text(`${L.bookedBy} ${b.createdBy.name}`, 17, { align: 'center' });
 
   const out = document.createElement('canvas');
   out.width = W; out.height = y + M;
@@ -192,29 +203,31 @@ export async function printBookingSlip(b, settings = {}) {
 
 /**
  * Full-page receipt as an HTML document (also used by the public receipt page, which passes the
- * temple details that came with the receipt as settings.temple).
+ * temple details that came with the receipt as settings.temple, and the page's language as `lang`).
  */
-export async function bookingReceiptHtml(b, settings = {}, { autoPrint = true } = {}) {
+export async function bookingReceiptHtml(b, settings = {}, { autoPrint = true, lang = bookingLanguage(b, settings.whatsappLanguage) } = {}) {
+  const L = receiptText(lang);
+  const hi = lang === 'hi';
   const qr = b.receiptUrl ? await QRCode.toDataURL(b.receiptUrl, { width: 220, margin: 1 }) : '';
   const d = b.devotee || {};
   const rows = [
-    ['Seva', esc(b.sevaName)],
-    b.dateKey && ['Puja date', esc(fmtPujaDate(b))],
-    b.batchLabel && [b.schedule === 'batch' ? 'Batch' : 'Time', esc(b.batchLabel)],
-    b.hall && ['Hall', `<b>${esc(hallText(b, settings))}</b>${hallOf(b, settings).nameMr ? `<br>${esc(hallOf(b, settings).nameMr)}` : ''}`],
-    b.serialNo && ['Serial no.', `<b>${esc(b.serialNo)}</b>`],
-    ['Devotee', `<b>${esc(d.name)}</b>`],
-    d.phone && ['Mobile', esc(d.phone)],
-    formatAddress(d) && [b.schedule === 'none' ? 'Postal address' : 'Address', esc(formatAddress(d))],
-    d.gotra && ['Gotra', esc(d.gotra)],
-    d.familyNames?.length && ['Family names', esc(d.familyNames.join(', '))],
-    (d.rashi || d.nakshatra) && ['Rashi / Nakshatra', esc([d.rashi, d.nakshatra].filter(Boolean).join(' / '))],
-    b.peopleCount > 1 && ['People', esc(b.peopleCount)],
-    ['Payment', esc(`${MODE[b.paymentMode] || b.paymentMode}${b.paymentRef ? ` · Ref ${b.paymentRef}` : ''}`)],
+    [L.seva, esc(sevaFor(b, settings, lang))],
+    b.dateKey && [L.pujaDate, esc(fmtPujaDate(b, lang))],
+    b.batchLabel && [b.schedule === 'batch' ? L.batch : L.time, esc(b.batchLabel)],
+    b.hall && [L.hall, `<b>${esc(hallText(b, settings))}</b>${hallOf(b, settings).nameMr ? `<br>${esc(hallOf(b, settings).nameMr)}` : ''}`],
+    b.serialNo && [L.serialNo, `<b>${esc(b.serialNo)}</b>`],
+    [L.devotee, `<b>${esc(d.name)}</b>`],
+    d.phone && [L.mobile, esc(d.phone)],
+    formatAddress(d) && [b.schedule === 'none' ? L.postal : L.address, esc(formatAddress(d))],
+    d.gotra && [L.gotra, esc(d.gotra)],
+    d.familyNames?.length && [L.familyNames, esc(d.familyNames.join(', '))],
+    (d.rashi || d.nakshatra) && [L.rashi, esc([d.rashi, d.nakshatra].filter(Boolean).join(' / '))],
+    b.peopleCount > 1 && [L.people, esc(b.peopleCount)],
+    [L.payment, esc(`${L.modes[b.paymentMode] || b.paymentMode}${b.paymentRef ? ` · ${L.ref} ${b.paymentRef}` : ''}`)],
   ].filter(Boolean);
   const info = { ...temple(), ...settings.temple };
 
-  return `<!DOCTYPE html><html lang="mr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  return `<!DOCTYPE html><html lang="${hi ? 'hi' : 'mr'}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Receipt ${esc(b.receiptNo)}</title>
 <style>
   @page { size: A4; margin: 12mm; }
@@ -240,13 +253,13 @@ export async function bookingReceiptHtml(b, settings = {}, { autoPrint = true } 
   @media print { body { padding: 0; } }
 </style></head><body>
 <div class="sheet">
-  ${b.status === 'voided' ? '<div class="void">VOIDED</div>' : ''}
-  ${letterheadHtml({ title: 'Abhishek / Puja Receipt', number: b.receiptNo, numberLabel: 'Receipt No.', date: fmtPaid(b.paidAt), dateLabel: 'Booked on', info: settings.temple })}
+  ${b.status === 'voided' ? `<div class="void">${esc(L.voidMark)}</div>` : ''}
+  ${letterheadHtml({ title: L.title, number: b.receiptNo, numberLabel: L.receiptNo, date: fmtPaid(b.paidAt, lang), dateLabel: L.bookedOn, managedBy: hi ? 'प्रबंधन:' : undefined, info: settings.temple })}
   <div class="body"><table>${rows.map(([k, v]) => `<tr><td>${k}</td><td>${v}</td></tr>`).join('')}</table>
-    ${qr ? `<div class="qr"><img src="${qr}" alt=""><br>Scan to view this receipt</div>` : ''}</div>
-  <div class="amount"><span>Amount received<br>Rupees ${esc(amountInWords(b.amount))} only</span><b>₹${esc(Math.round(b.amount).toLocaleString('en-IN'))}</b></div>
-  <div class="foot"><span>${esc(settings.receiptFooter || '')}${b.createdBy?.name ? `<br>Booked by ${esc(b.createdBy.name)}` : ''}</span>
-    <span class="sign"><div>For ${esc(info.legalName || info.name)}</div></span></div>
+    ${qr ? `<div class="qr"><img src="${qr}" alt=""><br>${esc(L.scanReceipt)}</div>` : ''}</div>
+  <div class="amount"><span>${esc(L.amountReceived)}<br>${esc(L.inWords(hi ? amountInWordsHi(b.amount) : amountInWords(b.amount)))}</span><b>₹${esc(Math.round(b.amount).toLocaleString('en-IN'))}</b></div>
+  <div class="foot"><span>${esc(settings.receiptFooter || '')}${b.createdBy?.name ? `<br>${esc(L.bookedBy)} ${esc(b.createdBy.name)}` : ''}</span>
+    <span class="sign"><div>${esc(L.signFor(info.legalName || info.name))}</div></span></div>
 </div>
 ${autoPrint ? '<script>window.onload = () => window.print()<\/script>' : ''}
 </body></html>`;

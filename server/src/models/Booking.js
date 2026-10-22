@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import { DEVOTEE_LANGUAGES } from '../../../shared/devoteeLanguage.js';
 
 export const PAYMENT_MODES = ['cash', 'upi', 'card', 'online'];
 export const BOOKING_STATUSES = ['confirmed', 'voided'];
@@ -53,7 +54,7 @@ const bookingSchema = new mongoose.Schema(
       nakshatra:     { type: String, trim: true, default: '' },
       birthTime:     { type: String, trim: true, default: '' },
       birthPlace:    { type: String, trim: true, default: '' },
-      language:      { type: String, enum: ['', 'mr', 'en'], default: '' },  // WhatsApp receipt; '' = Setup's default
+      language:      { type: String, enum: ['', ...DEVOTEE_LANGUAGES], default: '' },  // WhatsApp receipt (and a Hindi slip); '' = Setup's default
     },
     peopleCount: { type: Number, default: 1, min: 1 },
     notes:       { type: String, trim: true, default: '' },

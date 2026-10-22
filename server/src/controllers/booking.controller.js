@@ -20,6 +20,7 @@ import { bookingsExcel, bookingsPdf, summaryPdf } from '../services/booking/expo
 import { dateKeyOf, isDateKey } from '../services/booking/rules.js';
 import { temple as templeDetails } from '../services/temple.service.js';
 import { slipPng } from '../services/booking/slipImage.js';
+import { bookingLanguage } from '../../../shared/devoteeLanguage.js';
 
 const withUrl = (b) => (b ? { ...b, receiptUrl: receiptUrl(b) } : b);
 const POPULATE = [
@@ -54,6 +55,8 @@ export const getOptions = asyncHandler(async (req, res) => {
       whatsappLanguage: settings.whatsappLanguage || 'mr',   // new bookings' message language
       templeName: temple.templeName, templeAddress: temple.templeAddress, templePhone: temple.templePhone,
       hallNames: names,   // { H1: { name, nameMr } } — slips and screens show "Name (H1)"
+      // { sevaTypeId: Marathi name } — a Hindi booking's slip shows the seva in Devanagari
+      sevaNamesMr: Object.fromEntries(allSevaTypes.filter((s) => s.nameMr).map((s) => [String(s._id), s.nameMr])),
     },
   }));
 });
@@ -265,10 +268,13 @@ export const publicSlip = asyncHandler(async (req, res) => {
   if (!/^[A-Za-z0-9_-]{10,40}$/.test(token)) throw new ApiError(404, 'Receipt not found');
   const b = await Booking.findOne({ receiptToken: token }).populate('createdBy', 'name').lean();
   if (!b) throw new ApiError(404, 'Receipt not found');
-  const [settings, names] = await Promise.all([BookingSettings.getOrCreate(), hallNames()]);
+  const [settings, names, seva] = await Promise.all([
+    BookingSettings.getOrCreate(), hallNames(), SevaType.findById(b.sevaType).select('nameMr').lean(),
+  ]);
   const png = await slipPng(b, {
     hall: names[b.hall] || {}, temple: templeDetails(), footer: settings.receiptFooter,
     receiptUrl: receiptUrl(b), bookedBy: b.createdBy?.name || '',
+    lang: bookingLanguage(b, settings.whatsappLanguage), sevaNameMr: seva?.nameMr || '',
   });
   res.set({ 'Content-Type': 'image/png', 'Cache-Control': 'public, max-age=300' });
   res.send(png);
@@ -284,8 +290,10 @@ export const publicReceipt = asyncHandler(async (req, res) => {
     hallNames(),
   ]);
   if (!b) throw new ApiError(404, 'Receipt not found');
+  const seva = await SevaType.findById(b.sevaType).select('nameMr').lean();
   res.json(new ApiResponse(200, {
-    receiptNo: b.receiptNo, status: b.status, sevaName: b.sevaName, schedule: b.schedule, amount: b.amount,
+    receiptNo: b.receiptNo, status: b.status, sevaName: b.sevaName, sevaNameMr: seva?.nameMr || '', schedule: b.schedule, amount: b.amount,
+    language: bookingLanguage(b, settings.whatsappLanguage),   // the page opens in it (the devotee can switch)
     performDate: b.performDate, dateKey: b.dateKey, batchLabel: b.batchLabel, hall: b.hall, serialNo: b.serialNo,
     hallName: names[b.hall]?.name || '', hallNameMr: names[b.hall]?.nameMr || '',
     devotee: { name: b.devotee.name, phone: `XXXXXX${b.devotee.phone.slice(-4)}`, gotra: b.devotee.gotra, familyNames: b.devotee.familyNames },

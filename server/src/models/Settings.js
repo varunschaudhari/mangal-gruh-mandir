@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import { DEVOTEE_LANGUAGES } from '../../../shared/devoteeLanguage.js';
 import singleton from './singleton.js';
 
 // WhatsApp template names (approved in WhatsApp Manager). An empty name means that message is not
@@ -12,8 +13,8 @@ export const WA_TEMPLATE_DEFAULTS = {
   paymentStatus: 'payment_status_update',
   overdueSummary: 'payment_overdue_summary',
 };
-// Messages to devotees that have a Marathi version too: the language sent first (the other one is
-// sent when Meta has no approved version in it).
+// Messages to devotees that also go in Marathi or Hindi: the language sent first (English — or
+// Marathi when English was chosen — is sent when Meta has no approved version in it).
 export const WA_LANGUAGE_DEFAULTS = { donationThanks: 'mr', mahaprasadCoupons: 'mr' };
 
 const settingsSchema = new mongoose.Schema(
@@ -37,7 +38,7 @@ const settingsSchema = new mongoose.Schema(
     waPhoneNumberId: { type: String, default: '' },
     waAccessToken:   { type: String, default: '' },
     waTemplates: Object.fromEntries(Object.entries(WA_TEMPLATE_DEFAULTS).map(([k, v]) => [k, { type: String, default: v }])),
-    waLanguages: Object.fromEntries(Object.entries(WA_LANGUAGE_DEFAULTS).map(([k, v]) => [k, { type: String, enum: ['mr', 'en'], default: v }])),
+    waLanguages: Object.fromEntries(Object.entries(WA_LANGUAGE_DEFAULTS).map(([k, v]) => [k, { type: String, enum: DEVOTEE_LANGUAGES, default: v }])),
 
     // ── SMS (MSG91) ──────────────────────────────────────────────────────────
     smsEnabled:      { type: Boolean, default: false },

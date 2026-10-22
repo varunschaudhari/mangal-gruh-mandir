@@ -10,10 +10,16 @@ import { temple as cachedTemple } from '../../utils/temple.js';
 import { publicUrl } from '../../utils/platform.js';
 import Spinner from '../../components/ui/Spinner.jsx';
 import { fmtDateTime } from '../../components/booking/registerUtils.js';
-import { LanguageSwitch, useT } from '../../i18n/index.jsx';
+import { DEVOTEE_LANGUAGES, LanguageProvider, LanguageSwitch, useLanguage, useT } from '../../i18n/index.jsx';
 
 // The public receipt (/r/:token) opened from the WhatsApp / SMS link or the QR on the slip.
-// No sign-in. The receipt itself is the same HTML as the A4 print, shown in a frame.
+// No sign-in. The receipt itself is the same HTML as the A4 print, shown in a frame — in Hindi
+// when the page is (it opens in the booking's language until the devotee picks one).
+
+const LANGUAGE_KEY = 'mgm-lang-devotee';
+const hasChosenLanguage = () => {
+  try { return Boolean(localStorage.getItem(LANGUAGE_KEY)); } catch { return false; }
+};
 
 const toBooking = (r, token) => ({
   ...r,
@@ -45,9 +51,11 @@ function Shell({ children, temple }) {
   );
 }
 
-export default function PublicReceipt() {
+function ReceiptPage() {
   const { token } = useParams();
   const t = useT();
+  const { lang, setLang } = useLanguage();
+  const adopted = useRef(false);
   const frameRef = useRef(null);
   const [html, setHtml] = useState(null); // { view, print }
   const [height, setHeight] = useState(640);
@@ -60,18 +68,25 @@ export default function PublicReceipt() {
   });
   const r = q.data;
 
+  // First visit: the language the booking was made in (Hindi for a Hindi-speaking devotee)
+  useEffect(() => {
+    if (!r || adopted.current) return;
+    adopted.current = true;
+    if (!hasChosenLanguage() && DEVOTEE_LANGUAGES.includes(r.language) && r.language !== lang) setLang(r.language);
+  }, [r, lang, setLang]);
+
   useEffect(() => {
     if (!r) return undefined;
     let alive = true;
     const b = toBooking(r, token);
     const s = toSettings(r);
-    Promise.all([bookingReceiptHtml(b, s, { autoPrint: false }), bookingReceiptHtml(b, s, { autoPrint: true })])
+    Promise.all([bookingReceiptHtml(b, s, { autoPrint: false, lang }), bookingReceiptHtml(b, s, { autoPrint: true, lang })])
       .then((pages) => Promise.all(pages.map(withLogo)))
       .then(([view, print]) => { if (alive) setHtml({ view, print }); })
       .catch(() => { if (alive) setHtml({ view: '', print: '' }); });
     document.title = `${t('Receipt')} ${r.receiptNo}`;
     return () => { alive = false; };
-  }, [r, token, t]);
+  }, [r, token, t, lang]);
 
   // Fit the frame to the receipt so the page scrolls as one (no scroll inside a scroll).
   const fit = useCallback(() => {
@@ -166,4 +181,10 @@ export default function PublicReceipt() {
       )}
     </Shell>
   );
+}
+
+// A devotee's page: English, Marathi or Hindi — at first the phone's language — kept apart from the
+// staff app's language (the same choice on all the devotee pages)
+export default function PublicReceipt() {
+  return <LanguageProvider storageKey={LANGUAGE_KEY} languages={DEVOTEE_LANGUAGES} fromBrowser><ReceiptPage /></LanguageProvider>;
 }

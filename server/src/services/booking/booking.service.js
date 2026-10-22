@@ -9,6 +9,7 @@ import SlotCounter from '../../models/SlotCounter.js';
 import ApiError from '../../utils/ApiError.js';
 import { isPincode } from '../pincode.service.js';
 import { cleanPaymentRef, paymentRefProblem } from '../../../../shared/payment.js';
+import { DEVOTEE_LANGUAGES } from '../../../../shared/devoteeLanguage.js';
 import {
   batchEnded, batchLabel, batchesFor, closedReason, dateKeyOf, dateKeyToDate, diffFields, financialYear,
   formatReceiptNo, isDateKey, normalisePhone, seatsFor, slotKey,
@@ -196,7 +197,7 @@ function sanitiseDevotee(d = {}, sevaType = {}, { checkAddress = true } = {}) {
     nakshatra: clean(d.nakshatra, 40),
     birthTime: clean(d.birthTime, 20),
     birthPlace: clean(d.birthPlace, 80),
-    language: ['mr', 'en'].includes(d.language) ? d.language : '',
+    language: DEVOTEE_LANGUAGES.includes(d.language) ? d.language : '',
   };
 }
 

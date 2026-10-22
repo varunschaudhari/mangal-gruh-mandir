@@ -153,7 +153,7 @@ export function historyValue(field, value, { t = (s) => s, lang = 'en' } = {}) {
   if (Array.isArray(value)) return value.filter(Boolean).join(', ');
   if (field === 'date' || field === 'devotee.dob') return fmtDay(String(value), lang, { day: 'numeric', month: 'short', year: 'numeric' });
   if (field === 'paymentMode') return t(MODE_LABEL[value] || String(value));
-  if (field === 'devotee.language') return value === 'mr' ? 'मराठी' : 'English';
+  if (field === 'devotee.language') return { mr: 'मराठी', hi: 'हिंदी' }[value] || 'English';
   if (field === 'devotee.maritalStatus') return value === 'married' ? t('Married') : value === 'unmarried' ? t('Unmarried') : String(value);
   if (lang === 'mr' && (field === 'devotee.rashi' || field === 'devotee.nakshatra')) {
     const list = field === 'devotee.rashi' ? RASHIS : NAKSHATRAS;

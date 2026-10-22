@@ -43,3 +43,16 @@ test('Marathi receipt: Marathi seva and hall names, Marathi date, slip picture o
   const postal = whatsappReceipt({ ...booking, dateKey: undefined, hall: '' }, { lang: 'mr' });
   assert.deepEqual(texts(postal).slice(1, 3), ['Abhishek', 'आपल्या वतीने']);
 });
+
+test('Hindi receipt: Devanagari seva and hall names, Hindi date', () => {
+  const msg = whatsappReceipt(booking, { halls, lang: 'hi', sevaNameMr: 'अभिषेक' });
+  assert.deepEqual(msg.language, { code: 'hi' });
+  const [, seva, when] = texts(msg);
+  assert.equal(seva, 'अभिषेक');
+  assert.match(when, /^मंगलवार, 20 अक्(?:त|ट)ूबर 2026, 7:00 AM – 8:15 AM, अभिषेक हॉल 01 \(H1\)$/);   // ICU spells October either way
+  const postal = whatsappReceipt({ ...booking, dateKey: undefined, hall: '' }, { lang: 'hi' });
+  assert.deepEqual(texts(postal).slice(1, 3), ['Abhishek', 'आपकी ओर से']);
+  // Hindi is a language the template can be approved in, and the devotee can choose it
+  assert.equal(receiptLanguage({ devotee: { language: 'hi' } }, { whatsappLanguages: ['mr', 'hi', 'en'] }), 'hi');
+  assert.equal(receiptLanguage({ devotee: { language: 'hi' } }, { whatsappLanguages: ['mr', 'en'] }), 'mr');   // not approved yet
+});

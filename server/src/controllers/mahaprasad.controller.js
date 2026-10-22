@@ -47,18 +47,24 @@ function computeChange(amount, counts) {
 }
 
 // A day's cash drawer. Today's (or a later day's), when first opened, starts with the cash the
-// drawer closed with on the last earlier day that had an opening float — so the float carries over
-// by itself and the counter only corrects it if cash was taken out or added (carriedFrom marks it).
-// Earlier days opened only to look at them start empty, as before.
+// drawer closed with on the last earlier day that had an opening float (or was carried into) — so
+// the float carries over by itself and the counter only corrects it if cash was taken out or added
+// (carriedFrom marks it). A drawer that closed empty has nothing to check: the day still asks for
+// its float, and the next day carries on from this one. Earlier days opened only to look at them
+// start empty, as before.
 async function getOrCreateDrawer(dateStr) {
   const existing = await MahaprasadCashDrawer.findOne({ date: dateStr });
   if (existing) return existing;
   let start = { counts: { ...EMPTY_COUNTS } };
   if (dateStr >= datePart()) {
-    const last = await MahaprasadCashDrawer.findOne({ date: { $lt: dateStr }, isFloatSet: true }).sort({ date: -1 }).lean();
+    const last = await MahaprasadCashDrawer.findOne({ date: { $lt: dateStr }, $or: [{ isFloatSet: true }, { carriedFrom: { $exists: true } }] })
+      .sort({ date: -1 }).lean();
     if (last) {
       const closing = Object.fromEntries(DRAWER_DENOMS.map((d) => [String(d), Math.max(0, Number(last.counts?.[String(d)]) || 0)]));
-      start = { counts: closing, openingCounts: closing, isFloatSet: true, carriedFrom: last.date, openedAt: new Date() };
+      const empty   = DRAWER_DENOMS.every((d) => closing[String(d)] === 0);
+      start = empty
+        ? { counts: closing, openingCounts: closing, carriedFrom: last.date }
+        : { counts: closing, openingCounts: closing, isFloatSet: true, carriedFrom: last.date, openedAt: new Date() };
     }
   }
   return MahaprasadCashDrawer.findOneAndUpdate(
@@ -1003,7 +1009,7 @@ export const getCashDrawer = asyncHandler(async (req, res) => {
 
 // PUT /mahaprasad/cash-drawer/float  — set opening float by denomination
 export const setOpeningFloat = asyncHandler(async (req, res) => {
-  const { date, counts } = req.body;
+  const { date, counts, basedOn } = req.body;
   if (!counts || typeof counts !== 'object') throw new ApiError(400, 'counts object required');
 
   const dateStr    = datePart(date);
@@ -1011,12 +1017,16 @@ export const setOpeningFloat = asyncHandler(async (req, res) => {
     DRAWER_DENOMS.map((d) => [String(d), Math.max(0, parseInt(counts[String(d)]) || 0)])
   );
 
+  // Every counter shares the day's drawer. The form was filled in from the drawer as it was then
+  // (basedOn): if another counter has sold or recounted since, saving would wipe that, so it's
+  // refused. Older app versions don't send it and save as before.
   const drawer = await MahaprasadCashDrawer.findOneAndUpdate(
-    { date: dateStr },
+    basedOn ? { date: dateStr, updatedAt: { $lte: new Date(basedOn) } } : { date: dateStr },
     // Counted by hand now, so no longer "carried over"
     { $set: { counts: safeCounts, openingCounts: safeCounts, isFloatSet: true, openedBy: req.user._id, openedAt: new Date() }, $unset: { carriedFrom: 1 } },
-    { upsert: true, returnDocument: 'after' },
+    { upsert: !basedOn, returnDocument: 'after' },
   );
+  if (!drawer) throw new ApiError(409, 'The cash drawer was changed on another counter — check it and save again');
 
   const total = DRAWER_DENOMS.reduce((s, d) => s + d * (drawer.counts[String(d)] || 0), 0);
   logAction(req, {

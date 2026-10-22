@@ -5,7 +5,7 @@ import { AlertTriangle, Check, Eye, EyeOff, Maximize2, Minimize2, X } from 'luci
 import { getHallBoard } from '../../api/booking.api.js';
 import { usePermissions } from '../../hooks/usePermissions.js';
 import { useMediaQuery } from '../../hooks/useMediaQuery.js';
-import { LanguageProvider, LanguageSwitch, useLanguage, useT } from '../../i18n/index.jsx';
+import { DEVOTEE_LANGUAGES, LanguageProvider, LanguageSwitch, useLanguage, useT } from '../../i18n/index.jsx';
 import { fmtDay } from '../../components/booking/counter/counterUtils.js';
 import { fitGrid, minutesUntil, pickPerHall, pickShown, savedHall, saveHall } from '../../components/booking/checkin/checkInUtils.js';
 import { useHallEvents } from '../../utils/hallLive.js';
@@ -48,8 +48,9 @@ const pct = (n, total) => (total ? Math.round((n / total) * 100) : 0);
 const nowMinutes = (d) => d.getHours() * 60 + d.getMinutes();
 
 // Wide letter-spacing suits English capitals but breaks up Devanagari.
-const spacing = (lang) => (lang === 'mr' ? 'tracking-normal' : 'tracking-[0.2em]');
-const sevaText = (g, lang) => (lang === 'mr' && g.sevaNamesMr?.length ? g.sevaNamesMr : g.sevaNames).join(', ');
+// Marathi and Hindi: Devanagari, so the seva's Marathi name and no wide letter-spacing
+const spacing = (lang) => (lang !== 'en' ? 'tracking-normal' : 'tracking-[0.2em]');
+const sevaText = (g, lang) => (lang !== 'en' && g.sevaNamesMr?.length ? g.sevaNamesMr : g.sevaNames).join(', ');
 
 const clockText = (d) => d.toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit' });
 
@@ -254,7 +255,7 @@ function Spotlight({ event, lang, hallNames }) {
   const t = useT();
   if (!event) return null;
   const b = event.booking;
-  const seva = (lang === 'mr' && b.sevaNameMr) || b.sevaName;
+  const seva = (lang !== 'en' && b.sevaNameMr) || b.sevaName;
   const letIn = event.checkedIn;
   const reason = {
     'other-hall': t('{hall} — please go there', { hall: hallHeading(t, b.hall, hallNames, lang) }),
@@ -497,8 +498,8 @@ function HallScreenBoard() {
   );
 }
 
-// The hall TV keeps its own language: switching it there leaves the app's language alone,
+// The hall TV keeps its own language (Hindi too): switching it leaves the app's language alone,
 // also when the TV runs in the same browser as the app
 export default function HallScreen() {
-  return <LanguageProvider storageKey="mgm-lang-hall-screen"><HallScreenBoard /></LanguageProvider>;
+  return <LanguageProvider storageKey="mgm-lang-hall-screen" languages={DEVOTEE_LANGUAGES}><HallScreenBoard /></LanguageProvider>;
 }

@@ -8,7 +8,7 @@ import { onlineReceiptUrl } from '../../api/mahaprasadOnline.api.js';
 import Spinner from '../../components/ui/Spinner.jsx';
 import PersonsCount from './PersonsCount.jsx';
 import { temple as cachedTemple } from '../../utils/temple.js';
-import { LanguageSwitch, useT } from '../../i18n/index.jsx';
+import { DEVOTEE_LANGUAGES, LanguageProvider, LanguageSwitch, useT } from '../../i18n/index.jsx';
 
 // The devotee's Mahaprasad coupons (/m/:token), opened from the WhatsApp / SMS link. No sign-in.
 // One QR per coupon — a group coupon is one QR for everyone — holding the coupon number, the same
@@ -104,7 +104,7 @@ function CouponCard({ c, validityDays }) {
   );
 }
 
-export default function PublicCoupons() {
+function CouponsPage() {
   const { token } = useParams();
   const t = useT();
 
@@ -177,4 +177,10 @@ export default function PublicCoupons() {
       )}
     </Shell>
   );
+}
+
+// A devotee's page: English, Marathi or Hindi — at first the phone's language — kept apart from the
+// staff app's language (the same choice on all the devotee pages)
+export default function PublicCoupons() {
+  return <LanguageProvider storageKey="mgm-lang-devotee" languages={DEVOTEE_LANGUAGES} fromBrowser><CouponsPage /></LanguageProvider>;
 }

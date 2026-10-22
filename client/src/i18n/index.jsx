@@ -15,8 +15,9 @@ import bookingCheckIn from './mr/bookingCheckIn.js';
 import admin from './mr/admin.js';
 import assets from './mr/assets.js';
 import finance from './mr/finance.js';
+import devoteeHi from './hi/devotee.js';
 
-// English / मराठी. The English text *is* the key — t('Save') looks it up in the Marathi
+// English / मराठी (/ हिंदी on devotee screens). The English text *is* the key — t('Save') looks it up in the Marathi
 // dictionary and falls back to the English when there's no entry yet, so screens can be
 // translated one at a time. Placeholders: t('{n} items', { n: 3 }).
 // When one English word needs two translations, add a context after '|':
@@ -26,21 +27,37 @@ import finance from './mr/finance.js';
 export const LANGUAGES = [
   { code: 'en', label: 'English' },
   { code: 'mr', label: 'मराठी' },
+  { code: 'hi', label: 'हिंदी' },
 ];
+// Staff screens are in English and Marathi. What devotees see (the TV screens, the coupon and
+// receipt pages, /prasad) is also in Hindi — those wrap themselves in a provider with these.
+export const APP_LANGUAGES = ['en', 'mr'];
+export const DEVOTEE_LANGUAGES = ['en', 'mr', 'hi'];
 
 const DICTIONARIES = {
   mr: { ...common, ...mahaprasad, ...mahaprasadOnline, ...stock, ...dashboard, ...attendance, ...salary, ...booking, ...bookingRegister, ...bookingSetup, ...bookingFix, ...bookingShift, ...bookingCheckIn, ...admin, ...assets, ...finance },
+  hi: devoteeHi,
 };
 
 const STORAGE_KEY = 'mgm-lang';
 
-// A screen with its own language (storageKey) starts in the app's until it is switched
-const readLang = (storageKey = STORAGE_KEY) => {
+// The phone's own language when it is one we have (a devotee's phone set to Hindi opens in Hindi)
+const browserLang = (codes) => {
+  try {
+    return [...(navigator.languages || [navigator.language])].map((l) => String(l).slice(0, 2)).find((c) => codes.includes(c));
+  } catch { return undefined; }
+};
+
+// The saved choice; a screen with its own language (storageKey) starts in the phone's language
+// (fromBrowser) or the app's until it is switched
+const readLang = (storageKey = STORAGE_KEY, codes = APP_LANGUAGES, fromBrowser = false) => {
   try {
     const saved = localStorage.getItem(storageKey);
-    if (LANGUAGES.some((l) => l.code === saved)) return saved;
-    return storageKey === STORAGE_KEY ? 'en' : readLang();
-  } catch { return 'en'; }
+    if (codes.includes(saved)) return saved;
+  } catch { /* storage blocked */ }
+  if (storageKey === STORAGE_KEY) return 'en';
+  const app = readLang();
+  return (fromBrowser && browserLang(codes)) || (codes.includes(app) ? app : 'en');
 };
 
 export function translate(lang, text, vars) {
@@ -61,12 +78,12 @@ export const tNow = (text, vars) => translate(readLang(), text, vars);
 export const rich = (text, parts) => String(text).split(/\{(\w+)\}/g)
   .map((piece, i) => (i % 2 ? <Fragment key={i}>{parts[piece] ?? `{${piece}}`}</Fragment> : piece));
 
-const LanguageContext = createContext({ lang: 'en', setLang: () => {} });
+const LanguageContext = createContext({ lang: 'en', setLang: () => {}, languages: APP_LANGUAGES });
 
-// The app has one provider (main.jsx). A TV display wraps itself in another with its own
-// storageKey, so switching the TV's language leaves the app's alone on the same device.
-export function LanguageProvider({ children, storageKey = STORAGE_KEY }) {
-  const [lang, setLangState] = useState(() => readLang(storageKey));
+// The app has one provider (main.jsx). A TV display or a devotee page wraps itself in another
+// with its own storageKey (and the devotee languages), so switching it leaves the app's alone.
+export function LanguageProvider({ children, storageKey = STORAGE_KEY, languages = APP_LANGUAGES, fromBrowser = false }) {
+  const [lang, setLangState] = useState(() => readLang(storageKey, languages, fromBrowser));
 
   useEffect(() => {
     const before = document.documentElement.lang;
@@ -79,7 +96,7 @@ export function LanguageProvider({ children, storageKey = STORAGE_KEY }) {
     setLangState(code);
   }, [storageKey]);
 
-  const value = useMemo(() => ({ lang, setLang }), [lang, setLang]);
+  const value = useMemo(() => ({ lang, setLang, languages }), [lang, setLang, languages]);
   return <LanguageContext.Provider value={value}>{children}</LanguageContext.Provider>;
 }
 
@@ -91,12 +108,12 @@ export function useT() {
   return useCallback((text, vars) => translate(lang, text, vars), [lang]);
 }
 
-/** Compact English | मराठी switch. */
+/** Compact English | मराठी switch (| हिंदी on devotee screens). */
 export function LanguageSwitch({ className = '' }) {
-  const { lang, setLang } = useLanguage();
+  const { lang, setLang, languages } = useLanguage();
   return (
     <div role="radiogroup" aria-label="Language" className={`inline-flex rounded-full border border-gray-200 bg-white p-0.5 text-sm ${className}`}>
-      {LANGUAGES.map((l) => (
+      {LANGUAGES.filter((l) => languages.includes(l.code)).map((l) => (
         <button
           key={l.code}
           role="radio"

@@ -7,6 +7,7 @@ import { logger } from '../../utils/logger.js';
 import { sendTemplate, whatsappConfig, whatsappReady } from '../whatsappClient.service.js';
 import { hallNames, hallTitle } from './halls.js';
 import { appUrl } from '../../utils/publicUrl.js';
+import { localeOf, sevaNameFor } from '../../../../shared/devoteeLanguage.js';
 
 export const receiptUrl = (booking) => `${appUrl()}/r/${booking.receiptToken}`;
 // The counter slip as a picture (QR included) — the image at the top of the WhatsApp receipt
@@ -19,10 +20,11 @@ const whenText = (b, halls) => {
   return [date, b.batchLabel, b.hall && (title === b.hall ? `Hall ${b.hall}` : title)].filter(Boolean).join(', ');
 };
 
-// The same in Marathi: "मंगळवार, २० ऑक्टोबर, २०२६, 7:00 AM – 8:15 AM, अभिषेक हॉल 01 (H1)"
-const whenTextMr = (b, halls) => {
-  if (!b.dateKey) return 'आपल्या वतीने';
-  const date = new Date(b.performDate).toLocaleDateString('mr-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+// The same in Marathi: "मंगळवार, २० ऑक्टोबर, २०२६, 7:00 AM – 8:15 AM, अभिषेक हॉल 01 (H1)",
+// and Hindi: "मंगलवार, 20 अक्तूबर 2026, …" — the hall by its Marathi (Devanagari) name in both
+const whenTextDeva = (b, halls, lang) => {
+  if (!b.dateKey) return lang === 'hi' ? 'आपकी ओर से' : 'आपल्या वतीने';
+  const date = new Date(b.performDate).toLocaleDateString(localeOf(lang), { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
   const h = halls?.[b.hall];
   const hall = b.hall && (h?.nameMr ? `${h.nameMr} (${b.hall})` : h?.name ? hallTitle(b.hall, halls) : `हॉल ${b.hall}`);
   return [date, b.batchLabel, hall].filter(Boolean).join(', ');
@@ -43,16 +45,16 @@ export function receiptLanguage(booking, bs = {}) {
  * {{1}} name, {{2}} seva, {{3}} date · batch · hall, {{4}} receipt number, {{5}} receipt link.
  */
 export function whatsappReceipt(booking, { halls = {}, lang = 'en', sevaNameMr = '', withImage = false } = {}) {
-  const mr = lang === 'mr';
+  const code = ['mr', 'hi'].includes(lang) ? lang : 'en';
   const values = [
     booking.devotee.name,
-    (mr && sevaNameMr) || booking.sevaName,
-    mr ? whenTextMr(booking, halls) : whenText(booking, halls),
+    sevaNameFor(code, booking.sevaName, sevaNameMr),
+    code === 'en' ? whenText(booking, halls) : whenTextDeva(booking, halls, code),
     booking.receiptNo,
     receiptUrl(booking),
   ];
   return {
-    language: { code: mr ? 'mr' : 'en' },
+    language: { code },
     components: [
       ...(withImage ? [{ type: 'header', parameters: [{ type: 'image', image: { link: slipImageUrl(booking) } }] }] : []),
       { type: 'body', parameters: values.map((text) => ({ type: 'text', text: String(text) })) },
@@ -62,12 +64,14 @@ export function whatsappReceipt(booking, { halls = {}, lang = 'en', sevaNameMr =
 
 /**
  * The WhatsApp receipt (sent through whatsappClient.service.js). Needs an approved template
- * (Utility) under one name in English and / or Marathi, with — when it has the picture —
+ * (Utility) under one name in English, Marathi and / or Hindi, with — when it has the picture —
  * Header: Image (the slip), and the body:
  *   en "Namaste {{1}}, your {{2}} at Shri Mangal Grah Mandir, Amalner is booked for {{3}}.
  *       Receipt {{4}}: {{5}} Please show this at the hall."
  *   mr "नमस्कार {{1}}, श्री मंगळग्रह मंदिर, अमळनेर येथे आपली {{2}} सेवा नोंदवली आहे — {{3}}.
  *       पावती {{4}}: {{5}} कृपया हे सभागृहात दाखवा."
+ *   hi "नमस्ते {{1}}, श्री मंगळग्रह मंदिर, अमळनेर में आपकी {{2}} सेवा बुक हो गई है — {{3}}.
+ *       रसीद {{4}}: {{5}} कृपया इसे हॉल में दिखाएँ."
  */
 
 // SMS via an MSG91 Flow with a DLT-approved template using ##name##, ##seva##, ##when##, ##receipt##, ##link##.
@@ -94,7 +98,7 @@ export async function sendReceipt(booking, { force = false } = {}) {
     const wa = await whatsappConfig();
     if (whatsappReady(wa) && (force || bs.whatsappAuto) && bs.whatsappTemplate) {
       const lang = receiptLanguage(booking, bs);
-      const sevaNameMr = lang === 'mr' ? (await SevaType.findById(booking.sevaType).select('nameMr').lean())?.nameMr : '';
+      const sevaNameMr = lang !== 'en' ? (await SevaType.findById(booking.sevaType).select('nameMr').lean())?.nameMr : '';
       const message = whatsappReceipt(booking, { halls, lang, sevaNameMr, withImage: bs.whatsappImage !== false });
       result.whatsapp = await sendTemplate(wa, {
         to: booking.devotee.phone, template: bs.whatsappTemplate, language: message.language.code,

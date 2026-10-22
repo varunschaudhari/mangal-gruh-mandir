@@ -1,15 +1,16 @@
-import { bilingual, sendTemplate, whatsappConfig } from './whatsappClient.service.js';
+import { inLanguage, sendTemplate, whatsappConfig } from './whatsappClient.service.js';
+import { localeOf } from '../../../shared/devoteeLanguage.js';
 
-const fmtDate = (d, lang) => (lang === 'mr'
-  ? new Date(d).toLocaleDateString('mr-IN', { day: 'numeric', month: 'long', year: 'numeric' })
-  : new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }));
+const fmtDate = (d, lang) => (lang === 'en'
+  ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
+  : new Date(d).toLocaleDateString(localeOf(lang), { day: 'numeric', month: 'long', year: 'numeric' }));
 
 /**
  * Sends a WhatsApp thank-you message to the donor after a named donation. Never throws — a
  * donation is saved whether or not the message goes out.
  *
  * Template (named in Settings → WhatsApp, which also shows the wording to submit to Meta), in
- * English and / or Marathi under the one name; Settings chooses which goes first:
+ * English, Marathi and / or Hindi under the one name; Settings chooses which goes first:
  *   {{1}} donor name  {{2}} amount (the template has the ₹)  {{3}} occasion  {{4}} date  {{5}} receipt no.
  */
 export async function sendDonationThankYou(donation) {
@@ -23,9 +24,10 @@ export async function sendDonationThankYou(donation) {
   const receipt = donation.donationNumber || '';
   return sendTemplate(cfg, {
     to: phone, template: cfg.templates.donationThanks, label: 'Donation thank-you',
-    ...bilingual(cfg, 'donationThanks', {
+    ...inLanguage(cfg, 'donationThanks', {
       en: [name || 'Devotee', amount, occasion || 'General Donation', fmtDate(date, 'en'), receipt],
       mr: [name || 'भाविक', amount, occasion || 'सर्वसाधारण देणगी', fmtDate(date, 'mr'), receipt],
+      hi: [name || 'भक्त', amount, occasion || 'सामान्य दान', fmtDate(date, 'hi'), receipt],
     }),
   });
 }

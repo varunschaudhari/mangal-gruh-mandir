@@ -167,6 +167,7 @@ export default {
   'Cash Drawer': 'गल्ला',
   'Opening float saved': 'सुरुवातीची रक्कम जतन केली',
   'Failed to save float': 'सुरुवातीची रक्कम जतन झाली नाही',
+  'The drawer was changed on another counter while you were counting — check it and save again': 'तुम्ही मोजत असताना दुसऱ्या काउंटरवर गल्ला बदलला — तपासून पुन्हा जतन करा',
   '₹{d} notes': '₹{d} च्या नोटा',
   'Total: ₹{amount}': 'एकूण: ₹{amount}',
   'Save Float': 'रक्कम जतन करा',

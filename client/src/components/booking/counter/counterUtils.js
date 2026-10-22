@@ -106,7 +106,7 @@ export function dateChoices({ today, weekdays, maxAdvanceDays }) {
 export function fmtDay(key, lang, opts = { weekday: 'short', day: 'numeric', month: 'short' }) {
   if (!key) return '';
   try {
-    return parseKey(key).toLocaleDateString(lang === 'mr' ? 'mr-IN-u-nu-latn' : 'en-IN', opts);
+    return parseKey(key).toLocaleDateString({ mr: 'mr-IN-u-nu-latn', hi: 'hi-IN-u-nu-latn' }[lang] || 'en-IN', opts);   // hi: the hall TV
   } catch {
     return parseKey(key).toLocaleDateString('en-IN', opts);
   }

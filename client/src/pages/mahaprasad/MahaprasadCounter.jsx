@@ -223,7 +223,7 @@ export default function MahaprasadCounter() {
   const [receivedNotes,  setReceivedNotes]  = useState([]); // accumulator: list of note tiles clicked
   const [customCash,     setCustomCash]     = useState(''); // typed override (mutually exclusive with tiles)
   const [autoResetIn,    setAutoResetIn]    = useState(null); // countdown seconds after issue
-  const [shortageWarning,  setShortageWarning]  = useState(null);  // { shortBy }
+  const [shortageWarning,  setShortageWarning]  = useState(null);  // { shortBy, sale }
   const [shakePayment,     setShakePayment]     = useState(false);
   const [voidConfirm,      setVoidConfirm]      = useState(null);  // batchId string
   const [voidReason,       setVoidReason]       = useState('');
@@ -281,6 +281,8 @@ export default function MahaprasadCounter() {
     queryKey: ['mahaprasad-cash-drawer', date],
     queryFn:  () => getCashDrawer(date),
     staleTime: 15 * 1000,
+    // One drawer for all counters: a float set or notes taken on another phone show up here too
+    refetchInterval: 15 * 1000,
     enabled:   isToday,
   });
   const drawerCounts = drawerData?.data?.data?.counts || {};
@@ -624,24 +626,27 @@ export default function MahaprasadCounter() {
       return;
     }
 
-    // Check if drawer can make change before issuing
-    if (paymentMode === 'cash' && cashReceived > 0 && changeDue > 0) {
-      const { canMakeExact, shortBy } = computeChange(changeDue, drawerCounts);
-      if (!canMakeExact) {
-        haptics.warning();
-        setShortageWarning({ shortBy });
-        return;
-      }
-    }
-
-    issueMut.mutate({
+    // Kept with the shortage warning, so "Proceed anyway" sends this same sale
+    const sale = {
       qty, isGroup, type, date, mobile,
       name:           type === 'free' ? devoteeName.trim() : undefined,
       occasion:       type === 'free' ? occasionValue : '',
       paymentMode:    type === 'paid' && pricePerPlate > 0 ? paymentMode : undefined,
       amountReceived: type === 'paid' && pricePerPlate > 0 && paymentMode === 'cash' ? cashReceived : undefined,
       receivedNotes:  type === 'paid' && pricePerPlate > 0 && paymentMode === 'cash' && receivedNotes.length > 0 ? receivedNotes : undefined,
-    });
+    };
+
+    // Check if drawer can make change before issuing
+    if (paymentMode === 'cash' && cashReceived > 0 && changeDue > 0) {
+      const { canMakeExact, shortBy } = computeChange(changeDue, drawerCounts);
+      if (!canMakeExact) {
+        haptics.warning();
+        setShortageWarning({ shortBy, sale });
+        return;
+      }
+    }
+
+    issueMut.mutate(sale);
   };
 
   const handleKeyDown = (e) => {
@@ -1438,13 +1443,9 @@ export default function MahaprasadCounter() {
               className="btn btn-ghost border px-4 py-2 max-sm:py-3 text-sm">{t('Cancel')}</button>
             <button
               onClick={() => {
+                const { sale } = shortageWarning;
                 setShortageWarning(null);
-                issueMut.mutate({ qty, isGroup, type, date,
-                  occasion: type === 'free' ? occasionValue : '',
-                  paymentMode: type === 'paid' && pricePerPlate > 0 ? paymentMode : undefined,
-                  amountReceived: type === 'paid' && pricePerPlate > 0 ? cashReceived : undefined,
-                  receivedNotes:  type === 'paid' && pricePerPlate > 0 && paymentMode === 'cash' && receivedNotes.length > 0 ? receivedNotes : undefined,
-                });
+                issueMut.mutate(sale);
               }}
               className="btn bg-amber-500 hover:bg-amber-600 text-white px-4 py-2 max-sm:py-3 text-sm font-semibold">
               {t('Proceed anyway')}

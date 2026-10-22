@@ -1,14 +1,15 @@
 import axios from 'axios';
 import Settings from '../models/Settings.js';
 import { logger } from '../utils/logger.js';
-import { bilingual, sendTemplate, whatsappConfig } from './whatsappClient.service.js';
+import { inLanguage, sendTemplate, whatsappConfig } from './whatsappClient.service.js';
+import { localeOf } from '../../../shared/devoteeLanguage.js';
 
 // Sends the Mahaprasad coupon numbers, and the link to their QR page (/m/<token>), to the devotee's
 // mobile after an issue at the counter. Automatic only once an approved message is set up
 // (otherwise the counter's "Send on WhatsApp" button opens WhatsApp with the message ready):
 //   WhatsApp — Settings → WhatsApp turned on, and the Mahaprasad template named there: a
-//              Meta-approved Utility template, in English and / or Marathi under the one name
-//              (Settings → WhatsApp shows both wordings and which language goes first), with
+//              Meta-approved Utility template, in English, Marathi and / or Hindi under the one name
+//              (Settings → WhatsApp shows each wording and which language goes first), with
 //              Header: Image — the coupons' QR picture (`image`, mahaprasadQrImage.js), so the QR
 //              is in the chat and needs no internet at the hall — and the English body
 //              "Namaste! Your Mahaprasad coupon(s) at Shri Mangal Grah Mandir, Amalner for {{1}}:
@@ -24,18 +25,18 @@ import { bilingual, sendTemplate, whatsappConfig } from './whatsappClient.servic
 export function couponListText(numbers = [], lang = 'en') {
   if (!numbers.length) return '';
   if (numbers.length === 1) return numbers[0];
-  const mr = lang === 'mr';
+  const words = { mr: ['ते', 'आणखी'], hi: ['से', 'और'] }[lang] || ['to', 'more'];
   const parts = numbers.map((n) => /^(.*-)(\d+)$/.exec(n));
   const samePrefix = parts.every((p) => p && p[1] === parts[0][1]);
   const consecutive = samePrefix && parts.every((p, i) => i === 0 || Number(p[2]) === Number(parts[i - 1][2]) + 1);
-  if (consecutive) return `${numbers[0]} ${mr ? 'ते' : 'to'} ${parts.at(-1)[2]} (${numbers.length})`;
+  if (consecutive) return `${numbers[0]} ${words[0]} ${parts.at(-1)[2]} (${numbers.length})`;
   const shown = numbers.slice(0, 6).join(', ');
-  return numbers.length > 6 ? `${shown} +${numbers.length - 6} ${mr ? 'आणखी' : 'more'}` : shown;
+  return numbers.length > 6 ? `${shown} +${numbers.length - 6} ${words[1]}` : shown;
 }
 
 const dateText = (d) => new Date(d).toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
 const personsText = (n) => (n === 1 ? '1 person' : `${n} persons`);
-const dateTextMr = (d) => new Date(d).toLocaleDateString('mr-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+const longDate = (d, lang) => new Date(d).toLocaleDateString(localeOf(lang), { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
 
 /** Returns { whatsapp, sms } with 'sent' | 'off' | 'failed'. Never throws. */
 export async function sendCouponMessage({ mobile, numbers, date, persons, link = '', image }) {
@@ -51,9 +52,10 @@ export async function sendCouponMessage({ mobile, numbers, date, persons, link =
     const count = persons || numbers.length;
     result.whatsapp = await sendTemplate(wa, {
       to: mobile, template: wa.templates.mahaprasadCoupons, label: 'Mahaprasad coupons', image,
-      ...bilingual(wa, 'mahaprasadCoupons', {
+      ...inLanguage(wa, 'mahaprasadCoupons', {
         en: [when, coupons, people, link],
-        mr: [dateTextMr(date), couponListText(numbers, 'mr'), `${count} व्यक्ती`, link],
+        mr: [longDate(date, 'mr'), couponListText(numbers, 'mr'), `${count} व्यक्ती`, link],
+        hi: [longDate(date, 'hi'), couponListText(numbers, 'hi'), `${count} व्यक्ति`, link],
       }),
     });
 

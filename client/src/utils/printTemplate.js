@@ -53,6 +53,7 @@ export const PRINT_HEADER_CSS = `
   .lh-sub .nw { white-space: nowrap; }
   .lh-rule { border-top: 2px solid ${ACCENT}; border-bottom: 0.75px solid ${ACCENT}; height: 3px; margin: 10px 0 12px; }
   .doc-title { text-align: center; font-size: 15px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: ${ACCENT}; margin: 0; }
+  html[lang="hi"] .doc-title { letter-spacing: 0; }   /* spacing breaks up Devanagari letters */
   .doc-meta { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 2px 12px; font-size: 12px; color: #1f2937; margin: 6px 0 14px; }
   .rh { display: flex; align-items: center; gap: 10px; }
   .rh-logo { width: 40px; height: 40px; object-fit: contain; flex: none; }
@@ -78,7 +79,7 @@ const registrationLine = (t) => join([
  * number / date. All values are plain text (escaped here). `info` overrides the temple details
  * (the public receipt page passes the ones that came with the receipt).
  */
-export function letterheadHtml({ title, number, date, numberLabel = 'No.', dateLabel = 'Date', info } = {}) {
+export function letterheadHtml({ title, number, date, numberLabel = 'No.', dateLabel = 'Date', managedBy = 'Managed by', info } = {}) {
   const t = { ...temple(), ...info };
   const lines = [esc(t.address), contactLine(t), registrationLine(t)].filter(Boolean);
   return `<header class="lh">
@@ -86,7 +87,7 @@ export function letterheadHtml({ title, number, date, numberLabel = 'No.', dateL
   <div>
     <div class="lh-mr">${esc(t.nameMr || t.name)}</div>
     ${t.nameMr ? `<div class="lh-en">${esc(t.name)}</div>` : ''}
-    ${t.legalName && t.legalName !== t.name ? `<div class="lh-trust">Managed by ${esc(t.legalName)}</div>` : ''}
+    ${t.legalName && t.legalName !== t.name ? `<div class="lh-trust">${esc(managedBy)} ${esc(t.legalName)}</div>` : ''}
     ${lines.map((l) => `<div class="lh-sub">${l}</div>`).join('')}
   </div>
 </header>

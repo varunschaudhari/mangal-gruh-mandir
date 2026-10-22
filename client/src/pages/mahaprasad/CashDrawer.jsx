@@ -10,21 +10,33 @@ const DENOMS = [500, 200, 100, 50, 20, 10, 5, 2, 1];
 function fmt(n) { return n.toLocaleString('en-IN'); }
 
 // ── Opening float form ────────────────────────────────────────────────────────
-function FloatForm({ date, currentCounts, onClose }) {
+function FloatForm({ date, currentCounts, drawerVersion, onClose }) {
   const t = useT();
   const qc = useQueryClient();
   const [counts, setCounts] = useState(
     Object.fromEntries(DENOMS.map((d) => [String(d), currentCounts?.[String(d)] ?? 0]))
   );
+  // The drawer as it was when the form opened: if another counter changes it before this is
+  // saved, the server refuses rather than wipe that counter's notes
+  const [basedOn] = useState(drawerVersion);
 
   const mut = useMutation({
-    mutationFn: () => setOpeningFloat({ date, counts }),
+    mutationFn: () => setOpeningFloat({ date, counts, basedOn }),
     onSuccess:  () => {
       qc.invalidateQueries({ queryKey: ['mahaprasad-cash-drawer', date] });
       toast.success(t('Opening float saved'));
       onClose();
     },
-    onError: (e) => toast.error(e.response?.data?.message || t('Failed to save float')),
+    onError: (e) => {
+      if (e.response?.status === 409) {
+        // Opens again with the drawer as it is now
+        qc.invalidateQueries({ queryKey: ['mahaprasad-cash-drawer', date] });
+        toast.error(t('The drawer was changed on another counter while you were counting — check it and save again'));
+        onClose();
+        return;
+      }
+      toast.error(e.response?.data?.message || t('Failed to save float'));
+    },
   });
 
   const total = DENOMS.reduce((s, d) => s + d * (Number(counts[String(d)]) || 0), 0);
@@ -141,7 +153,7 @@ const CashDrawer = forwardRef(function CashDrawer({ date }, ref) {
         <div className="px-4 sm:px-5 pb-4 space-y-3">
           {/* Float form or set-float button */}
           {showFloat ? (
-            <FloatForm date={date} currentCounts={counts} onClose={() => setShowFloat(false)} />
+            <FloatForm date={date} currentCounts={counts} drawerVersion={drawer?.updatedAt} onClose={() => setShowFloat(false)} />
           ) : (
             <button onClick={() => setShowFloat(true)}
               className="flex items-center gap-1.5 text-xs text-blue-600 hover:text-blue-700 font-medium max-sm:py-2 max-sm:text-sm">
