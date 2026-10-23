@@ -117,8 +117,12 @@ async function drawCoupon(doc, coupon, settings, cx, cy) {
 
   doc.font('Helvetica-Bold').fontSize(nameSize).fillColor(C.headerText)
     .text(templeName, nameX, y + 11 - lift(nameSize), { width: nameW, height: 14, ellipsis: true });
-  doc.font('Helvetica-Oblique').fontSize(7).fillColor(C.subText)
-    .text('Mahaprasad Seva Coupon', nameX, y + 24 - lift(7), { width: nameW, lineBreak: false });
+  const kindLine = 'Shri Mangal Mahaprasad Seva Coupon';
+  let kindSize = 7;
+  doc.font('Helvetica-Oblique');
+  while (kindSize > 5.5 && doc.fontSize(kindSize).widthOfString(kindLine) > nameW) kindSize -= 0.25;
+  doc.font('Helvetica-Oblique').fontSize(kindSize).fillColor(C.subText)
+    .text(kindLine, nameX, y + 24 - lift(kindSize), { width: nameW, lineBreak: false });
 
   // ── Info block (centered, below header) ───────────────────────────────────
   let iy = y + HEADER_H + 10;

@@ -4,7 +4,7 @@ import { useForm } from 'react-hook-form';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Building2, MessageCircle, MessageSquare, Bell, Armchair,
-  Save, Eye, EyeOff, CheckCircle2, Send, FileCheck2, Utensils, Printer, Fingerprint, FileText,
+  Save, Eye, EyeOff, CheckCircle2, Send, FileCheck2, Utensils, Printer, Fingerprint, FileText, Copy, AlertTriangle,
 } from 'lucide-react';
 import { getSettings, updateSettings, testWhatsApp } from '../../api/settings.api.js';
 import { connectToQzTray, getPrinters } from '../../utils/thermalPrint.js';
@@ -48,6 +48,23 @@ const Toggle = ({ label, description, checked, onChange }) => {
   );
 };
 
+// A value to paste into another site, with a Copy button
+const CopyValue = ({ label, value }) => {
+  const t = useT();
+  const copy = () => navigator.clipboard?.writeText(value).then(() => toast.success(t('Copied')), () => {});
+  return (
+    <div>
+      <p className="text-xs font-semibold text-gray-500">{label}</p>
+      <div className="mt-1 flex items-center gap-2">
+        <code className="min-w-0 flex-1 break-all rounded-lg bg-gray-50 px-2.5 py-2 text-xs text-gray-700 select-all">{value}</code>
+        <button type="button" onClick={copy} className="btn btn-ghost border shrink-0 p-2" aria-label={t('Copy')} title={t('Copy')}>
+          <Copy className="h-4 w-4" />
+        </button>
+      </div>
+    </div>
+  );
+};
+
 const SecretInput = ({ reg, name, placeholder, hint }) => {
   const t = useT();
   const [show, setShow] = useState(false);
@@ -88,7 +105,7 @@ const TABS = [
 
 const TAB_FIELDS = {
   temple:     ['templeName', 'templeNameMr', 'trustLegalName', 'templeAddress', 'templePhone', 'templeEmail', 'templeWebsite', 'trustRegNumber'],
-  whatsapp:   ['waEnabled', 'waPhoneNumberId', 'waAccessToken', 'waTemplates', 'waLanguages'],
+  whatsapp:   ['waEnabled', 'waPhoneNumberId', 'waAccessToken', 'waAppSecret', 'waTemplates', 'waLanguages'],
   sms:        ['smsEnabled', 'msg91AuthKey', 'msg91TemplateId'],
   alerts:     ['alertOnOutOfStock', 'alertOnLowStock', 'alertOnReorder'],
   tax80g:     ['trustPAN', 'reg80GNumber', 'reg80GFrom', 'reg80GTo'],
@@ -119,9 +136,9 @@ const WA_TEMPLATES = [
   { key: 'mahaprasadCoupons', label: 'Mahaprasad coupons', to: 'To devotees', example: 'mahaprasad_coupon_qr',
     // The coupons' QR picture on top, so it's in the devotee's chat (no internet needed at the hall)
     header: 'Header: Image — the coupon QR (for the sample, upload any QR picture)',
-    text: 'Namaste! Your Mahaprasad coupon(s) at Shri Mangal Grah Mandir, Amalner for {{1}}: {{2}} ({{3}}). Your coupon QR: {{4}} Please show it at the Mahaprasad hall.',
-    textMr: 'नमस्कार! श्री मंगळग्रह मंदिर, अमळनेर येथे {{1}} साठी आपले महाप्रसाद कूपन: {{2}} ({{3}}). आपल्या कूपनचा QR: {{4}} कृपया तो महाप्रसाद सभागृहात दाखवा.',
-    textHi: 'नमस्ते! श्री मंगळग्रह मंदिर, अमळनेर में {{1}} के लिए आपका महाप्रसाद कूपन: {{2}} ({{3}}). आपके कूपन का QR: {{4}} कृपया इसे महाप्रसाद हॉल में दिखाएँ।' },
+    text: 'Namaste! Your Shri Mangal Mahaprasad coupon(s) at Shri Mangal Grah Mandir, Amalner for {{1}}: {{2}} ({{3}}). Your coupon QR: {{4}} Please show it at the Shri Mangal Mahaprasad hall.',
+    textMr: 'नमस्कार! श्री मंगळग्रह मंदिर, अमळनेर येथे {{1}} साठी आपले श्री मंगल महाप्रसाद कूपन: {{2}} ({{3}}). आपल्या कूपनचा QR: {{4}} कृपया तो श्री मंगल महाप्रसाद सभागृहात दाखवा.',
+    textHi: 'नमस्ते! श्री मंगळग्रह मंदिर, अमळनेर में {{1}} के लिए आपका श्री मंगल महाप्रसाद कूपन: {{2}} ({{3}}). आपके कूपन का QR: {{4}} कृपया इसे श्री मंगल महाप्रसाद हॉल में दिखाएँ।' },
 ];
 
 // ── Online payments (Razorpay) status — the keys live in the server's .env, not here ───────────
@@ -384,6 +401,27 @@ const Settings = () => {
                   <p>{t('2. Create each template above (category Utility, language English, plus Marathi where shown) and wait for approval')}</p>
                   <p>{t('3. Generate a permanent System User token (never expires)')}</p>
                   <p>{t('4. For stock and payment alerts, turn on WhatsApp for each person in Users')}</p>
+                </div>
+                {/* Delivery status: Meta tells the server whether each devotee's message was delivered / read */}
+                <div className="rounded-lg border border-gray-200 p-4 space-y-3">
+                  <div>
+                    <p className="text-sm font-semibold text-gray-700">{t('Delivery status (delivered / read)')}</p>
+                    <p className="text-xs text-gray-400 mt-0.5">{t('Shows on each Mahaprasad sale and booking whether the devotee’s message arrived: ✓ sent, ✓✓ delivered, blue ✓✓ read, or why it was not delivered. Set up once in the Meta app:')}</p>
+                  </div>
+                  <ol className="list-decimal space-y-1 pl-5 text-xs text-gray-600">
+                    <li>{t('developers.facebook.com → your app → WhatsApp → Configuration → Webhook → Edit.')}</li>
+                    <li>{t('Paste the Callback URL and Verify token below, then Verify and save.')}</li>
+                    <li>{t('Under Webhook fields, subscribe to “messages”.')}</li>
+                    <li>{t('App settings → Basic → App secret → Show: paste it below, then Save.')}</li>
+                  </ol>
+                  {data?.data?.data?.whatsappWebhook?.url && <CopyValue label={t('Callback URL')} value={data.data.data.whatsappWebhook.url} />}
+                  {data?.data?.data?.whatsappWebhook?.verifyToken && <CopyValue label={t('Verify token')} value={data.data.data.whatsappWebhook.verifyToken} />}
+                  <Field label={t('App secret')} hint={t('Checks that status updates really come from Meta')}>
+                    <SecretInput reg={register} name="waAppSecret" placeholder="a1b2c3d4…" hint={t('Masked for security — paste to update')} />
+                  </Field>
+                  {data?.data?.data?.whatsappWebhook?.secretSet
+                    ? <p className="flex items-center gap-1.5 text-xs text-green-700"><CheckCircle2 className="h-3.5 w-3.5" />{t('App secret saved — delivery status is accepted from Meta')}</p>
+                    : <p className="flex items-center gap-1.5 text-xs text-amber-700"><AlertTriangle className="h-3.5 w-3.5" />{t('No app secret yet — messages show only as sent')}</p>}
                 </div>
                 <div className="rounded-lg border border-green-200 bg-green-50/30 p-4">
                   <p className="text-sm font-semibold text-gray-700 mb-1">{t('Test Connection')}</p>

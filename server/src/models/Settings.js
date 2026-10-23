@@ -37,6 +37,10 @@ const settingsSchema = new mongoose.Schema(
     waEnabled:       { type: Boolean, default: false },
     waPhoneNumberId: { type: String, default: '' },
     waAccessToken:   { type: String, default: '' },
+    // Delivery status (delivered / read / failed) from Meta's webhook: the token Meta is given when
+    // the webhook is set up (made by the server) and the Meta app's secret that signs each delivery
+    waWebhookToken:  { type: String, default: '' },
+    waAppSecret:     { type: String, default: '' },
     waTemplates: Object.fromEntries(Object.entries(WA_TEMPLATE_DEFAULTS).map(([k, v]) => [k, { type: String, default: v }])),
     waLanguages: Object.fromEntries(Object.entries(WA_LANGUAGE_DEFAULTS).map(([k, v]) => [k, { type: String, enum: DEVOTEE_LANGUAGES, default: v }])),
 

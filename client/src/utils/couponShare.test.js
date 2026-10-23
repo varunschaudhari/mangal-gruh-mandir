@@ -66,7 +66,7 @@ describe('sending coupons on WhatsApp from the counter', () => {
     env.isNative = true; env.platform = 'android';
     expect(await shareCouponsOnWhatsApp({ ...batch, link: undefined, image: undefined })).toBe('text');
     expect(plugin.share).not.toHaveBeenCalled();
-    expect(decodeURIComponent(opened[0].split('text=')[1])).toContain('Please show this at the Mahaprasad hall.');
+    expect(decodeURIComponent(opened[0].split('text=')[1])).toContain('Please show this at the Shri Mangal Mahaprasad hall.');
   });
 
   it('the picture can\'t be fetched: the message alone, still with the link', async () => {

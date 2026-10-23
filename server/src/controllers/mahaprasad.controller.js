@@ -11,6 +11,8 @@ import { logger } from '../utils/logger.js';
 import { APP_TIMEZONE, localDateStr } from '../utils/dates.js';
 import { temple } from '../services/temple.service.js';
 import { sendCouponMessage } from '../services/mahaprasadNotify.service.js';
+import { latestStatuses } from '../services/whatsappStatus.service.js';
+import { whatsappConfig, whatsappReady } from '../services/whatsappClient.service.js';
 import { couponImageUrl, couponPageUrl } from '../utils/publicUrl.js';
 import {
   GS, NOT_SOLD, adjustPersons, datePart, dayBounds, generateCouponNumbers, getPriceForDate,
@@ -233,7 +235,7 @@ export const issueCoupons = asyncHandler(async (req, res) => {
   logAction(req, { action: 'mahaprasad.issue', entity: 'MahaprasadCoupon', entityId: batchId, entityRef: coupons[0]._id, after: { qty, type, isGroup: Boolean(isGroup), groupSize, date: localDateStr(couponDate), occasion: type === 'free' ? occasion : undefined, name: devoteeName || undefined, mobile, amount: paid ? totalDue : 0, paymentMode: paid ? mode : undefined } });
   // Coupon numbers to the devotee's phone, in the background (only when WhatsApp / SMS is set up for it).
   const shareUrl = couponPageUrl(shareToken);
-  sendCouponMessage({ mobile, numbers, date: couponDate, persons: qty, link: shareUrl, image: couponImageUrl(shareToken) });
+  sendCouponMessage({ mobile, numbers, date: couponDate, persons: qty, link: shareUrl, image: couponImageUrl(shareToken), ref: batchId });
   const msg = isGroup ? `Group coupon (${qty} persons) issued` : `${qty} coupon(s) issued`;
   res.status(201).json(new ApiResponse(201, { coupons, batchId, drawerChange, shareUrl, shareImageUrl: couponImageUrl(shareToken) }, msg));
 });
@@ -342,6 +344,9 @@ export const getCoupons = asyncHandler(async (req, res) => {
   ]);
   // Bought on the public page: no staff issued it
   for (const c of coupons) if (c.channel === 'online' && !c.issuedBy) c.issuedBy = ONLINE_ISSUER;
+  // How far each sale's WhatsApp message got (delivered / read / failed)
+  const sent = await latestStatuses('mahaprasad', coupons.map((c) => c.batchId));
+  for (const c of coupons) c.whatsapp = sent.get(String(c.batchId)) || null;
 
   const s = summaryAgg[0] || {};
   const summary = Object.fromEntries(['persons', 'coupons', 'redeemed', 'redeemedCoupons', 'paid', 'paidCoupons', 'free', 'freeCoupons', 'collected']
@@ -435,8 +440,10 @@ export const getBatches = asyncHandler(async (req, res) => {
   const userIds = [...new Set(batches.map((b) => b.issuedById?.toString()).filter(Boolean))];
   const users   = await User.find({ _id: { $in: userIds } }).select('name').lean();
   const userMap = Object.fromEntries(users.map((u) => [u._id.toString(), u.name]));
+  const sent    = await latestStatuses('mahaprasad', batches.map((b) => b._id));   // WhatsApp: delivered / read / failed
   const result  = batches.map(({ shareToken, ...b }) => ({
     ...b,
+    whatsapp: sent.get(String(b._id)) || null,
     issuedBy: b.issuedById ? { _id: b.issuedById, name: userMap[b.issuedById.toString()] || '—' } : b.channel === 'online' ? ONLINE_ISSUER : null,
     shareUrl: shareToken ? couponPageUrl(shareToken) : null,   // sales from before links existed have none
     shareImageUrl: shareToken ? couponImageUrl(shareToken) : null,   // the QR picture, for the WhatsApp button
@@ -1064,6 +1071,30 @@ export const adjustDrawer = asyncHandler(async (req, res) => {
     meta: { denomination: d, change: inc, notesNow: count < 0 ? 0 : count, drawerTotal: total },
   });
   res.json(new ApiResponse(200, { ...drawer.toObject(), total }));
+});
+
+// POST /mahaprasad/batches/:batchId/send — send the sale's coupons to the devotee's WhatsApp again
+// (the message didn't arrive, or was deleted). Each try is recorded with its own delivery status.
+export const resendBatch = asyncHandler(async (req, res) => {
+  const { batchId } = req.params;
+  const coupons = await MahaprasadCoupon.find({ batchId, status: { $nin: NOT_SOLD } }).sort({ couponNumber: 1 }).lean();
+  if (!coupons.length) throw new ApiError(404, 'Sale not found, or it was cancelled');
+  const first = coupons[0];
+  if (!first.mobile) throw new ApiError(400, 'This sale has no mobile number');
+  const wa = await whatsappConfig();
+  if (!whatsappReady(wa) || !wa.templates.mahaprasadCoupons) {
+    throw new ApiError(400, 'WhatsApp is not set up for Mahaprasad coupons (Settings → WhatsApp)');
+  }
+  const persons = coupons.reduce((n, c) => n + (c.groupSize || 1), 0);
+  const result = await sendCouponMessage({
+    mobile: first.mobile, numbers: coupons.map((c) => c.couponNumber), date: first.date, persons,
+    link: first.shareToken ? couponPageUrl(first.shareToken) : '', image: first.shareToken ? couponImageUrl(first.shareToken) : undefined,
+    ref: batchId,
+  });
+  logAction(req, { action: 'mahaprasad.resend', entity: 'MahaprasadCoupon', entityId: batchId, entityRef: first._id, meta: { whatsapp: result.whatsapp } });
+  const whatsapp = (await latestStatuses('mahaprasad', [batchId])).get(batchId) || null;
+  if (result.whatsapp !== 'sent') throw new ApiError(502, whatsapp?.error || 'WhatsApp message not sent');
+  res.json(new ApiResponse(200, { whatsapp }, 'Sent on WhatsApp again'));
 });
 
 // PATCH /mahaprasad/batches/:batchId/void  { reason }

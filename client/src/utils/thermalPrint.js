@@ -231,7 +231,7 @@ export function buildReceiptBytes(coupon, settings) {
 
     // ── HEADER ──────────────────────────────────────────────────────────────
     ...bold(0), ...charSize(0x00),
-    ...line('Mahaprasad Seva Coupon'),
+    ...line('Shri Mangal Mahaprasad Coupon'),   // short enough for 58 mm paper
     ...bold(1),
     ...line(`[ ${badgeLabel} ]`),
     ...bold(0),

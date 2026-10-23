@@ -13,6 +13,7 @@ import connectDB from './config/db.js';
 import routes from './routes/index.js';
 import iclockRoutes from './routes/iclock.routes.js';
 import fkwebRoutes from './routes/fkweb.routes.js';
+import { verifyWhatsAppWebhook, whatsappWebhook } from './controllers/whatsappWebhook.controller.js';
 import errorHandler from './middleware/errorHandler.js';
 import { processAssetReminders } from './services/assetReminder.service.js';
 import { processOverdueInvoiceAlerts } from './services/overdueInvoiceAlert.service.js';
@@ -98,6 +99,9 @@ app.use('/fkweb', fkwebRoutes);
 // Razorpay's webhook (online Mahaprasad payments) — also before the JSON parser: its signature is
 // over the raw body. The trust's website shares the Razorpay account, so its payments arrive here too.
 app.post('/api/webhooks/razorpay', express.raw({ type: '*/*', limit: '1mb' }), razorpayWebhook);
+// Meta's WhatsApp delivery status (delivered / read / failed), also signed over the raw body
+app.get('/api/webhooks/whatsapp', verifyWhatsAppWebhook);
+app.post('/api/webhooks/whatsapp', express.raw({ type: '*/*', limit: '1mb' }), whatsappWebhook);
 
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));

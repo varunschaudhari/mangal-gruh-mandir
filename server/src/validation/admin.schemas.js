@@ -120,6 +120,7 @@ export const updateSettings = {
     waEnabled: flag('WhatsApp'),
     waPhoneNumberId: clearableText('WhatsApp phone number id', { max: 50 }),
     waAccessToken: clearableText('WhatsApp access token', { max: 1000 }),
+    waAppSecret: clearableText('Meta app secret', { max: 200 }),
     waTemplates: z.object({
       stockAlert: waTemplate('Stock alert'),
       donationThanks: waTemplate('Donation thank-you'),

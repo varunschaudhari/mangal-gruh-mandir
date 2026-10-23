@@ -338,4 +338,17 @@ export default {
   'Auth': 'लॉगिन',
   'Users & Roles': 'वापरकर्ते आणि भूमिका',
   'Temple': 'मंदिर',
+  // Settings → WhatsApp: delivery status from Meta's webhook
+  'Delivery status (delivered / read)': 'संदेश पोहोचला का (पोहोचला / वाचला)',
+  'Shows on each Mahaprasad sale and booking whether the devotee’s message arrived: ✓ sent, ✓✓ delivered, blue ✓✓ read, or why it was not delivered. Set up once in the Meta app:': 'प्रत्येक महाप्रसाद विक्री व बुकिंगवर भाविकाचा संदेश पोहोचला का ते दिसते: ✓ पाठवला, ✓✓ पोहोचला, निळे ✓✓ वाचला, किंवा का पोहोचला नाही. Meta ॲपमध्ये एकदाच सेट करा:',
+  'developers.facebook.com → your app → WhatsApp → Configuration → Webhook → Edit.': 'developers.facebook.com → आपले ॲप → WhatsApp → Configuration → Webhook → Edit.',
+  'Paste the Callback URL and Verify token below, then Verify and save.': 'खालील Callback URL व Verify token तिथे टाका, मग Verify and save करा.',
+  'Under Webhook fields, subscribe to “messages”.': 'Webhook fields मध्ये “messages” ला Subscribe करा.',
+  'App settings → Basic → App secret → Show: paste it below, then Save.': 'App settings → Basic → App secret → Show: तो खाली टाका, मग जतन करा.',
+  'Callback URL': 'Callback URL',
+  'Verify token': 'Verify token',
+  'App secret': 'App secret',
+  'Checks that status updates really come from Meta': 'संदेशाची स्थिती खरोखर Meta कडूनच आली याची खात्री करते',
+  'App secret saved — delivery status is accepted from Meta': 'App secret जतन झाले — Meta कडून संदेशाची स्थिती घेतली जाते',
+  'No app secret yet — messages show only as sent': 'अजून App secret नाही — संदेश फक्त “पाठवला” असे दिसतात',
 };

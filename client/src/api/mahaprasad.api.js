@@ -28,3 +28,5 @@ export const getCashDrawer   = (date)  => api.get('/mahaprasad/cash-drawer', { p
 export const setOpeningFloat = (data)  => api.put('/mahaprasad/cash-drawer/float', data);
 export const adjustDrawer    = (data)  => api.patch('/mahaprasad/cash-drawer/adjust', data);
 export const voidBatch       = (batchId, reason) => api.patch(`/mahaprasad/batches/${encodeURIComponent(batchId)}/void`, { reason });
+// Send a sale's coupons to the devotee's WhatsApp again (didn't arrive, or was deleted)
+export const resendBatch     = (batchId) => api.post(`/mahaprasad/batches/${encodeURIComponent(batchId)}/send`);

@@ -108,6 +108,8 @@ export const adjustDrawer = {
   }),
 };
 
+export const batchById = { params: z.object({ batchId: text('Batch', { max: 40 }) }) };
+
 export const voidBatch = {
   params: z.object({ batchId: text('Batch', { max: 40 }) }),
   body: z.object({ reason: text('Reason', { max: 200 }) }),

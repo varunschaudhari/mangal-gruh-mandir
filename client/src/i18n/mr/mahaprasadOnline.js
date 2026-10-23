@@ -121,4 +121,17 @@ export default {
   "After this, today's coupons are only sold at the counter (empty = all day)": 'यानंतर आजची कूपन फक्त काउंटरवर मिळतील (रिकामे = दिवसभर)',
   'Prices, the daily cap and coupon validity above apply to online coupons too. Public page:':
     'वरील दर, दैनिक मर्यादा आणि कूपनची वैधता ऑनलाइन कूपनलाही लागू. सार्वजनिक पान:',
+  // The name devotees see: Shri Mangal Mahaprasad (coupon page, /prasad, the TV screen)
+  'Shri Mangal Mahaprasad': 'श्री मंगल महाप्रसाद',
+  'Shri Mangal Mahaprasad coupon': 'श्री मंगल महाप्रसाद कूपन',
+  'Buy Shri Mangal Mahaprasad coupon': 'श्री मंगल महाप्रसाद कूपन घ्या',
+  'This link may be incomplete. Please open the full link from your message, or ask at the Shri Mangal Mahaprasad counter.': 'ही लिंक अपूर्ण असू शकते. संदेशातील पूर्ण लिंक उघडा, किंवा श्री मंगल महाप्रसाद काउंटरवर विचारा.',
+  'TEST coupon — no real payment. Not valid at the Shri Mangal Mahaprasad hall.': 'चाचणी कूपन — खरे पैसे भरलेले नाहीत. श्री मंगल महाप्रसाद सभागृहात चालणार नाही.',
+  'Show this QR at the Shri Mangal Mahaprasad hall. Each coupon can be used once.': 'हा QR श्री मंगल महाप्रसाद हॉलमध्ये दाखवा. प्रत्येक कूपन एकदाच वापरता येते.',
+  'No Shri Mangal Mahaprasad coupons are on sale online right now.': 'सध्या ऑनलाइन श्री मंगल महाप्रसाद कूपन विक्रीसाठी नाहीत.',
+  'Online Shri Mangal Mahaprasad coupons are not available right now — please buy at the temple counter': 'ऑनलाइन श्री मंगल महाप्रसाद कूपन सध्या उपलब्ध नाहीत — कृपया मंदिराच्या काउंटरवर घ्या',
+  'Buy Shri Mangal Mahaprasad coupons online': 'श्री मंगल महाप्रसाद कूपन ऑनलाइन घ्या',
+  'Pay online and get your coupon QR on WhatsApp / SMS. Show it at the Shri Mangal Mahaprasad hall.': 'ऑनलाइन पैसे भरा आणि कूपनचा QR WhatsApp / SMS वर मिळवा. तो श्री मंगल महाप्रसाद सभागृहात दाखवा.',
+  'Shri Mangal Mahaprasad coupons are not sold online for this day': 'या दिवसासाठी श्री मंगल महाप्रसाद कूपन ऑनलाइन विकली जात नाहीत',
+  'The Shri Mangal Mahaprasad day had already passed when the payment arrived': 'पेमेंट आले तेव्हा श्री मंगल महाप्रसादाचा दिवस आधीच उलटून गेला होता',
 };

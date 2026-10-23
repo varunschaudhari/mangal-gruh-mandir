@@ -6,6 +6,8 @@
 //   BASE_URL=http://localhost:5000 ADMIN_EMAIL=… ADMIN_PASSWORD=… node scripts/validation-check.mjs
 // Used by CI (.github/workflows/ci.yml).
 
+import { createHmac } from 'crypto';
+
 const BASE = (process.env.BASE_URL || 'http://localhost:5000').replace(/\/$/, '');
 const EMAIL = process.env.ADMIN_EMAIL || process.env.SEED_ADMIN_EMAIL;
 const PASSWORD = process.env.ADMIN_PASSWORD || process.env.SEED_ADMIN_PASSWORD;
@@ -146,6 +148,30 @@ async function main() {
   check(hiSave.status === 200 && hiSave.body.data.waLanguages?.donationThanks === 'hi', 'Hindi is a WhatsApp message language too', show(hiSave));
   check((await api('PUT', '/settings', { waLanguages: { donationThanks: 'gu' } })).status === 400, 'WhatsApp message language other than Marathi / Hindi / English → 400');
   await api('PUT', '/settings', { waLanguages: { donationThanks: 'mr' } });
+
+  // WhatsApp delivery status: Meta's webhook is verified with our token and signed with the app secret
+  const hook = `${BASE}/api/webhooks/whatsapp`;
+  const info = (await api('GET', '/settings')).body.data.whatsappWebhook;
+  check(info?.url?.endsWith('/api/webhooks/whatsapp') && /^[0-9a-f]{32}$/.test(info?.verifyToken || '') && info.secretSet === false,
+    'Settings shows the webhook address and a verify token to paste into Meta', JSON.stringify(info));
+  const verify = await fetch(`${hook}?hub.mode=subscribe&hub.verify_token=${info.verifyToken}&hub.challenge=4242`);
+  check(verify.status === 200 && await verify.text() === '4242', 'Meta\'s check of the webhook gets its challenge back with our token');
+  check((await fetch(`${hook}?hub.mode=subscribe&hub.verify_token=wrong&hub.challenge=1`)).status === 403, '…and is refused with another token');
+  const delivery = JSON.stringify({ entry: [{ changes: [{ value: { statuses: [{ id: 'wamid.CI', status: 'delivered', timestamp: '1792166787' }] } }] }] });
+  const signed = (secret) => ({ method: 'POST', body: delivery, headers: { 'content-type': 'application/json',
+    'x-hub-signature-256': `sha256=${createHmac('sha256', secret).update(delivery).digest('hex')}` } });
+  check((await fetch(hook, signed('ci-app-secret'))).status === 401, 'status updates are refused until the app secret is in Settings');
+  const secretSave = await api('PUT', '/settings', { waAppSecret: 'ci-app-secret' });
+  check(secretSave.status === 200 && secretSave.body.data.whatsappWebhook?.secretSet === true && !String(secretSave.body.data.waAppSecret).includes('ci-app'),
+    'the app secret is saved and never sent back in full', show(secretSave));
+  check((await fetch(hook, signed('ci-app-secret'))).status === 200, 'a status update signed with the app secret is accepted');
+  check((await fetch(hook, signed('someone-else'))).status === 401, '…one signed with anything else is refused');
+  await api('PUT', '/settings', { waAppSecret: '' });
+
+  // Sending a Mahaprasad sale again: only when WhatsApp sends coupons by itself
+  const resendOff = await api('POST', `/mahaprasad/batches/${issue.body.data.batchId}/send`);
+  check(resendOff.status === 400 && /not set up/.test(resendOff.body.message), 'resend: WhatsApp not set up for coupons → readable 400', show(resendOff));
+  check((await api('POST', '/mahaprasad/batches/no-such-sale/send')).status === 404, 'resend: an unknown sale → 404');
 
   // Reports: Excel is offered only when Settings → Reports allows it; every list has a PDF
   const templeNow = async () => (await (await fetch(`${BASE}/api/settings/temple`)).json()).data;

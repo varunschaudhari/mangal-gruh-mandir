@@ -20,6 +20,7 @@ import { bookingsExcel, bookingsPdf, summaryPdf } from '../services/booking/expo
 import { dateKeyOf, isDateKey } from '../services/booking/rules.js';
 import { temple as templeDetails } from '../services/temple.service.js';
 import { slipPng } from '../services/booking/slipImage.js';
+import { latestStatuses } from '../services/whatsappStatus.service.js';
 import { bookingLanguage } from '../../../shared/devoteeLanguage.js';
 
 const withUrl = (b) => (b ? { ...b, receiptUrl: receiptUrl(b) } : b);
@@ -96,8 +97,9 @@ export const list = asyncHandler(async (req, res) => {
     Booking.countDocuments(filter),
     Booking.aggregate([{ $match: filter }, { $group: { _id: null, amount: { $sum: '$amount' } } }]),
   ]);
+  const sent = await latestStatuses('booking', items.map((b) => b._id));   // WhatsApp: delivered / read / failed
   res.json(new ApiResponse(200, {
-    items: items.map(withUrl),
+    items: items.map((b) => ({ ...withUrl(b), whatsapp: sent.get(String(b._id)) || null })),
     total, page, pages: Math.ceil(total / limit) || 1,
     amount: sums[0]?.amount || 0,
   }));
@@ -107,7 +109,8 @@ export const list = asyncHandler(async (req, res) => {
 export const getOne = asyncHandler(async (req, res) => {
   const booking = await Booking.findById(req.params.id).populate(POPULATE).lean();
   if (!booking) throw new ApiError(404, 'Booking not found');
-  res.json(new ApiResponse(200, withUrl(booking)));
+  const whatsapp = (await latestStatuses('booking', [booking._id])).get(String(booking._id)) || null;
+  res.json(new ApiResponse(200, { ...withUrl(booking), whatsapp }));
 });
 
 // PATCH /bookings/:id/void { reason }
@@ -218,7 +221,8 @@ export const resend = asyncHandler(async (req, res) => {
   if (!booking) throw new ApiError(404, 'Booking not found');
   if (booking.status !== 'confirmed') throw new ApiError(400, 'This booking was voided');
   const result = await sendReceipt(booking, { force: true });
-  res.json(new ApiResponse(200, result, result.whatsapp === 'sent' || result.sms === 'sent' ? 'Receipt sent' : 'Not sent'));
+  const whatsapp = (await latestStatuses('booking', [booking._id])).get(String(booking._id)) || null;
+  res.json(new ApiResponse(200, { ...result, whatsappStatus: whatsapp }, result.whatsapp === 'sent' || result.sms === 'sent' ? 'Receipt sent' : 'Not sent'));
 });
 
 // GET /bookings/export/excel and /bookings/export/pdf (same filters as the register)

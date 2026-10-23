@@ -17,7 +17,8 @@
  *
  * EMPTIED: products, suppliers, assets; all stock and its history; purchases, supplier payments
  * and payment templates; expenses, budgets and their receipt files; donations; pooja bookings and
- * counter shifts; Mahaprasad coupons, payments, cash drawers and online orders; attendance
+ * counter shifts; Mahaprasad coupons, payments, cash drawers and online orders; the record of
+ * WhatsApp messages to devotees (delivered / read); attendance
  * (punches, roster, months, corrections, double shifts) and salary; every other login with its
  * staff profile, sessions and phone registrations; the numbering (every receipt, coupon and
  * booking number starts again from 1); the audit and app-error logs; the demo-data list.
@@ -53,6 +54,7 @@ export const CLEAR = [
   // donations, bookings, Mahaprasad
   'Donation', 'Booking', 'BookingShift', 'SlotCounter',
   'MahaprasadCoupon', 'MahaprasadPayment', 'MahaprasadCashDrawer', 'MahaprasadOrder',
+  'WhatsAppMessage',   // whether each devotee's message was delivered — for those sales and bookings
   // attendance and salary
   'Punch', 'RosterDay', 'AttendanceMonth', 'AttendanceOverride', 'DoubleShift', 'SalaryRun', 'SalaryAdvance',
   // numbering and logs

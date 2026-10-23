@@ -32,8 +32,8 @@ export async function writeOnlinePoster(out, { url }) {
   y += 16;
 
   // Title
-  y = center('महाप्रसाद कूपन ऑनलाइन घ्या', y, { size: 30, font: 'Body-Bold', color: C.accent });
-  y = center('Buy Mahaprasad coupons online', y, { size: 16, font: 'Body-SemiBold' });
+  y = center('श्री मंगल महाप्रसाद कूपन ऑनलाइन घ्या', y, { size: 30, font: 'Body-Bold', color: C.accent });
+  y = center('Buy Shri Mangal Mahaprasad coupons online', y, { size: 16, font: 'Body-SemiBold' });
   y += 14;
 
   // The QR, in a frame

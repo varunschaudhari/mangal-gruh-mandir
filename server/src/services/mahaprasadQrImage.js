@@ -77,7 +77,8 @@ export async function couponsQrPng(coupons, { temple = {} } = {}) {
   if (LOGO) { out.push(`<image href="${LOGO}" x="${(W - 120) / 2}" y="${y}" width="120" height="120" preserveAspectRatio="xMidYMid meet"/>`); y += 128; }
   line(temple.nameMr || temple.name, 44, { weight: 700, gap: 0 });
   if (temple.nameMr && temple.name) line(temple.name, 28, { fill: '#444', gap: 4 });
-  line('महाप्रसाद कूपन · Mahaprasad coupon', 34, { weight: 700, fill: '#c2410c', gap: 6 });
+  line('श्री मंगल महाप्रसाद कूपन', 34, { weight: 700, fill: '#c2410c', gap: 0 });
+  line('Shri Mangal Mahaprasad coupon', 24, { weight: 600, fill: '#c2410c', gap: 6 });
 
   const kind = coupons[0]?.type === 'free' ? (coupons[0].occasion || 'Free Seva') : 'Paid';
   line(`${dateText(coupons[0]?.date || Date.now())} · ${kind}`, 30, { gap: 18 });
@@ -115,8 +116,8 @@ export async function couponsQrPng(coupons, { temple = {} } = {}) {
   y += 6;
   out.push(`<rect x="${M}" y="${y}" width="${W - 2 * M}" height="2" fill="#ddd"/>`);
   y += 18;
-  line('हा QR महाप्रसाद हॉलमध्ये दाखवा', 32, { weight: 700, gap: 0 });
-  line('Show this QR at the Mahaprasad hall · each coupon is served once', 26, { fill: '#444', gap: 0 });
+  line('हा QR श्री मंगल महाप्रसाद हॉलमध्ये दाखवा', 32, { weight: 700, gap: 0 });
+  line('Show this QR at the Shri Mangal Mahaprasad hall · each coupon is served once', 26, { fill: '#444', gap: 0 });
 
   const H = Math.ceil(y + M);
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">`

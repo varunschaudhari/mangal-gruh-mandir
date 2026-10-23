@@ -30,7 +30,7 @@ export async function writeOnlineReceipt(out, { order, validityDays = 1 }) {
     // Paid with Razorpay test keys
     doc.rect(LEFT, y, W, 24).lineWidth(1.2).strokeColor('#b91c1c').stroke();
     doc.fillColor('#b91c1c').fontSize(11).font('Helvetica-Bold')
-      .text('TEST — no real payment. This coupon is not valid at the Mahaprasad hall.', LEFT, y + mid(24, 11), { width: W, align: 'center' });
+      .text('TEST — no real payment. This coupon is not valid at the Shri Mangal Mahaprasad hall.', LEFT, y + mid(24, 11), { width: W, align: 'center' });
     y += 36;
   }
 
@@ -63,7 +63,7 @@ export async function writeOnlineReceipt(out, { order, validityDays = 1 }) {
   };
   row(cols.map((c) => c.label), { head: true });
   row([
-    order.plates > 1 ? 'Mahaprasad coupon (group)' : 'Mahaprasad coupon',
+    order.plates > 1 ? 'Shri Mangal Mahaprasad coupon (group)' : 'Shri Mangal Mahaprasad coupon',
     dayText(order.date), order.plates, rupees(order.pricePerPlate), rupees(order.amount),
   ]);
   y += 12;
@@ -98,7 +98,7 @@ export async function writeOnlineReceipt(out, { order, validityDays = 1 }) {
   const tx = LEFT + QR + 30;
   const tw = W - QR - 42;
   doc.font('Helvetica-Bold').fontSize(8.5).fillColor(C.accent)
-    .text('YOUR COUPON — SHOW THIS QR AT THE MAHAPRASAD HALL', tx, y + 14, { width: tw, characterSpacing: 0.4 });
+    .text('YOUR COUPON — SHOW THIS QR AT THE SHRI MANGAL MAHAPRASAD HALL', tx, y + 14, { width: tw, characterSpacing: 0.4 });
   doc.font('Helvetica-Bold').fontSize(17).fillColor(C.dark).text(order.couponNumber, tx, doc.y + 4, { width: tw });
   doc.font('Helvetica-Bold').fontSize(14).fillColor(C.dark)
     .text(order.plates > 1 ? `${order.plates} persons (group coupon)` : '1 person', tx, doc.y + 2, { width: tw });

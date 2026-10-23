@@ -8,6 +8,8 @@ import { refreshTemple } from '../services/temple.service.js';
 import { GRAPH_VERSION, metaErrorText, whatsappConfig, whatsappNumber } from '../services/whatsappClient.service.js';
 import { lastRazorpayCheck, onlineState } from '../services/mahaprasadOnline.service.js';
 import { razorpayConfig } from '../services/razorpay.service.js';
+import { webhookVerifyToken } from '../services/whatsappStatus.service.js';
+import { appUrl } from '../utils/publicUrl.js';
 
 // Online Mahaprasad payments, for Settings → Mahaprasad: switched on, keys on the server (test or
 // live), webhook secret set, and the last nightly key check. The key id is public (the payment
@@ -18,17 +20,25 @@ const onlinePayments = async (settings) => ({
   lastCheck: lastRazorpayCheck(),
 });
 
-// The WhatsApp access token and MSG91 key never leave the server in full — only the last 6 characters.
+// The WhatsApp access token, Meta app secret and MSG91 key never leave the server in full — only the last 6 characters.
 const withMaskedKeys = (settings) => {
   const obj = settings.toObject();
   if (obj.waAccessToken)   obj.waAccessToken   = obj.waAccessToken.length > 6   ? `${'•'.repeat(20)}${obj.waAccessToken.slice(-6)}`   : obj.waAccessToken;
+  if (obj.waAppSecret)     obj.waAppSecret     = obj.waAppSecret.length > 6     ? `${'•'.repeat(20)}${obj.waAppSecret.slice(-6)}`     : obj.waAppSecret;
   if (obj.msg91AuthKey)    obj.msg91AuthKey    = obj.msg91AuthKey.length > 6    ? `${'•'.repeat(20)}${obj.msg91AuthKey.slice(-6)}`    : obj.msg91AuthKey;
   return obj;
 };
 
+// What to paste into the Meta app for delivery status (Settings → WhatsApp shows it)
+const whatsappWebhook = async (settings) => ({
+  url: `${appUrl()}/api/webhooks/whatsapp`,
+  verifyToken: await webhookVerifyToken(),
+  secretSet: Boolean(settings.waAppSecret),
+});
+
 export const getSettings = asyncHandler(async (req, res) => {
   const settings = await Settings.getOrCreate();
-  res.json(new ApiResponse(200, { ...withMaskedKeys(settings), onlinePayments: await onlinePayments(settings) }));
+  res.json(new ApiResponse(200, { ...withMaskedKeys(settings), onlinePayments: await onlinePayments(settings), whatsappWebhook: await whatsappWebhook(settings) }));
 });
 
 export const updateSettings = asyncHandler(async (req, res) => {
@@ -37,7 +47,7 @@ export const updateSettings = asyncHandler(async (req, res) => {
   const {
     templeName, templeNameMr, trustRegNumber, trustLegalName, templeAddress, templePhone, templeEmail, templeWebsite,
     allowExcelExport,
-    waEnabled, waPhoneNumberId, waAccessToken, waTemplates, waLanguages,
+    waEnabled, waPhoneNumberId, waAccessToken, waAppSecret, waTemplates, waLanguages,
     smsEnabled, msg91AuthKey, msg91TemplateId,
     alertOnOutOfStock, alertOnLowStock, alertOnReorder,
     trustPAN, reg80GNumber, reg80GFrom, reg80GTo,
@@ -66,6 +76,7 @@ export const updateSettings = asyncHandler(async (req, res) => {
   }
   // Only update token if it doesn't look like a masked value
   if (waAccessToken && !waAccessToken.includes('•')) settings.waAccessToken = waAccessToken;
+  if (waAppSecret !== undefined && !String(waAppSecret).includes('•')) settings.waAppSecret = String(waAppSecret).trim();
 
   if (smsEnabled      !== undefined) settings.smsEnabled      = smsEnabled;
   if (msg91TemplateId !== undefined) settings.msg91TemplateId = msg91TemplateId;
@@ -100,9 +111,9 @@ export const updateSettings = asyncHandler(async (req, res) => {
   await settings.save();
   await refreshTemple(settings);
   // Old → new for what changed; access tokens and keys only as "(set)" / "(empty)"
-  const change = changedValues(before, settings.toObject(), Object.keys(req.body), { mask: { waAccessToken: maskSecret, msg91AuthKey: maskSecret } });
+  const change = changedValues(before, settings.toObject(), Object.keys(req.body), { mask: { waAccessToken: maskSecret, waAppSecret: maskSecret, msg91AuthKey: maskSecret } });
   if (change) logAction(req, { action: 'settings.update', entity: 'Settings', entityRef: settings._id, ...change });
-  res.json(new ApiResponse(200, { ...withMaskedKeys(settings), onlinePayments: await onlinePayments(settings) }, 'Settings saved'));
+  res.json(new ApiResponse(200, { ...withMaskedKeys(settings), onlinePayments: await onlinePayments(settings), whatsappWebhook: await whatsappWebhook(settings) }, 'Settings saved'));
 });
 
 const NAME_STATUS = {

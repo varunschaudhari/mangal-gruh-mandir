@@ -8,6 +8,7 @@ import {
 import PageHeader from '../../components/ui/PageHeader.jsx';
 import Sheet from '../../components/ui/Sheet.jsx';
 import Badge from '../../components/ui/Badge.jsx';
+import WhatsAppStatus from '../../components/ui/WhatsAppStatus.jsx';
 import MobileCard from '../../components/ui/MobileCard.jsx';
 import Spinner, { PageLoader } from '../../components/ui/Spinner.jsx';
 import BookingDetailSheet from '../../components/booking/BookingDetailSheet.jsx';
@@ -375,7 +376,7 @@ export default function BookingList() {
                   {b.peopleCount > 1 && <span className="shrink-0 text-xs font-normal text-gray-500">×{b.peopleCount}</span>}
                 </span>
               )}
-              subtitle={<span className="font-mono">{b.receiptNo} · {fmtTime(b.paidAt)}</span>}
+              subtitle={<span className="font-mono">{b.receiptNo} · {fmtTime(b.paidAt)}{b.whatsapp && <WhatsAppStatus whatsapp={b.whatsapp} showLabel={false} className="ml-1.5 align-middle" />}</span>}
               aside={(
                 <div className="text-right">
                   <p className={`text-sm font-bold ${b.status === 'voided' ? 'text-red-500 line-through' : 'text-gray-900'}`}>{rupees(b.amount)}</p>
@@ -429,7 +430,11 @@ export default function BookingList() {
                             <span className="ml-1.5 inline-flex items-center gap-0.5 text-xs font-normal text-gray-500"><Users className="h-3 w-3" />{b.peopleCount}</span>
                           )}
                         </p>
-                        <p className="text-xs text-gray-500">{b.devotee?.phone}</p>
+                        <p className="flex items-center gap-1.5 text-xs text-gray-500">
+                          {b.devotee?.phone}
+                          {/* the receipt's WhatsApp: ✓ sent, ✓✓ delivered, blue ✓✓ read, ! not delivered */}
+                          {b.whatsapp && <WhatsAppStatus whatsapp={b.whatsapp} showLabel={false} />}
+                        </p>
                       </td>
                       <td className="table-td">{sevaName(b)}</td>
                       <td className="table-td">

@@ -22,9 +22,9 @@ export function couponWhatsAppText({ numbers = [], date, persons, link, name }) 
   const when = new Date(date || Date.now()).toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
   const people = persons || numbers.length;
   // Free Seva has the devotee's name: greet them by it
-  return `Namaste${name?.trim() ? ` ${name.trim()}` : ''}! Your Mahaprasad coupon${numbers.length > 1 ? 's' : ''} at Shri Mangal Grah Mandir, Amalner for ${when}:`
+  return `Namaste${name?.trim() ? ` ${name.trim()}` : ''}! Your Shri Mangal Mahaprasad coupon${numbers.length > 1 ? 's' : ''} at Shri Mangal Grah Mandir, Amalner for ${when}:`
     + `\n${couponListText(numbers)} · *${people} ${people === 1 ? 'person' : 'persons'}*`
-    + (link ? `\nYour coupon QR: ${link}\nPlease show it at the Mahaprasad hall.` : '\nPlease show this at the Mahaprasad hall.');
+    + (link ? `\nYour coupon QR: ${link}\nPlease show it at the Shri Mangal Mahaprasad hall.` : '\nPlease show this at the Shri Mangal Mahaprasad hall.');
 }
 
 /** wa.me link to the devotee with the message ready (text only — see couponShare.js for the picture). */

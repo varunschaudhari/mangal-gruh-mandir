@@ -103,6 +103,7 @@ export async function sendReceipt(booking, { force = false } = {}) {
       result.whatsapp = await sendTemplate(wa, {
         to: booking.devotee.phone, template: bs.whatsappTemplate, language: message.language.code,
         components: message.components, label: `Booking receipt ${booking.receiptNo}`,
+        track: { kind: 'booking', ref: String(booking._id) },   // delivered / read shows on the booking
       });
       if (result.whatsapp === 'sent') await Booking.updateOne({ _id: booking._id }, { $set: { whatsappSentAt: new Date() } });
     }

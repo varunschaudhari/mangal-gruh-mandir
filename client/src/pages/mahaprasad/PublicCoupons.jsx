@@ -32,7 +32,7 @@ const dateText = (d) => new Date(d).toLocaleDateString('en-IN', { weekday: 'shor
 const timeText = (d) => new Date(d).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
 
 /** The public pages' frame: the temple's name and logo on top, the language switch (also used by /prasad) */
-export function Shell({ children, temple, subtitle = 'Mahaprasad coupon' }) {
+export function Shell({ children, temple, subtitle = 'Shri Mangal Mahaprasad coupon' }) {
   const t = useT();
   const info = temple || cachedTemple();
   return (
@@ -42,7 +42,7 @@ export function Shell({ children, temple, subtitle = 'Mahaprasad coupon' }) {
           <img src="/logo.png" alt="" className="h-11 w-11 shrink-0 rounded-lg bg-white object-contain p-1" />
           <div className="min-w-0 flex-1">
             <p className="text-[15px] font-bold leading-snug">{info.nameMr || info.name}</p>
-            <p className="truncate text-xs text-orange-100">{t(subtitle)}</p>
+            <p className="text-xs leading-snug text-orange-100">{t(subtitle)}</p>
           </div>
           <LanguageSwitch className="shrink-0 border-white/30 text-xs" />
         </div>
@@ -120,7 +120,7 @@ function CouponsPage() {
   });
   const d = q.data;
 
-  useEffect(() => { document.title = t('Mahaprasad coupon'); }, [t]);
+  useEffect(() => { document.title = t('Shri Mangal Mahaprasad coupon'); }, [t]);
 
   if (q.isLoading) {
     return <Shell><div className="flex h-64 items-center justify-center"><Spinner size="lg" /></div></Shell>;
@@ -135,7 +135,7 @@ function CouponsPage() {
           <h1 className="mt-3 text-lg font-bold text-gray-900">{notFound ? t('Coupon not found') : t('Could not load the coupon')}</h1>
           <p className="mt-1 text-sm text-gray-500">
             {notFound
-              ? t('This link may be incomplete. Please open the full link from your message, or ask at the Mahaprasad counter.')
+              ? t('This link may be incomplete. Please open the full link from your message, or ask at the Shri Mangal Mahaprasad counter.')
               : t('Check your internet connection and try again.')}
           </p>
           {!notFound && <button type="button" onClick={() => q.refetch()} className="btn-primary mt-4">{t('Try again')}</button>}
@@ -151,12 +151,12 @@ function CouponsPage() {
       {/* Bought online while Razorpay had test keys: the hall refuses it */}
       {d.test && (
         <p className="mb-3 rounded-xl border-2 border-red-300 bg-red-50 px-4 py-2.5 text-center text-sm font-bold text-red-800">
-          {t('TEST coupon — no real payment. Not valid at the Mahaprasad hall.')}
+          {t('TEST coupon — no real payment. Not valid at the Shri Mangal Mahaprasad hall.')}
         </p>
       )}
       {anyValid && !d.test && (
         <p className="mb-3 rounded-xl border border-orange-200 bg-white px-4 py-2.5 text-center text-sm text-gray-700">
-          {t('Show this QR at the Mahaprasad hall. Each coupon can be used once.')}
+          {t('Show this QR at the Shri Mangal Mahaprasad hall. Each coupon can be used once.')}
           <span className="mt-0.5 block text-xs text-gray-500">{t('If the scanner can’t read it, turn up the screen brightness.')}</span>
         </p>
       )}

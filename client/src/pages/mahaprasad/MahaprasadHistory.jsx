@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
-  History, RefreshCw, Printer, Search, FileText,
+  History, RefreshCw, Printer, Search, FileText, Send, Loader2,
   CheckCircle2, Clock, IndianRupee, Gift, Share2,
 } from 'lucide-react';
-import { getCoupons, printCoupons } from '../../api/mahaprasad.api.js';
+import { getCoupons, printCoupons, resendBatch } from '../../api/mahaprasad.api.js';
+import WhatsAppStatus from '../../components/ui/WhatsAppStatus.jsx';
 import { getSettings } from '../../api/settings.api.js';
 import { printThermalCoupon } from '../../utils/thermalPrint.js';
 import { useBluetoothPrinter } from '../../utils/bluetoothPrinter.js';
@@ -120,6 +121,24 @@ export default function MahaprasadHistory() {
     } catch (err) { toast.error(t(err.message || 'Thermal print failed')); }
     finally { setPrinting(false); }
   };
+
+  // WhatsApp sends coupons by itself: each coupon shows whether its sale's message arrived, and can
+  // go again (it didn't arrive, or the devotee deleted it)
+  const canResend = Boolean(settings.waEnabled && settings.waTemplates?.mahaprasadCoupons);
+  const [sending, setSending] = useState(null);
+  const handleResend = async (coupon) => {
+    setSending(coupon.batchId);
+    try {
+      await resendBatch(coupon.batchId);
+      toast.success(t('Sent on WhatsApp again'));
+    } catch (err) {
+      toast.error(err.response?.data?.message || t('WhatsApp message not sent'));
+    } finally {
+      setSending(null);
+      refetch();
+    }
+  };
+  const resendable = (c) => canResend && c.mobile && c.batchId && c.status !== 'voided';
 
   const handleReprint = async (coupon) => {
     setPrinting(true);
@@ -251,12 +270,24 @@ export default function MahaprasadHistory() {
                   <PersonsPill n={persons(c)} />
                 </span>
               }
-              subtitle={[fmt(c.date), c.name, c.mobile, c.issuedBy?.name].filter(Boolean).join(' · ')}
+              subtitle={(
+                <>
+                  {[fmt(c.date), c.name, c.mobile, c.issuedBy?.name].filter(Boolean).join(' · ')}
+                  {c.whatsapp && <WhatsAppStatus whatsapp={c.whatsapp} className="ml-1.5 align-middle" />}
+                </>
+              )}
               aside={
                 <>
                   <Badge variant={STATUS_V[c.status]} size="sm">
                     {t(STATUS_LABEL[c.status] || 'Pending')}
                   </Badge>
+                  {resendable(c) && (
+                    <button onClick={() => handleResend(c)} disabled={sending === c.batchId}
+                      aria-label={t('Send on WhatsApp again')} title={t('Send on WhatsApp again')}
+                      className="-my-1.5 p-2.5 rounded-lg text-green-700 active:bg-gray-100 disabled:opacity-40">
+                      {sending === c.batchId ? <Loader2 className="h-[18px] w-[18px] animate-spin" /> : <Send className="h-[18px] w-[18px]" />}
+                    </button>
+                  )}
                   {c.status !== 'voided' && canThermal && (
                     <button onClick={() => handleThermalPrint(c)} disabled={printing} aria-label={t('Print')} title={t('Print')}
                       className="-my-1.5 p-2.5 rounded-lg text-gray-600 active:bg-gray-100 disabled:opacity-40">
@@ -322,6 +353,7 @@ export default function MahaprasadHistory() {
                     <td className="table-td text-gray-600 text-xs tabular-nums">
                       {c.name && <span className="block font-semibold text-gray-800 not-italic">{c.name}</span>}
                       {c.mobile || (c.name ? null : '—')}
+                      {c.whatsapp && <span className="mt-0.5 block"><WhatsAppStatus whatsapp={c.whatsapp} /></span>}
                     </td>
                     <td className="table-td text-center">
                       <span className={`tabular-nums ${c.status === 'voided' ? 'text-sm text-gray-400' : persons(c) > 1 ? 'text-base font-bold text-purple-700' : 'text-sm text-gray-600'}`}>{persons(c)}</span>
@@ -353,6 +385,13 @@ export default function MahaprasadHistory() {
                     <td className="table-td">
                       {c.status !== 'voided' && (
                         <div className="flex items-center gap-0.5">
+                          {resendable(c) && (
+                            <button onClick={() => handleResend(c)} disabled={sending === c.batchId}
+                              className="p-1.5 rounded hover:bg-white/60 text-green-700 hover:text-green-800 transition-colors disabled:opacity-40"
+                              title={t('Send on WhatsApp again')} aria-label={t('Send on WhatsApp again')}>
+                              {sending === c.batchId ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
+                            </button>
+                          )}
                           {canThermal && (
                             <button onClick={() => handleThermalPrint(c)} disabled={printing}
                               className="p-1.5 rounded hover:bg-white/60 text-gray-500 hover:text-gray-800 transition-colors disabled:opacity-40"

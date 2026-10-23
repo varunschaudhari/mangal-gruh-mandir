@@ -9,6 +9,7 @@ import Sheet from '../ui/Sheet.jsx';
 import Modal from '../ui/Modal.jsx';
 import Badge from '../ui/Badge.jsx';
 import Spinner from '../ui/Spinner.jsx';
+import WhatsAppStatus from '../ui/WhatsAppStatus.jsx';
 import { checkInBooking, getBooking, getBookingOptions, resendReceipt, undoCheckIn, voidBooking } from '../../api/booking.api.js';
 import { printBookingReceipt, printBookingSlip, whatsappShareUrl, fmtPujaDate } from '../../utils/bookingReceipt.js';
 import { hallName } from '../../utils/halls.js';
@@ -149,8 +150,9 @@ export default function BookingDetailSheet({ booking: initial, onClose }) {
         setNotSetUp(true);
       } else {
         haptics.error();
-        toast.error(t('Could not send the receipt. Use the WhatsApp link instead.'));
+        toast.error(r.whatsappStatus?.error || t('Could not send the receipt. Use the WhatsApp link instead.'));
         setNotSetUp(true);
+        refresh();   // shows why it wasn't delivered
       }
     },
     onError: (e) => toast.error(e.response?.data?.message || t('Failed')),
@@ -391,10 +393,12 @@ export default function BookingDetailSheet({ booking: initial, onClose }) {
           <section className="mt-4">
             <h3 className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-gray-400">{t('Receipt sent to devotee')}</h3>
             <div className="space-y-1.5 rounded-xl border border-gray-100 bg-white p-3 text-sm">
-              {[['WhatsApp', b.whatsappSentAt], ['SMS', b.smsSentAt]].map(([label, at]) => (
+              {[['WhatsApp', b.whatsappSentAt, b.whatsapp], ['SMS', b.smsSentAt]].map(([label, at, wa]) => (
                 <p key={label} className="flex items-center justify-between gap-2">
                   <span className="text-gray-600">{label}</span>
-                  {at
+                  {/* Delivered / read / not delivered (with why), from Meta — or just when it was sent */}
+                  {wa ? <WhatsAppStatus whatsapp={wa} className="text-sm" />
+                    : at
                     ? <span className="inline-flex items-center gap-1 text-green-700"><CheckCircle2 className="h-4 w-4" /> {fmtDateTime(at)}</span>
                     : <span className="inline-flex items-center gap-1 text-gray-400"><Clock className="h-4 w-4" /> {t('Not sent')}</span>}
                 </p>

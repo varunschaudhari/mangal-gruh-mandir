@@ -436,4 +436,14 @@ export default {
   'This phone has no Bluetooth': 'या फोनमध्ये ब्लूटूथ नाही',
   'Choose the Bluetooth printer first (More → Bluetooth printer)': 'आधी ब्लूटूथ प्रिंटर निवडा (अधिक → ब्लूटूथ प्रिंटर)',
   'Printing was interrupted': 'छपाई मध्येच थांबली',
+  // A devotee's WhatsApp message: how far it got, and sending it again
+  'Sent': 'पाठवला',
+  'Delivered': 'पोहोचला',
+  'Read': 'वाचला',
+  'Not delivered': 'पोहोचला नाही',
+  '{n} tries': '{n} प्रयत्न',
+  'Send on WhatsApp again': 'WhatsApp वर पुन्हा पाठवा',
+  'Sent on WhatsApp again': 'WhatsApp वर पुन्हा पाठवला',
+  'WhatsApp message not sent': 'WhatsApp संदेश गेला नाही',
+  'Copied': 'कॉपी झाले',
 };

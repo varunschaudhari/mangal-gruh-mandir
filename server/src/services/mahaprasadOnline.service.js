@@ -97,7 +97,7 @@ export async function publicInfo(now = new Date()) {
 export async function createOrder({ date: day, plates, mobile, name = '', ip }, now = new Date()) {
   const settings = await Settings.getOrCreate();
   if (!(await onlineState(settings)).enabled) {
-    throw new ApiError(503, 'Online Mahaprasad coupons are not available right now — please buy at the temple counter');
+    throw new ApiError(503, 'Online Shri Mangal Mahaprasad coupons are not available right now — please buy at the temple counter');
   }
   const rules = onlineRules(settings);
   const problem = dayProblem(day, rules, now);
@@ -155,7 +155,7 @@ function checkoutOptions(order, now = new Date()) {
     amount: paise(order.amount),
     currency: 'INR',
     name: temple().name,
-    description: `Mahaprasad coupon — ${order.plates} plate${order.plates === 1 ? '' : 's'}, ${localDateStr(order.date)}`,
+    description: `Shri Mangal Mahaprasad coupon — ${order.plates} plate${order.plates === 1 ? '' : 's'}, ${localDateStr(order.date)}`,
     prefill: { contact: `+91${order.mobile}`, ...(order.name && { name: order.name }) },
     notes: { order: order.token },
     timeout: secondsLeft,   // Checkout closes itself before the hold runs out
@@ -248,7 +248,7 @@ const reopen = (order, status) =>
 function sendCoupon(order, number) {
   sendCouponMessage({
     mobile: order.mobile, numbers: [number], date: order.date, persons: order.plates,
-    link: couponPageUrl(order.shareToken), image: couponImageUrl(order.shareToken),
+    link: couponPageUrl(order.shareToken), image: couponImageUrl(order.shareToken), ref: order.batchId,
   });
 }
 
@@ -271,7 +271,7 @@ async function issueForOrder(order, payment, source) {
     // Paid after its hold ran out: the plates are taken again if the day is still ahead and has room
     const settings = await Settings.getOrCreate();
     try {
-      if (localDateStr(prev.date) < localDateStr()) throw new ApiError(400, 'The Mahaprasad day had already passed when the payment arrived');
+      if (localDateStr(prev.date) < localDateStr()) throw new ApiError(400, 'The Shri Mangal Mahaprasad day had already passed when the payment arrived');
       await takePersons(prev.date, prev.plates, settings.mahaprasadDailyCap || 0);
     } catch (err) {
       if (!(err instanceof ApiError)) { await reopen(prev, 'expired'); throw err; }

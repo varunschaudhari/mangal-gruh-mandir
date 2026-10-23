@@ -55,7 +55,7 @@ export const DAY_PROBLEM_TEXT = {
   past: 'This date has passed',
   too_far: 'Coupons for this date are not on sale yet',
   closed_today: 'Online coupons for today are closed — please buy at the temple counter',
-  no_price: 'Mahaprasad coupons are not sold online for this day',
+  no_price: 'Shri Mangal Mahaprasad coupons are not sold online for this day',
   full: 'All coupons for this day are sold',
 };
 

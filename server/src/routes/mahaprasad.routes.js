@@ -8,7 +8,7 @@ import {
   lookupCoupon, redeemCoupon, printCoupons, getReport, getBatches,
   getMonthlyReport, getStaffReport, getWastageReport, getMahaprasadWhatsApp,
   reserveOffline, getTodayForOffline, getRedeemCopy, syncOffline,
-  getCashDrawer, setOpeningFloat, adjustDrawer, voidBatch,
+  getCashDrawer, setOpeningFloat, adjustDrawer, voidBatch, resendBatch,
 } from '../controllers/mahaprasad.controller.js';
 import { listOnlineOrders, onlinePosterPdf } from '../controllers/mahaprasadOnline.controller.js';
 import { getDashboard, setTarget } from '../controllers/mahaprasadDashboard.controller.js';
@@ -43,6 +43,7 @@ router.put('/cash-drawer/float',   authorize('mahaprasad:issue'),  validate(v.se
 router.patch('/cash-drawer/adjust',authorize('mahaprasad:issue'),  validate(v.adjustDrawer), adjustDrawer);
 
 router.patch('/batches/:batchId/void', authorize('mahaprasad:issue'), validate(v.voidBatch), voidBatch);
+router.post('/batches/:batchId/send', authorize('mahaprasad:issue'), validate(v.batchById), resendBatch);
 
 // Offline support — static sub-routes must be before dynamic ones
 router.post('/offline/reserve',    authorize('mahaprasad:issue'),  validate(v.reserveOffline), reserveOffline);

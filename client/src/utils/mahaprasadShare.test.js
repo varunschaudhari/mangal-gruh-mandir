@@ -13,7 +13,7 @@ describe('coupon numbers on WhatsApp', () => {
     const url = couponWhatsAppUrl({ mobile: '9881180662', numbers: ['MP-20261013-012'], date: '2026-10-13T12:00:00', persons: 4 });
     expect(url.startsWith('https://wa.me/919881180662?text=')).toBe(true);
     const text = decodeURIComponent(url.split('text=')[1]);
-    expect(text).toContain('Mahaprasad coupon at Shri Mangal Grah Mandir');
+    expect(text).toContain('Shri Mangal Mahaprasad coupon at Shri Mangal Grah Mandir');
     expect(text).toContain('MP-20261013-012 · *4 persons*');
     expect(text).not.toContain('QR');
   });
@@ -23,14 +23,14 @@ describe('coupon numbers on WhatsApp', () => {
     const text = decodeURIComponent(url.split('text=')[1]);
     expect(text).toContain('MP-20261013-012 · *1 person*');   // singles show the count too
     expect(text).toContain('Your coupon QR: https://mandir.aumora.io/m/AbCdEf123456');
-    expect(text).toContain('Please show it at the Mahaprasad hall.');
+    expect(text).toContain('Please show it at the Shri Mangal Mahaprasad hall.');
   });
 
   it('greets a Free Seva devotee by name', () => {
     const text = decodeURIComponent(couponWhatsAppUrl({ mobile: '9881180662', name: '  Ramesh Patil ', numbers: ['MP-20261013-012'], date: '2026-10-13T12:00:00' }).split('text=')[1]);
-    expect(text.startsWith('Namaste Ramesh Patil! Your Mahaprasad coupon')).toBe(true);
+    expect(text.startsWith('Namaste Ramesh Patil! Your Shri Mangal Mahaprasad coupon')).toBe(true);
     const noName = decodeURIComponent(couponWhatsAppUrl({ mobile: '9881180662', numbers: ['MP-20261013-012'], date: '2026-10-13T12:00:00' }).split('text=')[1]);
-    expect(noName.startsWith('Namaste! Your Mahaprasad coupon')).toBe(true);
+    expect(noName.startsWith('Namaste! Your Shri Mangal Mahaprasad coupon')).toBe(true);
   });
 });
 

@@ -3,6 +3,7 @@ import Settings, { WA_LANGUAGE_DEFAULTS, WA_TEMPLATE_DEFAULTS } from '../models/
 import { logger } from '../utils/logger.js';
 import { normaliseMobile } from '../utils/phone.js';
 import { DEVOTEE_LANGUAGES, fallbackOf } from '../../../shared/devoteeLanguage.js';
+import { recordMessage } from './whatsappStatus.service.js';
 
 // Every WhatsApp message the app sends goes through here (Meta WhatsApp Cloud API): one place for
 // the settings, the API version, the phone-number format and the error handling.
@@ -86,6 +87,10 @@ const META_HINTS = {
   132015: 'This template is paused by Meta for low quality. Check WhatsApp Manager.',
   130429: 'Too many messages at once. Meta will accept more shortly.',
   131056: 'Too many messages to this number in a short time.',
+  // Reported later by the delivery webhook
+  131053: 'Meta could not fetch the picture on top (the QR / slip). Check that the website is reachable, then resend.',
+  131049: 'Meta held this message back to limit messages to this person. Try again later.',
+  131047: 'Not delivered: more than 24 hours since the person last wrote to us, and this is not an approved template.',
 };
 
 /** A Meta error as a sentence: what to fix, plus Meta's code. */
@@ -106,18 +111,20 @@ const masked = (raw) => {
  * Sends one approved template. `body` = the {{1}}, {{2}}… values; `image` = the address of a
  * picture for a template with an Image header (fetched by Meta); or pass full `components`.
  * `fallback` ({ language, body | components }) is sent instead when Meta has no approved version
- * in `language` — with the same `image`. Returns 'sent', 'off' (not set up / template not named)
- * or 'failed' (logged). Never throws.
+ * in `language` — with the same `image`. `track` ({ kind, ref }) records the message, so whether
+ * it was delivered / read shows on the sale or booking (whatsappStatus.service.js). Returns 'sent',
+ * 'off' (not set up / template not named) or 'failed' (logged). Never throws.
  */
-export async function sendTemplate(cfg, { to, template, language = 'en', body = [], image, components, label = 'WhatsApp', fallback }) {
+export async function sendTemplate(cfg, { to, template, language = 'en', body = [], image, components, label = 'WhatsApp', fallback, track }) {
   if (!whatsappReady(cfg) || !template) return 'off';
   const number = whatsappNumber(to);
   if (!number) {
     logger.warn(`${label}: not sent — not a mobile number`, { to: masked(to) });
+    await recordMessage(track, { to, template, language, error: 'Not a mobile number' });
     return 'failed';
   }
   try {
-    await axios.post(
+    const res = await axios.post(
       `https://graph.facebook.com/${GRAPH_VERSION}/${cfg.phoneNumberId}/messages`,
       {
         messaging_product: 'whatsapp',
@@ -131,16 +138,17 @@ export async function sendTemplate(cfg, { to, template, language = 'en', body = 
       },
       { headers: { Authorization: `Bearer ${cfg.accessToken}`, 'Content-Type': 'application/json' }, timeout: 15000 },
     );
+    await recordMessage(track, { waId: res?.data?.messages?.[0]?.id, to: number, template, language });
     return 'sent';
   } catch (err) {
     const e = err.response?.data?.error;
     if (e?.code === 132001 && fallback) {
       logger.info(`${label}: no approved "${language}" version of ${template}, sending "${fallback.language}"`);
-      return sendTemplate(cfg, { to, template, label, image, ...fallback });
+      return sendTemplate(cfg, { to, template, label, image, track, ...fallback });
     }
-    logger.error(`${label}: WhatsApp message failed`, {
-      to: masked(number), template, language, error: e ? metaErrorText(e) : err.message,
-    });
+    const error = e ? metaErrorText(e) : err.message;
+    logger.error(`${label}: WhatsApp message failed`, { to: masked(number), template, language, error });
+    await recordMessage(track, { to: number, template, language, error });
     return 'failed';
   }
 }

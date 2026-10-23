@@ -21,7 +21,7 @@ const placeholders = (s) => (s.match(/\{\w+\}/g) || []).sort();
 
 describe('Hindi (devotee screens)', () => {
   it('translates and falls back to English', () => {
-    expect(translate('hi', 'Mahaprasad coupon')).toBe('महाप्रसाद कूपन');
+    expect(translate('hi', 'Shri Mangal Mahaprasad coupon')).toBe('श्री मंगल महाप्रसाद कूपन');
     expect(translate('hi', 'Only {n} left for this day', { n: 5 })).toBe('इस दिन के लिए केवल 5 शेष');
     expect(translate('hi', 'Purchase Register')).toBe('Purchase Register');   // a staff screen: English
   });

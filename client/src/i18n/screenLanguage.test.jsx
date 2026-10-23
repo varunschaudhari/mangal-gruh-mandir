@@ -51,7 +51,7 @@ describe('a TV screen with its own language', () => {
 
 function CouponTitle() {
   const t = useT();
-  return <p data-testid="page">{t('Mahaprasad coupon')}</p>;
+  return <p data-testid="page">{t('Shri Mangal Mahaprasad coupon')}</p>;
 }
 
 describe('Hindi only on the devotee screens', () => {
@@ -70,14 +70,14 @@ describe('Hindi only on the devotee screens', () => {
     Object.defineProperty(navigator, 'languages', { value: ['hi-IN', 'en-GB'], configurable: true });
     render(<LanguageProvider storageKey="mgm-lang-test-devotee" languages={DEVOTEE_LANGUAGES} fromBrowser><CouponTitle /><LanguageSwitch /></LanguageProvider>);
     expect(choices()).toEqual(['English', 'मराठी', 'हिंदी']);
-    expect(screen.getByTestId('page')).toHaveTextContent('महाप्रसाद कूपन');
+    expect(screen.getByTestId('page')).toHaveTextContent('श्री मंगल महाप्रसाद कूपन');
   });
 
   it('the devotee\'s own choice wins over the phone\'s language', async () => {
     Object.defineProperty(navigator, 'languages', { value: ['hi-IN'], configurable: true });
     render(<LanguageProvider storageKey="mgm-lang-test-devotee" languages={DEVOTEE_LANGUAGES} fromBrowser><CouponTitle /><LanguageSwitch /></LanguageProvider>);
     await userEvent.click(screen.getByRole('radio', { name: 'मराठी' }));
-    expect(screen.getByTestId('page')).toHaveTextContent('महाप्रसाद कूपन');   // same word in Marathi
+    expect(screen.getByTestId('page')).toHaveTextContent('श्री मंगल महाप्रसाद कूपन');   // the same in Marathi
     expect(localStorage.getItem('mgm-lang-test-devotee')).toBe('mr');
     expect(localStorage.getItem('mgm-lang')).toBe(null);
   });

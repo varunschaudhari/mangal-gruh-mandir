@@ -12,8 +12,8 @@ import { localeOf } from '../../../shared/devoteeLanguage.js';
 //              (Settings → WhatsApp shows each wording and which language goes first), with
 //              Header: Image — the coupons' QR picture (`image`, mahaprasadQrImage.js), so the QR
 //              is in the chat and needs no internet at the hall — and the English body
-//              "Namaste! Your Mahaprasad coupon(s) at Shri Mangal Grah Mandir, Amalner for {{1}}:
-//               {{2}} ({{3}}). Your coupon QR: {{4}} Please show it at the Mahaprasad hall."
+//              "Namaste! Your Shri Mangal Mahaprasad coupon(s) at Shri Mangal Grah Mandir, Amalner for {{1}}:
+//               {{2}} ({{3}}). Your coupon QR: {{4}} Please show it at the Shri Mangal Mahaprasad hall."
 //              ({{1}} date, {{2}} coupon numbers, {{3}} persons, {{4}} link — DEPLOY.md §13)
 //   SMS      — Settings → SMS turned on, and MSG91_MAHAPRASAD_TEMPLATE_ID = an MSG91 Flow with a
 //              DLT-approved template using ##date##, ##coupons##, ##persons##, ##link##.
@@ -38,8 +38,11 @@ const dateText = (d) => new Date(d).toLocaleDateString('en-IN', { weekday: 'shor
 const personsText = (n) => (n === 1 ? '1 person' : `${n} persons`);
 const longDate = (d, lang) => new Date(d).toLocaleDateString(localeOf(lang), { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
 
-/** Returns { whatsapp, sms } with 'sent' | 'off' | 'failed'. Never throws. */
-export async function sendCouponMessage({ mobile, numbers, date, persons, link = '', image }) {
+/**
+ * Returns { whatsapp, sms } with 'sent' | 'off' | 'failed'. Never throws. `ref` = the sale's batchId:
+ * the WhatsApp message is recorded under it, so the counter sees whether it was delivered / read.
+ */
+export async function sendCouponMessage({ mobile, numbers, date, persons, link = '', image, ref }) {
   const result = { whatsapp: 'off', sms: 'off' };
   if (!mobile || !numbers?.length) return result;
   const coupons = couponListText(numbers);
@@ -52,6 +55,7 @@ export async function sendCouponMessage({ mobile, numbers, date, persons, link =
     const count = persons || numbers.length;
     result.whatsapp = await sendTemplate(wa, {
       to: mobile, template: wa.templates.mahaprasadCoupons, label: 'Mahaprasad coupons', image,
+      track: ref ? { kind: 'mahaprasad', ref } : undefined,
       ...inLanguage(wa, 'mahaprasadCoupons', {
         en: [when, coupons, people, link],
         mr: [longDate(date, 'mr'), couponListText(numbers, 'mr'), `${count} व्यक्ती`, link],

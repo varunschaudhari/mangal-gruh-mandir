@@ -72,7 +72,7 @@ function OnlinePrasadPage() {
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
 
-  useEffect(() => { document.title = t('Buy Mahaprasad coupon'); }, [t]);
+  useEffect(() => { document.title = t('Buy Shri Mangal Mahaprasad coupon'); }, [t]);
 
   // First day on sale, picked once the days arrive (and again if the picked one closes)
   const days = useMemo(() => d?.days || [], [d]);
@@ -186,10 +186,10 @@ function OnlinePrasadPage() {
 
   // ── Following an order ──
   if (orderToken) {
-    if (order.isLoading) return <Shell temple={d?.temple} subtitle="Buy Mahaprasad coupon"><div className="flex h-64 items-center justify-center"><Spinner size="lg" /></div></Shell>;
+    if (order.isLoading) return <Shell temple={d?.temple} subtitle="Buy Shri Mangal Mahaprasad coupon"><div className="flex h-64 items-center justify-center"><Spinner size="lg" /></div></Shell>;
     if (order.isError || !o) {
       return (
-        <Shell temple={d?.temple} subtitle="Buy Mahaprasad coupon">
+        <Shell temple={d?.temple} subtitle="Buy Shri Mangal Mahaprasad coupon">
           <Card className="mt-4 text-center">
             <AlertTriangle className="mx-auto h-10 w-10 text-amber-500" />
             <p className="mt-2 font-semibold text-gray-900">{order.error?.response?.status === 404 ? t('Order not found') : t('Could not load your order')}</p>
@@ -205,7 +205,7 @@ function OnlinePrasadPage() {
       </p>
     );
     return (
-      <Shell temple={d?.temple} subtitle="Buy Mahaprasad coupon">
+      <Shell temple={d?.temple} subtitle="Buy Shri Mangal Mahaprasad coupon">
         {header}
         {(o.status === 'issuing' || ((o.status === 'pending') && confirming)) && (
           <Card className="text-center">
@@ -261,10 +261,10 @@ function OnlinePrasadPage() {
   }
 
   // ── The form ──
-  if (info.isLoading) return <Shell subtitle="Buy Mahaprasad coupon"><div className="flex h-64 items-center justify-center"><Spinner size="lg" /></div></Shell>;
+  if (info.isLoading) return <Shell subtitle="Buy Shri Mangal Mahaprasad coupon"><div className="flex h-64 items-center justify-center"><Spinner size="lg" /></div></Shell>;
   if (info.isError) {
     return (
-      <Shell subtitle="Buy Mahaprasad coupon">
+      <Shell subtitle="Buy Shri Mangal Mahaprasad coupon">
         <Card className="mt-4 text-center">
           <AlertTriangle className="mx-auto h-10 w-10 text-amber-500" />
           <p className="mt-2 font-semibold text-gray-900">{t('Could not load the page')}</p>
@@ -277,9 +277,9 @@ function OnlinePrasadPage() {
   }
   if (!d.enabled || !days.some((x) => !x.problem)) {
     return (
-      <Shell temple={d.temple} subtitle="Buy Mahaprasad coupon">
+      <Shell temple={d.temple} subtitle="Buy Shri Mangal Mahaprasad coupon">
         <Card className="mt-4 text-center">
-          <p className="font-semibold text-gray-900">{d.enabled ? t('No Mahaprasad coupons are on sale online right now.') : t('Online Mahaprasad coupons are not available right now — please buy at the temple counter')}</p>
+          <p className="font-semibold text-gray-900">{d.enabled ? t('No Shri Mangal Mahaprasad coupons are on sale online right now.') : t('Online Shri Mangal Mahaprasad coupons are not available right now — please buy at the temple counter')}</p>
           {d.temple?.phone && (
             <p className="mt-2 text-sm text-gray-500">
               {t('Questions? Call the temple office:')}{' '}
@@ -293,11 +293,11 @@ function OnlinePrasadPage() {
   }
 
   return (
-    <Shell temple={d.temple} subtitle="Buy Mahaprasad coupon">
+    <Shell temple={d.temple} subtitle="Buy Shri Mangal Mahaprasad coupon">
       {header}
       <Card>
-        <h1 className="text-lg font-bold text-gray-900">{t('Buy Mahaprasad coupons online')}</h1>
-        <p className="mt-1 text-sm text-gray-600">{t('Pay online and get your coupon QR on WhatsApp / SMS. Show it at the Mahaprasad hall.')}</p>
+        <h1 className="text-lg font-bold text-gray-900">{t('Buy Shri Mangal Mahaprasad coupons online')}</h1>
+        <p className="mt-1 text-sm text-gray-600">{t('Pay online and get your coupon QR on WhatsApp / SMS. Show it at the Shri Mangal Mahaprasad hall.')}</p>
       </Card>
 
       <Card className="mt-3">

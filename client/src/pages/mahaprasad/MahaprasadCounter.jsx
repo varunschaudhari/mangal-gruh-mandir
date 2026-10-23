@@ -4,9 +4,10 @@ import {
   UtensilsCrossed, Printer, RefreshCw, IndianRupee,
   Gift, ChevronDown, ChevronUp, Zap, AlertTriangle, Wifi, WifiOff,
   CloudOff, CloudUpload, Download, Banknote, Smartphone, CheckCircle2,
-  Minus, Plus, X, ClipboardList, Keyboard, Vault, Loader2, MessageCircle, Share2, Phone,
+  Minus, Plus, X, ClipboardList, Keyboard, Vault, Loader2, MessageCircle, Share2, Phone, Send,
 } from 'lucide-react';
-import { issueCoupons, getDailySummary, printCoupons, getBatches, getCashDrawer, voidBatch as voidBatchApi } from '../../api/mahaprasad.api.js';
+import { issueCoupons, getDailySummary, printCoupons, getBatches, getCashDrawer, voidBatch as voidBatchApi, resendBatch } from '../../api/mahaprasad.api.js';
+import WhatsAppStatus from '../../components/ui/WhatsAppStatus.jsx';
 import CashDrawer from './CashDrawer.jsx';
 import { getOccasions } from '../../api/mahaprasadOccasion.api.js';
 import { getSettings } from '../../api/settings.api.js';
@@ -103,10 +104,14 @@ const batchCoupons = (b) => b.numbers.map((couponNumber) => ({
   amount: b.amount, name: b.name, occasion: b.occasion, status: 'issued',
 }));
 
-// onThermalPrint: set when this device has a thermal printer — each sale can then be printed again
-function BatchesSection({ date, onPdfPrint, onThermalPrint, printing, onVoid }) {
+// onThermalPrint: set when this device has a thermal printer — each sale can then be printed again.
+// canResend: WhatsApp sends the coupons by itself (Settings → WhatsApp) — each sale then shows whether
+// its message was delivered / read, and can be sent again; otherwise the button opens WhatsApp.
+function BatchesSection({ date, onPdfPrint, onThermalPrint, printing, onVoid, canResend }) {
   const t = useT();
+  const qc = useQueryClient();
   const [open, setOpen] = useState(false);
+  const [sending, setSending] = useState(null);   // the sale being sent again
   // Only admins (mahaprasad:void) cancel a sale — any staff's, any day
   const { can } = usePermissions();
   const canVoid = () => can('mahaprasad:void');
@@ -115,8 +120,21 @@ function BatchesSection({ date, onPdfPrint, onThermalPrint, printing, onVoid }) 
     queryKey: ['mahaprasad-batches', date],
     queryFn:  () => getBatches(date),
     staleTime: 30 * 1000,
+    refetchInterval: open && canResend ? 30 * 1000 : false,   // delivered / read ticks come in
   });
   const batches = data?.data?.data || [];
+  const resend = async (b) => {
+    setSending(b._id);
+    try {
+      await resendBatch(b._id);
+      toast.success(t('Sent on WhatsApp again'));
+    } catch (err) {
+      toast.error(err.response?.data?.message || t('WhatsApp message not sent'));
+    } finally {
+      setSending(null);
+      qc.invalidateQueries({ queryKey: ['mahaprasad-batches', date] });
+    }
+  };
   if (batches.length === 0) return null;
 
   return (
@@ -149,8 +167,17 @@ function BatchesSection({ date, onPdfPrint, onThermalPrint, printing, onVoid }) 
                 </span>
                 {b.issuedBy?.name && <span className="text-xs text-gray-400">· {b.issuedBy.name}</span>}
                 {b.mobile && <span className="text-xs text-gray-500 tabular-nums">· {b.mobile}</span>}
+                {b.whatsapp && <WhatsAppStatus whatsapp={b.whatsapp} />}
               </div>
-              {b.mobile && (
+              {b.mobile && canResend && !b.statuses?.includes('voided') && (
+                <button onClick={() => resend(b)} disabled={sending === b._id}
+                  aria-label={t('Send on WhatsApp again')} title={t('Send on WhatsApp again')}
+                  className="shrink-0 btn btn-ghost border text-xs text-green-700 flex items-center gap-1 py-1 px-2 max-sm:h-10 max-sm:px-3 disabled:opacity-50">
+                  {sending === b._id ? <Loader2 className="h-3 w-3 animate-spin max-sm:h-4 max-sm:w-4" /> : <Send className="h-3 w-3 max-sm:h-4 max-sm:w-4" />}
+                  <span className="max-sm:hidden">{t('Resend')}</span>
+                </button>
+              )}
+              {b.mobile && !canResend && (
                 <a href={couponWhatsAppUrl(batchShare(b))} onClick={(e) => { e.preventDefault(); shareCouponsOnWhatsApp(batchShare(b)); }}
                   target="_blank" rel="noreferrer" aria-label={t('Send on WhatsApp')} title={t('Send on WhatsApp')}
                   className="shrink-0 btn btn-ghost border text-xs text-green-700 flex items-center gap-1 py-1 px-2 max-sm:h-10 max-sm:px-3">
@@ -1424,6 +1451,7 @@ export default function MahaprasadCounter() {
         </div>
       )}
       <BatchesSection date={date} onPdfPrint={handlePdfPrint} onThermalPrint={thermalOn ? printCouponsThermal : null}
+        canResend={Boolean(settings.waEnabled && settings.waTemplates?.mahaprasadCoupons)}
         printing={printing} onVoid={(batchId) => setVoidConfirm(batchId)} />
     </div>
 
