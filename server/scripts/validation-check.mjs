@@ -142,7 +142,9 @@ async function main() {
   const langSave = await api('PUT', '/settings', { waLanguages: { donationThanks: 'en' } });
   check(langSave.status === 200 && langSave.body.data.waLanguages?.donationThanks === 'en' && langSave.body.data.waLanguages?.mahaprasadCoupons === 'mr',
     'WhatsApp message language saved per message (the other keeps Marathi)', show(langSave));
-  check((await api('PUT', '/settings', { waLanguages: { donationThanks: 'hi' } })).status === 400, 'WhatsApp message language other than Marathi / English → 400');
+  const hiSave = await api('PUT', '/settings', { waLanguages: { donationThanks: 'hi' } });
+  check(hiSave.status === 200 && hiSave.body.data.waLanguages?.donationThanks === 'hi', 'Hindi is a WhatsApp message language too', show(hiSave));
+  check((await api('PUT', '/settings', { waLanguages: { donationThanks: 'gu' } })).status === 400, 'WhatsApp message language other than Marathi / Hindi / English → 400');
   await api('PUT', '/settings', { waLanguages: { donationThanks: 'mr' } });
 
   // Reports: Excel is offered only when Settings → Reports allows it; every list has a PDF

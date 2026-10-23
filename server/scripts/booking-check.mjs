@@ -177,13 +177,15 @@ async function main() {
     'the message language can be corrected, and the change is in the history', JSON.stringify(toEnglish.body.data?.devotee?.language));
   const odd = await api('PATCH', `/bookings/${t._id}`, { devotee: { language: 'fr' } });
   check(odd.status === 200 && odd.body.data.devotee.language === '', 'an unknown language falls back to the default', JSON.stringify(odd.body.data?.devotee?.language));
+  const toHindi = await api('PATCH', `/bookings/${t._id}`, { devotee: { language: 'hi' } });
+  check(toHindi.status === 200 && toHindi.body.data.devotee.language === 'hi', 'Hindi can be chosen for a devotee', JSON.stringify(toHindi.body.data?.devotee?.language));
   await api('PATCH', `/bookings/${t._id}`, { devotee: { language: 'en' } });
   const back = (await api('GET', `/bookings/devotee?phone=${devotee.phone}`)).body.data;
   check(back?.devotee?.language === 'en', `a returning devotee's language is filled in at the counter`, JSON.stringify(back?.devotee?.language));
   const noLang = await api('PUT', '/booking-setup/settings', { whatsappLanguages: [] });
-  const langs = await api('PUT', '/booking-setup/settings', { whatsappLanguages: ['en', 'mr', 'xx'], whatsappLanguage: 'en' });
-  check(noLang.status === 400 && langs.status === 200 && JSON.stringify(langs.body.data.whatsappLanguages) === '["en","mr"]' && langs.body.data.whatsappLanguage === 'en',
-    'Setup needs at least one approved language and keeps only Marathi / English', `${noLang.status} ${JSON.stringify(langs.body.data?.whatsappLanguages)}`);
+  const langs = await api('PUT', '/booking-setup/settings', { whatsappLanguages: ['en', 'mr', 'hi', 'xx'], whatsappLanguage: 'en' });
+  check(noLang.status === 400 && langs.status === 200 && JSON.stringify(langs.body.data.whatsappLanguages) === '["en","mr","hi"]' && langs.body.data.whatsappLanguage === 'en',
+    'Setup needs at least one approved language and keeps only Marathi / Hindi / English', `${noLang.status} ${JSON.stringify(langs.body.data?.whatsappLanguages)}`);
   check((await api('GET', '/bookings/options')).body.data?.settings?.whatsappLanguage === 'en', 'the counter gets the default language');
   await api('PUT', '/booking-setup/settings', { whatsappLanguages: ['mr', 'en'], whatsappLanguage: 'mr' });
   const postNoPinEdit = await api('PATCH', `/bookings/${postOk.body.data._id}`, { devotee: { pincode: '' } });
