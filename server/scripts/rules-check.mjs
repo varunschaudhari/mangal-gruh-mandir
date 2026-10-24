@@ -380,6 +380,20 @@ async function mahaprasadChecks(api, today) {
   check((await issue(counter, { quantity: 3, isGroup: true, paymentMode: 'upi' })).status === 201, 'group coupon for 3 issued');
   check(await reportTotal() - reportBefore === 3, 'a group of 3 counts as 3 persons in the report');
 
+  // The reports before the two sales below are made and voided
+  const range = `from=${day}&to=${day}`;
+  const reportsNow = async () => {
+    const [daily, monthly, staff, wa] = await Promise.all(['', '/monthly', '/staff'].map((p) => api('GET', `/mahaprasad/report${p}?${range}`))
+      .concat(api('GET', `/mahaprasad/report/whatsapp?date=${day}`)));
+    const counterRows = staff.body.data.rows.filter((r) => r.name === 'MP mahaprasad_counter');
+    return {
+      daily: daily.body.data.totals, month: monthly.body.data.rows.find((r) => r._id === day.slice(0, 7)) || {},
+      staffVoided: counterRows.reduce((s, r) => s + (r.voided || 0), 0), staffVoidedAmount: counterRows.reduce((s, r) => s + (r.voidedAmount || 0), 0),
+      whatsapp: wa.body.data,
+    };
+  };
+  const reportsBefore = await reportsNow();
+
   // Cancelling: needs a reason, only an admin (mahaprasad:void) — counter staff not even their own sale — happens once
   const before = await drawer();
   const sale = await issue(counter, { quantity: 2, paymentMode: 'cash', amountReceived: 100, receivedNotes: [100] });
@@ -402,6 +416,27 @@ async function mahaprasadChecks(api, today) {
   check((await counter('GET', `/mahaprasad/print?numbers=${voidedNo}`)).status === 404, 'a cancelled coupon cannot be printed');
   const theirs = (await issue(counter2, { type: 'free' })).body.data.batchId;
   check((await admin('PATCH', `/mahaprasad/batches/${theirs}/void`, { reason: 'Admin correction' })).status === 200, 'an admin (mahaprasad:void) can cancel anyone\'s sale');
+
+  // Voided sales in the reports: left out of the sold figures, counted beside them, each one listed
+  const reportsAfter = await reportsNow();
+  const dv = (k) => (reportsAfter.daily[k] || 0) - (reportsBefore.daily[k] || 0);
+  check(dv('total') === 0 && dv('collected') === 0, 'voided sales add nothing to the day\'s issued or collected figures', JSON.stringify({ total: dv('total'), collected: dv('collected') }));
+  check(dv('voided') === 3 && dv('voidedAmount') === 80 && dv('voidedSales') === 2,
+    'the daily report counts them as voided: 3 coupons, ₹80 taken back, 2 sales', JSON.stringify({ voided: dv('voided'), amount: dv('voidedAmount'), sales: dv('voidedSales') }));
+  check((reportsAfter.month.voided || 0) - (reportsBefore.month.voided || 0) === 3, '…and so does the monthly report');
+  check(reportsAfter.staffVoided - reportsBefore.staffVoided === 3 && reportsAfter.staffVoidedAmount - reportsBefore.staffVoidedAmount === 80,
+    'the staff report puts each voided sale against the person who sold it');
+  check(/Voided: \d+ coupons? in \d+ sales?/.test(reportsAfter.whatsapp.text) && reportsAfter.whatsapp.data.voided - (reportsBefore.whatsapp.data.voided || 0) === 3,
+    'the WhatsApp day summary has a voided line', reportsAfter.whatsapp.text);
+  const voidedList = (await api('GET', `/mahaprasad/report/voided?${range}`)).body.data;
+  const paidRow = voidedList.rows.find((r) => r.batchId === batchId);
+  const freeRow = voidedList.rows.find((r) => r.batchId === theirs);
+  check(paidRow?.persons === 2 && paidRow.numbers.length === 2 && paidRow.amount === 80 && paidRow.paymentMode === 'cash' && paidRow.type === 'paid'
+    && paidRow.issuedBy === 'MP mahaprasad_counter' && paidRow.voidedBy === 'MP admin' && paidRow.reason === 'Wrong quantity' && paidRow.voidedAt && paidRow.issuedAt,
+    'the voided list has the sale: coupons, ₹80 cash, who sold it, who voided it, when and why', JSON.stringify(paidRow));
+  check(freeRow?.type === 'free' && freeRow.amount === 0 && freeRow.reason === 'Admin correction', '…and the voided free seva, with no money', JSON.stringify(freeRow));
+  check(voidedList.byVoider.some((v) => v.name === 'MP admin' && v.sales >= 2) && voidedList.totals.cash >= 80, 'it adds up who voided how many and the money by how it was paid');
+  check((await redeemer('GET', `/mahaprasad/report/voided?${range}`)).status === 403, 'the voided list is for those who can see Mahaprasad reports');
 
   // Opening float carries over: a new day starts with the last closing cash, for the counter to check.
   // Days well ahead, so today's drawer is untouched.

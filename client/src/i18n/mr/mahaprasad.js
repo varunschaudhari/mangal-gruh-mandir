@@ -286,9 +286,32 @@ export default {
 
   // ── Reports (MahaprasadReport.jsx) ───────────────────────────────────────
   'Mahaprasad Reports': 'महाप्रसाद अहवाल',
-  'Coupon issuance, collection, staff activity, and wastage analysis':
-    'कूपन वाटप, जमा रक्कम, कर्मचाऱ्यांचे काम आणि वाया गेलेल्या कूपनचा आढावा',
+  'Coupon issuance, collection, staff activity, wastage and voided sales':
+    'कूपन वाटप, जमा रक्कम, कर्मचाऱ्यांचे काम, वाया गेलेले कूपन आणि रद्दबातल विक्री',
   'Last 7 days': 'मागील 7 दिवस',
+  // Voided sales in the reports
+  '{amount} taken back': '{amount} परत',
+  'Voided sales are not counted in the other figures.': 'रद्दबातल विक्री इतर आकड्यांत धरलेली नाही.',
+  'Voided sales are not counted in Issued or Collected; the Voided column shows each person’s sales that were voided.':
+    'रद्दबातल विक्री "दिलेले" आणि "जमा" मध्ये धरलेली नाही; "रद्दबातल" स्तंभात प्रत्येकाची रद्दबातल झालेली विक्री दिसते.',
+  'See who voided them and why': 'कोणी व का रद्दबातल केले ते पहा',
+  'Their sales that an admin voided afterwards': 'त्यांची विक्री, जी नंतर अ‍ॅडमिनने रद्दबातल केली',
+  'By the day of the sale. Only an admin can void a sale, and only before any of its coupons is served.':
+    'विक्रीच्या दिवसानुसार. विक्री फक्त अ‍ॅडमिन रद्दबातल करू शकतो, आणि तीही त्यातील एकही कूपन वापरण्याआधी.',
+  'No voided sales in this period': 'या काळात एकही विक्री रद्दबातल झाली नाही',
+  'Sales voided': 'रद्दबातल विक्री',
+  '{paid} paid · {free} free seva': '{paid} सशुल्क · {free} मोफत सेवा',
+  'Coupons voided': 'रद्दबातल कूपन',
+  'Amount taken back': 'परत घेतलेली रक्कम',
+  'Voided by': 'रद्दबातल करणारे',
+  'Voiding an online sale does not refund the devotee. Refund it from the Razorpay dashboard if the money should go back.':
+    'ऑनलाइन विक्री रद्दबातल केल्याने भक्ताला पैसे परत जात नाहीत. पैसे परत करायचे असल्यास Razorpay डॅशबोर्डवरून परतावा द्या.',
+  'Showing the latest {n} voided sales — choose a shorter period to see the rest.':
+    'शेवटच्या {n} रद्दबातल विक्री दाखवत आहे — बाकीच्या पाहण्यासाठी कमी कालावधी निवडा.',
+  'Sale date': 'विक्रीची तारीख',
+  'Sold by': 'विक्री करणारे',
+  'Paid by|payment mode': 'पेमेंट प्रकार',
+  '{n} sales': '{n} विक्री',
   'This month': 'हा महिना',
   'Last month': 'मागील महिना',
   'Generate': 'अहवाल पहा',

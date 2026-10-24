@@ -13,6 +13,7 @@ export const getBatches       = (date)    => api.get('/mahaprasad/batches', { pa
 export const getMonthlyReport = (params)  => api.get('/mahaprasad/report/monthly', { params });
 export const getStaffReport   = (params)  => api.get('/mahaprasad/report/staff',   { params });
 export const getWastageReport      = (params)  => api.get('/mahaprasad/report/wastage',   { params });
+export const getVoidedReport       = (params)  => api.get('/mahaprasad/report/voided',    { params });
 export const getMahaprasadWhatsApp = (date)    => api.get('/mahaprasad/report/whatsapp', { params: date ? { date } : {} });
 
 export const reserveOffline     = (data) => api.post('/mahaprasad/offline/reserve', data);

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { BarChart2, RefreshCw, CalendarDays, Users, AlertTriangle, BarChart3, MessageCircle } from 'lucide-react';
-import { getReport, getMonthlyReport, getStaffReport, getWastageReport, getMahaprasadWhatsApp } from '../../api/mahaprasad.api.js';
+import { BarChart2, RefreshCw, CalendarDays, Users, AlertTriangle, BarChart3, MessageCircle, Ban } from 'lucide-react';
+import { getReport, getMonthlyReport, getStaffReport, getWastageReport, getVoidedReport, getMahaprasadWhatsApp } from '../../api/mahaprasad.api.js';
 import toast from 'react-hot-toast';
 import PageHeader from '../../components/ui/PageHeader.jsx';
 import MobileCard from '../../components/ui/MobileCard.jsx';
@@ -10,7 +10,7 @@ import { exportRows as exportTable } from '../../utils/exportToPdf.js';
 import ExportButtons from '../../components/ui/ExportButtons.jsx';
 import { shareText } from '../../utils/fileSaver.js';
 import { isNative } from '../../utils/platform.js';
-import { localDateStr } from '../../utils/formatters.js';
+import { fDateTime, localDateStr } from '../../utils/formatters.js';
 import { useT } from '../../i18n/index.jsx';
 
 // Header action rows: phones get equal-width, thumb-sized buttons on one line.
@@ -78,9 +78,45 @@ function EmptyState() {
   );
 }
 
+// ── Voided sales: left out of every other figure, shown beside them ───────────
+// Counted on the day of the sale; "Voided" = coupons (persons, a group of 5 is 5), with the money
+// taken back. The Voided tab lists each sale with who voided it, when and why.
+
+/** The summary tile */
+const voidedTile = (t, totals) => ({
+  label: 'Voided', value: totals.voided || 0, color: 'border-red-400 text-red-600',
+  note: totals.voidedAmount ? t('{amount} taken back', { amount: fmtRs(totals.voidedAmount) }) : null,
+});
+
+/** A table cell: the coupons, the money under them — or a dash */
+function VoidedCell({ r }) {
+  if (!r.voided) return <span className="text-gray-300">—</span>;
+  return (
+    <span className="text-red-700">
+      {r.voided}
+      {r.voidedAmount > 0 && <span className="block text-xs font-normal text-red-500">{fmtRs(r.voidedAmount)}</span>}
+    </span>
+  );
+}
+
+/** Under the figures when anything was voided: they leave it out, and where to see it */
+function VoidedNote({ totals, onShow, staff = false }) {
+  const t = useT();
+  if (!totals.voided) return null;
+  return (
+    <p className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-lg bg-red-50 px-3 py-2 text-xs text-red-800">
+      <Ban className="h-3.5 w-3.5 shrink-0" />
+      <span>{t(staff
+        ? 'Voided sales are not counted in Issued or Collected; the Voided column shows each person’s sales that were voided.'
+        : 'Voided sales are not counted in the other figures.')}</span>
+      <button type="button" onClick={onShow} className="font-semibold underline">{t('See who voided them and why')}</button>
+    </p>
+  );
+}
+
 // ── Tab 1: Daily ──────────────────────────────────────────────────────────────
 
-function DailyTab() {
+function DailyTab({ onShowVoided }) {
   const t = useT();
   const def = (() => { const to = new Date(); const from = new Date(); from.setDate(from.getDate() - 29); return { from: isoDate(from), to: isoDate(to) }; })();
   const [from,       setFrom]      = useState(def.from);
@@ -102,8 +138,8 @@ function DailyTab() {
   const pricePerPlate = res.pricePerPlate || 0;
 
   const handleExport = (format) => {
-    exportTable(format, 
-      rows.map((r) => ({ Date: r._id, 'Total Issued': r.total, Redeemed: r.redeemed, 'Redemption %': pct(r.redeemed, r.total), Pending: r.total - r.redeemed, Paid: r.paid, Free: r.free, 'Collected (₹)': r.collected })),
+    exportTable(format,
+      rows.map((r) => ({ Date: r._id, 'Total Issued': r.total, Redeemed: r.redeemed, 'Redemption %': pct(r.redeemed, r.total), Pending: r.total - r.redeemed, Paid: r.paid, Free: r.free, 'Collected (₹)': r.collected, Voided: r.voided || 0, 'Voided (₹)': r.voidedAmount || 0 })),
       `Mahaprasad-Daily-${params.from}-to-${params.to}`, 'Daily Report'
     );
   };
@@ -161,7 +197,8 @@ function DailyTab() {
         onApply={(r) => setParams(r)} />
 
       {!isLoading && rows.length > 0 && (
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+        <>
+        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
           {[
             { label: 'Total Issued', value: totals.total,                                       color: 'border-orange-400 text-orange-600' },
             { label: 'Redeemed',     value: totals.redeemed,                                    color: 'border-green-400 text-green-600'   },
@@ -169,13 +206,17 @@ function DailyTab() {
             { label: 'Paid',         value: totals.paid,                                        color: 'border-blue-400 text-blue-600'     },
             { label: 'Free',         value: totals.free,                                        color: 'border-purple-400 text-purple-600' },
             { label: 'Collected',    value: fmtRs(totals.collected),                            color: 'border-primary-400 text-primary-600' },
-          ].map(({ label, value, color }) => (
+            voidedTile(t, totals),
+          ].map(({ label, value, color, note }) => (
             <div key={label} className={`card px-4 py-3 border-l-4 ${color}`}>
               <p className="text-xs text-gray-500">{t(label)}</p>
               <p className={`text-xl font-black ${color.split(' ')[1]}`}>{value ?? 0}</p>
+              {note && <p className="text-xs text-gray-500">{note}</p>}
             </div>
           ))}
         </div>
+        <VoidedNote totals={totals} onShow={() => onShowVoided(params)} />
+        </>
       )}
 
       {!isLoading && res.occasionBreakdown?.length > 0 && (
@@ -287,6 +328,7 @@ function DailyTab() {
                   { label: t('Redeemed'), value: <span className="text-green-700">{r.redeemed} <span className="text-gray-400">({pct(r.redeemed, r.total)})</span></span> },
                   { label: t('Pending'),  value: <span className={pending > 0 ? 'text-yellow-600' : 'text-gray-400'}>{pending}</span> },
                   { label: t('Paid / Free'), value: <><span className="text-blue-700">{r.paid}</span> / <span className="text-purple-700">{r.free}</span></> },
+                  r.voided > 0 && { label: t('Voided'), value: <VoidedCell r={r} /> },
                 ]}
               />
             );
@@ -304,6 +346,7 @@ function DailyTab() {
                 <th className="table-th text-right">{t('Paid|coupon')}</th>
                 <th className="table-th text-right">{t('Free')}</th>
                 <th className="table-th text-right">{t('Collected')}</th>
+                <th className="table-th text-right">{t('Voided')}</th>
               </tr></thead>
               <tbody className="divide-y divide-gray-50">
                 {rows.map((r) => {
@@ -318,6 +361,7 @@ function DailyTab() {
                       <td className="table-td text-right text-blue-700">{r.paid}</td>
                       <td className="table-td text-right text-purple-700">{r.free}</td>
                       <td className="table-td text-right font-semibold text-primary-700">{fmtRs(r.collected)}</td>
+                      <td className="table-td text-right"><VoidedCell r={r} /></td>
                     </tr>
                   );
                 })}
@@ -330,6 +374,7 @@ function DailyTab() {
                   <td className="table-td text-right text-blue-700">{totals.paid}</td>
                   <td className="table-td text-right text-purple-700">{totals.free}</td>
                   <td className="table-td text-right text-primary-700">{fmtRs(totals.collected)}</td>
+                  <td className="table-td text-right"><VoidedCell r={totals} /></td>
                 </tr>
               </tbody>
             </table>
@@ -343,7 +388,7 @@ function DailyTab() {
 
 // ── Tab 2: Monthly ────────────────────────────────────────────────────────────
 
-function MonthlyTab() {
+function MonthlyTab({ onShowVoided }) {
   const t = useT();
   const now = new Date();
   const def = { from: isoDate(new Date(now.getFullYear(), 0, 1)), to: isoDate(now) };
@@ -363,7 +408,7 @@ function MonthlyTab() {
 
   const handleExport = (format) => {
     exportTable(format, 
-      rows.map((r) => ({ Month: fmtMonth(r._id), 'Total Issued': r.total, Redeemed: r.redeemed, 'Redemption %': pct(r.redeemed, r.total), Pending: r.total - r.redeemed, Paid: r.paid, Free: r.free, 'Collected (₹)': r.collected })),
+      rows.map((r) => ({ Month: fmtMonth(r._id), 'Total Issued': r.total, Redeemed: r.redeemed, 'Redemption %': pct(r.redeemed, r.total), Pending: r.total - r.redeemed, Paid: r.paid, Free: r.free, 'Collected (₹)': r.collected, Voided: r.voided || 0, 'Voided (₹)': r.voidedAmount || 0 })),
       `Mahaprasad-Monthly-${params.from}-to-${params.to}`, 'Monthly Report'
     );
   };
@@ -383,20 +428,25 @@ function MonthlyTab() {
         onApply={(r) => setParams(r)} />
 
       {!isLoading && rows.length > 0 && (
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+        <>
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
           {[
             { label: 'Total Issued', value: totals.total,            color: 'border-orange-400 text-orange-600' },
             { label: 'Redeemed',     value: totals.redeemed,         color: 'border-green-400 text-green-600'   },
             { label: 'Paid',         value: totals.paid,             color: 'border-blue-400 text-blue-600'     },
             { label: 'Free',         value: totals.free,             color: 'border-purple-400 text-purple-600' },
             { label: 'Collected',    value: fmtRs(totals.collected), color: 'border-primary-400 text-primary-600' },
-          ].map(({ label, value, color }) => (
+            voidedTile(t, totals),
+          ].map(({ label, value, color, note }) => (
             <div key={label} className={`card px-4 py-3 border-l-4 ${color}`}>
               <p className="text-xs text-gray-500">{t(label)}</p>
               <p className={`text-xl font-black ${color.split(' ')[1]}`}>{value ?? 0}</p>
+              {note && <p className="text-xs text-gray-500">{note}</p>}
             </div>
           ))}
         </div>
+        <VoidedNote totals={totals} onShow={() => onShowVoided(params)} />
+        </>
       )}
 
       {isLoading ? <PageLoader /> : rows.length === 0 ? <EmptyState /> : (
@@ -422,6 +472,7 @@ function MonthlyTab() {
                   { label: t('Redeemed'), value: <span className="text-green-700">{r.redeemed} <span className="text-gray-400">({pct(r.redeemed, r.total)})</span></span> },
                   { label: t('Pending'),  value: <span className={pending > 0 ? 'text-yellow-600' : 'text-gray-400'}>{pending}</span> },
                   { label: t('Paid / Free'), value: <><span className="text-blue-700">{r.paid}</span> / <span className="text-purple-700">{r.free}</span></> },
+                  r.voided > 0 && { label: t('Voided'), value: <VoidedCell r={r} /> },
                 ]}
               />
             );
@@ -440,6 +491,7 @@ function MonthlyTab() {
                 <th className="table-th text-right">{t('Paid|coupon')}</th>
                 <th className="table-th text-right">{t('Free')}</th>
                 <th className="table-th text-right">{t('Collected')}</th>
+                <th className="table-th text-right">{t('Voided')}</th>
               </tr></thead>
               <tbody className="divide-y divide-gray-50">
                 {rows.map((r) => {
@@ -461,6 +513,7 @@ function MonthlyTab() {
                       <td className="table-td text-right text-blue-700">{r.paid}</td>
                       <td className="table-td text-right text-purple-700">{r.free}</td>
                       <td className="table-td text-right font-semibold text-primary-700">{fmtRs(r.collected)}</td>
+                      <td className="table-td text-right"><VoidedCell r={r} /></td>
                     </tr>
                   );
                 })}
@@ -474,6 +527,7 @@ function MonthlyTab() {
                   <td className="table-td text-right text-blue-700">{totals.paid}</td>
                   <td className="table-td text-right text-purple-700">{totals.free}</td>
                   <td className="table-td text-right text-primary-700">{fmtRs(totals.collected)}</td>
+                  <td className="table-td text-right"><VoidedCell r={totals} /></td>
                 </tr>
               </tbody>
             </table>
@@ -487,7 +541,7 @@ function MonthlyTab() {
 
 // ── Tab 3: Staff ──────────────────────────────────────────────────────────────
 
-function StaffTab() {
+function StaffTab({ onShowVoided }) {
   const t = useT();
   const now = new Date();
   const def = { from: isoDate(new Date(now.getFullYear(), now.getMonth(), 1)), to: isoDate(now) };
@@ -504,7 +558,7 @@ function StaffTab() {
 
   const rows = data?.data?.data?.rows || [];
   // Persons on paid coupons (a group of 5 is 5, like Issued and Free Seva); the money split by how it was paid
-  const SUMS = ['issued', 'paid', 'freeSeva', 'redeemed', 'cash', 'upi', 'online', 'collected'];
+  const SUMS = ['issued', 'paid', 'freeSeva', 'redeemed', 'cash', 'upi', 'online', 'collected', 'voided', 'voidedAmount', 'voidedSales'];
   const totals = rows.reduce((a, r) => Object.fromEntries(SUMS.map((k) => [k, a[k] + (r[k] || 0)])), Object.fromEntries(SUMS.map((k) => [k, 0])));
 
   const handleExport = (format) => {
@@ -512,6 +566,7 @@ function StaffTab() {
       rows.map((r) => ({
         Staff: r.name, Issued: r.issued, 'Paid Coupons': r.paid || 0, 'Free Seva Issued': r.freeSeva, Redeemed: r.redeemed,
         'Cash (₹)': r.cash || 0, 'UPI (₹)': r.upi || 0, 'Online (₹)': r.online || 0, 'Collected (₹)': r.collected,
+        'Voided (their sales)': r.voided || 0, 'Voided (₹)': r.voidedAmount || 0,
       })),
       `Mahaprasad-Staff-${params.from}-to-${params.to}`, 'Staff Activity'
     );
@@ -533,6 +588,7 @@ function StaffTab() {
 
       {isLoading ? <PageLoader /> : rows.length === 0 ? <EmptyState /> : (
         <>
+        <VoidedNote totals={totals} onShow={() => onShowVoided(params)} staff />
         <div className="space-y-2.5 md:hidden">
           {[...rows, { userId: '__totals', name: t('Totals'), ...totals }].map((r) => (
             <MobileCard
@@ -548,6 +604,7 @@ function StaffTab() {
                 { label: t('Cash'),      value: fmtRs(r.cash) },
                 { label: t('UPI'),       value: fmtRs(r.upi) },
                 (r.online > 0) && { label: t('Online'), value: fmtRs(r.online) },
+                (r.voided > 0) && { label: t('Voided'), value: <VoidedCell r={r} /> },
               ]}
             />
           ))}
@@ -565,6 +622,7 @@ function StaffTab() {
                 <th className="table-th text-right">{t('UPI')}</th>
                 <th className="table-th text-right">{t('Online')}</th>
                 <th className="table-th text-right">{t('Amount Collected')}</th>
+                <th className="table-th text-right" title={t('Their sales that an admin voided afterwards')}>{t('Voided')}</th>
               </tr></thead>
               <tbody className="divide-y divide-gray-50">
                 {rows.map((r) => (
@@ -580,6 +638,7 @@ function StaffTab() {
                     <td className="table-td text-right text-gray-700 tabular-nums">{fmtRs(r.upi)}</td>
                     <td className="table-td text-right text-gray-700 tabular-nums">{fmtRs(r.online)}</td>
                     <td className="table-td text-right font-semibold text-primary-700">{fmtRs(r.collected)}</td>
+                    <td className="table-td text-right"><VoidedCell r={r} /></td>
                   </tr>
                 ))}
                 <tr className="bg-gray-50 font-bold border-t-2 border-gray-200">
@@ -592,6 +651,7 @@ function StaffTab() {
                   <td className="table-td text-right text-gray-700 tabular-nums">{fmtRs(totals.upi)}</td>
                   <td className="table-td text-right text-gray-700 tabular-nums">{fmtRs(totals.online)}</td>
                   <td className="table-td text-right text-primary-700">{fmtRs(totals.collected)}</td>
+                  <td className="table-td text-right"><VoidedCell r={totals} /></td>
                 </tr>
               </tbody>
             </table>
@@ -742,6 +802,159 @@ function WastageTab() {
   );
 }
 
+// ── Tab 5: Voided ─────────────────────────────────────────────────────────────
+
+/** A sale's coupons, a line each: "MG-0101" / "MG-0101", "MG-0102" / "MG-0101", "– MG-0105 (5)" */
+const couponLines = (numbers = []) => (numbers.length > 2
+  ? [numbers[0], `– ${numbers[numbers.length - 1]} (${numbers.length})`]
+  : numbers);
+const couponRange = (numbers) => couponLines(numbers).join(numbers?.length > 2 ? ' ' : ', ');
+const MODE_LABEL = { cash: 'Cash', upi: 'UPI', online: 'Online' };
+
+function VoidedTab({ initial }) {
+  const t = useT();
+  const now = new Date();
+  const def = initial || { from: isoDate(new Date(now.getFullYear(), now.getMonth(), 1)), to: isoDate(now) };
+  const [from,   setFrom]   = useState(def.from);
+  const [to,     setTo]     = useState(def.to);
+  const [params, setParams] = useState(def);
+  const [active, setActive] = useState(initial ? '' : 'This month');
+
+  const { data, isLoading, refetch, isFetching } = useQuery({
+    queryKey: ['mahaprasad-report-voided', params],
+    queryFn:  () => getVoidedReport(params),
+    staleTime: 60 * 1000,
+  });
+  const res      = data?.data?.data || {};
+  const rows     = res.rows     || [];
+  const totals   = res.totals   || {};
+  const byVoider = res.byVoider || [];
+
+  const handleExport = (format) => {
+    exportTable(format,
+      rows.map((r) => ({
+        'Sale Date': fmtWhen(r.date), Coupons: r.numbers.join(', '), Persons: r.persons,
+        Type: r.type === 'paid' ? 'Paid' : 'Free Seva', 'Amount (₹)': r.amount, 'Paid By': MODE_LABEL[r.paymentMode] || '',
+        Devotee: r.name, Mobile: r.mobile, Occasion: r.occasion,
+        'Sold By': r.issuedBy, 'Sold At': r.issuedAt ? fDateTime(r.issuedAt) : '',
+        'Voided By': r.voidedBy, 'Voided At': r.voidedAt ? fDateTime(r.voidedAt) : '', Reason: r.reason,
+      })),
+      `Mahaprasad-Voided-${params.from}-to-${params.to}`, 'Voided Sales'
+    );
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className={ACTION_ROW}>
+        <button onClick={refetch} disabled={isFetching} className={ACTION_BTN}>
+          <RefreshCw className={`h-4 w-4 ${isFetching ? 'animate-spin' : ''}`} /> {t('Refresh')}
+        </button>
+        {rows.length > 0 && <ExportButtons onExport={handleExport} className={ACTION_BTN} />}
+      </div>
+
+      <DateRangeFilter from={from} to={to} setFrom={setFrom} setTo={setTo} active={active} setActive={setActive}
+        onApply={(r) => setParams(r)} />
+      <p className="-mt-2 text-xs text-gray-400">{t('By the day of the sale. Only an admin can void a sale, and only before any of its coupons is served.')}</p>
+
+      {isLoading ? <PageLoader /> : rows.length === 0 ? (
+        <div className="card p-10 text-center">
+          <Ban className="h-10 w-10 text-gray-300 mx-auto mb-3" />
+          <p className="text-gray-500 font-medium">{t('No voided sales in this period')}</p>
+        </div>
+      ) : (
+        <>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          {[
+            { label: 'Sales voided',      value: totals.sales,         color: 'border-red-400 text-red-600',
+              note: t('{paid} paid · {free} free seva', { paid: totals.paidSales, free: totals.freeSales }) },
+            { label: 'Coupons voided',    value: totals.persons,       color: 'border-orange-400 text-orange-600', note: t('persons') },
+            { label: 'Amount taken back', value: fmtRs(totals.amount), color: 'border-gray-400 text-gray-700',
+              note: [totals.cash > 0 && `${t('Cash')} ${fmtRs(totals.cash)}`, totals.upi > 0 && `UPI ${fmtRs(totals.upi)}`, totals.online > 0 && `${t('Online')} ${fmtRs(totals.online)}`].filter(Boolean).join(' · ') || null },
+            { label: 'Voided by',         value: byVoider.length,      color: 'border-gray-300 text-gray-700',
+              note: byVoider.map((v) => `${v.name} (${v.sales})`).join(', ') },
+          ].map(({ label, value, color, note }) => (
+            <div key={label} className={`card px-4 py-3 border-l-4 ${color}`}>
+              <p className="text-xs text-gray-500">{t(label)}</p>
+              <p className={`text-xl font-black ${color.split(' ')[1]}`}>{value ?? 0}</p>
+              {note && <p className="text-xs text-gray-500 break-words">{note}</p>}
+            </div>
+          ))}
+        </div>
+
+        {/* Voiding takes cash and UPI off the counter's figures; it doesn't send money back to an online buyer */}
+        {totals.online > 0 && (
+          <p className="flex items-start gap-2 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
+            <AlertTriangle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+            {t('Voiding an online sale does not refund the devotee. Refund it from the Razorpay dashboard if the money should go back.')}
+          </p>
+        )}
+        {res.more && <p className="text-xs text-gray-500">{t('Showing the latest {n} voided sales — choose a shorter period to see the rest.', { n: rows.length })}</p>}
+
+        <div className="space-y-2.5 md:hidden">
+          {rows.map((r) => (
+            <MobileCard
+              key={r.batchId}
+              title={<span className="font-mono">{couponRange(r.numbers)}</span>}
+              aside={<span className="font-semibold text-red-700">{r.type === 'paid' ? fmtRs(r.amount) : t('Free Seva')}</span>}
+              fields={[
+                { label: t('Sale date'), value: fmtWhen(r.date) },
+                { label: t('Persons'),   value: r.persons },
+                r.type === 'paid' && { label: t('Paid by|payment mode'), value: t(MODE_LABEL[r.paymentMode] || '—') },
+                (r.name || r.mobile) && { label: t('Devotee'), value: [r.name, r.mobile].filter(Boolean).join(' · ') },
+                { label: t('Sold by'),   value: [r.issuedBy, r.issuedAt && fDateTime(r.issuedAt)].filter(Boolean).join(' · '), full: true },
+                { label: t('Voided by'), value: <span className="text-red-700">{[r.voidedBy, r.voidedAt && fDateTime(r.voidedAt)].filter(Boolean).join(' · ')}</span>, full: true },
+                { label: t('Reason'),    value: r.reason || <span className="text-gray-400">{t('No reason given')}</span>, full: true },
+              ]}
+            />
+          ))}
+        </div>
+        <div className="hidden md:block card overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="min-w-full">
+              <thead><tr className="bg-gray-50 border-b">
+                <th className="table-th">{t('Sale date')}</th>
+                <th className="table-th">{t('Coupons')}</th>
+                <th className="table-th text-right">{t('Persons')}</th>
+                <th className="table-th text-right">{t('Amount')}</th>
+                <th className="table-th">{t('Paid by|payment mode')}</th>
+                <th className="table-th">{t('Sold by')}</th>
+                <th className="table-th">{t('Voided by')}</th>
+                <th className="table-th">{t('Reason')}</th>
+              </tr></thead>
+              <tbody className="divide-y divide-gray-50">
+                {rows.map((r) => (
+                  <tr key={r.batchId} className="hover:bg-gray-50 text-sm align-top">
+                    <td className="table-td whitespace-nowrap text-gray-700">{fmtWhen(r.date)}</td>
+                    <td className="table-td font-mono text-xs text-gray-800">
+                      {couponLines(r.numbers).map((line) => <span key={line} className="block whitespace-nowrap">{line}</span>)}
+                      {(r.name || r.mobile) && <span className="block font-sans text-gray-500">{[r.name, r.mobile].filter(Boolean).join(' · ')}</span>}
+                    </td>
+                    <td className="table-td text-right font-bold text-gray-800">{r.persons}</td>
+                    <td className="table-td text-right whitespace-nowrap">
+                      {r.type === 'paid' ? <span className="font-semibold text-red-700">{fmtRs(r.amount)}</span> : <span className="text-purple-700">{t('Free Seva')}</span>}
+                    </td>
+                    <td className="table-td text-gray-600">{r.type === 'paid' ? t(MODE_LABEL[r.paymentMode] || '—') : '—'}</td>
+                    <td className="table-td text-gray-700">{r.issuedBy || '—'}<span className="block whitespace-nowrap text-xs text-gray-400">{r.issuedAt ? fDateTime(r.issuedAt) : ''}</span></td>
+                    <td className="table-td text-red-700">{r.voidedBy || '—'}<span className="block whitespace-nowrap text-xs text-gray-400">{r.voidedAt ? fDateTime(r.voidedAt) : ''}</span></td>
+                    <td className="table-td max-w-xs break-words text-gray-700">{r.reason || <span className="text-gray-400">{t('No reason given')}</span>}</td>
+                  </tr>
+                ))}
+                <tr className="bg-red-50 font-bold border-t-2 border-red-200">
+                  <td className="table-td text-gray-700" colSpan={2}>{t('Totals')} · {t('{n} sales', { n: totals.sales })}</td>
+                  <td className="table-td text-right text-gray-800">{totals.persons}</td>
+                  <td className="table-td text-right text-red-700">{fmtRs(totals.amount)}</td>
+                  <td className="table-td" colSpan={4} />
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 // ── Page ───────────────────────────────────────────────────────────────────────
 
 const TABS = [
@@ -749,24 +962,28 @@ const TABS = [
   { key: 'monthly', label: 'Monthly', icon: BarChart3      },
   { key: 'staff',   label: 'Staff',   icon: Users         },
   { key: 'wastage', label: 'Wastage', icon: AlertTriangle  },
+  { key: 'voided',  label: 'Voided',  icon: Ban            },
 ];
 
 export default function MahaprasadReport() {
   const t = useT();
   const [tab, setTab] = useState('daily');
+  // "See who voided them" on another tab opens the Voided tab for the same period
+  const [voidedRange, setVoidedRange] = useState(null);
+  const showVoided = (range) => { setVoidedRange(range); setTab('voided'); };
 
   return (
     <div className="space-y-5">
       <PageHeader
         title="Mahaprasad Reports"
-        subtitle="Coupon issuance, collection, staff activity, and wastage analysis"
+        subtitle="Coupon issuance, collection, staff activity, wastage and voided sales"
         breadcrumbs={[{ label: 'Mahaprasad', to: '/mahaprasad' }, { label: 'Report' }]}
       />
 
-      {/* Tab bar — phones: four equal segments with the icon above the label */}
-      <div className="card p-1 grid grid-cols-4 gap-1 sm:flex sm:flex-wrap">
+      {/* Tab bar — phones: five equal segments with the icon above the label */}
+      <div className="card p-1 grid grid-cols-5 gap-1 sm:flex sm:flex-wrap">
         {TABS.map(({ key, label, icon: Icon }) => (
-          <button key={key} onClick={() => setTab(key)}
+          <button key={key} onClick={() => { setTab(key); if (key === 'voided') setVoidedRange(null); }}
             className={`flex items-center gap-2 py-2 px-4 rounded-lg text-sm font-medium transition-all max-sm:flex-col max-sm:gap-1 max-sm:px-1 max-sm:text-xs ${
               tab === key ? 'bg-primary-600 text-white shadow-sm' : 'text-gray-500 hover:bg-gray-50'
             }`}>
@@ -775,10 +992,11 @@ export default function MahaprasadReport() {
         ))}
       </div>
 
-      {tab === 'daily'   && <DailyTab />}
-      {tab === 'monthly' && <MonthlyTab />}
-      {tab === 'staff'   && <StaffTab />}
+      {tab === 'daily'   && <DailyTab onShowVoided={showVoided} />}
+      {tab === 'monthly' && <MonthlyTab onShowVoided={showVoided} />}
+      {tab === 'staff'   && <StaffTab onShowVoided={showVoided} />}
       {tab === 'wastage' && <WastageTab />}
+      {tab === 'voided'  && <VoidedTab key={voidedRange ? `${voidedRange.from}-${voidedRange.to}` : 'month'} initial={voidedRange} />}
     </div>
   );
 }

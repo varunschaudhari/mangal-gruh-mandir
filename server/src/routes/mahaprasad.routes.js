@@ -6,7 +6,7 @@ import * as v from '../validation/mahaprasad.schemas.js';
 import {
   issueCoupons, getDailySummary, getCoupons,
   lookupCoupon, redeemCoupon, printCoupons, getReport, getBatches,
-  getMonthlyReport, getStaffReport, getWastageReport, getMahaprasadWhatsApp,
+  getMonthlyReport, getStaffReport, getWastageReport, getVoidedReport, getMahaprasadWhatsApp,
   reserveOffline, getTodayForOffline, getRedeemCopy, syncOffline,
   getCashDrawer, setOpeningFloat, adjustDrawer, voidBatch, resendBatch,
 } from '../controllers/mahaprasad.controller.js';
@@ -26,6 +26,7 @@ router.get('/print',               authorize('mahaprasad:issue'),  printCoupons)
 router.get('/report/monthly',      authorize('mahaprasad:read'),   getMonthlyReport);
 router.get('/report/staff',        authorize('mahaprasad:read'),   getStaffReport);
 router.get('/report/wastage',      authorize('mahaprasad:read'),   getWastageReport);
+router.get('/report/voided',       authorize('mahaprasad:read'),   getVoidedReport);
 router.get('/report/whatsapp',     authorize('mahaprasad:read'),   getMahaprasadWhatsApp);
 router.get('/report',              authorize('mahaprasad:read'),   getReport);
 router.get('/batches',             authorize('mahaprasad:read'),   getBatches);

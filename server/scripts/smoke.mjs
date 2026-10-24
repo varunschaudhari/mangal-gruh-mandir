@@ -43,7 +43,7 @@ const EXTRA = [
   `/reports/daily/whatsapp?date=${today}`, '/reports/low-stock/whatsapp', '/reports/expiring/whatsapp',
   '/reports/consumption-trend', '/reports/festival-cost', `/reports/suppliers?startDate=${monthStart}&endDate=${today}`,
   `/mahaprasad/report/monthly?year=${year}`, `/mahaprasad/report/staff?from=${monthStart}&to=${today}`,
-  `/mahaprasad/report/wastage?from=${monthStart}&to=${today}`, `/mahaprasad/report/whatsapp?date=${today}`,
+  `/mahaprasad/report/wastage?from=${monthStart}&to=${today}`, `/mahaprasad/report/whatsapp?date=${today}`, `/mahaprasad/report/voided?from=${monthStart}&to=${today}`,
   `/mahaprasad/offline/today?date=${today}`, '/ledger', '/asset-units', '/products/lookup?code=NO-SUCH-CODE', '/asset-units/lookup?code=MGM-AST-NOPE',
   '/asset-reports/fines', '/asset-transactions/availability', '/users/approvers',
 ];

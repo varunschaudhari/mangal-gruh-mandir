@@ -466,33 +466,65 @@ export const printCoupons = asyncHandler(async (req, res) => {
   await generateCouponsPdf(res, { coupons, settings: settings.toObject() });
 });
 
+// ── Voided sales in the reports ───────────────────────────────────────────────
+// A voided (cancelled) sale is left out of every sold, served and collected figure, and shown
+// beside them instead: coupons (persons, a group of 5 is 5), the money taken back and how many
+// sales. Counted on the day of the sale, like everything else in the reports.
+
+const PAID_AMOUNT = { $cond: [{ $eq: ['$type', 'paid'] }, '$amount', 0] };
+const SALE_ID = { $ifNull: ['$batchId', '$couponNumber'] };   // very old coupons have no batch
+const VOIDED_SUMS = {
+  voided:       { $sum: GS },
+  voidedAmount: { $sum: PAID_AMOUNT },
+  voidedSales:  { $addToSet: SALE_ID },
+};
+const NO_VOIDS = { voided: 0, voidedAmount: 0, voidedSales: 0 };
+const voidedFigures = (r) => ({ voided: r?.voided || 0, voidedAmount: r?.voidedAmount || 0, voidedSales: r?.voidedSales?.length || 0 });
+
+/** Voided sales grouped by day ('%Y-%m-%d') or month ('%Y-%m') */
+const voidedByPeriod = (filter, format) => MahaprasadCoupon.aggregate([
+  { $match: { ...filter, status: 'voided' } },
+  { $group: { _id: { $dateToString: { format, date: '$date', timezone: APP_TIMEZONE } }, ...VOIDED_SUMS } },
+]);
+
+/** Adds the voided figures to each period's row — a period with only voided sales gets a row too. */
+function withVoided(rows, voidRows, emptyRow) {
+  const byId = new Map(rows.map((r) => [r._id, { ...r, ...NO_VOIDS }]));
+  for (const v of voidRows) byId.set(v._id, { ...(byId.get(v._id) || { _id: v._id, ...emptyRow }), ...voidedFigures(v) });
+  return [...byId.values()].sort((a, b) => (a._id < b._id ? 1 : -1));
+}
+
+/** ?from=&to= (YYYY-MM-DD) → a filter on the sale day */
+function rangeFilter({ from, to }) {
+  if (!from && !to) return {};
+  const date = {};
+  if (from) { const s = new Date(from); s.setHours(0, 0, 0, 0); date.$gte = s; }
+  if (to)   { const e = new Date(to);   e.setHours(23, 59, 59, 999); date.$lte = e; }
+  return { date };
+}
+
 // GET /mahaprasad/report/monthly
 export const getMonthlyReport = asyncHandler(async (req, res) => {
-  const { from, to } = req.query;
-  const filter = {};
-  if (from || to) {
-    filter.date = {};
-    if (from) { const s = new Date(from); s.setHours(0,0,0,0); filter.date.$gte = s; }
-    if (to)   { const e = new Date(to);   e.setHours(23,59,59,999); filter.date.$lte = e; }
-  }
+  const filter = rangeFilter(req.query);
 
-  const rows = await MahaprasadCoupon.aggregate([
-    { $match: { ...filter, status: { $nin: NOT_SOLD } } },
-    { $group: {
-      _id:       { $dateToString: { format: '%Y-%m', date: '$date', timezone: APP_TIMEZONE } },
-      total:     { $sum: GS },
-      redeemed:  { $sum: { $cond: [{ $eq: ['$status', 'redeemed'] }, GS, 0] } },
-      paid:      { $sum: { $cond: [{ $eq: ['$type',   'paid']     }, GS, 0] } },
-      free:      { $sum: { $cond: [{ $eq: ['$type',   'free']     }, GS, 0] } },
-      collected: { $sum: { $cond: [{ $eq: ['$type',   'paid']     }, '$amount', 0] } },
-    }},
-    { $sort: { _id: -1 } },
+  const [soldRows, voidRows] = await Promise.all([
+    MahaprasadCoupon.aggregate([
+      { $match: { ...filter, status: { $nin: NOT_SOLD } } },
+      { $group: {
+        _id:       { $dateToString: { format: '%Y-%m', date: '$date', timezone: APP_TIMEZONE } },
+        total:     { $sum: GS },
+        redeemed:  { $sum: { $cond: [{ $eq: ['$status', 'redeemed'] }, GS, 0] } },
+        paid:      { $sum: { $cond: [{ $eq: ['$type',   'paid']     }, GS, 0] } },
+        free:      { $sum: { $cond: [{ $eq: ['$type',   'free']     }, GS, 0] } },
+        collected: { $sum: PAID_AMOUNT },
+      }},
+    ]),
+    voidedByPeriod(filter, '%Y-%m'),
   ]);
+  const rows = withVoided(soldRows, voidRows, { total: 0, redeemed: 0, paid: 0, free: 0, collected: 0 });
 
-  const totals = rows.reduce(
-    (acc, r) => ({ total: acc.total + r.total, redeemed: acc.redeemed + r.redeemed, paid: acc.paid + r.paid, free: acc.free + r.free, collected: acc.collected + r.collected }),
-    { total: 0, redeemed: 0, paid: 0, free: 0, collected: 0 }
-  );
+  const SUMS = ['total', 'redeemed', 'paid', 'free', 'collected', 'voided', 'voidedAmount', 'voidedSales'];
+  const totals = Object.fromEntries(SUMS.map((k) => [k, rows.reduce((s, r) => s + (r[k] || 0), 0)]));
 
   res.json(new ApiResponse(200, { rows, totals }));
 });
@@ -507,7 +539,7 @@ export const getStaffReport = asyncHandler(async (req, res) => {
     if (to)   { const e = new Date(to);   e.setHours(23,59,59,999); filter.date.$lte = e; }
   }
 
-  const [issuedRows, redeemedRows, paymentRows] = await Promise.all([
+  const [issuedRows, redeemedRows, paymentRows, voidRows] = await Promise.all([
     MahaprasadCoupon.aggregate([
       { $match: { ...filter, status: { $nin: NOT_SOLD } } },
       { $group: {
@@ -527,7 +559,13 @@ export const getStaffReport = asyncHandler(async (req, res) => {
       { $match: { ...filter, voided: { $ne: true } } },
       { $group: { _id: { by: '$issuedBy', mode: '$paymentMode' }, total: { $sum: '$totalDue' } } },
     ]),
+    // Their sales that an admin voided afterwards (not in Issued or Collected)
+    MahaprasadCoupon.aggregate([
+      { $match: { ...filter, status: 'voided' } },
+      { $group: { _id: '$issuedBy', ...VOIDED_SUMS } },
+    ]),
   ]);
+  const voidedOf = new Map(voidRows.map((v) => [v._id?.toString() || 'online', voidedFigures(v)]));
   const byMode = new Map();   // user id (or 'online') → { cash, upi, online }
   for (const p of paymentRows) {
     const key = p._id.by?.toString() || 'online';
@@ -541,6 +579,7 @@ export const getStaffReport = asyncHandler(async (req, res) => {
   const allIds = [...new Set([
     ...issuedRows.map((r) => r._id?.toString()),
     ...redeemedRows.map((r) => r._id?.toString()),
+    ...voidRows.map((r) => r._id?.toString()),
   ].filter(Boolean))];
 
   const users   = await User.find({ _id: { $in: allIds } }).select('name').lean();
@@ -558,6 +597,13 @@ export const getStaffReport = asyncHandler(async (req, res) => {
     const uid = r._id?.toString(); if (!uid || merged.has(uid)) return;
     merged.set(uid, { userId: uid, name: userMap[uid] || 'Unknown', issued: 0, paid: 0, freeSeva: 0, collected: 0, redeemed: r.redeemed, ...money(uid) });
   });
+  // Someone whose every sale in the period was voided still gets a row
+  voidRows.forEach((r) => {
+    const uid = r._id?.toString() || 'online'; if (merged.has(uid)) return;
+    const name = uid === 'online' ? 'Online (website)' : userMap[uid] || 'Unknown';
+    merged.set(uid, { userId: uid, name, issued: 0, paid: 0, freeSeva: 0, collected: 0, redeemed: 0, ...money(uid) });
+  });
+  for (const [uid, row] of merged) Object.assign(row, voidedOf.get(uid) || NO_VOIDS);
 
   const rows = [...merged.values()].sort((a, b) => b.issued - a.issued);
   res.json(new ApiResponse(200, { rows }));
@@ -616,7 +662,7 @@ export const getMahaprasadWhatsApp = asyncHandler(async (req, res) => {
     weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
   });
 
-  const [summaryAgg, paidAgg, paymentAgg, occasionAgg] = await Promise.all([
+  const [summaryAgg, paidAgg, paymentAgg, occasionAgg, voidAgg] = await Promise.all([
     MahaprasadCoupon.aggregate([
       { $match: { date: { $gte: start, $lte: end }, status: { $nin: ['reserved', 'voided'] } } },
       { $group: {
@@ -641,9 +687,11 @@ export const getMahaprasadWhatsApp = asyncHandler(async (req, res) => {
       { $sort: { count: -1 } },
       { $limit: 5 },
     ]),
+    voidedByPeriod({ date: { $gte: start, $lte: end } }, '%Y-%m-%d'),
   ]);
 
   const s         = summaryAgg[0] || {};
+  const voids     = voidedFigures(voidAgg[0]);
   const total     = s.total    || 0;
   const redeemed  = s.redeemed || 0;
   const paid      = s.paid     || 0;
@@ -667,6 +715,10 @@ export const getMahaprasadWhatsApp = asyncHandler(async (req, res) => {
       ? [`Cash: ₹${fmtN(cashTotal)}`, `UPI: ₹${fmtN(upiTotal)}`, onlineTotal > 0 && `Online: ₹${fmtN(onlineTotal)}`].filter(Boolean).join(' | ')
       : null,
     `Total: ₹${fmtN(collected)}`,
+    // Voided sales are already left out of the figures above
+    voids.voided > 0
+      ? `Voided: ${fmtN(voids.voided)} coupon${voids.voided === 1 ? '' : 's'} in ${fmtN(voids.voidedSales)} sale${voids.voidedSales === 1 ? '' : 's'}${voids.voidedAmount ? ` (₹${fmtN(voids.voidedAmount)} taken back)` : ''}`
+      : null,
   ].filter(Boolean);
 
   if (occasionAgg.length) {
@@ -678,7 +730,7 @@ export const getMahaprasadWhatsApp = asyncHandler(async (req, res) => {
 
   res.json(new ApiResponse(200, {
     text: lines.join('\n'),
-    data: { total, free, paid, redeemed, pending, redPct, cashTotal, upiTotal, onlineTotal, collected, shortDate, dateLabel },
+    data: { total, free, paid, redeemed, pending, redPct, cashTotal, upiTotal, onlineTotal, collected, shortDate, dateLabel, ...voids },
   }));
 });
 
@@ -692,7 +744,7 @@ export const getReport = asyncHandler(async (req, res) => {
     if (to)   { const e = new Date(to);   e.setHours(23,59,59,999); filter.date.$lte = e; }
   }
 
-  const [rows, occasionRows, settings, freeRows] = await Promise.all([
+  const [soldRows, occasionRows, settings, freeRows, voidRows] = await Promise.all([
     MahaprasadCoupon.aggregate([
       { $match: { ...filter, status: { $nin: NOT_SOLD } } },
       { $group: {
@@ -705,7 +757,6 @@ export const getReport = asyncHandler(async (req, res) => {
         // …of which bought online (the public page)
         online:    { $sum: { $cond: [{ $eq: ['$channel', 'online'] }, '$amount', 0] } },
       }},
-      { $sort: { _id: -1 } },
     ]),
     MahaprasadCoupon.aggregate([
       { $match: { ...filter, status: { $nin: NOT_SOLD }, type: 'free', occasion: { $nin: [null, ''] } } },
@@ -730,23 +781,16 @@ export const getReport = asyncHandler(async (req, res) => {
       { $sort: { issuedAt: -1 } },
       { $limit: 500 },
     ]),
+    voidedByPeriod(filter, '%Y-%m-%d'),
   ]);
+  const rows = withVoided(soldRows, voidRows, { total: 0, redeemed: 0, paid: 0, free: 0, collected: 0, online: 0 });
   const freeStaff = await (await import('../models/User.js')).default
     .find({ _id: { $in: [...new Set(freeRows.map((r) => r.issuedBy?.toString()).filter(Boolean))] } }).select('name').lean();
   const freeStaffName = Object.fromEntries(freeStaff.map((u) => [u._id.toString(), u.name]));
   const freeSeva = freeRows.map(({ _id, issuedBy, ...r }) => ({ ...r, batchId: _id, issuedBy: issuedBy ? freeStaffName[issuedBy.toString()] || '—' : '' }));
 
-  const totals = rows.reduce(
-    (acc, r) => ({
-      total:     acc.total     + r.total,
-      redeemed:  acc.redeemed  + r.redeemed,
-      paid:      acc.paid      + r.paid,
-      free:      acc.free      + r.free,
-      collected: acc.collected + r.collected,
-      online:    acc.online    + r.online,
-    }),
-    { total: 0, redeemed: 0, paid: 0, free: 0, collected: 0, online: 0 }
-  );
+  const SUMS = ['total', 'redeemed', 'paid', 'free', 'collected', 'online', 'voided', 'voidedAmount', 'voidedSales'];
+  const totals = Object.fromEntries(SUMS.map((k) => [k, rows.reduce((s, r) => s + (r[k] || 0), 0)]));
 
   res.json(new ApiResponse(200, {
     rows,
@@ -754,6 +798,82 @@ export const getReport = asyncHandler(async (req, res) => {
     occasionBreakdown: occasionRows,
     freeSeva,
     dayPricing: settings.mahaprasadDayPricing,
+  }));
+});
+
+// GET /mahaprasad/report/voided?from=&to=
+// Every voided sale in the period (by the day of the sale), newest void first: its coupons, persons,
+// money, how it was paid, who sold it and when, who voided it, when and why. Plus totals, the
+// money by how it had been paid, and who voided how many.
+export const getVoidedReport = asyncHandler(async (req, res) => {
+  const filter = rangeFilter(req.query);
+  const LIMIT = 2000;
+
+  const sales = await MahaprasadCoupon.aggregate([
+    { $match: { ...filter, status: 'voided' } },
+    { $sort: { couponNumber: 1 } },
+    { $group: {
+      _id:        SALE_ID,
+      numbers:    { $push: '$couponNumber' },
+      persons:    { $sum: GS },
+      amount:     { $sum: PAID_AMOUNT },
+      type:       { $first: '$type' },
+      isGroup:    { $max: '$isGroup' },
+      channel:    { $first: '$channel' },
+      name:       { $first: '$name' },
+      mobile:     { $first: '$mobile' },
+      occasion:   { $first: '$occasion' },
+      date:       { $first: '$date' },
+      issuedAt:   { $first: '$issuedAt' },
+      issuedBy:   { $first: '$issuedBy' },
+      voidedAt:   { $max: '$voidedAt' },
+      voidedBy:   { $first: '$voidedBy' },
+      voidReason: { $first: '$voidReason' },
+    } },
+    { $sort: { voidedAt: -1 } },
+    { $limit: LIMIT + 1 },
+  ]);
+  const more = sales.length > LIMIT;
+  if (more) sales.length = LIMIT;
+
+  const User = (await import('../models/User.js')).default;
+  const [payments, users] = await Promise.all([
+    MahaprasadPayment.find({ batchId: { $in: sales.map((s) => s._id) } }).select('batchId paymentMode totalDue').lean(),
+    User.find({ _id: { $in: [...new Set(sales.flatMap((s) => [s.issuedBy, s.voidedBy]).filter(Boolean).map(String))] } }).select('name').lean(),
+  ]);
+  const paymentOf = new Map(payments.map((p) => [p.batchId, p]));
+  const nameOf = new Map(users.map((u) => [String(u._id), u.name]));
+  const who = (id) => (id ? nameOf.get(String(id)) || 'Unknown' : '');
+
+  const rows = sales.map((s) => {
+    const payment = paymentOf.get(s._id);
+    return {
+      batchId: s._id, numbers: s.numbers, persons: s.persons, type: s.type, isGroup: Boolean(s.isGroup),
+      channel: s.channel || 'counter', name: s.name || '', mobile: s.mobile || '', occasion: s.occasion || '',
+      // What the devotee paid for the sale (the payment record, else the coupons' prices)
+      amount: s.type === 'paid' ? (payment?.totalDue ?? s.amount) : 0,
+      paymentMode: s.type === 'paid' ? (payment?.paymentMode || (s.channel === 'online' ? 'online' : '')) : '',
+      date: s.date, issuedAt: s.issuedAt,
+      issuedBy: s.channel === 'online' && !s.issuedBy ? 'Online (website)' : who(s.issuedBy),
+      voidedAt: s.voidedAt, voidedBy: who(s.voidedBy), reason: s.voidReason || '',
+    };
+  });
+
+  const totals = { sales: rows.length, persons: 0, amount: 0, paidSales: 0, freeSales: 0, cash: 0, upi: 0, online: 0 };
+  const byVoider = new Map();
+  for (const r of rows) {
+    totals.persons += r.persons;
+    totals.amount += r.amount;
+    totals[r.type === 'paid' ? 'paidSales' : 'freeSales'] += 1;
+    if (r.paymentMode in totals) totals[r.paymentMode] += r.amount;
+    const v = byVoider.get(r.voidedBy) || { name: r.voidedBy || 'Unknown', sales: 0, persons: 0, amount: 0 };
+    v.sales += 1; v.persons += r.persons; v.amount += r.amount;
+    byVoider.set(r.voidedBy, v);
+  }
+
+  res.json(new ApiResponse(200, {
+    rows, totals, more,
+    byVoider: [...byVoider.values()].sort((a, b) => b.sales - a.sales),
   }));
 });
 

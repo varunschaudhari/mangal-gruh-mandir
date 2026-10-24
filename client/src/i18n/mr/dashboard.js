@@ -324,6 +324,7 @@ export default {
   'Download': 'डाउनलोड',
   'Print it and put it up at the temple: devotees scan it to see the notices.': 'छापून मंदिरात लावा: भक्त तो स्कॅन करून सूचना पाहतील.',
   'Hidden': 'लपवलेली',
+  'Hidden — nobody sees it': 'लपवलेली — कोणालाही दिसत नाही',
   'Hide': 'लपवा',
   'Delete notice': 'सूचना हटवा',
   'Delete this notice? To take it down for now, hide it instead.': 'ही सूचना हटवायची? काही काळासाठी काढायची असल्यास ती लपवा.',

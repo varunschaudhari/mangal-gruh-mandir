@@ -180,10 +180,16 @@ export default function NoticeBoard() {
   });
   const done = (msg) => { toast.success(msg); qc.invalidateQueries({ queryKey: ['notices'] }); };
   const fail = (err) => toast.error(err.response?.data?.message || t('Failed'));
+  // Show / hide: sends the state wanted (not "flip it"), and the list shows it at once — so a second
+  // tap before the list refreshes switches it back instead of sending the same change again
   const toggle = useMutation({
-    mutationFn: (n) => updateNotice(n._id, { isActive: !n.isActive }),
+    mutationFn: ({ id, isActive }) => updateNotice(id, { isActive }),
+    onMutate: async ({ id, isActive }) => {
+      await qc.cancelQueries({ queryKey: ['notices'] });
+      qc.setQueryData(['notices', 'all'], (list) => list?.map((x) => (x._id === id ? { ...x, isActive } : x)));
+    },
     onSuccess: (r) => done(r.data.data.isActive ? t('Notice is showing') : t('Notice hidden')),
-    onError: fail,
+    onError: (err) => { fail(err); qc.invalidateQueries({ queryKey: ['notices'] }); },
   });
   const del = useMutation({
     mutationFn: () => deleteNotice(removing._id),
@@ -218,13 +224,17 @@ export default function NoticeBoard() {
             const [variant, audience] = AUDIENCE_BADGE[n.audience] || AUDIENCE_BADGE.both;
             const fresh = n.isActive !== false && isNew(n, seenBefore);
             return (
-              <article key={n._id} className={`card p-4 ${n.isActive === false ? 'opacity-60' : ''} ${fresh ? 'border-l-4 border-l-primary-500' : ''}`}>
+              <article key={n._id} className={`card p-4 ${n.isActive === false ? 'bg-gray-50' : ''} ${fresh ? 'border-l-4 border-l-primary-500' : ''}`}>
                 <div className="flex items-start gap-3">
-                  <div className="min-w-0 flex-1">
+                  {/* A hidden notice's text is faded; its Show button isn't */}
+                  <div className={`min-w-0 flex-1 ${n.isActive === false ? 'opacity-60' : ''}`}>
                     <div className="flex flex-wrap items-center gap-1.5">
+                      {/* Whether anyone sees it, in words — not left to an icon */}
+                      {manage && (n.isActive
+                        ? <Badge variant="green"><Eye className="mr-1 h-3 w-3" />{t('Showing')}</Badge>
+                        : <Badge variant="gray"><EyeOff className="mr-1 h-3 w-3" />{t('Hidden — nobody sees it')}</Badge>)}
                       {fresh && <Badge variant="orange">{t('New')}</Badge>}
                       {manage && <Badge variant={variant}>{t(audience)}</Badge>}
-                      {manage && n.isActive === false && <Badge variant="gray">{t('Hidden')}</Badge>}
                     </div>
                     <h2 className="mt-1 text-base font-bold leading-snug text-gray-900">{title}</h2>
                     {body && <p className="mt-1 whitespace-pre-line break-words text-sm leading-relaxed text-gray-700">{body}</p>}
@@ -233,10 +243,12 @@ export default function NoticeBoard() {
                     </p>
                   </div>
                   {manage && (
-                    <div className="flex shrink-0 gap-0.5">
-                      <button type="button" onClick={() => toggle.mutate(n)} disabled={toggle.isPending} className="btn-ghost p-2 text-gray-500"
-                        title={n.isActive ? t('Hide') : t('Show')} aria-label={n.isActive ? t('Hide') : t('Show')}>
-                        {n.isActive ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    <div className="flex shrink-0 items-start gap-0.5">
+                      <button type="button" onClick={() => toggle.mutate({ id: n._id, isActive: !n.isActive })}
+                        className={`flex items-center gap-1 rounded-lg border px-2.5 py-1.5 text-xs font-semibold ${n.isActive
+                          ? 'border-gray-200 text-gray-600 hover:bg-gray-50'
+                          : 'border-green-300 bg-green-50 text-green-700 hover:bg-green-100'}`}>
+                        {n.isActive ? <><EyeOff className="h-3.5 w-3.5" />{t('Hide')}</> : <><Eye className="h-3.5 w-3.5" />{t('Show')}</>}
                       </button>
                       <button type="button" onClick={() => setEditing(n)} className="btn-ghost p-2 text-gray-500" title={t('Edit')} aria-label={t('Edit')}>
                         <Pencil className="h-4 w-4" />
