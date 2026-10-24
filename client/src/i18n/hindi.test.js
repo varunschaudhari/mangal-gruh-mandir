@@ -15,7 +15,7 @@ import dashboard from './mr/dashboard.js';
 const DEVOTEE_SCREENS = [
   '../pages/mahaprasad/MahaprasadScreen.jsx', '../pages/bookings/HallScreen.jsx', '../pages/mahaprasad/PublicCoupons.jsx',
   '../pages/mahaprasad/PersonsCount.jsx', '../pages/mahaprasad/OnlinePrasad.jsx', '../pages/bookings/PublicReceipt.jsx', '../utils/halls.js',
-  '../pages/notices/PublicNotices.jsx', '../components/notices/NoticeTicker.jsx',
+  '../pages/notices/PublicNotices.jsx', '../pages/notices/NoticesTv.jsx', '../components/notices/NoticeTicker.jsx',
 ];
 const mr = { ...common, ...mahaprasad, ...mahaprasadOnline, ...booking, ...bookingSetup, ...bookingCheckIn, ...dashboard };
 const placeholders = (s) => (s.match(/\{\w+\}/g) || []).sort();

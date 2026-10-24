@@ -41,7 +41,18 @@
   to   { transform: translateX(-50%); }
 }
 
+/* Notice board on a TV (NoticesTv.jsx): each notice fades in; a bar fills until the next one */
+@keyframes notice-in {
+  from { opacity: 0; transform: translateY(1.5vh); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes notice-progress {
+  from { transform: scaleX(0); }
+  to   { transform: scaleX(1); }
+}
+
 @layer utilities {
+  .animate-notice-in { animation: notice-in 0.6s ease-out; }
   .animate-ticker { animation: ticker var(--ticker-duration, 40s) linear infinite; }
   @media (prefers-reduced-motion: reduce) {
     .animate-ticker { animation: none; }

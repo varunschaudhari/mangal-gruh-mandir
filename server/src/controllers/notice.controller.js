@@ -51,8 +51,9 @@ export const getAllNotices = asyncHandler(async (req, res) => {
 export const getPublicNotices = asyncHandler(async (req, res) => {
   const notices = await Notice.find({ isActive: true, audience: { $in: FOR_DEVOTEES } })
     .sort({ createdAt: -1 }).limit(SHOWN).select('title body createdAt updatedAt').lean();
-  const { name, nameMr, phone } = temple();
-  res.json(new ApiResponse(200, { notices, temple: { name, nameMr, phone } }));
+  // The temple's public details for the page header and the office card (as on receipts)
+  const { name, nameMr, phone, address } = temple();
+  res.json(new ApiResponse(200, { notices, temple: { name, nameMr, phone, address } }));
 });
 
 export const createNotice = asyncHandler(async (req, res) => {
