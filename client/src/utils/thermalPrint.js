@@ -1,6 +1,7 @@
 import qz from 'qz-tray';
 import { temple } from './temple.js';
 import { printBluetooth, savedBluetoothPrinter } from './bluetoothPrinter.js';
+import { couponBadge, couponText, localeOf } from '../../../shared/devoteeLanguage.js';
 
 // ── Electron print path ───────────────────────────────────────────────────────
 // When running inside the desktop app, bypass QZ Tray entirely and use the
@@ -168,7 +169,10 @@ const PERSONS_H = 60;
 
 const newCanvas = () => (typeof document === 'undefined' ? null : document.createElement('canvas'));
 
-export function personsCanvas(count, makeCanvas = newCanvas) {
+// The printer can't draw Devanagari, so it is drawn by the browser (Arial first for the digits)
+const PICTURE_FONT = 'Arial, Roboto, "Segoe UI", "Nirmala UI", "Noto Sans Devanagari", Mangal, sans-serif';
+
+export function personsCanvas(count, makeCanvas = newCanvas, word = count === 1 ? 'PERSON' : 'PERSONS') {
   const canvas = makeCanvas();
   const ctx = canvas?.getContext?.('2d');
   if (!ctx) return null;
@@ -180,10 +184,9 @@ export function personsCanvas(count, makeCanvas = newCanvas) {
   ctx.textBaseline = 'alphabetic';
 
   const digits = String(count).split('');
-  const word = count === 1 ? 'PERSON' : 'PERSONS';
   let size = 64;   // largest: digits ~46 dots tall, inside the 60-dot strip
   const measure = () => {
-    ctx.font = `bold ${size}px Arial, Roboto, "Segoe UI", sans-serif`;
+    ctx.font = `bold ${size}px ${PICTURE_FONT}`;
     const widths = digits.map((d) => ctx.measureText(d).width);
     const gap = Math.round(size * 0.08);   // on top of the font's own spacing
     const space = Math.round(size * 0.4);
@@ -200,8 +203,8 @@ export function personsCanvas(count, makeCanvas = newCanvas) {
   return canvas;
 }
 
-export function personsBytes(count, makeCanvas) {
-  const canvas = personsCanvas(count, makeCanvas);
+export function personsBytes(count, makeCanvas, word) {
+  const canvas = personsCanvas(count, makeCanvas, word);
   if (canvas) return [...align(1), ...rasterBands(canvas), ...align(1)];
   // No canvas (only outside a browser): the printer's own font, number and word both 2×
   return [
@@ -210,7 +213,82 @@ export function personsBytes(count, makeCanvas) {
   ];
 }
 
-export function buildReceiptBytes(coupon, settings) {
+/** Lines of text as one centred picture — [{ text, size, bold }] — for Devanagari. */
+export function textCanvas(lines, makeCanvas = newCanvas) {
+  const rows = lines.filter((l) => l?.text).map((l) => ({ ...l, size: l.size || 24 }));
+  const canvas = rows.length ? makeCanvas() : null;
+  const ctx = canvas?.getContext?.('2d');
+  if (!ctx) return null;
+  const font = (r) => `${r.bold ? 'bold ' : ''}${r.size}px ${PICTURE_FONT}`;
+  canvas.width = PERSONS_W;
+  for (const r of rows) {   // a long line (a name) gets smaller to fit
+    ctx.font = font(r);
+    while (ctx.measureText(r.text).width > PERSONS_W - 8 && r.size > 14) { r.size -= 1; ctx.font = font(r); }
+  }
+  canvas.height = rows.reduce((h, r) => h + Math.round(r.size * 1.5), 6);   // resets the context
+  ctx.fillStyle = '#fff';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = '#000';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'alphabetic';
+  let top = 3;
+  for (const r of rows) {
+    ctx.font = font(r);
+    ctx.fillText(r.text, PERSONS_W / 2, top + Math.round(r.size * 1.08));   // room for the vowel signs above and below
+    top += Math.round(r.size * 1.5);
+  }
+  return canvas;
+}
+
+function textBytes(lines, makeCanvas) {
+  const canvas = textCanvas(lines, makeCanvas);
+  if (canvas) return [...align(1), ...rasterBands(canvas), ...align(1)];
+  return lines.filter((l) => l?.text).flatMap((l) => line(l.text));   // no canvas (outside a browser)
+}
+
+// A name or occasion: the printer's font when it is plain English, a picture when typed in Marathi / Hindi
+const nameBytes = (text, { isBold = false, makeCanvas } = {}) => (/^[\x20-\x7E]*$/.test(text)
+  ? [...bold(isBold ? 1 : 0), ...line(text), ...bold(0)]
+  : textBytes([{ text, size: 24, bold: isBold }], makeCanvas));
+
+/**
+ * The coupon in Marathi or Hindi (Settings → Mahaprasad → Coupon language): the same slip, its words
+ * drawn as pictures; the coupon number and QR still come from the printer.
+ */
+function buildDevanagariCoupon(coupon, lang, makeCanvas) {
+  const L = couponText(lang);
+  const isFree = coupon.type === 'free';
+  const groupSize = coupon.groupSize || 1;
+  const dateStr = new Date(coupon.date).toLocaleDateString(localeOf(lang), { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
+  return [
+    ...init(),
+    ...align(1),
+    ...textBytes([{ text: L.title, size: 26 }, { text: `[ ${couponBadge(coupon, lang)} ]`, size: 26, bold: true }], makeCanvas),
+    ...dashes(),
+    ...bold(1), ...charSize(0x01),
+    ...line(coupon.couponNumber),
+    ...bold(0), ...charSize(0x00),
+    ...personsBytes(groupSize, makeCanvas, L.persons(groupSize)),
+    ...dashes(),
+    ...textBytes([
+      { text: dateStr, size: 24 },
+      isFree && coupon.name && { text: coupon.name, size: 24, bold: true },
+      isFree && coupon.occasion && { text: coupon.occasion, size: 22 },
+    ], makeCanvas),
+    ...feedDots(14),
+    ...qrEscPos(coupon.couponNumber, 5),
+    ...textBytes([{ text: `- ${L.scan} -`, size: 22 }], makeCanvas),
+    ...dashes(),
+    ...textBytes([{ text: L.present, size: 24, bold: true }, { text: L.nonTransferable, size: 22 }], makeCanvas),
+    ...feedN(0),
+    ...partCut(),
+    ...(coupon.type === 'paid' ? cashDrawerKick() : []),
+  ];
+}
+
+export function buildReceiptBytes(coupon, settings, makeCanvas) {
+  const lang = settings?.mahaprasadCouponLanguage || 'en';
+  if (lang !== 'en') return buildDevanagariCoupon(coupon, lang, makeCanvas);
   const isFree    = coupon.type === 'free';
   const isGroup   = coupon.isGroup && (coupon.groupSize || 1) > 1;
   const groupSize = coupon.groupSize || 1;
@@ -244,14 +322,14 @@ export function buildReceiptBytes(coupon, settings) {
     ...bold(0), ...charSize(0x00),
 
     // ── PERSONS (large, for the prasad counter; the picture has its own margin) ──
-    ...personsBytes(groupSize),
+    ...personsBytes(groupSize, makeCanvas),
 
     ...dashes(),
 
     // ── DATE + OCCASION + QR (merged — one less dash line) ──────────────────
     ...line(dateStr),
-    ...(isFree && coupon.name ? [...bold(1), ...line(coupon.name), ...bold(0)] : []),   // Free Seva: who it is for
-    ...(isFree && coupon.occasion ? line(coupon.occasion) : []),
+    ...(isFree && coupon.name ? nameBytes(coupon.name, { isBold: true, makeCanvas }) : []),   // Free Seva: who it is for
+    ...(isFree && coupon.occasion ? nameBytes(coupon.occasion, { makeCanvas }) : []),
     ...feedDots(14),   // a little white above the QR for the scanner
     ...qrEscPos(coupon.couponNumber, 5),
     ...line('- SCAN TO VERIFY -'),

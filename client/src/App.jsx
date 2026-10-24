@@ -110,6 +110,8 @@ const OnlinePrasad = lazyPage(() => import('./pages/mahaprasad/OnlinePrasad.jsx'
 const MahaprasadOnlineOrders = lazyPage(() => import('./pages/mahaprasad/MahaprasadOnlineOrders.jsx'));
 const MahaprasadDashboard = lazyPage(() => import('./pages/mahaprasad/MahaprasadDashboard.jsx'));
 const MahaprasadScreen = lazyPage(() => import('./pages/mahaprasad/MahaprasadScreen.jsx'));
+const NoticeBoard = lazyPage(() => import('./pages/notices/NoticeBoard.jsx'));
+const PublicNotices = lazyPage(() => import('./pages/notices/PublicNotices.jsx'));
 
 const App = () => (
   <>
@@ -125,6 +127,8 @@ const App = () => (
     <Route path="/m/:token" element={<PublicCoupons />} />
     {/* Devotees buying Mahaprasad coupons online (Razorpay) — no sign-in */}
     <Route path="/prasad" element={<OnlinePrasad />} />
+    {/* The temple's notice board for devotees (link / printed QR) — no sign-in */}
+    <Route path="/notices" element={<PublicNotices />} />
 
     <Route element={<PrivateRoute />}>
       {/* TV at the hall: full screen, no sidebar */}
@@ -136,6 +140,7 @@ const App = () => (
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/profile" element={<Profile />} />
         <Route path="/more" element={<MorePage />} />
+        <Route path="/notice-board" element={<NoticeBoard />} />
         <Route path="/change-password" element={<ChangePassword />} />
 
         {/* Transactions */}

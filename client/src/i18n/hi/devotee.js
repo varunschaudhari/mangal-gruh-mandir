@@ -166,4 +166,10 @@ export default {
   'Checked in at the hall': 'हॉल में प्रवेश हो चुका',
   'Receipt no.': 'रसीद क्र.',
   'Print / Save PDF': 'प्रिंट / PDF सहेजें',
+
+  // ── Notice board page (/notices) and the TV notice line ──────────────────
+  'Notice Board': 'सूचना पट',
+  'Notices': 'सूचनाएँ',
+  'Could not load the notices': 'सूचनाएँ नहीं खुल सकीं',
+  'No notices right now.': 'अभी कोई सूचना नहीं है।',
 };

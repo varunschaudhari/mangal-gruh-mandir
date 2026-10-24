@@ -841,6 +841,7 @@ export const publicCoupons = asyncHandler(async (req, res) => {
     coupons,
     validityDays: settings.mahaprasadCouponValidityDays ?? 1,
     temple: temple(),
+    language: settings.mahaprasadCouponLanguage || 'en',   // the page opens in it until the devotee picks one
     // Bought on the public page: it has a payment receipt (/api/public/mahaprasad/<token>/receipt.pdf)
     online: coupons.some((c) => c.channel === 'online'),
     // …bought with Razorpay test keys: the page says it isn't valid at the hall
@@ -854,13 +855,16 @@ export const publicCoupons = asyncHandler(async (req, res) => {
 export const publicCouponsImage = asyncHandler(async (req, res) => {
   const token = String(req.params.token || '');
   if (!/^[A-Za-z0-9_-]{10,40}$/.test(token)) throw new ApiError(404, 'Coupon not found');
-  const coupons = await MahaprasadCoupon.find({ shareToken: token, status: { $ne: 'reserved' } })
-    .select('-_id couponNumber date type occasion status groupSize')
-    .sort({ couponNumber: 1 })
-    .lean();
+  const [coupons, settings] = await Promise.all([
+    MahaprasadCoupon.find({ shareToken: token, status: { $ne: 'reserved' } })
+      .select('-_id couponNumber date type occasion status groupSize')
+      .sort({ couponNumber: 1 })
+      .lean(),
+    Settings.getOrCreate(),
+  ]);
   if (!coupons.length) throw new ApiError(404, 'Coupon not found');
   const { couponsQrPng } = await import('../services/mahaprasadQrImage.js');
-  const png = await couponsQrPng(coupons, { temple: temple() });
+  const png = await couponsQrPng(coupons, { temple: temple(), lang: settings.mahaprasadCouponLanguage });
   res.set('Cache-Control', 'public, max-age=300').type('png').send(png);
 });
 

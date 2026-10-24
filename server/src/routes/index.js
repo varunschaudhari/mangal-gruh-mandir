@@ -38,6 +38,8 @@ import clientErrorRoutes from './clientError.routes.js';
 import attendanceRoutes from './attendance.routes.js';
 import salaryRoutes from './salary.routes.js';
 import pincodeRoutes from './pincode.routes.js';
+import noticeRoutes from './notice.routes.js';
+import { getPublicNotices } from '../controllers/notice.controller.js';
 import { bookingRouter, bookingSetupRouter, bookingShiftRouter } from './booking.routes.js';
 import { publicReceipt, publicSlip } from '../controllers/booking.controller.js';
 import { publicCoupons, publicCouponsImage } from '../controllers/mahaprasad.controller.js';
@@ -85,6 +87,7 @@ router.use('/client-errors',       clientErrorRoutes);
 router.use('/attendance',          attendanceRoutes);
 router.use('/salary',              salaryRoutes);
 router.use('/pincode',             pincodeRoutes);
+router.use('/notices',             noticeRoutes);
 router.use('/bookings',            bookingRouter);
 router.use('/booking-setup',       bookingSetupRouter);
 router.use('/booking-shifts',      bookingShiftRouter);
@@ -100,5 +103,7 @@ router.get('/public/mahaprasad-online', getOnlineInfo);
 router.post('/public/mahaprasad-online/orders', onlineOrderLimiter, validate(mahaprasadSchemas.onlineOrder), createOnlineOrder);
 router.get('/public/mahaprasad-online/orders/:token', validate(mahaprasadSchemas.onlineOrderByToken), getOnlineOrder);
 router.post('/public/mahaprasad-online/orders/:token/verify', validate(mahaprasadSchemas.onlineVerify), verifyOnlineOrder);
+// …and the notice board for devotees (the /notices page and the TV screens)
+router.get('/public/notices', getPublicNotices);
 
 export default router;

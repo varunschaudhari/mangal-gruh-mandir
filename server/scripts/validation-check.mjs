@@ -148,6 +148,10 @@ async function main() {
   check(hiSave.status === 200 && hiSave.body.data.waLanguages?.donationThanks === 'hi', 'Hindi is a WhatsApp message language too', show(hiSave));
   check((await api('PUT', '/settings', { waLanguages: { donationThanks: 'gu' } })).status === 400, 'WhatsApp message language other than Marathi / Hindi / English → 400');
   await api('PUT', '/settings', { waLanguages: { donationThanks: 'mr' } });
+  const couponLang = await api('PUT', '/settings', { mahaprasadCouponLanguage: 'hi' });
+  check(couponLang.status === 200 && couponLang.body.data.mahaprasadCouponLanguage === 'hi', 'Mahaprasad coupon language: Hindi saved', show(couponLang));
+  check((await api('PUT', '/settings', { mahaprasadCouponLanguage: 'gu' })).status === 400, 'Mahaprasad coupon language other than English / Marathi / Hindi → 400');
+  await api('PUT', '/settings', { mahaprasadCouponLanguage: 'en' });
 
   // WhatsApp delivery status: Meta's webhook is verified with our token and signed with the app secret
   const hook = `${BASE}/api/webhooks/whatsapp`;

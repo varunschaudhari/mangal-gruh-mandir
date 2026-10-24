@@ -52,7 +52,7 @@ export const updateSettings = asyncHandler(async (req, res) => {
     alertOnOutOfStock, alertOnLowStock, alertOnReorder,
     trustPAN, reg80GNumber, reg80GFrom, reg80GTo,
     assetMaxBorrowDays,
-    mahaprasadDayPricing, mahaprasadDailyCap, mahaprasadCouponValidityDays, mahaprasadPrinterName,
+    mahaprasadDayPricing, mahaprasadDailyCap, mahaprasadCouponValidityDays, mahaprasadPrinterName, mahaprasadCouponLanguage,
     mahaprasadOnlineEnabled, mahaprasadOnlineDaysAhead, mahaprasadOnlineMaxPlates, mahaprasadOnlineCutoff,
   } = req.body;
 
@@ -103,6 +103,7 @@ export const updateSettings = asyncHandler(async (req, res) => {
   if (mahaprasadDailyCap           !== undefined) settings.mahaprasadDailyCap           = mahaprasadDailyCap;
   if (mahaprasadCouponValidityDays !== undefined) settings.mahaprasadCouponValidityDays = mahaprasadCouponValidityDays;
   if (mahaprasadPrinterName        !== undefined) settings.mahaprasadPrinterName        = mahaprasadPrinterName;
+  if (mahaprasadCouponLanguage     !== undefined) settings.mahaprasadCouponLanguage     = mahaprasadCouponLanguage;
   if (mahaprasadOnlineEnabled   !== undefined) settings.mahaprasadOnlineEnabled   = mahaprasadOnlineEnabled;
   if (mahaprasadOnlineDaysAhead !== undefined) settings.mahaprasadOnlineDaysAhead = mahaprasadOnlineDaysAhead;
   if (mahaprasadOnlineMaxPlates !== undefined) settings.mahaprasadOnlineMaxPlates = mahaprasadOnlineMaxPlates;

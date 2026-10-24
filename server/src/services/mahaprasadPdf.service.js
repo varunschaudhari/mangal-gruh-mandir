@@ -3,6 +3,7 @@ import { existsSync } from 'fs';
 import { temple } from './temple.service.js';
 // The logo ships with the server (server/assets) — the client folder is not in the server image
 import { createPdf, LOGO_PATH } from './pdfLayout.js';
+import { couponBadge, couponText, localeOf } from '../../../shared/devoteeLanguage.js';
 
 // ── Palette ───────────────────────────────────────────────────────────────────
 
@@ -65,9 +66,12 @@ async function drawCoupon(doc, coupon, settings, cx, cy) {
   const accent      = isFree ? C.freeAccent  : C.paidAccent;
   const badgeBg     = isFree ? C.freeBadgeBg : C.paidBadgeBg;
   const badgeTx     = isFree ? C.freeBadgeTx : C.paidBadgeTx;
-  const badgeLabel  = isGroup
-    ? (isFree ? `GROUP  ${groupSize} PERSONS` : `GROUP  ${groupSize}x  Rs.${coupon.amount}`)
-    : (isFree ? 'FREE SEVA' : `Rs.${coupon.amount}  PAID`);
+  // In Settings → Mahaprasad → Coupon language (Mukta prints Devanagari); letter-spacing only for English
+  const lang        = settings?.mahaprasadCouponLanguage || 'en';
+  const L           = couponText(lang);
+  const spaced      = (n) => (lang === 'en' ? n : 0);
+  const day         = (d, opts) => (lang === 'en' ? fmtDate(d, opts) : new Date(d).toLocaleDateString(localeOf(lang), { day: 'numeric', month: 'short', year: 'numeric', ...opts }));
+  const badgeLabel  = couponBadge(coupon, lang);
 
   const HEADER_H = 48;
   const FOOTER_H = 26;
@@ -117,7 +121,7 @@ async function drawCoupon(doc, coupon, settings, cx, cy) {
 
   doc.font('Helvetica-Bold').fontSize(nameSize).fillColor(C.headerText)
     .text(templeName, nameX, y + 11 - lift(nameSize), { width: nameW, height: 14, ellipsis: true });
-  const kindLine = 'Shri Mangal Mahaprasad Seva Coupon';
+  const kindLine = L.sevaTitle;
   let kindSize = 7;
   doc.font('Helvetica-Oblique');
   while (kindSize > 5.5 && doc.fontSize(kindSize).widthOfString(kindLine) > nameW) kindSize -= 0.25;
@@ -129,7 +133,7 @@ async function drawCoupon(doc, coupon, settings, cx, cy) {
 
   // "COUPON NO." micro-label
   doc.font('Helvetica').fontSize(6).fillColor(C.muted)
-    .text('COUPON NO.', x, iy - lift(6), { width: w, align: 'center', characterSpacing: 0.5, lineBreak: false });
+    .text(L.couponNo, x, iy - lift(6), { width: w, align: 'center', characterSpacing: spaced(0.5), lineBreak: false });
   iy += 9;
 
   // Coupon number — large, centered
@@ -145,7 +149,7 @@ async function drawCoupon(doc, coupon, settings, cx, cy) {
 
   // Date
   doc.font('Helvetica').fontSize(7.5).fillColor(C.gray)
-    .text(fmtDate(coupon.date, { weekday: 'short' }), x, iy - lift(7.5), { width: w, align: 'center', lineBreak: false });
+    .text(day(coupon.date, { weekday: 'short' }), x, iy - lift(7.5), { width: w, align: 'center', lineBreak: false });
   iy += 11;
 
   // Free Seva: who it is for and the occasion, on one line (shortened to fit the card)
@@ -171,7 +175,7 @@ async function drawCoupon(doc, coupon, settings, cx, cy) {
   doc.font('Helvetica-Bold').fontSize(numSize).fillColor(C.purple)
     .text(String(groupSize), rowX, QR_Y + 20 - lift(numSize), { width: PB_W, align: 'center', lineBreak: false });
   doc.font('Helvetica-Bold').fontSize(9).fillColor(C.purple)
-    .text(groupSize === 1 ? 'PERSON' : 'PERSONS', rowX, QR_Y + 57 - lift(9), { width: PB_W, align: 'center', characterSpacing: 0.6, lineBreak: false });
+    .text(L.persons(groupSize), rowX, QR_Y + 57 - lift(9), { width: PB_W, align: 'center', characterSpacing: spaced(0.6), lineBreak: false });
 
   // White frame around QR
   doc.save()
@@ -185,7 +189,7 @@ async function drawCoupon(doc, coupon, settings, cx, cy) {
   doc.image(qrBuf, QR_X, QR_Y, { width: QR_SZ, height: QR_SZ });
 
   doc.font('Helvetica').fontSize(5.5).fillColor(C.light)
-    .text('SCAN TO VERIFY', QR_X - 20, QR_Y + QR_SZ + 5 - lift(5.5), { width: QR_SZ + 40, align: 'center', lineBreak: false });
+    .text(L.scan, QR_X - 20, QR_Y + QR_SZ + 5 - lift(5.5), { width: QR_SZ + 40, align: 'center', lineBreak: false });
 
   // ── Details bar (validity + batch) ────────────────────────────────────────
   const detY = QR_Y + QR_SZ + 18;
@@ -195,12 +199,12 @@ async function drawCoupon(doc, coupon, settings, cx, cy) {
     const expiry = new Date(coupon.date);
     expiry.setDate(expiry.getDate() + validityDays);
     doc.font('Helvetica').fontSize(6.5).fillColor(C.muted)
-      .text(`Valid until: ${fmtDate(expiry)}`, x + 10, detY - lift(6.5), { width: w / 2 - 10, lineBreak: false });
+      .text(L.validUntil(day(expiry)), x + 10, detY - lift(6.5), { width: w / 2 - 10, lineBreak: false });
   }
 
   if (coupon.batchId) {
     doc.font('Helvetica').fontSize(6).fillColor(C.light)
-      .text(`Batch: ${coupon.batchId.substring(0, 8).toUpperCase()}`, x + w / 2, detY - lift(6), { width: w / 2 - 10, align: 'right', lineBreak: false });
+      .text(`${L.batch}: ${coupon.batchId.substring(0, 8).toUpperCase()}`, x + w / 2, detY - lift(6), { width: w / 2 - 10, align: 'right', lineBreak: false });
   }
 
   // ── Footer ────────────────────────────────────────────────────────────────
@@ -209,9 +213,9 @@ async function drawCoupon(doc, coupon, settings, cx, cy) {
   const phone = settings?.templePhone   || '';
   const contactLine = [addr, phone].filter(Boolean).join('  ·  ');
 
-  const servingText = isGroup ? `Valid for ${groupSize} servings` : 'Valid for one serving';
+  const servingText = L.servings(isGroup ? groupSize : 1);
   doc.font('Helvetica-Bold').fontSize(5.8).fillColor(C.white)
-    .text(`Present at Prasad counter · ${servingText} · Non-transferable`,
+    .text(`${L.present} · ${servingText} · ${L.nonTransferable}`,
       x + 4, ftY + 4 - lift(5.8), { width: w - 8, align: 'center', lineBreak: false });
 
   if (contactLine) {

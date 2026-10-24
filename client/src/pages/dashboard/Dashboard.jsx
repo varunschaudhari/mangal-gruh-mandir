@@ -22,6 +22,7 @@ import { useAuth } from '../../context/AuthContext.jsx';
 import { usePermissions } from '../../hooks/usePermissions.js';
 import { useIsMobile } from '../../hooks/useMediaQuery.js';
 import MahaprasadLiveTile from '../../components/mahaprasad/MahaprasadLiveTile.jsx';
+import NoticeDashboardCard from '../../components/notices/NoticeDashboardCard.jsx';
 import { useT } from '../../i18n/index.jsx';
 import { useTemple } from '../../utils/temple.js';
 
@@ -266,6 +267,9 @@ const Dashboard = () => {
           </>
         }
       />
+
+      {/* Notice Board: the latest notices for staff, for everyone (nothing when there are none) */}
+      <NoticeDashboardCard />
 
       {showAttention && (
         <div className="order-1 lg:hidden">

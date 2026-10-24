@@ -5,7 +5,7 @@ import { formatAddress, isPincode } from './address.js';
 import { dayCode } from './attendanceCodes.js';
 import { localDateStr } from './dates.js';
 import { cleanPaymentRef, paymentRefProblem } from './payment.js';
-import { amountInWordsHi, fallbackOf, receiptText, sevaNameFor } from './devoteeLanguage.js';
+import { amountInWordsHi, couponBadge, couponText, fallbackOf, receiptText, sevaNameFor } from './devoteeLanguage.js';
 
 test('address: parts joined, repeated names once, PIN last', () => {
   assert.equal(
@@ -64,4 +64,13 @@ test('Hindi for devotees: amount in words, receipt wording, fallback language', 
   assert.equal(sevaNameFor('hi', 'Abhishek', ''), 'Abhishek');
   assert.equal(sevaNameFor('en', 'Abhishek', 'अभिषेक'), 'Abhishek');
   assert.deepEqual(['hi', 'mr', 'en'].map(fallbackOf), ['en', 'en', 'mr']);
+});
+
+test('the coupon in its language: English as it always printed, Marathi and Hindi words', () => {
+  const free = { type: 'free', groupSize: 1 };
+  const group = { type: 'paid', isGroup: true, groupSize: 4, amount: 120 };
+  assert.deepEqual(['en', 'mr', 'hi'].map((l) => couponBadge(free, l)), ['FREE SEVA', 'मोफत सेवा', 'निःशुल्क सेवा']);
+  assert.deepEqual(['en', 'hi'].map((l) => couponBadge(group, l)), ['GROUP  4x  Rs.120', 'समूह · 4 व्यक्ति · ₹120']);
+  assert.equal(couponText('hi').servings(5), '5 व्यक्तियों के लिए');
+  assert.equal(couponText('gu').title, 'Shri Mangal Mahaprasad Coupon');   // anything else: English
 });

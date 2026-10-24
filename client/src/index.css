@@ -35,7 +35,17 @@
   90%       { transform: translateX(3px); }
 }
 
+/* TV notice line (NoticeTicker): the text is in the track twice, so moving it by half loops without a jump */
+@keyframes ticker {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
+}
+
 @layer utilities {
+  .animate-ticker { animation: ticker var(--ticker-duration, 40s) linear infinite; }
+  @media (prefers-reduced-motion: reduce) {
+    .animate-ticker { animation: none; }
+  }
   .animate-shake {
     animation: shake 0.45s ease-in-out;
   }

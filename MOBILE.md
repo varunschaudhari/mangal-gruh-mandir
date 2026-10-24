@@ -164,6 +164,7 @@ The app can notify people on their phones:
 - **Approvers:** a new supplier payment or expense is waiting for them.
 - **The person who submitted it:** their payment or expense was approved or rejected.
 - **Every morning at 8:30:** stock that's out, low or due for reorder (people with report access), and approvals still waiting.
+- **Everyone:** a new notice for staff on the Notice Board (once per notice, in Marathi when it has Marathi).
 
 Tapping a notification opens the right screen. It's built in but **off until Firebase is set up** (free):
 

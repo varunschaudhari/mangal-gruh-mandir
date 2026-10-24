@@ -1,5 +1,5 @@
 import mongoose from 'mongoose';
-import { DEVOTEE_LANGUAGES } from '../../../shared/devoteeLanguage.js';
+import { COUPON_LANGUAGES, DEVOTEE_LANGUAGES } from '../../../shared/devoteeLanguage.js';
 import singleton from './singleton.js';
 
 // WhatsApp template names (approved in WhatsApp Manager). An empty name means that message is not
@@ -76,6 +76,8 @@ const settingsSchema = new mongoose.Schema(
     mahaprasadDailyCap:            { type: Number, default: 0,  min: 0 }, // 0 = no limit
     mahaprasadCouponValidityDays:  { type: Number, default: 1,  min: 0 }, // 0 = no expiry
     mahaprasadPrinterName:         { type: String, default: '' },
+    // What the coupon prints in (thermal slip, PDF, QR picture) and the coupon page opens in
+    mahaprasadCouponLanguage:      { type: String, enum: COUPON_LANGUAGES, default: 'en' },
     // Coupons bought by devotees on the public page (/prasad), paid through Razorpay — the keys are
     // in the server's .env (services/razorpay.service.js); rules in services/mahaprasadOnlineRules.js
     mahaprasadOnlineEnabled:   { type: Boolean, default: false },

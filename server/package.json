@@ -26,6 +26,7 @@
     "users:modules": "node src/seeds/moduleLogins.js",
     "users:temple": "node src/seeds/templeUsers.js",
     "migrate:bookings": "node src/migrations/addBookingModule.js",
+    "migrate:notices": "node src/migrations/addNoticePermissions.js",
     "migrate:roles": "node src/migrations/syncRoles.js",
     "seed:mahaprasad-occasions": "node src/seeds/mahaprasadOccasions.seed.js",
     "add:supplier": "node src/seeds/addSupplier.js",

@@ -10,16 +10,12 @@ import { temple as cachedTemple } from '../../utils/temple.js';
 import { publicUrl } from '../../utils/platform.js';
 import Spinner from '../../components/ui/Spinner.jsx';
 import { fmtDateTime } from '../../components/booking/registerUtils.js';
-import { DEVOTEE_LANGUAGES, LanguageProvider, LanguageSwitch, useLanguage, useT } from '../../i18n/index.jsx';
+import { DEVOTEE_LANGUAGE_KEY, DEVOTEE_LANGUAGES, LanguageProvider, LanguageSwitch, hasSavedLanguage, useLanguage, useT } from '../../i18n/index.jsx';
 
 // The public receipt (/r/:token) opened from the WhatsApp / SMS link or the QR on the slip.
 // No sign-in. The receipt itself is the same HTML as the A4 print, shown in a frame — in Hindi
 // when the page is (it opens in the booking's language until the devotee picks one).
 
-const LANGUAGE_KEY = 'mgm-lang-devotee';
-const hasChosenLanguage = () => {
-  try { return Boolean(localStorage.getItem(LANGUAGE_KEY)); } catch { return false; }
-};
 
 const toBooking = (r, token) => ({
   ...r,
@@ -72,7 +68,7 @@ function ReceiptPage() {
   useEffect(() => {
     if (!r || adopted.current) return;
     adopted.current = true;
-    if (!hasChosenLanguage() && DEVOTEE_LANGUAGES.includes(r.language) && r.language !== lang) setLang(r.language);
+    if (!hasSavedLanguage() && DEVOTEE_LANGUAGES.includes(r.language) && r.language !== lang) setLang(r.language);
   }, [r, lang, setLang]);
 
   useEffect(() => {
@@ -186,5 +182,5 @@ function ReceiptPage() {
 // A devotee's page: English, Marathi or Hindi — at first the phone's language — kept apart from the
 // staff app's language (the same choice on all the devotee pages)
 export default function PublicReceipt() {
-  return <LanguageProvider storageKey={LANGUAGE_KEY} languages={DEVOTEE_LANGUAGES} fromBrowser><ReceiptPage /></LanguageProvider>;
+  return <LanguageProvider storageKey={DEVOTEE_LANGUAGE_KEY} languages={DEVOTEE_LANGUAGES} fromBrowser><ReceiptPage /></LanguageProvider>;
 }

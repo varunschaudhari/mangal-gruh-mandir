@@ -22,6 +22,7 @@ export const rolesSeed = [
       'attendance:read', 'attendance:write', 'attendance:manage', 'attendance:approve',
       'salary:read', 'salary:manage',
       'bookings:read', 'bookings:create', 'bookings:void', 'bookings:manage', 'bookings:cash', 'bookings:checkin',
+      'notices:manage',
     ],
     isSystem: true,
   },

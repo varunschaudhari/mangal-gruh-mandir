@@ -41,7 +41,15 @@ const DICTIONARIES = {
 
 const STORAGE_KEY = 'mgm-lang';
 
+// The devotee pages (/m, /r, /prasad) share one saved choice
+export const DEVOTEE_LANGUAGE_KEY = 'mgm-lang-devotee';
+/** Has this device's person picked a language there (or on a TV screen with its own key)? */
+export const hasSavedLanguage = (storageKey = DEVOTEE_LANGUAGE_KEY) => {
+  try { return Boolean(localStorage.getItem(storageKey)); } catch { return false; }
+};
+
 // The phone's own language when it is one we have (a devotee's phone set to Hindi opens in Hindi)
+export const phoneLanguage = (codes) => browserLang(codes);
 const browserLang = (codes) => {
   try {
     return [...(navigator.languages || [navigator.language])].map((l) => String(l).slice(0, 2)).find((c) => codes.includes(c));

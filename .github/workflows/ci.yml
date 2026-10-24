@@ -90,6 +90,8 @@ jobs:
         run: node scripts/validation-check.mjs
       - name: Audit log (pay, settings, cash drawer, roster, downloads; who may read what)
         run: node scripts/audit-check.mjs
+      - name: Notice board (who may post; what devotees and staff each see)
+        run: node scripts/notice-check.mjs
       - name: Server log
         if: always()
         run: cat server.log || true

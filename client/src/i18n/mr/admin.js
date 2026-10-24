@@ -351,4 +351,7 @@ export default {
   'Checks that status updates really come from Meta': 'संदेशाची स्थिती खरोखर Meta कडूनच आली याची खात्री करते',
   'App secret saved — delivery status is accepted from Meta': 'App secret जतन झाले — Meta कडून संदेशाची स्थिती घेतली जाते',
   'No app secret yet — messages show only as sent': 'अजून App secret नाही — संदेश फक्त “पाठवला” असे दिसतात',
+  // Settings → Mahaprasad: the coupon's language
+  'Coupon language': 'कूपनची भाषा',
+  'The printed coupon (thermal slip and PDF), the coupon’s QR picture, and the coupon page devotees open (they can still switch). The WhatsApp message’s language is chosen in Settings → WhatsApp.': 'छापलेले कूपन (थर्मल स्लिप व PDF), कूपनचे QR चित्र आणि भाविक उघडतात ते कूपन पान (ते भाषा बदलू शकतात). WhatsApp संदेशाची भाषा सेटिंग्ज → WhatsApp मध्ये निवडा.',
 };

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import QRCode from 'qrcode/lib/browser.js';
@@ -8,7 +8,9 @@ import { onlineReceiptUrl } from '../../api/mahaprasadOnline.api.js';
 import Spinner from '../../components/ui/Spinner.jsx';
 import PersonsCount from './PersonsCount.jsx';
 import { temple as cachedTemple } from '../../utils/temple.js';
-import { DEVOTEE_LANGUAGES, LanguageProvider, LanguageSwitch, useT } from '../../i18n/index.jsx';
+import {
+  DEVOTEE_LANGUAGE_KEY, DEVOTEE_LANGUAGES, LanguageProvider, LanguageSwitch, hasSavedLanguage, phoneLanguage, useLanguage, useT,
+} from '../../i18n/index.jsx';
 
 // The devotee's Mahaprasad coupons (/m/:token), opened from the WhatsApp / SMS link. No sign-in.
 // One QR per coupon — a group coupon is one QR for everyone — holding the coupon number, the same
@@ -120,6 +122,16 @@ function CouponsPage() {
   });
   const d = q.data;
 
+  // First visit: the coupon language the temple chose (Settings → Mahaprasad) — unless the devotee
+  // picked one, or their phone is in Marathi / Hindi
+  const { lang, setLang } = useLanguage();
+  const adopted = useRef(false);
+  useEffect(() => {
+    if (!d || adopted.current) return;
+    adopted.current = true;
+    if (!hasSavedLanguage() && !phoneLanguage(['mr', 'hi']) && DEVOTEE_LANGUAGES.includes(d.language) && d.language !== lang) setLang(d.language);
+  }, [d, lang, setLang]);
+
   useEffect(() => { document.title = t('Shri Mangal Mahaprasad coupon'); }, [t]);
 
   if (q.isLoading) {
@@ -182,5 +194,5 @@ function CouponsPage() {
 // A devotee's page: English, Marathi or Hindi — at first the phone's language — kept apart from the
 // staff app's language (the same choice on all the devotee pages)
 export default function PublicCoupons() {
-  return <LanguageProvider storageKey="mgm-lang-devotee" languages={DEVOTEE_LANGUAGES} fromBrowser><CouponsPage /></LanguageProvider>;
+  return <LanguageProvider storageKey={DEVOTEE_LANGUAGE_KEY} languages={DEVOTEE_LANGUAGES} fromBrowser><CouponsPage /></LanguageProvider>;
 }

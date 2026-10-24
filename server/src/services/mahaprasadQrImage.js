@@ -4,6 +4,7 @@ import { fileURLToPath } from 'url';
 import * as fontkit from 'fontkit';
 import QRCode from 'qrcode';
 import { Resvg } from '@resvg/resvg-js';
+import { couponText, localeOf } from '../../../shared/devoteeLanguage.js';
 
 // A sale's Mahaprasad coupons as a picture (PNG): the picture at the top of the WhatsApp message,
 // so the QR is in the devotee's chat and needs no internet at the hall. Each QR holds the coupon
@@ -45,24 +46,25 @@ function outline({ run, k }, x, baseline, fill) {
   return `<g fill="${fill}">${parts.join('')}</g>`;
 }
 
-const dateText = (d) => new Date(d).toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
-const STAMP = { redeemed: 'SERVED', voided: 'CANCELLED' };
+const dateText = (d, lang) => new Date(d).toLocaleDateString(localeOf(lang), { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
 const PURPLE = '#6b21a8';
 
 // How many people a coupon is for, big enough to read across the food counter: the number, and the
 // word at half its size, centred in a cell (like the thermal slip — utils/thermalPrint.js).
-function personsOutline(n, x, cellW, baseline, size) {
+function personsOutline(n, x, cellW, baseline, size, lang) {
   const num = shape(String(n), size, 700);
-  const word = shape(n === 1 ? ' PERSON' : ' PERSONS', Math.round(size * 0.5), 700);
+  const word = shape(` ${couponText(lang).persons(n)}`, Math.round(size * 0.5), 700);
   const left = x + (cellW - num.width - word.width) / 2;
   return outline(num, left, baseline, PURPLE) + outline(word, left + num.width, baseline, PURPLE);
 }
 
 /**
  * PNG of the coupons. `coupons` (lean, sorted): couponNumber, date, type, occasion, status,
- * groupSize. `temple` = { name, nameMr }.
+ * groupSize. `temple` = { name, nameMr }; `lang` = Settings → Mahaprasad → Coupon language.
  */
-export async function couponsQrPng(coupons, { temple = {} } = {}) {
+export async function couponsQrPng(coupons, { temple = {}, lang = 'en' } = {}) {
+  const L = couponText(lang);
+  const STAMP = { redeemed: L.served, voided: L.cancelled };
   const out = [];
   let y = M;
   // Centred line of text, shrunk to fit the width
@@ -80,8 +82,8 @@ export async function couponsQrPng(coupons, { temple = {} } = {}) {
   line('श्री मंगल महाप्रसाद कूपन', 34, { weight: 700, fill: '#c2410c', gap: 0 });
   line('Shri Mangal Mahaprasad coupon', 24, { weight: 600, fill: '#c2410c', gap: 6 });
 
-  const kind = coupons[0]?.type === 'free' ? (coupons[0].occasion || 'Free Seva') : 'Paid';
-  line(`${dateText(coupons[0]?.date || Date.now())} · ${kind}`, 30, { gap: 18 });
+  const kind = coupons[0]?.type === 'free' ? (coupons[0].occasion || L.freeKind) : L.paidKind;
+  line(`${dateText(coupons[0]?.date || Date.now(), lang)} · ${kind}`, 30, { gap: 18 });
 
   // One big QR, or two columns
   const shown = coupons.slice(0, MAX_SHOWN);
@@ -107,16 +109,16 @@ export async function couponsQrPng(coupons, { temple = {} } = {}) {
       const num = shape(c.couponNumber, cols === 1 ? 44 : 32, 700);
       out.push(outline(num, x + (cell - num.width) / 2, y + qrSize + (cols === 1 ? 52 : 42), '#111'));
       // Every coupon, single ones too: the number of people to serve
-      out.push(personsOutline(c.groupSize || 1, x, cell, y + qrSize + (cols === 1 ? 152 : 114), cols === 1 ? 96 : 64));
+      out.push(personsOutline(c.groupSize || 1, x, cell, y + qrSize + (cols === 1 ? 152 : 114), cols === 1 ? 96 : 64, lang));
     }
     y += qrSize + (cols === 1 ? 180 : 138);
   }
-  if (coupons.length > shown.length) line(`+${coupons.length - shown.length} more — open the link in the message`, 28, { fill: '#444' });
+  if (coupons.length > shown.length) line(L.more(coupons.length - shown.length), 28, { fill: '#444' });
 
   y += 6;
   out.push(`<rect x="${M}" y="${y}" width="${W - 2 * M}" height="2" fill="#ddd"/>`);
   y += 18;
-  line('हा QR श्री मंगल महाप्रसाद हॉलमध्ये दाखवा', 32, { weight: 700, gap: 0 });
+  line(L.showAtHall, 32, { weight: 700, gap: 0 });   // the coupon's language (Marathi for English), then English
   line('Show this QR at the Shri Mangal Mahaprasad hall · each coupon is served once', 26, { fill: '#444', gap: 0 });
 
   const H = Math.ceil(y + M);

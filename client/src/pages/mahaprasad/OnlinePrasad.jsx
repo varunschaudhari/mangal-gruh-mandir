@@ -4,7 +4,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { AlertTriangle, Clock, Minus, Plus, RotateCcw, ShieldCheck, Undo2, Users } from 'lucide-react';
 import { createOnlineOrder, getOnlineInfo, getOnlineOrder, verifyOnlineOrder } from '../../api/mahaprasadOnline.api.js';
 import Spinner from '../../components/ui/Spinner.jsx';
-import { DEVOTEE_LANGUAGES, LanguageProvider, useLanguage, useT } from '../../i18n/index.jsx';
+import { DEVOTEE_LANGUAGE_KEY, DEVOTEE_LANGUAGES, LanguageProvider, useLanguage, useT } from '../../i18n/index.jsx';
 import { localeOf } from '../../../../shared/devoteeLanguage.js';
 import { Shell } from './PublicCoupons.jsx';
 
@@ -378,5 +378,5 @@ function OnlinePrasadPage() {
 // A devotee's page: English, Marathi or Hindi — at first the phone's language — kept apart from the
 // staff app's language (the same choice on all the devotee pages)
 export default function OnlinePrasad() {
-  return <LanguageProvider storageKey="mgm-lang-devotee" languages={DEVOTEE_LANGUAGES} fromBrowser><OnlinePrasadPage /></LanguageProvider>;
+  return <LanguageProvider storageKey={DEVOTEE_LANGUAGE_KEY} languages={DEVOTEE_LANGUAGES} fromBrowser><OnlinePrasadPage /></LanguageProvider>;
 }

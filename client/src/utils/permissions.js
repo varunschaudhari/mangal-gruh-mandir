@@ -12,6 +12,7 @@ export const ROLE_PERMISSIONS = {
     'attendance:read', 'attendance:write', 'attendance:manage', 'attendance:approve',
     'salary:read', 'salary:manage',
     'bookings:read', 'bookings:create', 'bookings:void', 'bookings:manage', 'bookings:cash', 'bookings:checkin',
+    'notices:manage',
   ],
   store_manager: [
     'masters:read', 'masters:write',

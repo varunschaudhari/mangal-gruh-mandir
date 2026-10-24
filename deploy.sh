@@ -42,7 +42,7 @@ fi
 
 echo "▶ Permission migrations (add-only)"
 # Not migrate:roles — it resets built-in roles and would undo permissions changed in the app.
-for m in migrate:assets migrate:mahaprasad migrate:attendance migrate:bookings; do
+for m in migrate:assets migrate:mahaprasad migrate:attendance migrate:bookings migrate:notices; do
   docker compose exec -T server npm run --silent "$m"
 done
 

@@ -6,6 +6,7 @@ import { getHallBoard } from '../../api/booking.api.js';
 import { usePermissions } from '../../hooks/usePermissions.js';
 import { useMediaQuery } from '../../hooks/useMediaQuery.js';
 import { DEVOTEE_LANGUAGES, LanguageProvider, LanguageSwitch, useLanguage, useT } from '../../i18n/index.jsx';
+import NoticeTicker from '../../components/notices/NoticeTicker.jsx';
 import { fmtDay } from '../../components/booking/counter/counterUtils.js';
 import { fitGrid, minutesUntil, pickPerHall, pickShown, savedHall, saveHall } from '../../components/booking/checkin/checkInUtils.js';
 import { useHallEvents } from '../../utils/hallLive.js';
@@ -494,6 +495,9 @@ function HallScreenBoard() {
           {data?.closed?.reason && <p className="mt-3 text-2xl text-slate-400">{data.closed.reason}</p>}
         </div>
       )}
+
+      {/* Notices for devotees (Notice Board in the app) */}
+      <NoticeTicker className="mt-4" textClass="text-2xl" />
     </div>
   );
 }

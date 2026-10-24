@@ -21,6 +21,7 @@ const PERMISSION_GROUPS = {
   Attendance:   ['attendance:read', 'attendance:write', 'attendance:manage', 'attendance:approve'],
   Salary:       ['salary:read', 'salary:manage'],
   Bookings:     ['bookings:read', 'bookings:create', 'bookings:void', 'bookings:manage', 'bookings:cash', 'bookings:checkin'],
+  Notices:      ['notices:manage'],
 };
 
 const PERMISSION_LABELS = {
@@ -39,6 +40,7 @@ const PERMISSION_LABELS = {
   'bookings:void': 'Void bookings', 'bookings:manage': 'Booking setup (sevas, batches, closed dates)',
   'bookings:cash': 'See all cash handovers & verify them',
   'bookings:checkin': 'Scan booking slips at the hall (check-in)',
+  'notices:manage': 'Post, edit and remove notices (devotees and staff)',
 };
 
 const ALL_PERMISSIONS = Object.values(PERMISSION_GROUPS).flat();

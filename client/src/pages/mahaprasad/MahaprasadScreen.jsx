@@ -6,6 +6,7 @@ import { getMahaprasadDashboard } from '../../api/mahaprasadDashboard.api.js';
 import { localDateStr } from '../../utils/formatters.js';
 import { temple } from '../../utils/temple.js';
 import { DEVOTEE_LANGUAGES, LanguageProvider, LanguageSwitch, useT } from '../../i18n/index.jsx';
+import NoticeTicker from '../../components/notices/NoticeTicker.jsx';
 
 // The Mahaprasad TV screen (/mahaprasad/screen), for the hall or the kitchen: prasad served
 // against the day's total, in numbers read from across the room, plus sold, still to serve and
@@ -148,6 +149,9 @@ function MahaprasadBoard() {
           <WifiOff className="h-4 w-4" /> {t('Not updating — check the internet. Showing figures from {time}.', { time: clockText(new Date(d.at)) })}
         </p>
       )}
+
+      {/* Notices for devotees (Notice Board in the app) */}
+      <NoticeTicker textClass="text-[clamp(1.1rem,2vw,2.2rem)]" />
     </div>
   );
 }

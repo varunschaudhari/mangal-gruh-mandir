@@ -5,7 +5,7 @@ import {
   Armchair, ClipboardList, Settings2, BarChart2, TrendingUp, Heart, CreditCard, Plus,
   ShoppingCart, BookTemplate, FileText, Utensils, ScanLine, BarChart3, Receipt, PiggyBank, Bug,
   Fingerprint, CalendarDays, CalendarRange, UsersRound, Clock3, CalendarHeart, Wallet, HandCoins, IndianRupee,
-  CalendarCheck, ListOrdered, ClipboardList as DaySheetIcon, Vault, QrCode, MonitorPlay, Globe, Gauge,
+  CalendarCheck, ListOrdered, ClipboardList as DaySheetIcon, Vault, QrCode, MonitorPlay, Globe, Gauge, Megaphone,
 } from 'lucide-react';
 
 // Single source of truth for navigation: the desktop sidebar, the mobile bottom tab bar,
@@ -16,6 +16,13 @@ export const navConfig = [
     label: 'Dashboard',
     to: '/dashboard',
     icon: LayoutDashboard,
+    permission: null,
+  },
+  {
+    // Everyone reads it; posting needs notices:manage (on the page itself)
+    label: 'Notice Board',
+    to: '/notice-board',
+    icon: Megaphone,
     permission: null,
   },
   {

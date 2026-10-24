@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { DEVOTEE_LANGUAGES } from '../../../shared/devoteeLanguage.js';
+import { COUPON_LANGUAGES, DEVOTEE_LANGUAGES } from '../../../shared/devoteeLanguage.js';
 import { EXPENSE_CATEGORIES } from '../models/Expense.js';
 import {
   clearableText, idParams, objectId, optionalBoolean, optionalDate, optionalNumber,
@@ -153,6 +153,7 @@ export const updateSettings = {
     mahaprasadDailyCap: optionalNumber('Daily coupon limit', { integer: true, min: 0, max: 1000000 }),
     mahaprasadCouponValidityDays: optionalNumber('Coupon validity (days)', { integer: true, min: 0, max: 365 }),
     mahaprasadPrinterName: clearableText('Printer', { max: 200 }),
+    mahaprasadCouponLanguage: optionalOneOf(COUPON_LANGUAGES, 'Coupon language'),
     mahaprasadOnlineEnabled: flag('Online Mahaprasad coupons'),
     mahaprasadOnlineDaysAhead: optionalNumber('Days ahead for online coupons', { integer: true, min: 0, max: 60 }),
     mahaprasadOnlineMaxPlates: optionalNumber('Plates per online order', { integer: true, min: 1, max: 50 }),

@@ -76,3 +76,59 @@ export function amountInWordsHi(amount) {
   if (n % 100) parts.push(two(n % 100));
   return parts.join(' ');
 }
+
+// ── The Mahaprasad coupon ────────────────────────────────────────────────────
+// What the coupon prints (thermal slip, PDF, the QR picture), in the language chosen in
+// Settings → Mahaprasad → Coupon language. English is how it always printed.
+export const COUPON_LANGUAGES = ['en', 'mr', 'hi'];
+
+const COUPON_TEXT = {
+  en: {
+    title: 'Shri Mangal Mahaprasad Coupon', sevaTitle: 'Shri Mangal Mahaprasad Seva Coupon',
+    free: 'FREE SEVA', freeKind: 'Free Seva', paidKind: 'Paid',
+    paid: (amount) => `Rs.${amount}  PAID`,
+    group: (n) => `GROUP  ${n} PERSONS`, groupPaid: (n, amount) => `GROUP  ${n}x  Rs.${amount}`,
+    couponNo: 'COUPON NO.', persons: (n) => (n === 1 ? 'PERSON' : 'PERSONS'),
+    scan: 'SCAN TO VERIFY', validUntil: (d) => `Valid until: ${d}`, batch: 'Batch',
+    present: 'Present at Prasad counter', nonTransferable: 'Non-transferable',
+    servings: (n) => (n > 1 ? `Valid for ${n} servings` : 'Valid for one serving'),
+    showAtHall: 'हा QR श्री मंगल महाप्रसाद हॉलमध्ये दाखवा',   // the QR picture: Marathi first, then English
+    served: 'SERVED', cancelled: 'CANCELLED', more: (n) => `+${n} more — open the link in the message`,
+  },
+  mr: {
+    title: 'श्री मंगल महाप्रसाद कूपन', sevaTitle: 'श्री मंगल महाप्रसाद सेवा कूपन',
+    free: 'मोफत सेवा', freeKind: 'मोफत सेवा', paidKind: 'सशुल्क',
+    paid: (amount) => `₹${amount} सशुल्क`,
+    group: (n) => `गट · ${n} व्यक्ती`, groupPaid: (n, amount) => `गट · ${n} व्यक्ती · ₹${amount}`,
+    couponNo: 'कूपन क्र.', persons: () => 'व्यक्ती',
+    scan: 'स्कॅन करून तपासा', validUntil: (d) => `${d} पर्यंत वैध`, batch: 'बॅच',
+    present: 'प्रसाद काउंटरवर दाखवा', nonTransferable: 'हस्तांतरणीय नाही',
+    servings: (n) => (n > 1 ? `${n} व्यक्तींसाठी` : 'एका व्यक्तीसाठी'),
+    showAtHall: 'हा QR श्री मंगल महाप्रसाद हॉलमध्ये दाखवा',
+    served: 'प्रसाद दिला', cancelled: 'रद्द', more: (n) => `आणखी ${n} — संदेशातील लिंक उघडा`,
+  },
+  hi: {
+    title: 'श्री मंगल महाप्रसाद कूपन', sevaTitle: 'श्री मंगल महाप्रसाद सेवा कूपन',
+    free: 'निःशुल्क सेवा', freeKind: 'निःशुल्क सेवा', paidKind: 'सशुल्क',
+    paid: (amount) => `₹${amount} सशुल्क`,
+    group: (n) => `समूह · ${n} व्यक्ति`, groupPaid: (n, amount) => `समूह · ${n} व्यक्ति · ₹${amount}`,
+    couponNo: 'कूपन क्र.', persons: () => 'व्यक्ति',
+    scan: 'स्कैन करके जाँचें', validUntil: (d) => `${d} तक मान्य`, batch: 'बैच',
+    present: 'प्रसाद काउंटर पर दिखाएँ', nonTransferable: 'हस्तांतरणीय नहीं',
+    servings: (n) => (n > 1 ? `${n} व्यक्तियों के लिए` : 'एक व्यक्ति के लिए'),
+    showAtHall: 'यह QR श्री मंगल महाप्रसाद हॉल में दिखाएँ',
+    served: 'प्रसाद दिया गया', cancelled: 'रद्द', more: (n) => `और ${n} — संदेश का लिंक खोलें`,
+  },
+};
+
+/** The coupon's wording in a language (English for anything else). */
+export const couponText = (lang) => COUPON_TEXT[lang] || COUPON_TEXT.en;
+
+/** The coupon's type, as its badge says: "FREE SEVA", "₹30 सशुल्क", "समूह · 5 व्यक्ति"… */
+export function couponBadge(coupon, lang) {
+  const L = couponText(lang);
+  const n = coupon.groupSize || 1;
+  const group = coupon.isGroup && n > 1;
+  if (coupon.type === 'free') return group ? L.group(n) : L.free;
+  return group ? L.groupPaid(n, coupon.amount) : L.paid(coupon.amount);
+}

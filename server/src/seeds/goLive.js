@@ -57,6 +57,8 @@ export const CLEAR = [
   'WhatsAppMessage',   // whether each devotee's message was delivered — for those sales and bookings
   // attendance and salary
   'Punch', 'RosterDay', 'AttendanceMonth', 'AttendanceOverride', 'DoubleShift', 'SalaryRun', 'SalaryAdvance',
+  // notice board — notices put up while testing
+  'Notice',
   // numbering and logs
   'Sequence', 'DailyCounter', 'AuditLog', 'ClientError',
 ];

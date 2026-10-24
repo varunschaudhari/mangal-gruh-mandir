@@ -110,7 +110,7 @@ const TAB_FIELDS = {
   alerts:     ['alertOnOutOfStock', 'alertOnLowStock', 'alertOnReorder'],
   tax80g:     ['trustPAN', 'reg80GNumber', 'reg80GFrom', 'reg80GTo'],
   assets:     ['assetMaxBorrowDays'],
-  mahaprasad: ['mahaprasadDayPricing', 'mahaprasadDailyCap', 'mahaprasadCouponValidityDays', 'mahaprasadPrinterName',
+  mahaprasad: ['mahaprasadDayPricing', 'mahaprasadDailyCap', 'mahaprasadCouponValidityDays', 'mahaprasadPrinterName', 'mahaprasadCouponLanguage',
     'mahaprasadOnlineEnabled', 'mahaprasadOnlineDaysAhead', 'mahaprasadOnlineMaxPlates', 'mahaprasadOnlineCutoff'],
   reports:    ['allowExcelExport'],
 };
@@ -617,6 +617,17 @@ const Settings = () => {
                 />
               </Field>
             </div>
+
+            {/* What the coupon prints in, for devotees (the WhatsApp message has its own, in WhatsApp) */}
+            <Field
+              label={t('Coupon language')}
+              hint={t('The printed coupon (thermal slip and PDF), the coupon’s QR picture, and the coupon page devotees open (they can still switch). The WhatsApp message’s language is chosen in Settings → WhatsApp.')}>
+              <select {...register('mahaprasadCouponLanguage')} className="input w-full sm:w-64 text-sm">
+                <option value="en">English</option>
+                <option value="mr">मराठी (Marathi)</option>
+                <option value="hi">हिंदी (Hindi)</option>
+              </select>
+            </Field>
 
             {/* Thermal Printer */}
             <Field
