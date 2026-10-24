@@ -92,10 +92,14 @@ function MahaprasadBoard() {
 
   return (
     <div className="flex min-h-dvh flex-col gap-[3vh] px-[3vw] py-[3vh] text-white" style={{ background: SURFACE }}>
-      <header className="flex items-start justify-between gap-4">
-        <div className="min-w-0">
-          <p className="truncate text-[clamp(1.2rem,2.4vw,2.8rem)] font-bold">{info.nameMr || info.name}</p>
-          <p className="text-[clamp(1rem,1.8vw,2rem)] text-orange-300">{t('Shri Mangal Mahaprasad')} · {dayText(d?.date || date)}</p>
+      <header className="flex items-center justify-between gap-4">
+        {/* The temple's emblem (round), then its name */}
+        <div className="flex min-w-0 items-center gap-[1.5vw]">
+          <img src="/logo.png" alt="" className="h-[11vh] w-[11vh] shrink-0 rounded-full bg-white object-contain p-[0.5vh] shadow-lg ring-[0.4vh] ring-white/15" />
+          <div className="min-w-0">
+            <p className="truncate text-[clamp(1.2rem,2.4vw,2.8rem)] font-bold">{info.nameMr || info.name}</p>
+            <p className="text-[clamp(1rem,1.8vw,2rem)] text-orange-300">{t('Shri Mangal Mahaprasad')} · {dayText(d?.date || date)}</p>
+          </div>
         </div>
         <div className="flex items-center gap-3">
           <p className="text-[clamp(1.5rem,3.2vw,3.6rem)] font-semibold tabular-nums">{clockText(now)}</p>

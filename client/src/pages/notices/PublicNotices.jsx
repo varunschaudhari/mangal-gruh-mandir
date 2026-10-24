@@ -189,7 +189,7 @@ function NoticesPage() {
       <header className="relative overflow-hidden pt-safe text-white" style={HERO_BG}>
         <div className="mx-auto max-w-2xl px-4 pb-14 pt-4 sm:px-6 sm:pb-16 sm:pt-6">
           <div className="flex items-center gap-3">
-            <img src="/logo.png" alt="" className="h-11 w-11 shrink-0 rounded-xl bg-white object-contain p-1 shadow-sm" />
+            <img src="/logo.png" alt="" className="h-14 w-14 shrink-0 rounded-full bg-white object-contain p-0.5 shadow-md ring-2 ring-white/50" />
             <p className="min-w-0 flex-1 text-[15px] font-bold leading-snug drop-shadow-sm">{info.nameMr || info.name}</p>
             <LanguageSwitch className="shrink-0 border-white/40 text-xs shadow-sm" />
           </div>

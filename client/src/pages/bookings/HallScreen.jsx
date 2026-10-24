@@ -421,9 +421,12 @@ function HallScreenBoard() {
     <div className={`flex flex-col bg-slate-950 px-4 pb-4 pt-[calc(0.75rem+var(--safe-top,0px))] text-white sm:px-8 ${wide ? 'h-[100dvh] overflow-hidden' : 'min-h-[100dvh]'}`}>
       {/* Header: temple and hall on the left, the clock on the right — one row, long names cut */}
       <header className="mb-4 flex shrink-0 items-center justify-between gap-6">
-        <div className="min-w-0">
-          <p className="truncate text-base font-semibold text-amber-300">{data?.templeName || t('Mangal Grah Mandir')}</p>
-          <p className="truncate text-3xl font-black leading-tight">{hall ? headingOf(hall) : t('All halls')}</p>
+        <div className="flex min-w-0 items-center gap-4">
+          <img src="/logo.png" alt="" className="h-16 w-16 shrink-0 rounded-full bg-white object-contain p-0.5 shadow-lg ring-4 ring-white/10" />
+          <div className="min-w-0">
+            <p className="truncate text-base font-semibold text-amber-300">{data?.templeName || t('Mangal Grah Mandir')}</p>
+            <p className="truncate text-3xl font-black leading-tight">{hall ? headingOf(hall) : t('All halls')}</p>
+          </div>
         </div>
         <div className="shrink-0 text-right">
           <p className="text-4xl font-black leading-none tabular-nums sm:text-5xl">{clockText(now)}</p>

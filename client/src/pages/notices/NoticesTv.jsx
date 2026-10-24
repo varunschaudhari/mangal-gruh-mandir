@@ -118,7 +118,7 @@ export default function NoticesTv({ notices, info, lang, loading, offlineSince }
     <div className="flex h-dvh flex-col overflow-hidden text-white" style={TV_BG}>
       {/* ── Temple, board, clock ── */}
       <header className="flex shrink-0 items-center gap-[1.4vw] px-[3vw] pt-[3.5vh]">
-        <img src="/logo.png" alt="" className="h-[8vh] w-[8vh] shrink-0 rounded-[1.2vh] bg-white object-contain p-[0.5vh]" />
+        <img src="/logo.png" alt="" className="h-[11vh] w-[11vh] shrink-0 rounded-full bg-white object-contain p-[0.5vh] shadow-lg ring-[0.4vh] ring-white/15" />
         <div className="min-w-0 flex-1">
           <p className="truncate text-[clamp(1.1rem,2.2vw,2.8rem)] font-bold leading-tight">{templeName}</p>
           <p className="mt-[0.4vh] flex items-center gap-[0.6vw] text-[clamp(0.9rem,1.5vw,1.9rem)] font-semibold text-amber-300">
@@ -138,11 +138,9 @@ export default function NoticesTv({ notices, info, lang, loading, offlineSince }
       {loading ? (
         <p className="flex flex-1 items-center justify-center text-[clamp(1.2rem,2vw,2.4rem)] text-white/60">{t('Loading…')}</p>
       ) : !shown ? (
-        // Nothing posted for devotees: a calm screen, still with the QR
+        // Nothing posted for devotees: a calm screen with the temple's emblem
         <main className="flex flex-1 flex-col items-center justify-center gap-[3vh] px-[3vw] text-center">
-          <span className="flex h-[16vh] w-[16vh] items-center justify-center rounded-full bg-white/10 ring-[1.5vh] ring-white/5">
-            <Megaphone className="h-[8vh] w-[8vh] text-amber-300" />
-          </span>
+          <img src="/logo.png" alt="" className="h-[30vh] w-[30vh] rounded-full bg-white object-contain p-[1vh] shadow-2xl ring-[1.2vh] ring-white/10" />
           <h1 className="text-[clamp(1.6rem,3vw,3.6rem)] font-bold">{t('No notices right now.')}</h1>
           <p className="text-[clamp(1rem,1.6vw,2rem)] text-white/60">{t('Please check back later.')}</p>
         </main>
