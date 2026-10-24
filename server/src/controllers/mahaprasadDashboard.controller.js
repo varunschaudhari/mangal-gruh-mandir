@@ -5,6 +5,7 @@ import ApiResponse from '../utils/ApiResponse.js';
 import asyncHandler from '../utils/asyncHandler.js';
 import { logAction } from '../services/audit.service.js';
 import { APP_TIMEZONE, localDateStr } from '../utils/dates.js';
+import { temple } from '../services/temple.service.js';
 
 // The Mahaprasad dashboard and TV screen: for one day, how much prasad was given against the
 // day's total. The total IS the daily cap in Settings → Mahaprasad — one number: coupon issuing
@@ -30,6 +31,44 @@ const dayRange = (day) => {
 async function dayTotal() {
   return (await Settings.getOrCreate()).mahaprasadDailyCap || 0;
 }
+
+// GET /api/public/mahaprasad-screen — the TV in the hall or kitchen, no sign-in.
+// Today only, and only what the screen shows: no staff names, no money, no hour-by-hour.
+export const getScreen = asyncHandler(async (req, res) => {
+  const day = localDateStr();
+  const { start, end } = dayRange(day);
+  const [target, [sold = {}], [served = {}]] = await Promise.all([
+    dayTotal(),
+    MahaprasadCoupon.aggregate([
+      { $match: { date: { $gte: start, $lte: end }, status: { $nin: NOT_SOLD } } },
+      { $group: {
+        _id: null,
+        persons: { $sum: GS },
+        online:  { $sum: { $cond: [isOnline, GS, 0] } },
+        toServe: { $sum: { $cond: [{ $eq: ['$status', 'issued'] }, GS, 0] } },
+      } },
+    ]),
+    MahaprasadCoupon.aggregate([
+      { $match: { status: 'redeemed', redeemedAt: { $gte: start, $lte: end } } },
+      { $group: { _id: null, persons: { $sum: GS } } },
+    ]),
+  ]);
+  const soldPersons = sold.persons || 0;
+  const limited = target > 0;
+  const { name, nameMr } = temple();
+  res.json(new ApiResponse(200, {
+    date: day,
+    target,
+    limited,
+    sold: { persons: soldPersons, online: sold.online || 0 },
+    served: served.persons || 0,
+    toServe: sold.toServe || 0,
+    left: limited ? Math.max(0, target - soldPersons) : null,
+    over: limited ? Math.max(0, soldPersons - target) : 0,
+    temple: { name, nameMr },
+    at: new Date(),
+  }));
+});
 
 // GET /mahaprasad/dashboard?date=YYYY-MM-DD (today when not given)
 export const getDashboard = asyncHandler(async (req, res) => {

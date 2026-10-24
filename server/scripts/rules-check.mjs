@@ -495,6 +495,14 @@ async function mahaprasadChecks(api, today) {
   const d2 = await dash();
   check(d2.served - d1.served === 4 && d1.toServe - d2.toServe === 4 && d2.hours.some((h) => h.served >= 4) && d2.lastServedAt,
     'served at the hall: served +4, still to serve −4, shown by hour');
+  // The TV screen, no sign-in: today's same figures, nothing else
+  const screenRes = await fetch(`${BASE}/api/public/mahaprasad-screen`);
+  const screen = (await screenRes.json()).data;
+  check(screenRes.status === 200 && screen.served === d2.served && screen.sold.persons === d2.sold.persons && screen.toServe === d2.toServe
+    && screen.target === d2.target && screen.date === d2.date,
+    'the TV screen opens without sign-in and shows the dashboard\'s figures for today', JSON.stringify(screen));
+  check(!('counters' in screen) && !('hours' in screen) && !('free' in screen.sold) && !('coupons' in screen.sold),
+    '…without staff names, the hour-by-hour or anything else', Object.keys(screen).join(','));
   check((await counter('PUT', '/mahaprasad/dashboard/target', { target: 5000 })).status === 403, 'counter staff cannot change the day\'s total');
   check((await admin('PUT', '/mahaprasad/dashboard/target', { target: -5 })).status === 400, 'a negative total is refused');
   const total = d2.sold.persons + 10;

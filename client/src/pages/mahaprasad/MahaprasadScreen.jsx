@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { ArrowLeft, Maximize2, Minimize2, WifiOff } from 'lucide-react';
-import { getMahaprasadDashboard } from '../../api/mahaprasadDashboard.api.js';
+import { getMahaprasadDashboard, getMahaprasadScreen } from '../../api/mahaprasadDashboard.api.js';
+import { useAuth } from '../../context/AuthContext.jsx';
 import { localDateStr } from '../../utils/formatters.js';
 import { temple } from '../../utils/temple.js';
 import { DEVOTEE_LANGUAGES, LanguageProvider, LanguageSwitch, useT } from '../../i18n/index.jsx';
@@ -11,8 +12,9 @@ import NoticeTicker from '../../components/notices/NoticeTicker.jsx';
 // The Mahaprasad TV screen (/mahaprasad/screen), for the hall or the kitchen: prasad served
 // against the day's total, in numbers read from across the room, plus sold, still to serve and
 // left of the total. Refreshes every 15 seconds, keeps the screen on, and moves to the new day
-// at midnight (unless a date is fixed in the link: ?date=YYYY-MM-DD). The same figures in detail:
-// MahaprasadDashboard.jsx.
+// at midnight. No sign-in: it shows today's figures from the public /api/public/mahaprasad-screen
+// (no staff names, no money). Another day (?date=YYYY-MM-DD in the link) needs a staff sign-in.
+// The same figures in detail: MahaprasadDashboard.jsx.
 
 // Dark steps of the dashboard's two colours, validated on this surface (dataviz skill)
 const SURFACE = '#1a1a19';
@@ -75,14 +77,16 @@ function MahaprasadBoard() {
   }, []);
   const toggleFull = () => (document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen?.())?.catch?.(() => {});
 
+  // Today: the public figures (no sign-in on the TV). A fixed other day: the staff dashboard's.
+  const { user } = useAuth();
   const q = useQuery({
-    queryKey: ['mahaprasad-dashboard', date],
-    queryFn: () => getMahaprasadDashboard(date).then((r) => r.data.data),
+    queryKey: fixedDate ? ['mahaprasad-dashboard', fixedDate] : ['mahaprasad-screen', date],
+    queryFn: () => (fixedDate ? getMahaprasadDashboard(fixedDate) : getMahaprasadScreen()).then((r) => r.data.data),
     refetchInterval: 15_000,
     refetchIntervalInBackground: true,
   });
   const d = q.data;
-  const info = temple();
+  const info = d?.temple?.name ? d.temple : temple();
 
   useEffect(() => { document.title = t('Shri Mangal Mahaprasad'); }, [t]);
 
@@ -91,7 +95,7 @@ function MahaprasadBoard() {
       <header className="flex items-start justify-between gap-4">
         <div className="min-w-0">
           <p className="truncate text-[clamp(1.2rem,2.4vw,2.8rem)] font-bold">{info.nameMr || info.name}</p>
-          <p className="text-[clamp(1rem,1.8vw,2rem)] text-orange-300">{t('Shri Mangal Mahaprasad')} · {dayText(date)}</p>
+          <p className="text-[clamp(1rem,1.8vw,2rem)] text-orange-300">{t('Shri Mangal Mahaprasad')} · {dayText(d?.date || date)}</p>
         </div>
         <div className="flex items-center gap-3">
           <p className="text-[clamp(1.5rem,3.2vw,3.6rem)] font-semibold tabular-nums">{clockText(now)}</p>
@@ -100,9 +104,12 @@ function MahaprasadBoard() {
             <button type="button" onClick={toggleFull} className="rounded-lg p-2 hover:bg-white/10" aria-label={full ? t('Exit fullscreen') : t('Fullscreen')} title={full ? t('Exit fullscreen') : t('Fullscreen')}>
               {full ? <Minimize2 className="h-5 w-5" /> : <Maximize2 className="h-5 w-5" />}
             </button>
-            <Link to="/mahaprasad/dashboard" className="rounded-lg p-2 hover:bg-white/10" aria-label={t('Back')} title={t('Back')}>
-              <ArrowLeft className="h-5 w-5" />
-            </Link>
+            {/* Back to the dashboard: only for staff signed in on this screen (a TV usually isn't) */}
+            {user && (
+              <Link to="/mahaprasad/dashboard" className="rounded-lg p-2 hover:bg-white/10" aria-label={t('Back')} title={t('Back')}>
+                <ArrowLeft className="h-5 w-5" />
+              </Link>
+            )}
           </div>
         </div>
       </header>

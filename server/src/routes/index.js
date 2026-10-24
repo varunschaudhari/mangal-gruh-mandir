@@ -40,6 +40,7 @@ import salaryRoutes from './salary.routes.js';
 import pincodeRoutes from './pincode.routes.js';
 import noticeRoutes from './notice.routes.js';
 import { getPublicNotices } from '../controllers/notice.controller.js';
+import { getScreen as getMahaprasadScreen } from '../controllers/mahaprasadDashboard.controller.js';
 import { bookingRouter, bookingSetupRouter, bookingShiftRouter } from './booking.routes.js';
 import { publicReceipt, publicSlip } from '../controllers/booking.controller.js';
 import { publicCoupons, publicCouponsImage } from '../controllers/mahaprasad.controller.js';
@@ -105,5 +106,7 @@ router.get('/public/mahaprasad-online/orders/:token', validate(mahaprasadSchemas
 router.post('/public/mahaprasad-online/orders/:token/verify', validate(mahaprasadSchemas.onlineVerify), verifyOnlineOrder);
 // …and the notice board for devotees (the /notices page and the TV screens)
 router.get('/public/notices', getPublicNotices);
+// …and the Mahaprasad TV screen (/mahaprasad/screen): today's figures only
+router.get('/public/mahaprasad-screen', getMahaprasadScreen);
 
 export default router;

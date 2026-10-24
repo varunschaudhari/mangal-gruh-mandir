@@ -129,12 +129,12 @@ const App = () => (
     <Route path="/prasad" element={<OnlinePrasad />} />
     {/* The temple's notice board for devotees (link / printed QR) — no sign-in */}
     <Route path="/notices" element={<PublicNotices />} />
+    {/* TV at the Mahaprasad hall / kitchen: prasad served against the day's total — no sign-in */}
+    <Route path="/mahaprasad/screen" element={<MahaprasadScreen />} />
 
     <Route element={<PrivateRoute />}>
       {/* TV at the hall: full screen, no sidebar */}
       <Route path="/hall-screen" element={<HallScreen />} />
-      {/* TV at the Mahaprasad hall / kitchen: prasad served against the day's total */}
-      <Route path="/mahaprasad/screen" element={<MahaprasadScreen />} />
       <Route element={<AppLayout />}>
         <Route path="/" element={<Navigate to="/dashboard" replace />} />
         <Route path="/dashboard" element={<Dashboard />} />
